@@ -29,9 +29,11 @@ export function WorkspaceSettingsNuevo({
     handleSave,
     handleRemoveImage,
     saveDisabled,
+    canChangePicture,
   } = settings;
   const imageLabelId = React.useId();
   const imageHelpId = React.useId();
+  const imageNoteId = React.useId();
 
   return (
     <Dialog
@@ -63,7 +65,8 @@ export function WorkspaceSettingsNuevo({
         />
       </Field>
 
-      <div role="group" aria-labelledby={imageLabelId} aria-describedby={imageHelpId} className="grid gap-[6px]">
+      {canChangePicture && (
+      <div role="group" aria-labelledby={imageLabelId} aria-describedby={`${imageHelpId} ${imageNoteId}`} className="grid gap-[6px]">
         <span id={imageLabelId} className="text-[0.8125rem] font-semibold text-brand_primary">
           Imagen de la Comunidad
         </span>
@@ -105,7 +108,11 @@ export function WorkspaceSettingsNuevo({
             </span>
           </div>
         </div>
+        <span id={imageNoteId} className="text-xs text-gray-600">
+          La imagen la cambian los administradores y el gestor de la comunidad.
+        </span>
       </div>
+      )}
     </Dialog>
   );
 }

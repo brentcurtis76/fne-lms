@@ -19,6 +19,8 @@ const fake = vi.hoisted(() => ({
   log: [] as unknown[],
   upload: [] as Array<{ url?: string; path?: string; error?: string } | 'pending' | 'reject'>,
   update: [] as Array<{ error: unknown } | 'pending' | 'reject'>,
+  // The GENERA fixes (EC-V1b): a changed name goes through the service's renameWorkspace.
+  rename: [] as Array<{ error: unknown } | 'pending'>,
   pending: null as null | { resolve: (value: unknown) => void },
 }));
 
@@ -46,6 +48,12 @@ vi.mock('@/lib/services/communityWorkspace', () => ({
       if (answer === 'reject') return Promise.reject(new Error('Fallo de red inventado'));
       return Promise.resolve(answer);
     },
+    renameWorkspace: (...args: unknown[]) => {
+      fake.log.push({ renameWorkspace: args });
+      const answer = fake.rename.shift() ?? { error: null };
+      if (answer === 'pending') return new Promise((resolve) => (fake.pending = { resolve }));
+      return Promise.resolve(answer);
+    },
   },
 }));
 
@@ -64,6 +72,7 @@ beforeEach(() => {
   fake.log = [];
   fake.upload = [];
   fake.update = [];
+  fake.rename = [];
   fake.pending = null;
   consoleError = vi.spyOn(console, 'error').mockImplementation((first: unknown, ...more: unknown[]) => {
     if (typeof first === 'string' && !first.startsWith('Warning:')) {

@@ -21,6 +21,8 @@ const fake = vi.hoisted(() => ({
   log: [] as unknown[],
   upload: [] as Array<{ url?: string; path?: string; error?: string } | 'pending' | 'reject'>,
   update: [] as Array<{ error: unknown } | 'pending' | 'reject'>,
+  // The GENERA fixes (EC-V1b): a changed name goes through the service's renameWorkspace.
+  rename: [] as Array<{ error: unknown } | 'pending'>,
   pending: null as null | { resolve: (value: unknown) => void },
 }));
 
@@ -46,6 +48,12 @@ vi.mock('@/lib/services/communityWorkspace', () => ({
       const answer = fake.update.shift() ?? { error: null };
       if (answer === 'pending') return new Promise((resolve) => (fake.pending = { resolve }));
       if (answer === 'reject') return Promise.reject(new Error('Fallo de red inventado'));
+      return Promise.resolve(answer);
+    },
+    renameWorkspace: (...args: unknown[]) => {
+      fake.log.push({ renameWorkspace: args });
+      const answer = fake.rename.shift() ?? { error: null };
+      if (answer === 'pending') return new Promise((resolve) => (fake.pending = { resolve }));
       return Promise.resolve(answer);
     },
   },
@@ -120,6 +128,7 @@ function both<T>(scenario: () => Promise<T>) {
       fake.log = [];
       fake.upload = [];
       fake.update = [];
+      fake.rename = [];
       fake.pending = null;
     },
     scenario,
@@ -195,8 +204,11 @@ describe('the community settings pop-up in both looks: the same for a person', (
   // While saving, «Cancelar» is disabled in both looks and «Guardar cambios» reads «Guardando...»,
   // disabled today and busy in the new look (the one allowed difference of state). The X is compared in
   // W10-X.
+  // A picture is chosen first: since the GENERA fixes (EC-V1b) «Guardar cambios» is disabled while
+  // nothing changed, and a picture's save is the one that waits on updateWorkspaceSettings.
   async function saving(view: () => unknown) {
     await draw();
+    await choose(smallPng());
     fake.update = ['pending'];
     await click(saveButton());
     const during = view();

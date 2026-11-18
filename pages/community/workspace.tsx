@@ -977,7 +977,9 @@ const CommunityWorkspacePage: React.FC = () => {
                     )}
                   </div>
                 </div>
-                {canEditWorkspace && (
+                {(canEditWorkspace ||
+                  workspaceAccess?.accessType === 'community_member' ||
+                  workspaceAccess?.accessType === 'admin') && (
                   <button
                     onClick={() => setShowWorkspaceSettings(true)}
                     className="p-3 bg-white/10 hover:bg-white/20 rounded-lg transition-colors"
@@ -1055,6 +1057,7 @@ const CommunityWorkspacePage: React.FC = () => {
           workspaceId={currentWorkspace.id}
           currentName={currentWorkspace.custom_name || currentWorkspace.name}
           currentImageUrl={currentWorkspace.image_url}
+          canChangePicture={canEditWorkspace}
           onUpdate={(updates) => {
             // Update local state
             setCurrentWorkspace({

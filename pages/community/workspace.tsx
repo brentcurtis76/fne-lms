@@ -445,6 +445,14 @@ const CommunityWorkspacePage: React.FC = () => {
   };
 
   const handleCommunityChange = (communityId: string) => {
+    // The community already shown: nothing to load again, so nothing is reset
+    // (clearing the workspace here would leave it empty, as the loading effect
+    // only runs when the selected id changes).
+    if (communityId === selectedCommunityId) {
+      setShowCommunitySelector(false);
+      return;
+    }
+
     setSelectedCommunityId(communityId);
     setShowCommunitySelector(false);
 

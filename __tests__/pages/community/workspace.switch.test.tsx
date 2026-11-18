@@ -401,3 +401,35 @@ describe('send-back 1 item 4: choosing another community closes the meetings win
     expect(utils.getByTestId('meeting-details').getAttribute('data-meeting')).toBe('m-A');
   });
 });
+
+describe('N181: choosing the community already shown keeps the workspace open', () => {
+  it('two communities, A shown: pressing A\'s own button in the chooser closes it and changes nothing', async () => {
+    const utils = render(<CommunityWorkspacePage />);
+    await loaded(utils);
+    await openFolderOfA(utils);
+    const loadsBefore = h.workspaceCalls.length;
+    const docRequestsBefore = h.docRequests.length;
+    expect(loadsBefore).toBe(1);
+
+    await act(async () => {
+      fireEvent.click(utils.getByText('Comunidad A').closest('button') as HTMLButtonElement);
+    });
+    // The chooser is open: A's name is on the toggle and on its own button in the list.
+    const namesOfA = utils.getAllByText('Comunidad A');
+    expect(namesOfA).toHaveLength(2);
+    await act(async () => {
+      fireEvent.click(namesOfA[1].closest('button') as HTMLButtonElement);
+    });
+    await flush();
+
+    expect(utils.getByText('Espacio de Comunidad A')).toBeTruthy();
+    expect(utils.getAllByText('Comunidad A')).toHaveLength(1);
+    expect(utils.getByText('Comunidad A').closest('button')).toBeTruthy();
+    expect(utils.queryByText('Comunidad B')).toBeNull();
+    expect(utils.queryByText('Selecciona una Comunidad')).toBeNull();
+    expect(h.workspaceCalls).toEqual([COMMUNITY_A]);
+    expect(h.docRequests.slice(docRequestsBefore).every((r) => r.workspaceId === 'ws-A')).toBe(true);
+    expect(utils.getByTestId('breadcrumb').textContent).toBe('Actas de A');
+    expect(h.docRequests.at(-1)).toEqual({ workspaceId: 'ws-A', folderId: 'fold-A' });
+  });
+});

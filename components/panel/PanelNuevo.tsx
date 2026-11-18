@@ -315,7 +315,8 @@ export default function PanelNuevo({ panel, decisions }: { panel: Panel; decisio
                     )}
                     <div className="grid min-w-0 gap-0.5">
                       <span className="text-xs text-gray-600">{formatTimeAgo(article.display_date || article.created_at)}</span>
-                      <h3 className="line-clamp-2 text-[0.8125rem] font-bold leading-snug text-brand_primary" {...fullTitle(article.title)}>{article.title}</h3>
+                      {/* Titles of the side column get three lines before they are cut (the excerpt two). */}
+                      <h3 className="line-clamp-3 text-[0.8125rem] font-bold leading-snug text-brand_primary" {...fullTitle(article.title)}>{article.title}</h3>
                       <span className="line-clamp-2 text-xs text-gray-600">{getExcerpt(article.content_html)}</span>
                     </div>
                   </a>
@@ -371,7 +372,7 @@ export default function PanelNuevo({ panel, decisions }: { panel: Panel; decisio
                       </span>
                     </span>
                     <div className="grid gap-0.5 p-2.5">
-                      <h3 className="line-clamp-2 text-xs font-bold leading-snug text-brand_primary" {...fullTitle(video.title)}>{video.title}</h3>
+                      <h3 className="line-clamp-3 text-xs font-bold leading-snug text-brand_primary" {...fullTitle(video.title)}>{video.title}</h3>
                       <span className="text-xs text-gray-600">{formatTimeAgo(video.publishedAt)}</span>
                     </div>
                   </Card>

@@ -395,6 +395,34 @@ describe('the keyboard ring shows on every stop of the new view', () => {
   });
 });
 
+/*
+ * Send-back «by sight», point 2: in the side column the news titles and the video titles run to three
+ * lines before they are cut (they keep their whole text as `title`); the news excerpt stays at two.
+ */
+describe('news and video titles get three lines in the side column', () => {
+  const clamps = (el: Element) => (el.getAttribute('class') ?? '').split(/\s+/).filter((c) => /^line-clamp-\d+$/.test(c));
+
+  it('each news title is cut at three lines, its excerpt at two; each video title at three', async () => {
+    await draw(fullDocente());
+    const news = screen.getAllByTestId(/^panel-news-(?!placeholder)/);
+    expect(news.length).toBe(NEWS.articles.length);
+    for (const row of news) {
+      const title = row.querySelector('h3')!;
+      expect(clamps(title)).toEqual(['line-clamp-3']);
+      expect(title.getAttribute('title')).toBe(title.textContent);
+      const excerpt = title.nextElementSibling!;
+      expect(clamps(excerpt)).toEqual(['line-clamp-2']);
+    }
+    const videos = screen.getAllByTestId(/^panel-video-(?!placeholder)/);
+    expect(videos.length).toBe(VIDEOS.videos.length);
+    for (const card of videos) {
+      const title = card.querySelector('h3')!;
+      expect(clamps(title)).toEqual(['line-clamp-3']);
+      expect(title.getAttribute('title')).toBe(title.textContent);
+    }
+  });
+});
+
 describe('the decisions run only where today\'s view runs them', () => {
   it('a community whose bar is closed: the gear rule is asked only once the bar is opened', async () => {
     await draw(withCommunity({}, { role_type: 'community_manager' }));

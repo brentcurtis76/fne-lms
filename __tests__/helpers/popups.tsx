@@ -10,7 +10,28 @@
  */
 import React from 'react';
 import { act, cleanup } from '@testing-library/react';
+import { beforeEach } from 'vitest';
 import { serialise } from './pin';
+
+/**
+ * Gives <body> back as a fresh page has it: no attribute, no child. With `threads: false` Vitest runs
+ * every jsdom test file of a run in ONE document, one file after the other, so what an earlier file
+ * leaves on <body> reaches the next: `components/contracts/ContractDetailsModal.tsx` and
+ * `components/feed/CommentModal.tsx` restore the page's scroll by writing `overflow: unset` on the
+ * body's style when they close, and that style stayed there for every later file (found by the
+ * whole unit suite; 6C, send-back 2). The pins of the pop-ups keep the markup of the whole <body>,
+ * so they would depend on which files ran before them.
+ */
+export function clearBody() {
+  const { body } = document;
+  for (const name of body.getAttributeNames()) body.removeAttribute(name);
+  body.replaceChildren();
+}
+
+// Every file that imports this helper starts each case on a clean <body> (the pins of the four
+// pop-ups, their same-pop-up tests and the new markup's own tests). This module is evaluated again
+// for each test file, so the hook belongs to the file that imported it.
+if (typeof document !== 'undefined') beforeEach(clearBody);
 
 /** Generated ids renamed in order of appearance. */
 export function normaliseIds(text: string): string {

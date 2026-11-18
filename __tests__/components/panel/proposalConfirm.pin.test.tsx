@@ -128,4 +128,18 @@ it('nothing is drawn while closed', async () => {
   expect(document.body.querySelector('[role="dialog"], [role="alertdialog"]')).toBeNull();
 });
 
+// What an earlier test file leaves on the shared <body> (6C, send-back 2: a scroll style written by
+// another modal made every case of this file fail in the whole suite) never reaches a case.
+it('a leftover on <body>, left here as an earlier file would leave it, …', () => {
+  document.body.style.overflow = 'unset';
+  document.body.setAttribute('data-left-behind', 'yes');
+  document.body.appendChild(document.createElement('aside'));
+  expect(document.body.getAttributeNames().sort()).toEqual(['data-left-behind', 'style']);
+});
+
+it('… is gone before the next case starts', () => {
+  expect(document.body.getAttributeNames()).toEqual([]);
+  expect(document.body.childNodes.length).toBe(0);
+});
+
 digestsFileHolds(8);

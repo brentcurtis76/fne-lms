@@ -1,10 +1,3 @@
 {
-  "checks": [],
-  "functions_that_delete_rows": [
-    {
-      "path": "supabase/migrations/20261117165000_course_gifts_by_assignment.sql",
-      "function": "public.batch_unassign_courses(uuid, uuid[])",
-      "label": "Takes a course away from the people named (deletes their course-assignment rows, as before); adds one check in front"
-    }
-  ]
+  "checks": []
 }

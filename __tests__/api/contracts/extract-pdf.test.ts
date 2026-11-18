@@ -27,7 +27,7 @@ vi.mock('@anthropic-ai/sdk', () => ({
 }));
 vi.mock('pdf-parse', () => ({ default: mocks.pdfParse }));
 
-import handler from '../../../pages/api/contracts/extract-pdf';
+import handler, * as route from '../../../pages/api/contracts/extract-pdf';
 
 const ADMIN_ID = '11111111-1111-4111-8111-111111111111';
 const EXTRACTED = {
@@ -103,5 +103,12 @@ describe('POST /api/contracts/extract-pdf (GES-1.7)', () => {
     expect(mocks.pdfParse).toHaveBeenCalledTimes(1);
     expect(mocks.create).toHaveBeenCalledTimes(1);
     expect(res._getStatusCode()).toBe(200);
+  });
+});
+
+describe('extract-pdf body size (GES-2.3)', () => {
+  it('accepts a body of up to 4 MB (a 2,9 MB PDF as base64 inside JSON)', () => {
+    const config = (route as { config?: { api?: { bodyParser?: { sizeLimit?: string } } } }).config;
+    expect(config?.api?.bodyParser?.sizeLimit).toBe('4mb');
   });
 });

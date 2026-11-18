@@ -6,6 +6,7 @@ import { openDocumentPreview, renderDocumentPreview } from '@/lib/contract-docum
 import { toast } from 'react-hot-toast';
 import { generateContractFromTemplate } from '@/lib/contract-template';
 import { reconcileCuotas, attachExistingCuotaIds } from '@/lib/utils/reconcileCuotas';
+import { buildClientRow } from '@/lib/contracts/client-row';
 
 interface Programa {
   id: string;
@@ -72,7 +73,6 @@ interface ClienteFormState {
   nombre_contacto_administrativo: string;
   telefono_contacto_administrativo: string;
   email_contacto_administrativo: string;
-  telefono?: string;
 }
 
 interface ContractFormState {
@@ -147,8 +147,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
     email_encargado_proyecto: '',
     nombre_contacto_administrativo: '',
     telefono_contacto_administrativo: '',
-    email_contacto_administrativo: '',
-    telefono: ''
+    email_contacto_administrativo: ''
   });
   
   // Contract form
@@ -562,6 +561,28 @@ export default function ContractForm({ programas, clientes, editingContract, pre
     }
   };
 
+  // Row for a brand-new client: only clientes columns (buildClientRow, GES-2.1),
+  // with the defaults the database still needs for its obligatory legal columns.
+  const newClientRow = () => {
+    const today = new Date().toISOString().split('T')[0]; // Get today's date in YYYY-MM-DD format
+    return {
+      ...buildClientRow(clienteForm, selectedSchoolId),
+      // Required fields with defaults
+      nombre_fantasia: clienteForm.nombre_fantasia || clienteForm.nombre_legal, // Use legal name if no fantasy name
+      rut_representante: clienteForm.rut_representante || '11.111.111-1', // Default RUT if not provided
+      fecha_escritura: clienteForm.fecha_escritura || today, // Use today's date if not provided
+      nombre_notario: clienteForm.nombre_notario || 'Notario Público', // Default notary name
+      // Optional fields can be null
+      comuna_notaria: clienteForm.comuna_notaria || null,
+      nombre_encargado_proyecto: clienteForm.nombre_encargado_proyecto || null,
+      telefono_encargado_proyecto: clienteForm.telefono_encargado_proyecto || null,
+      email_encargado_proyecto: clienteForm.email_encargado_proyecto || null,
+      nombre_contacto_administrativo: clienteForm.nombre_contacto_administrativo || null,
+      telefono_contacto_administrativo: clienteForm.telefono_contacto_administrativo || null,
+      email_contacto_administrativo: clienteForm.email_contacto_administrativo || null
+    };
+  };
+
   // Save contract as draft
   const handleSaveAsDraft = async () => {
     try {
@@ -585,7 +606,6 @@ export default function ContractForm({ programas, clientes, editingContract, pre
         if (clienteForm.direccion) clientData.direccion = clienteForm.direccion;
         if (clienteForm.comuna) clientData.comuna = clienteForm.comuna;
         if (clienteForm.ciudad) clientData.ciudad = clienteForm.ciudad;
-        if (clienteForm.telefono) clientData.telefono = clienteForm.telefono;
         if (clienteForm.email_encargado_proyecto) clientData.email_encargado_proyecto = clienteForm.email_encargado_proyecto;
         if (clienteForm.email_contacto_administrativo) clientData.email_contacto_administrativo = clienteForm.email_contacto_administrativo;
         
@@ -742,10 +762,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
         // EDITING MODE
         
         // Update client data with school_id
-        const clientUpdateData = {
-          ...clienteForm,
-          school_id: selectedSchoolId || null
-        };
+        const clientUpdateData = buildClientRow(clienteForm, selectedSchoolId);
         
         const { error: clienteError } = await supabase
           .from('clientes')
@@ -806,26 +823,8 @@ export default function ContractForm({ programas, clientes, editingContract, pre
         
         // First, save or update client
         if (!selectedClienteId) {
-          // Prepare client data with school_id if selected
-          // Provide default values for required fields
-          const today = new Date().toISOString().split('T')[0]; // Get today's date in YYYY-MM-DD format
-          const clientData = {
-            ...clienteForm,
-            school_id: selectedSchoolId || null,
-            // Required fields with defaults
-            nombre_fantasia: clienteForm.nombre_fantasia || clienteForm.nombre_legal, // Use legal name if no fantasy name
-            rut_representante: clienteForm.rut_representante || '11.111.111-1', // Default RUT if not provided
-            fecha_escritura: clienteForm.fecha_escritura || today, // Use today's date if not provided
-            nombre_notario: clienteForm.nombre_notario || 'Notario Público', // Default notary name
-            // Optional fields can be null
-            comuna_notaria: clienteForm.comuna_notaria || null,
-            nombre_encargado_proyecto: clienteForm.nombre_encargado_proyecto || null,
-            telefono_encargado_proyecto: clienteForm.telefono_encargado_proyecto || null,
-            email_encargado_proyecto: clienteForm.email_encargado_proyecto || null,
-            nombre_contacto_administrativo: clienteForm.nombre_contacto_administrativo || null,
-            telefono_contacto_administrativo: clienteForm.telefono_contacto_administrativo || null,
-            email_contacto_administrativo: clienteForm.email_contacto_administrativo || null
-          };
+          // Prepare client data with school_id if selected (defaults applied by newClientRow)
+          const clientData = newClientRow();
           
           // Check if client with this RUT already exists
           const { data: existingCliente, error: checkError } = await supabase

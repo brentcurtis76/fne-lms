@@ -23,7 +23,7 @@
 
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap;
-SELECT plan(61);
+SELECT plan(67);
 
 CREATE TEMP TABLE ids (p text PRIMARY KEY, id uuid) ON COMMIT DROP;
 GRANT SELECT ON ids TO anon, authenticated;
@@ -211,7 +211,7 @@ SELECT is(pg_temp.call_as(p, format('SELECT public.rename_community_workspace(%L
  ORDER BY n;
 
 -- ---------------------------------------------------------------------------
--- 4. Names (33)
+-- 4. Names (39)
 -- ---------------------------------------------------------------------------
 SELECT is(pg_temp.rename('doc', 'A', t), '22023:invalid_name|unchanged', format('rename: %s → invalid_name, row unchanged', label))
   FROM (VALUES (1, '', 'an empty name'),
@@ -243,7 +243,12 @@ SELECT is(pg_temp.rename('doc', 'A', t), '22023:invalid_name|unchanged', format(
                (19, E'A\u2060b',                   '«Ab» with a word joiner U+2060 in the middle'),
                (20, E'A\uFEFFb',                   '«Ab» with U+FEFF in the middle'),
                (21, E'\U0001F680',                 'an emoji alone (no letter or digit)'),
-               (22, E'Equipo \U0001F468\u200D\U0001F469', 'an emoji sequence joined by U+200D (accepted cost)')) v(n, t, label)
+               (22, E'Equipo \U0001F468\u200D\U0001F469', 'an emoji sequence joined by U+200D (accepted cost)'),
+               -- Hangul fillers: classed as letters, but they show as blank space.
+               (23, E'\u3164',                     'only a Hangul filler U+3164'),
+               (24, E'\u115F\u1160',               'only Hangul fillers U+115F U+1160'),
+               (25, E'\uFFA0',                     'only a half-width Hangul filler U+FFA0'),
+               (26, E'\u3164 \u3164  \u3164',      'Hangul fillers U+3164 around spaces')) v(n, t, label)
  ORDER BY n;
 -- Ordinary names keep working.
 SELECT is(pg_temp.rename('doc', 'A', t), 'ok|' || t, format('rename: %s is accepted', label))
@@ -251,7 +256,9 @@ SELECT is(pg_temp.rename('doc', 'A', t), 'ok|' || t, format('rename: %s is accep
                (2, 'Equipo A/B – ciclo 1',      '«Equipo A/B – ciclo 1»'),
                (3, E'Equipo \U0001F680',        'an emoji with letters «Equipo 🚀»'),
                (4, '日本語チーム',                 'a name in non-Latin letters'),
-               (5, '2026',                       'digits only')) v(n, t, label)
+               (5, '2026',                       'digits only'),
+               (6, E'Equipo \u2764\uFE0F',        'an emoji with a variation selector «Equipo ❤️» (U+2764 U+FE0F)'),
+               (7, '한글 모임',                     'a Korean name «한글 모임»')) v(n, t, label)
  ORDER BY n;
 SELECT is(pg_temp.rename('doc', 'A', ' x '), 'ok|x', 'rename: « x » is stored as «x»');
 SELECT is(pg_temp.rename('doc', 'A', repeat('ñ', 100)), 'ok|' || repeat('ñ', 100), 'rename: exactly 100 characters is accepted');

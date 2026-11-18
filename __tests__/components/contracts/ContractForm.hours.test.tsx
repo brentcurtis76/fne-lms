@@ -300,6 +300,45 @@ describe('ContractForm — «Horas contratadas»', () => {
     expect(update.payload.programa_id).toBe('prog-b');
   });
 
+  // Send-back 2, item 1: an EMPTY field is filled again when a programme is chosen;
+  // a number in the field is not overwritten; a locked field is never changed.
+  it('a field the admin emptied is filled again when a programme is chosen', () => {
+    currentClient = createFakeSupabase();
+    const { container } = renderNewAtStep2();
+    typeInto(programmeSelect(container), 'prog-b');
+    expect(hours().value).toBe('80');
+    typeInto(hours(), '90');
+    typeInto(programmeSelect(container), 'prog-a');
+    expect(hours().value).toBe('90');
+    typeInto(hours(), '');
+    typeInto(programmeSelect(container), 'prog-b');
+    expect(hours().value).toBe('80');
+  });
+
+  it('an edit whose stored hours the admin emptied is filled when another programme is chosen', async () => {
+    currentClient = createFakeSupabase({ allocations: [] });
+    const { container } = render(
+      <ContractForm programas={PROGRAMAS} clientes={[CLIENTE as any]} editingContract={editingContract()} onSuccess={vi.fn()} onCancel={vi.fn()} />,
+    );
+    clickButton('Siguiente');
+    await waitFor(() => expect(hours().readOnly).toBe(false));
+    expect(hours().value).toBe('40');
+    typeInto(hours(), '');
+    typeInto(programmeSelect(container), 'prog-b');
+    expect(hours().value).toBe('80');
+  });
+
+  it('a locked empty field is not filled when another programme is chosen', async () => {
+    currentClient = createFakeSupabase({ allocations: [{ id: 'alloc-1' }] });
+    const { container } = render(
+      <ContractForm programas={PROGRAMAS} clientes={[CLIENTE as any]} editingContract={editingContract({ horas_contratadas: null, estado: 'activo' })} onSuccess={vi.fn()} onCancel={vi.fn()} />,
+    );
+    clickButton('Siguiente');
+    await screen.findByText('No se puede cambiar: el contrato ya tiene una distribución de horas.');
+    typeInto(programmeSelect(container), 'prog-b');
+    expect(hours().value).toBe('');
+  });
+
   it('when the allocation read fails, the field stays read-only and the update does not send the column', async () => {
     currentClient = createFakeSupabase({ allocationsError: { message: 'read failed' } });
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});

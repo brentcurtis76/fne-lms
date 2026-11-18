@@ -437,14 +437,16 @@ export default function ContractForm({ programas, clientes, editingContract, pre
   // onChange: the licitación effect sets programa_id directly. In edit mode loading
   // the contract never fills it: only a programme the admin chooses during the edit
   // does (send-back 1), so older contracts without hours stay empty until typed.
+  // A locked field (allocations, or the read not yet answered) is never changed;
+  // an EMPTY field is filled again by the programme's select (send-back 2).
   const horasStored = editingContract?.horas_contratadas != null;
   useEffect(() => {
-    if (horasEdited || horasStored || esManual) return;
+    if (horasEdited || horasStored || esManual || hourAllocationState !== 'none') return;
     if (editingContract && !programaChangedInEdit) return;
     const programa = programas.find(p => p.id === contractForm.programa_id);
     const horas = programa && programa.horas_totales != null ? String(programa.horas_totales) : '';
     setContractForm(prev => (prev.horas_contratadas === horas ? prev : { ...prev, horas_contratadas: horas }));
-  }, [contractForm.programa_id, programas, horasEdited, horasStored, esManual, editingContract, programaChangedInEdit]);
+  }, [contractForm.programa_id, programas, horasEdited, horasStored, esManual, editingContract, programaChangedInEdit, hourAllocationState]);
 
   // Whether a contract already has a distribution of hours: its total must equal
   // horas_contratadas, so the column is then not written. Used by edit mode and by
@@ -1793,7 +1795,16 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                     onChange={(e) => {
                       if (licitacionId) return;
                       if (editingContract) setProgramaChangedInEdit(true);
-                      setContractForm({ ...contractForm, programa_id: e.target.value });
+                      // An empty, unlocked field is filled from the new programme; a
+                      // number in the field is kept (send-back 2)
+                      const nuevo = programas.find(p => p.id === e.target.value);
+                      const fillHoras = !horasReadOnly && contractForm.horas_contratadas === '' &&
+                        nuevo && nuevo.horas_totales != null;
+                      setContractForm({
+                        ...contractForm,
+                        programa_id: e.target.value,
+                        ...(fillHoras ? { horas_contratadas: String(nuevo.horas_totales) } : {})
+                      });
                     }}
                     disabled={!!licitacionId}
                     className={`w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent ${licitacionId ? 'bg-gray-100 cursor-not-allowed' : ''}`}

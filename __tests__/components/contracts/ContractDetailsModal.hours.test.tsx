@@ -89,6 +89,32 @@ describe('ContractDetailsModal — the contract’s own hours', () => {
     expect(screen.queryByText('Horas del programa')).toBeNull();
   });
 
+  // Send-back 3, item 2: no line for an annex; a contract that is neither manual
+  // nor has a programme shows its hours in the general information block.
+  it.each([
+    ['a programme annex', {}],
+    ['a manual annex', { es_manual: true, programas: null, programa_id: null, descripcion_manual: 'Anexo inventado' }],
+  ])('%s with stored hours shows no hours line', (_label, overrides) => {
+    renderModal({ ...overrides, is_anexo: true, horas_contratadas: 50 });
+    expect(screen.queryByTestId('contract-details-hours')).toBeNull();
+    expect(screen.queryByText('Horas contratadas')).toBeNull();
+  });
+
+  it('a contract without programme that is not manual shows its hours once, in «Información del Contrato»', () => {
+    renderModal({ es_manual: false, programas: null, programa_id: null, estado: 'borrador', horas_contratadas: 60 });
+    const lines = screen.getAllByTestId('contract-details-hours');
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toHaveTextContent('Horas contratadas');
+    expect(lines[0]).toHaveTextContent('60 horas');
+    const general = screen.getByText('Información del Contrato').parentElement as HTMLElement;
+    expect(general).toContainElement(lines[0]);
+  });
+
+  it('a programme or manual contract shows exactly one hours line', () => {
+    renderModal({ horas_contratadas: 100 });
+    expect(screen.getAllByTestId('contract-details-hours')).toHaveLength(1);
+  });
+
   it('a manual contract without hours shows no new line', () => {
     renderModal({ es_manual: true, programas: null, programa_id: null, descripcion_manual: 'Asesoría inventada' });
     expect(screen.queryByTestId('contract-details-hours')).toBeNull();

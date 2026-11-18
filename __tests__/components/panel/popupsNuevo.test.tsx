@@ -105,7 +105,10 @@ describe('community settings, new look', () => {
     const name = within(dialog).getByLabelText('Nombre de la Comunidad');
     expect(name).toHaveAccessibleDescription('Cualquier miembro puede cambiar el nombre del grupo');
     expect(name).toHaveAttribute('maxlength', '100');
-    expect(within(dialog).getByRole('group', { name: 'Imagen de la Comunidad' })).toHaveAccessibleDescription('Máx. 5MB (JPEG, PNG, WebP)');
+    // The GENERA fixes (EC-V1b) add the note on who changes the picture to the group's description.
+    expect(within(dialog).getByRole('group', { name: 'Imagen de la Comunidad' })).toHaveAccessibleDescription(
+      'Máx. 5MB (JPEG, PNG, WebP) La imagen la cambian los administradores y el gestor de la comunidad.'
+    );
     await waitFor(() => expect(name).toHaveFocus());
     await u.click(within(dialog).getByRole('button', { name: 'Cancelar' }));
     await waitFor(() => expect(opener).toHaveFocus());
@@ -128,6 +131,10 @@ describe('community settings, new look', () => {
     const u = user();
     render(<Opener>{(open, close) => settings(open, close)}</Opener>);
     await u.click(screen.getByRole('button', { name: 'Abrir' }));
+    // A picture is chosen first: since the GENERA fixes (EC-V1b) «Guardar cambios» is disabled while
+    // nothing changed, and a picture's save is the one that waits on updateWorkspaceSettings.
+    fireEvent.change(document.getElementById('community-image-upload') as HTMLInputElement, { target: { files: [smallPng()] } });
+    await settle();
     fake.update = ['pending'];
     await u.click(screen.getByTestId('workspace-settings-save'));
     expect(screen.queryByRole('button', { name: 'Cerrar' })).toBeNull();
@@ -140,9 +147,9 @@ describe('community settings, new look', () => {
     fake.pending?.resolve({ error: null });
     await settle();
     expect(fake.log).toEqual([
-      { updateWorkspaceSettings: ['ws-inventado', { customName: 'Comunidad Inventada', imageUrl: '', imageStoragePath: undefined }] },
+      { updateWorkspaceSettings: ['ws-inventado', { imageUrl: 'https://example.invalid/subida.png', imageStoragePath: 'p' }] },
       { 'toast.success': 'Configuración actualizada exitosamente' },
-      { onUpdate: { customName: 'Comunidad Inventada', imageUrl: '' } },
+      { onUpdate: { customName: 'Comunidad Inventada', imageUrl: 'https://example.invalid/subida.png' } },
       'onClose',
     ]);
   });
@@ -414,6 +421,12 @@ describe('every help line and message stands with its control (send-back 1, poin
       hidden: false,
     });
     expect(helpOf(within(dialog).getByRole('button', { name: 'Subir imagen' }), 'Máx. 5MB (JPEG, PNG, WebP)')).toEqual({
+      found: true,
+      associated: 'group',
+      hidden: false,
+    });
+    // The GENERA fixes (EC-V1b): the note on who changes the picture stands with the same group.
+    expect(helpOf(within(dialog).getByRole('button', { name: 'Subir imagen' }), 'La imagen la cambian los administradores y el gestor de la comunidad.')).toEqual({
       found: true,
       associated: 'group',
       hidden: false,

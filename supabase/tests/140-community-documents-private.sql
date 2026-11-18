@@ -39,7 +39,7 @@
 
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap;
-SELECT plan(71);
+SELECT plan(74);
 
 CREATE TEMP TABLE ids (p text PRIMARY KEY, id uuid) ON COMMIT DROP;
 GRANT SELECT ON ids TO anon, authenticated;
@@ -281,6 +281,13 @@ SELECT is(pg_temp.act('memberA', pg_temp.ins('community-documents', 'documents/'
   'a path with .. further down is refused');
 SELECT is(pg_temp.act('memberA', pg_temp.ins('community-documents', 'documents/' || pg_temp.ws('A') || '//x.pdf')), '42501',
   'a path with an empty segment is refused');
+-- send-back 1: a name whose last segment is empty (ends in a slash)
+SELECT is(pg_temp.act('memberA', pg_temp.ins('community-documents', 'documents/' || pg_temp.ws('A') || '/root/')), '42501',
+  'a name ending in a slash after the folder (documents/<ws>/root/) is refused');
+SELECT is(pg_temp.act('memberA', pg_temp.ins('community-documents', 'documents/' || pg_temp.ws('A') || '/')), '42501',
+  'a name ending in a slash after the workspace (documents/<ws>/) is refused');
+SELECT is(pg_temp.act('memberA', pg_temp.ins('community-documents', 'documents/' || pg_temp.ws('A') || '/root/x.pdf/')), '42501',
+  'a name ending in a slash after a file-like segment is refused');
 SELECT is(public.file_store_allows('community-documents', 'documents/' || pg_temp.ws('A') || '/./x.pdf', pg_temp.uid('memberA'), 'insert', NULL), false,
   'a path with a . segment gives FALSE');
 -- member of B

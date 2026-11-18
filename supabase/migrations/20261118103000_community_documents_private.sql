@@ -190,8 +190,10 @@ BEGIN
     IF p_action NOT IN ('select', 'insert') THEN
       RETURN false;
     END IF;
+    -- send-back 1: a name ending in a slash (an empty last segment) is refused
     IF split_part(v_name, '/', 1) <> 'documents' OR split_part(v_name, '/', 3) = ''
-       OR strpos(v_name, '//') > 0 OR v_name ~ '(^|/)[.]{1,2}(/|$)' THEN
+       OR strpos(v_name, '//') > 0 OR v_name ~ '(^|/)[.]{1,2}(/|$)'
+       OR right(v_name, 1) = '/' THEN
       RETURN false;
     END IF;
     v_ws := split_part(v_name, '/', 2);

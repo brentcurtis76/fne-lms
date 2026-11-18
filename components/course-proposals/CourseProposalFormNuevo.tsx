@@ -23,6 +23,32 @@ export function CourseProposalFormNuevo({
   const { isSubmitting, error, formData, isEditing, handleChange, handleSubmit, handleClose } = form;
   const formId = React.useId();
 
+  // The message is drawn at the top of the form's body, which may be scrolled to its end when the
+  // person presses the send button (a short window). After each submit has run its course, the notice,
+  // if there is one, is brought into sight inside the window's scrolling body. `submits` counts the
+  // submits that finished; the effect runs only when it changes, so opening the window, typing that
+  // clears the message or any other re-render never moves anything, and a submit that leaves no
+  // message (sent and closed) finds no notice and moves nothing. The same message produced again is
+  // a new count, so it is brought into sight again.
+  const noticeRef = React.useRef<HTMLDivElement>(null);
+  const [submits, setSubmits] = React.useState(0);
+  const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    await handleSubmit(e);
+    setSubmits((n) => n + 1);
+  };
+  React.useEffect(() => {
+    if (submits === 0) return;
+    const notice = noticeRef.current;
+    if (!notice || typeof notice.scrollIntoView !== 'function') return;
+    const reduce =
+      typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+        ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        : false;
+    // `nearest`: the body scrolls only as far as needed, and the page behind the fixed window, whose
+    // view already holds the window, has nothing to do.
+    notice.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'nearest', inline: 'nearest' });
+  }, [submits]);
+
   return (
     <Dialog
       open={isOpen}
@@ -52,8 +78,13 @@ export function CourseProposalFormNuevo({
         </>
       }
     >
-      <form id={formId} noValidate onSubmit={handleSubmit} className="grid gap-[14px]" data-testid="proposal-form">
-        {error && <Notice tone="error">{error}</Notice>}
+      <form id={formId} noValidate onSubmit={onSubmit} className="grid gap-[14px]" data-testid="proposal-form">
+        {/* The kit's error Notice is `role="alert"`: a screen reader announces it. */}
+        {error && (
+          <Notice ref={noticeRef} tone="error">
+            {error}
+          </Notice>
+        )}
 
         <Field label="Título del curso" required>
           <Input

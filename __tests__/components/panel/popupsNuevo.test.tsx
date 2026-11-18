@@ -12,7 +12,7 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { deferred, helpOf, settle, smallPng } from '../../helpers/popups';
 
 const fake = vi.hoisted(() => ({
@@ -47,6 +47,7 @@ import { MemberProfileModal } from '@/components/community/MemberProfileModal';
 import { CourseProposalModal } from '@/components/course-proposals/CourseProposalModal';
 import { ConfirmDialog } from '@/components/course-proposals/ConfirmDialog';
 import type { UserProfile } from '@/types/roles';
+import type { CourseProposal } from '@/types/course-proposals';
 
 const user = () => userEvent.setup({ pointerEventsCheck: 0 });
 const veil = () => document.querySelector('[data-kit="dialog-veil"]') as HTMLElement;
@@ -469,4 +470,177 @@ describe('every help line and message stands with its control (send-back 1, poin
 
   // Tied to no single field, on purpose: a decided difference of the new look (send-back 2,
   // `LOOK_EXCEPTIONS.messageAtTop`), asserted in both looks by C4-M in `proposalForm.samePopup.test.tsx`.
+});
+
+describe('the form brings its message into sight (send-back Astra 2)', () => {
+  // The test document has no `scrollIntoView`: a fake on every element records which element it was
+  // called on and with what. `reduce` is what the fake `matchMedia` answers for reduced motion.
+  let scrolled: Array<{ on: Element; options: unknown }> = [];
+  let reduce = false;
+  const realMatchMedia = window.matchMedia;
+  beforeEach(() => {
+    scrolled = [];
+    reduce = false;
+    Object.defineProperty(Element.prototype, 'scrollIntoView', {
+      configurable: true,
+      writable: true,
+      value: function scrollIntoView(this: Element, options?: unknown) {
+        scrolled.push({ on: this, options });
+      },
+    });
+    window.matchMedia = ((query: string) =>
+      ({ matches: query.includes('prefers-reduced-motion') ? reduce : false, media: query }) as MediaQueryList) as typeof window.matchMedia;
+  });
+  afterEach(() => {
+    delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
+    window.matchMedia = realMatchMedia;
+  });
+
+  const EDITING: CourseProposal = {
+    id: 'propuesta-inventada',
+    titulo: 'Propuesta Inventada',
+    descripcion_corta: 'Descripción inventada',
+    competencias_desarrollar: 'Competencias inventadas',
+    tiempo_requerido_desarrollo: '1 mes',
+    necesita_ayuda_diseno_instruccional: false,
+    created_by: 'persona-inventada',
+    created_at: '2026-03-04T15:00:00Z',
+    updated_at: '2026-03-04T15:00:00Z',
+    status: 'pending',
+  };
+
+  async function openForm(over: { editingProposal?: CourseProposal | null; onSubmit?: () => Promise<void> } = {}) {
+    const u = user();
+    render(
+      <Opener>
+        {(open, close) => (
+          <CourseProposalModal
+            isOpen={open}
+            onClose={close}
+            onSubmit={over.onSubmit ?? (() => Promise.resolve())}
+            editingProposal={over.editingProposal ?? null}
+          />
+        )}
+      </Opener>
+    );
+    await u.click(screen.getByRole('button', { name: 'Abrir' }));
+    await settle();
+    return u;
+  }
+
+  /** The three first fields filled, the time left empty: the browser test's case. */
+  function fillButTime() {
+    for (const [id, value] of [['titulo', 'Título Inventado'], ['descripcion_corta', 'Descripción inventada'], ['competencias_desarrollar', 'Competencias inventadas']]) {
+      fireEvent.change(document.getElementById(id)!, { target: { value } });
+    }
+  }
+
+  /** The element scrolled is the alert, or holds it. */
+  function onTheNotice(entry: { on: Element } | undefined) {
+    const alert = within(screen.getByTestId('proposal-form')).getByRole('alert');
+    expect(entry && (entry.on === alert || entry.on.contains(alert))).toBe(true);
+  }
+
+  it('opening does not move; a refused submit brings the notice into sight, smoothly, and the focus stays on the button', async () => {
+    const u = await openForm();
+    expect(scrolled).toEqual([]);
+    fillButTime();
+    await settle();
+    expect(scrolled).toEqual([]);
+    const send = screen.getByTestId('proposal-form-submit');
+    await u.click(send);
+    await settle();
+    expect(within(screen.getByTestId('proposal-form')).getByRole('alert')).toHaveTextContent('El tiempo requerido es requerido');
+    expect(scrolled).toHaveLength(1);
+    onTheNotice(scrolled[0]);
+    expect(scrolled[0].options).toMatchObject({ behavior: 'smooth', block: 'nearest' });
+    expect(send).toHaveFocus();
+  });
+
+  it('instant under reduced motion', async () => {
+    reduce = true;
+    const u = await openForm();
+    await u.click(screen.getByTestId('proposal-form-submit'));
+    await settle();
+    expect(scrolled).toHaveLength(1);
+    expect(scrolled[0].options).toMatchObject({ behavior: 'auto', block: 'nearest' });
+  });
+
+  it('a second refused submit with the same message brings it into sight again; other re-renders do not', async () => {
+    const u = await openForm();
+    fillButTime();
+    await u.click(screen.getByTestId('proposal-form-submit'));
+    await settle();
+    expect(scrolled).toHaveLength(1);
+    await u.click(screen.getByTestId('proposal-form-submit'));
+    await settle();
+    expect(within(screen.getByTestId('proposal-form')).getByRole('alert')).toHaveTextContent('El tiempo requerido es requerido');
+    expect(scrolled).toHaveLength(2);
+    onTheNotice(scrolled[1]);
+    // A change of the tick box re-renders the form and clears the message: no movement.
+    await u.click(document.getElementById('necesita_ayuda_diseno_instruccional')!);
+    await settle();
+    expect(scrolled).toHaveLength(2);
+  });
+
+  it('a message that changes to another one is brought into sight; typing that clears the message does not move', async () => {
+    const u = await openForm();
+    await u.click(screen.getByTestId('proposal-form-submit'));
+    await settle();
+    expect(scrolled).toHaveLength(1);
+    fireEvent.change(document.getElementById('titulo')!, { target: { value: 'Título Inventado' } });
+    await settle();
+    expect(within(screen.getByTestId('proposal-form')).queryByRole('alert')).toBeNull();
+    expect(scrolled).toHaveLength(1);
+    await u.click(screen.getByTestId('proposal-form-submit'));
+    await settle();
+    expect(within(screen.getByTestId('proposal-form')).getByRole('alert')).toHaveTextContent('La descripción es requerida');
+    expect(scrolled).toHaveLength(2);
+    onTheNotice(scrolled[1]);
+  });
+
+  it('a successful submit does not move (after a refused one)', async () => {
+    const u = await openForm();
+    fillButTime();
+    await u.click(screen.getByTestId('proposal-form-submit'));
+    await settle();
+    expect(scrolled).toHaveLength(1);
+    fireEvent.change(document.getElementById('tiempo_requerido_desarrollo')!, { target: { value: '1 mes' } });
+    await u.click(screen.getByTestId('proposal-form-submit'));
+    await settle();
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(scrolled).toHaveLength(1);
+  });
+
+  it('a refused save of the server is brought into sight too', async () => {
+    const u = await openForm({ onSubmit: () => Promise.reject(new Error('Fallo inventado')) });
+    fillButTime();
+    fireEvent.change(document.getElementById('tiempo_requerido_desarrollo')!, { target: { value: '1 mes' } });
+    await u.click(screen.getByTestId('proposal-form-submit'));
+    await settle();
+    expect(within(screen.getByTestId('proposal-form')).getByRole('alert')).toHaveTextContent('Fallo inventado');
+    expect(scrolled).toHaveLength(1);
+    onTheNotice(scrolled[0]);
+  });
+
+  it('editing behaves the same: «Guardar Cambios» with an emptied field brings the notice into sight', async () => {
+    const u = await openForm({ editingProposal: EDITING });
+    expect(scrolled).toEqual([]);
+    fireEvent.change(document.getElementById('tiempo_requerido_desarrollo')!, { target: { value: '' } });
+    await settle();
+    await u.click(screen.getByRole('button', { name: 'Guardar Cambios' }));
+    await settle();
+    expect(within(screen.getByTestId('proposal-form')).getByRole('alert')).toHaveTextContent('El tiempo requerido es requerido');
+    expect(scrolled).toHaveLength(1);
+    onTheNotice(scrolled[0]);
+  });
+
+  it('the notice is an alert for a screen reader (the kit\'s error Notice gives role="alert")', async () => {
+    const u = await openForm();
+    await u.click(screen.getByTestId('proposal-form-submit'));
+    await settle();
+    const alert = within(screen.getByTestId('proposal-form')).getByRole('alert');
+    expect(alert).toHaveAttribute('role', 'alert');
+    expect(alert).toHaveTextContent('El título es requerido');
+  });
 });

@@ -67,6 +67,7 @@ interface Contrato {
   es_manual?: boolean;
   descripcion_manual?: string;
   horas_contratadas?: number;
+  is_anexo?: boolean;
   clientes: Cliente;
   programas: Programa;
   cuotas?: Cuota[];
@@ -169,6 +170,10 @@ export default function ContractDetailsModal({
   const pendingActivation = contrato.estado !== 'activo';
   const firmaPendiente = isFirmaPendiente(contrato);
   const isBorrador = contrato.estado === 'borrador';
+  // «Horas contratadas» line: not for annexes (their hours are a later phase); at most
+  // one per window, in the manual block, the programme block, or else the general
+  // contract block (send-back 3)
+  const showHoursLine = contrato.horas_contratadas != null && !contrato.is_anexo;
 
   // One upload block serves both states; full literal class strings so
   // Tailwind's JIT sees them (no `border-${color}-300` interpolation).
@@ -487,6 +492,17 @@ export default function ContractDetailsModal({
                     <p className="font-medium text-lg">{formatCurrency(contrato.precio_total_uf)}</p>
                   </div>
                 </div>
+
+                {/* A contract with hours that shows neither the manual nor the programme block (send-back 3) */}
+                {showHoursLine && !contrato.es_manual && !contrato.programas && (
+                  <div className="flex items-center space-x-3" data-testid="contract-details-hours">
+                    <FileText className="text-brand_primary" size={20} />
+                    <div>
+                      <p className="text-sm text-gray-600">Horas contratadas</p>
+                      <p className="font-medium">{contrato.horas_contratadas} horas</p>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -646,7 +662,7 @@ export default function ContractDetailsModal({
                   <p className="text-sm text-gray-600">Tipo de Contrato</p>
                   <p className="font-medium">Contrato Manual</p>
                 </div>
-                {contrato.horas_contratadas != null && (
+                {showHoursLine && (
                   <div className="mt-4" data-testid="contract-details-hours">
                     <p className="text-sm text-gray-600">Horas contratadas</p>
                     <p className="font-medium">{contrato.horas_contratadas} horas</p>
@@ -681,7 +697,7 @@ export default function ContractDetailsModal({
                     <p className="text-sm text-gray-600">Horas del programa</p>
                     <p className="font-medium">{contrato.programas.horas_totales} horas</p>
                   </div>
-                  {contrato.horas_contratadas != null && (
+                  {showHoursLine && (
                     <div data-testid="contract-details-hours">
                       <p className="text-sm text-gray-600">Horas contratadas</p>
                       <p className="font-medium">{contrato.horas_contratadas} horas</p>

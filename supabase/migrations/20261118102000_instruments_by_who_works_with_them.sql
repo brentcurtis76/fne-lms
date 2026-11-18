@@ -31,6 +31,19 @@
 -- read rules is narrowed with ALTER POLICY (same name, same command) to
 -- "the row's instrument is in the helper's set", written as an uncorrelated
 -- sub-select so the helper runs once per statement, not once per row.
+-- Each of the eight read rules also admits an active admin DIRECTLY, in the
+-- rule itself: (SELECT public.auth_is_assessment_admin()) OR <the set>
+-- (send-back 2). Reason: when an admin writes a row and asks for it back in
+-- the same statement (INSERT/UPDATE … RETURNING, what PostgREST does for
+-- .insert(…).select()), the database applies the READ rule to the returned
+-- row; the STABLE helpers see the tables as they were when the statement
+-- began, so a new instrument is not yet in their set and the statement was
+-- refused (42501): the builder's «Crear template» and «Duplicar» answered
+-- 500. The admin branch does not depend on the table's contents, so an
+-- admin's own new row is readable in the statement that creates it. The
+-- helpers still return every instrument for an admin; for everybody else
+-- the rules are as before (only admins write these tables). The admin check
+-- is written as a sub-select so it is asked once per statement.
 -- Writing rules (insert, update, removal) are not changed. No rule is created
 -- or removed; row level security stays on everywhere.
 -- Tested by supabase/tests/139-instruments-by-who-works-with-them.sql.
@@ -184,31 +197,39 @@ GRANT EXECUTE ON FUNCTION public.auth_readable_nested_sub_question_ids() TO serv
 -- Structure -------------------------------------------------------------------
 
 ALTER POLICY "assessment_templates_select_admin_consultor" ON public.assessment_templates TO authenticated
-  USING (id IN (SELECT public.auth_readable_template_ids()));
+  USING ((SELECT public.auth_is_assessment_admin())
+         OR id IN (SELECT public.auth_readable_template_ids()));
 
 ALTER POLICY "assessment_objectives_select_authenticated" ON public.assessment_objectives TO authenticated
-  USING (template_id IN (SELECT public.auth_readable_template_ids()));
+  USING ((SELECT public.auth_is_assessment_admin())
+         OR template_id IN (SELECT public.auth_readable_template_ids()));
 
 ALTER POLICY "assessment_modules_select" ON public.assessment_modules TO authenticated
-  USING (template_id IN (SELECT public.auth_readable_template_ids()));
+  USING ((SELECT public.auth_is_assessment_admin())
+         OR template_id IN (SELECT public.auth_readable_template_ids()));
 
 ALTER POLICY "assessment_indicators_select" ON public.assessment_indicators TO authenticated
-  USING (module_id IN (SELECT m.id FROM public.assessment_modules m
-                        WHERE m.template_id IN (SELECT public.auth_readable_template_ids())));
+  USING ((SELECT public.auth_is_assessment_admin())
+         OR module_id IN (SELECT m.id FROM public.assessment_modules m
+                           WHERE m.template_id IN (SELECT public.auth_readable_template_ids())));
 
 ALTER POLICY "assessment_context_questions_select" ON public.assessment_context_questions TO authenticated
-  USING (template_id IN (SELECT public.auth_readable_template_ids()));
+  USING ((SELECT public.auth_is_assessment_admin())
+         OR template_id IN (SELECT public.auth_readable_template_ids()));
 
 ALTER POLICY "assessment_sub_questions_select" ON public.assessment_sub_questions TO authenticated
-  USING (indicator_id IN (SELECT ind.id FROM public.assessment_indicators ind
-                           JOIN public.assessment_modules m ON m.id = ind.module_id
-                          WHERE m.template_id IN (SELECT public.auth_readable_template_ids()))
+  USING ((SELECT public.auth_is_assessment_admin())
+         OR indicator_id IN (SELECT ind.id FROM public.assessment_indicators ind
+                              JOIN public.assessment_modules m ON m.id = ind.module_id
+                             WHERE m.template_id IN (SELECT public.auth_readable_template_ids()))
          OR id IN (SELECT public.auth_readable_nested_sub_question_ids()));
 
 -- Expected levels and stored versions -----------------------------------------
 
 ALTER POLICY "assessment_year_expectations_select" ON public.assessment_year_expectations TO authenticated
-  USING (template_id IN (SELECT public.auth_readable_template_level_ids()));
+  USING ((SELECT public.auth_is_assessment_admin())
+         OR template_id IN (SELECT public.auth_readable_template_level_ids()));
 
 ALTER POLICY "assessment_template_snapshots_select" ON public.assessment_template_snapshots TO authenticated
-  USING (template_id IN (SELECT public.auth_readable_template_level_ids()));
+  USING ((SELECT public.auth_is_assessment_admin())
+         OR template_id IN (SELECT public.auth_readable_template_level_ids()));

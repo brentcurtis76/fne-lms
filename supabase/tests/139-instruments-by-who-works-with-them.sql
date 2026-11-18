@@ -29,13 +29,17 @@
 -- indicator_id NULL, as the table's has_single_parent constraint requires);
 -- T1 also has two parent-only rows that point at each other (a cycle that
 -- reaches no indicator): read by admins only.
+-- Writing and asking back (send-back 2): an admin inserts or updates a row of
+-- each table and gets it back in the same statement (RETURNING), for a new
+-- instrument T4 and for T1; the publication (service role) publishes T4; a
+-- consultor and a teacher still cannot write.
 -- Synthetic fixtures (schools -139001/-139002, grade -139011, uuids
 -- 13900000-…); everything rolls back.
 -- =============================================================================
 
 BEGIN;
 
-SELECT plan(97);
+SELECT plan(121);
 
 -- -----------------------------------------------------------------------------
 -- Fixtures (postgres)
@@ -177,6 +181,20 @@ CREATE FUNCTION pg_temp.n1b_nested() RETURNS int[] LANGUAGE sql AS $$
     (SELECT count(*)::int FROM public.assessment_sub_questions WHERE id = '13900000-0000-4000-8000-0000000004d3'),
     (SELECT count(*)::int FROM public.assessment_sub_questions WHERE id = '13900000-0000-4000-8000-0000000005d1'),
     (SELECT count(*)::int FROM public.assessment_sub_questions WHERE id = '13900000-0000-4000-8000-0000000006d1')]
+$$;
+
+-- Send-back 2: runs ONE statement as the current caller and gives back the
+-- first column of the row it returns (NULL when it returns no row), or
+-- 'ERROR <sqlstate>' when the statement is refused. A refused statement is
+-- undone on its own (sub-transaction); the file goes on.
+CREATE FUNCTION pg_temp.n1b_try(q text) RETURNS text LANGUAGE plpgsql AS $$
+DECLARE v text;
+BEGIN
+  EXECUTE q INTO v;
+  RETURN v;
+EXCEPTION WHEN OTHERS THEN
+  RETURN 'ERROR ' || SQLSTATE;
+END
 $$;
 
 -- -----------------------------------------------------------------------------
@@ -510,6 +528,164 @@ SELECT throws_ok('SELECT count(*) FROM public.auth_readable_template_ids()', '42
 SELECT throws_ok('SELECT count(*) FROM public.auth_readable_nested_sub_question_ids()', '42501', NULL,
   'anon: calling auth_readable_nested_sub_question_ids() is refused (42501)');
 RESET ROLE;
+
+-- -----------------------------------------------------------------------------
+-- Send-back 2: an admin writes a row and asks for it back IN THE SAME
+-- STATEMENT (INSERT/UPDATE … RETURNING, what PostgREST does for
+-- .insert(…).select() and .update(…).select()). The database applies the read
+-- rule to the returned row; the STABLE helper sees the table as it was when
+-- the statement began, so without an admin branch in the rule itself the
+-- admin's own new instrument is refused (42501) — «Crear template» and
+-- «Duplicar» answered 500. T4 is a new instrument made here.
+-- -----------------------------------------------------------------------------
+SELECT tests.authenticate_as('n1b_admin');
+SELECT is(pg_temp.n1b_try($q$
+  INSERT INTO public.assessment_templates (id, area, version, name, status, grade_id)
+  VALUES ('13900000-0000-4000-8000-0000000000e4', 'evaluacion', '2.0', 'N1B T4 nuevo', 'draft', -139011)
+  RETURNING name$q$),
+  'N1B T4 nuevo', 'admin: a new instrument, inserted and returned in one statement (the builder''s create and duplicate routes)');
+SELECT is(pg_temp.n1b_try($q$
+  INSERT INTO public.assessment_objectives (id, template_id, name, display_order)
+  VALUES ('13900000-0000-4000-8000-0000000000a4', '13900000-0000-4000-8000-0000000000e4', 'N1B Proceso 4', 1)
+  RETURNING template_id::text$q$),
+  '13900000-0000-4000-8000-0000000000e4', 'admin: a proceso of the NEW instrument T4, inserted and returned');
+SELECT is(pg_temp.n1b_try($q$
+  INSERT INTO public.assessment_modules (id, template_id, objective_id, name, display_order)
+  VALUES ('13900000-0000-4000-8000-0000000000b4', '13900000-0000-4000-8000-0000000000e4',
+          '13900000-0000-4000-8000-0000000000a4', 'N1B Practica 4', 1)
+  RETURNING template_id::text$q$),
+  '13900000-0000-4000-8000-0000000000e4', 'admin: a práctica of the NEW instrument T4, inserted and returned');
+SELECT is(pg_temp.n1b_try($q$
+  INSERT INTO public.assessment_indicators (id, module_id, name, category, display_order)
+  VALUES ('13900000-0000-4000-8000-0000000000c4', '13900000-0000-4000-8000-0000000000b4', 'N1B Indicador 4', 'cobertura', 1)
+  RETURNING module_id::text$q$),
+  '13900000-0000-4000-8000-0000000000b4', 'admin: an indicador of the NEW instrument T4, inserted and returned');
+SELECT is(pg_temp.n1b_try($q$
+  INSERT INTO public.assessment_context_questions (id, template_id, question_text, question_type, display_order)
+  VALUES ('13900000-0000-4000-8000-0000000001d4', '13900000-0000-4000-8000-0000000000e4', 'N1B Pregunta de contexto 4', 'text', 1)
+  RETURNING template_id::text$q$),
+  '13900000-0000-4000-8000-0000000000e4', 'admin: a context question of the NEW instrument T4, inserted and returned');
+SELECT is(pg_temp.n1b_try($q$
+  INSERT INTO public.assessment_sub_questions (id, indicator_id, question_text, question_type, trigger_condition, display_order)
+  VALUES ('13900000-0000-4000-8000-0000000002d4', '13900000-0000-4000-8000-0000000000c4', 'N1B Subpregunta 4', 'text', '{}', 1)
+  RETURNING indicator_id::text$q$),
+  '13900000-0000-4000-8000-0000000000c4', 'admin: a sub-question of the NEW instrument T4, inserted and returned');
+SELECT is(pg_temp.n1b_try($q$
+  INSERT INTO public.assessment_year_expectations (id, template_id, indicator_id, year_1_expected)
+  VALUES ('13900000-0000-4000-8000-0000000000d4', '13900000-0000-4000-8000-0000000000e4', '13900000-0000-4000-8000-0000000000c4', 1)
+  RETURNING template_id::text$q$),
+  '13900000-0000-4000-8000-0000000000e4', 'admin: an expected level of the NEW instrument T4, inserted and returned');
+SELECT is(pg_temp.n1b_try($q$
+  INSERT INTO public.assessment_objectives (id, template_id, name, display_order)
+  VALUES ('13900000-0000-4000-8000-0000000000a5', '13900000-0000-4000-8000-0000000000e1', 'N1B Proceso 1b', 2)
+  RETURNING template_id::text$q$),
+  '13900000-0000-4000-8000-0000000000e1', 'admin: a proceso of the existing T1, inserted and returned');
+SELECT is(pg_temp.n1b_try($q$
+  INSERT INTO public.assessment_modules (id, template_id, objective_id, name, display_order)
+  VALUES ('13900000-0000-4000-8000-0000000000b5', '13900000-0000-4000-8000-0000000000e1',
+          '13900000-0000-4000-8000-0000000000a5', 'N1B Practica 1b', 2)
+  RETURNING template_id::text$q$),
+  '13900000-0000-4000-8000-0000000000e1', 'admin: a práctica of the existing T1, inserted and returned');
+SELECT is(pg_temp.n1b_try($q$
+  INSERT INTO public.assessment_indicators (id, module_id, name, category, display_order)
+  VALUES ('13900000-0000-4000-8000-0000000000c5', '13900000-0000-4000-8000-0000000000b1', 'N1B Indicador 1b', 'cobertura', 2)
+  RETURNING module_id::text$q$),
+  '13900000-0000-4000-8000-0000000000b1', 'admin: an indicador of the existing T1, inserted and returned');
+-- A stored version written by an admin directly (the table's insert rule is
+-- admin-only). The publication itself does not write this way: see below.
+SELECT is(pg_temp.n1b_try($q$
+  INSERT INTO public.assessment_template_snapshots (id, template_id, version, snapshot_data)
+  VALUES ('13900000-0000-4000-8000-0000000000f4', '13900000-0000-4000-8000-0000000000e4', '2.0', '{"modules": []}')
+  RETURNING template_id::text$q$),
+  '13900000-0000-4000-8000-0000000000e4', 'admin: a stored version of the NEW instrument T4, inserted and returned');
+SELECT is(pg_temp.n1b_try($q$
+  UPDATE public.assessment_templates SET description = 'N1B T3 cambiado'
+   WHERE id = '13900000-0000-4000-8000-0000000000e3' RETURNING description$q$),
+  'N1B T3 cambiado', 'admin: the draft T3, updated and returned in one statement');
+SELECT is(pg_temp.n1b_try($q$
+  UPDATE public.assessment_templates SET description = 'N1B T4 cambiado'
+   WHERE id = '13900000-0000-4000-8000-0000000000e4' RETURNING description$q$),
+  'N1B T4 cambiado', 'admin: the NEW instrument T4, updated and returned in one statement');
+SELECT is(pg_temp.n1b_try($q$
+  UPDATE public.assessment_modules SET name = 'N1B Practica 4 cambiada'
+   WHERE id = '13900000-0000-4000-8000-0000000000b4' RETURNING name$q$),
+  'N1B Practica 4 cambiada', 'admin: a práctica of T4, updated and returned in one statement');
+RESET ROLE;
+
+-- The publication writes the stored version through
+-- public.publish_assessment_template (SECURITY DEFINER, EXECUTE for
+-- service_role only), called by the publish route with the service client
+-- after its admin check: the read rules do not apply to it. What is real:
+-- the service role publishes the admin's new T4.
+SELECT tests.clear_authentication();
+SELECT set_config('role', 'service_role', true);
+SELECT is(
+  (SELECT (r->>'ok') || '/' || (r->'template'->>'status')
+     FROM public.publish_assessment_template('13900000-0000-4000-8000-0000000000e4', '2.0', '{"modules": []}'::jsonb) AS r),
+  'true/published', 'service role: the publication of the new T4 writes its stored version and publishes it');
+RESET ROLE;
+
+-- People who may not write still cannot: an insert is refused, an update
+-- changes and returns nothing.
+SELECT tests.authenticate_as('n1b_cons1');
+SELECT is(pg_temp.n1b_try($q$
+  INSERT INTO public.assessment_templates (id, area, version, name, status, grade_id)
+  VALUES ('13900000-0000-4000-8000-0000000000e6', 'evaluacion', '3.0', 'N1B consultor', 'draft', -139011)
+  RETURNING name$q$),
+  'ERROR 42501', 'consultor of S1: inserting an instrument and asking it back is refused');
+SELECT is(pg_temp.n1b_try($q$
+  INSERT INTO public.assessment_objectives (id, template_id, name, display_order)
+  VALUES ('13900000-0000-4000-8000-0000000000a6', '13900000-0000-4000-8000-0000000000e1', 'N1B consultor', 3)
+  RETURNING template_id::text$q$),
+  'ERROR 42501', 'consultor of S1: inserting a proceso of T1 (which they read) and asking it back is refused');
+SELECT is(pg_temp.n1b_try($q$
+  INSERT INTO public.assessment_template_snapshots (id, template_id, version, snapshot_data)
+  VALUES ('13900000-0000-4000-8000-0000000000f6', '13900000-0000-4000-8000-0000000000e1', '3.0', '{"modules": []}')
+  RETURNING template_id::text$q$),
+  'ERROR 42501', 'consultor of S1: inserting a stored version of T1 and asking it back is refused');
+SELECT is(pg_temp.n1b_try($q$
+  UPDATE public.assessment_templates SET description = 'N1B consultor'
+   WHERE id = '13900000-0000-4000-8000-0000000000e1' RETURNING description$q$),
+  NULL, 'consultor of S1: updating T1 and asking it back changes and returns nothing');
+RESET ROLE;
+
+SELECT tests.authenticate_as('n1b_teacher');
+SELECT is(pg_temp.n1b_try($q$
+  INSERT INTO public.assessment_templates (id, area, version, name, status, grade_id)
+  VALUES ('13900000-0000-4000-8000-0000000000e7', 'evaluacion', '4.0', 'N1B docente', 'draft', -139011)
+  RETURNING name$q$),
+  'ERROR 42501', 'teacher: inserting an instrument and asking it back is refused');
+SELECT is(pg_temp.n1b_try($q$
+  INSERT INTO public.assessment_objectives (id, template_id, name, display_order)
+  VALUES ('13900000-0000-4000-8000-0000000000a7', '13900000-0000-4000-8000-0000000000e1', 'N1B docente', 4)
+  RETURNING template_id::text$q$),
+  'ERROR 42501', 'teacher: inserting a proceso of T1 (which they read) and asking it back is refused');
+SELECT is(pg_temp.n1b_try($q$
+  INSERT INTO public.assessment_template_snapshots (id, template_id, version, snapshot_data)
+  VALUES ('13900000-0000-4000-8000-0000000000f7', '13900000-0000-4000-8000-0000000000e1', '4.0', '{"modules": []}')
+  RETURNING template_id::text$q$),
+  'ERROR 42501', 'teacher: inserting a stored version of T1 and asking it back is refused');
+SELECT is(pg_temp.n1b_try($q$
+  UPDATE public.assessment_templates SET description = 'N1B docente'
+   WHERE id = '13900000-0000-4000-8000-0000000000e1' RETURNING description$q$),
+  NULL, 'teacher: updating T1 and asking it back changes and returns nothing');
+RESET ROLE;
+
+-- Each of the eight read rules admits an admin directly, in the rule itself.
+SELECT is(
+  (SELECT count(*)::int FROM pg_policies
+    WHERE schemaname = 'public'
+      AND qual LIKE '%SELECT auth_is_assessment_admin()%'
+      AND (tablename, policyname) IN (
+        ('assessment_templates', 'assessment_templates_select_admin_consultor'),
+        ('assessment_objectives', 'assessment_objectives_select_authenticated'),
+        ('assessment_modules', 'assessment_modules_select'),
+        ('assessment_indicators', 'assessment_indicators_select'),
+        ('assessment_context_questions', 'assessment_context_questions_select'),
+        ('assessment_sub_questions', 'assessment_sub_questions_select'),
+        ('assessment_year_expectations', 'assessment_year_expectations_select'),
+        ('assessment_template_snapshots', 'assessment_template_snapshots_select'))),
+  8, 'the eight read rules admit an admin in the rule itself, not only through the helper''s set');
 
 SELECT * FROM finish();
 ROLLBACK;

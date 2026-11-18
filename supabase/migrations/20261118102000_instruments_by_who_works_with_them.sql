@@ -23,7 +23,11 @@
 --   Everybody else reads nothing; anon has no read rule on these tables.
 --
 -- Two helpers about the caller (SECURITY DEFINER, so they read the tables
--- without passing through the rules they serve). Each of the eight existing
+-- without passing through the rules they serve), and a third for the
+-- sub-questions that hang under another sub-question (their indicator_id is
+-- NULL by the table's has_single_parent constraint): it follows the parent
+-- chain down from the readable root sub-questions, so such a row is read by
+-- the same people as its instrument. Each of the eight existing
 -- read rules is narrowed with ALTER POLICY (same name, same command) to
 -- "the row's instrument is in the helper's set", written as an uncorrelated
 -- sub-select so the helper runs once per statement, not once per row.
@@ -131,6 +135,52 @@ REVOKE ALL ON FUNCTION public.auth_readable_template_level_ids() FROM anon;
 GRANT EXECUTE ON FUNCTION public.auth_readable_template_level_ids() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.auth_readable_template_level_ids() TO service_role;
 
+-- Nested sub-questions: a row whose parent_question_id points to another
+-- sub-question has no indicator of its own; it belongs to the instrument of
+-- the root of its chain (the one sub-question with an indicator). The read
+-- rule of assessment_sub_questions cannot follow that chain itself (it would
+-- read the same table through its own rule), so this helper walks it with
+-- the definer's rights, starting from the root sub-questions of the
+-- instruments the caller may read (auth_readable_template_ids) and going down
+-- at most 16 levels. A chain that reaches no indicator (only possible as a
+-- parent-only cycle) is never reached: admins read such rows through the
+-- table's writing rule only. It takes no argument and answers only about the
+-- caller: called directly it gives exactly the nested sub-questions the read
+-- rule lets the caller read, nothing about any other row.
+CREATE FUNCTION public.auth_readable_nested_sub_question_ids()
+RETURNS SETOF uuid
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+  WITH RECURSIVE chain (id, depth) AS (
+    SELECT q.id, 0
+      FROM public.assessment_sub_questions q
+      JOIN public.assessment_indicators ind ON ind.id = q.indicator_id
+      JOIN public.assessment_modules m ON m.id = ind.module_id
+     WHERE m.template_id IN (SELECT public.auth_readable_template_ids())
+    UNION ALL
+    SELECT child.id, chain.depth + 1
+      FROM public.assessment_sub_questions child
+      JOIN chain ON child.parent_question_id = chain.id
+     WHERE child.indicator_id IS NULL
+       AND chain.depth < 16
+  )
+  SELECT chain.id FROM chain WHERE chain.depth > 0;
+$$;
+
+COMMENT ON FUNCTION public.auth_readable_nested_sub_question_ids() IS
+  'N1 (F1b-2, send-back 1): the nested sub-questions (assessment_sub_questions with parent_question_id set and '
+  'indicator_id NULL) whose chain leads up, within 16 levels, to a root sub-question of an instrument in '
+  'auth_readable_template_ids(). Answers only about the caller, nothing without a sign-in. '
+  'Used by the read rule of assessment_sub_questions.';
+
+REVOKE ALL ON FUNCTION public.auth_readable_nested_sub_question_ids() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.auth_readable_nested_sub_question_ids() FROM anon;
+GRANT EXECUTE ON FUNCTION public.auth_readable_nested_sub_question_ids() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.auth_readable_nested_sub_question_ids() TO service_role;
+
 -- Structure -------------------------------------------------------------------
 
 ALTER POLICY "assessment_templates_select_admin_consultor" ON public.assessment_templates TO authenticated
@@ -152,7 +202,8 @@ ALTER POLICY "assessment_context_questions_select" ON public.assessment_context_
 ALTER POLICY "assessment_sub_questions_select" ON public.assessment_sub_questions TO authenticated
   USING (indicator_id IN (SELECT ind.id FROM public.assessment_indicators ind
                            JOIN public.assessment_modules m ON m.id = ind.module_id
-                          WHERE m.template_id IN (SELECT public.auth_readable_template_ids())));
+                          WHERE m.template_id IN (SELECT public.auth_readable_template_ids()))
+         OR id IN (SELECT public.auth_readable_nested_sub_question_ids()));
 
 -- Expected levels and stored versions -----------------------------------------
 

@@ -1,7 +1,7 @@
 # Marco (the frame around every screen)
 
 Area `00-marco`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `0853a5567` (2026-11-17).
+Read from commit `0a7ad8795` (2026-11-18).
 
 The app shell, the menu, the top bar, the bell, the footer and the feedback button. Its pieces are listed here once and not repeated under each screen.
 
@@ -1270,21 +1270,30 @@ Used by: `(the frame)`
 
 | Line of code | Where |
 |---|---|
-| `isAdmin = useMemo(() => { return user?.user_metadata?.roles?.includes('admin') \|\| user?.user_metadata?.role === 'admin' \|\| false; }, [userId])` | PermissionProvider · l.26 |
-| `return perms.some(p => hasPermission(p));` | PermissionProvider · l.147 |
-| `return perms.every(p => hasPermission(p));` | PermissionProvider · l.151 |
+| `isAdmin = useMemo(() => { return user?.user_metadata?.roles?.includes('admin') \|\| user?.user_metadata?.role === 'admin' \|\| false; }, [userId])` | PermissionProvider · l.34 |
+| `return perms.some(p => hasPermission(p));` | PermissionProvider · l.174 |
+| `return perms.every(p => hasPermission(p));` | PermissionProvider · l.178 |
+
+**Draws nothing when** (4)
+
+| Condition | Where |
+|---|---|
+| `!isCurrent()` | PermissionProvider · l.83 |
+| `!isCurrent()` | PermissionProvider · l.108 |
+| `!isCurrent()` | PermissionProvider · l.134 |
+| `sessionLoading` | PermissionProvider · l.149 |
 
 **Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (3)
 
 | Kind | What | Where |
 |---|---|---|
-| storage | `localStorage: permissions_{userId}` | PermissionProvider · l.35 |
-| storage | `localStorage: {key}` | PermissionProvider · l.56 |
-| storage | `localStorage: permissions_{currentUser.id}` | PermissionProvider · l.115 |
+| storage | `localStorage: permissions_{userId}` | PermissionProvider · l.43 |
+| storage | `localStorage: {key}` | PermissionProvider · l.67 |
+| storage | `localStorage: permissions_{currentUser.id}` | PermissionProvider · l.130 |
 
 **Values shown from data** (1)
 
-- `{children}` — PermissionProvider · l.164
+- `{children}` — PermissionProvider · l.191
 
 **Reads and writes the database directly:** `table:role_permissions` (select), `table:user_roles` (select)
 

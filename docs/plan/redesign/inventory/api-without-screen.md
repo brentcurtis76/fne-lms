@@ -1,6 +1,6 @@
 # API files that no screen calls
 
-Written by `scripts/redesign/inventory.mjs` from commit `0853a5567`. An API file is listed here when no screen, and no piece a screen draws, names its address. "Named in" shows where else the address appears (scheduled jobs in `vercel.json`, server code, tests). Nothing here is a verdict: an address can be called from outside the platform (a webhook, a link in an email).
+Written by `scripts/redesign/inventory.mjs` from commit `0a7ad8795`. An API file is listed here when no screen, and no piece a screen draws, names its address. "Named in" shows where else the address appears (scheduled jobs in `vercel.json`, server code, tests). Nothing here is a verdict: an address can be called from outside the platform (a webhook, a link in an email).
 
 ## Marco (the frame around every screen)
 
@@ -103,7 +103,7 @@ Written by `scripts/redesign/inventory.mjs` from commit `0853a5567`. An API file
 | `/api/admin/pasantias-panel/participants/[id]/letter` | `pages/api/admin/pasantias-panel/participants/[id]/letter.ts` |  | `__tests__/api/admin/pasantias-panel.test.ts` |
 | `/api/admin/pasantias-panel/participants/[id]/send-letter` | `pages/api/admin/pasantias-panel/participants/[id]/send-letter.ts` |  | `__tests__/api/pasantias-panel-jobs.test.ts`, `__tests__/pages/admin/pasantias-panel.test.tsx` |
 | `/api/admin/pasantias-panel/rosters/[rosterId]` | `pages/api/admin/pasantias-panel/rosters/[rosterId].ts` |  | `__tests__/api/admin/pasantias-panel.test.ts` |
-| `/api/pasantias/mine` | `pages/api/pasantias/mine/index.ts` | GET | `__tests__/api/pasantias-panel-jobs.test.ts`, `__tests__/components/layout/Sidebar.miPasantia.nuevo.test.tsx`, `__tests__/components/layout/Sidebar.miPasantia.test.tsx`, `components/layout/Sidebar.tsx`, `tests/e2e/panel-pin.spec.ts`, `tests/e2e/pasantias-panel.spec.ts` |
+| `/api/pasantias/mine` | `pages/api/pasantias/mine/index.ts` | GET | `__tests__/api/pasantias-panel-jobs.test.ts`, `__tests__/components/layout/Sidebar.miPasantia.nuevo.test.tsx`, `__tests__/components/layout/Sidebar.miPasantia.test.tsx`, `components/layout/Sidebar.tsx`, `tests/e2e/auth-lifecycle.spec.ts`, `tests/e2e/panel-pin.spec.ts` +1 |
 | `/api/pasantias/participants/[id]` | `pages/api/pasantias/participants/[id].ts` |  | `__tests__/api/pasantias-participants.test.ts`, `__tests__/lib/pasantias/participants/school-funding.test.ts`, `__tests__/pages/pasantias-nomina.test.tsx` |
 | `/api/pasantias/participants/finalize` | `pages/api/pasantias/participants/finalize.ts` |  | `__tests__/api/pasantias-participants.test.ts` |
 | `/api/pasantias/participants/school` | `pages/api/pasantias/participants/school.ts` |  | `__tests__/api/pasantias-participants.test.ts`, `__tests__/pages/pasantias-nomina.test.tsx` |
@@ -179,7 +179,7 @@ Written by `scripts/redesign/inventory.mjs` from commit `0853a5567`. An API file
 | `/api/test-bucket` | `pages/api/test-bucket.js` |  | **nothing** |
 | `/api/test/notification-triggers` | `pages/api/test/notification-triggers.ts` |  | **nothing** |
 
-87 of 367 API files.
+87 of 369 API files.
 
 ## Addresses the code names that have no file
 

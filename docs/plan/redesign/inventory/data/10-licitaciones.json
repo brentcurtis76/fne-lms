@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "0853a5567a422544cbc6cb8b7dafde403d965cdc",
-  "date": "2026-11-17T12:53:45-03:00"
+  "commit": "0a7ad8795b419990468bad9197d27dd375a392a3",
+  "date": "2026-11-18T14:19:15-03:00"
  },
  "screens": [
   {
@@ -3635,8 +3635,8 @@
     ],
     "linkedFrom": [
      "middleware.ts:345",
-     "pages/contracts.tsx:862",
-     "pages/contracts.tsx:863",
+     "pages/contracts.tsx:836",
+     "pages/contracts.tsx:837",
      "pages/licitaciones/[id]/evaluacion.tsx:280",
      "pages/licitaciones/[id]/evaluacion.tsx:624",
      "pages/licitaciones/[id]/evaluacion.tsx:667",

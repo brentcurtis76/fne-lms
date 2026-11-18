@@ -4,8 +4,8 @@
  "note": "Course system: see the note on 03-aprendizaje.",
  "routesOnly": false,
  "readFrom": {
-  "commit": "0853a5567a422544cbc6cb8b7dafde403d965cdc",
-  "date": "2026-11-17T12:53:45-03:00"
+  "commit": "0a7ad8795b419990468bad9197d27dd375a392a3",
+  "date": "2026-11-18T14:19:15-03:00"
  },
  "screens": [
   {
@@ -14783,6 +14783,7 @@
     "/admin/courses/[id]/assign"
    ],
    "referencedIn": [
+    "__tests__/api/courses/unassign.test.ts",
     "components/admin/assignment-matrix/hooks/useAssignmentMatrix.ts",
     "pages/admin/courses/[id]/assign.tsx"
    ]
@@ -14943,7 +14944,8 @@
     "/mi-aprendizaje"
    ],
    "referencedIn": [
-    "pages/dashboard.tsx",
+    "__tests__/pages/dashboard.clasico.test.tsx",
+    "hooks/usePanel.ts",
     "pages/mi-aprendizaje.tsx",
     "tests/e2e/learning-path-governance.spec.ts",
     "tests/e2e/login-resilience.spec.ts",
@@ -15115,8 +15117,9 @@
    ],
    "referencedIn": [
     "__tests__/api/upcoming-courses/metadata-authority.test.ts",
+    "__tests__/pages/dashboard.clasico.test.tsx",
+    "hooks/usePanel.ts",
     "pages/admin/upcoming-courses/index.tsx",
-    "pages/dashboard.tsx",
     "tests/e2e/meeting-finalize-email-outcome.spec.ts",
     "tests/e2e/panel-pin.spec.ts"
    ]

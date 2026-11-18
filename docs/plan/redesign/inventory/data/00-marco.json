@@ -5,8 +5,8 @@
  "routesOnly": false,
  "frame": true,
  "readFrom": {
-  "commit": "0853a5567a422544cbc6cb8b7dafde403d965cdc",
-  "date": "2026-11-17T12:53:45-03:00"
+  "commit": "0a7ad8795b419990468bad9197d27dd375a392a3",
+  "date": "2026-11-18T14:19:15-03:00"
  },
  "screens": [
   {
@@ -3791,18 +3791,18 @@
    "usedBy": [
     "(the frame)"
    ],
-   "lines": 192,
+   "lines": 219,
    "rows": [
     {
      "kind": "access",
-     "line": 26,
+     "line": 34,
      "in": "PermissionProvider",
      "text": "isAdmin = useMemo(() => { return user?.user_metadata?.roles?.includes('admin') || user?.user_metadata?.role === 'admin' || false; }, [userId])",
      "via": "declaration"
     },
     {
      "kind": "hook",
-     "line": 35,
+     "line": 43,
      "in": "PermissionProvider",
      "when": "typeof window !== 'undefined' && userId",
      "text": "localStorage: permissions_{userId}",
@@ -3810,37 +3810,61 @@
     },
     {
      "kind": "hook",
-     "line": 56,
+     "line": 67,
      "in": "PermissionProvider",
      "when": "!currentUser && typeof window !== 'undefined' && key.startsWith('permissions_')",
      "text": "localStorage: {key}",
      "type": "storage"
     },
     {
+     "kind": "gate",
+     "line": 83,
+     "in": "PermissionProvider",
+     "text": "!isCurrent()"
+    },
+    {
+     "kind": "gate",
+     "line": 108,
+     "in": "PermissionProvider",
+     "text": "!isCurrent()"
+    },
+    {
      "kind": "hook",
-     "line": 115,
+     "line": 130,
      "in": "PermissionProvider",
      "when": "typeof window !== 'undefined' && currentUser.id",
      "text": "localStorage: permissions_{currentUser.id}",
      "type": "storage"
     },
     {
+     "kind": "gate",
+     "line": 134,
+     "in": "PermissionProvider",
+     "text": "!isCurrent()"
+    },
+    {
+     "kind": "gate",
+     "line": 149,
+     "in": "PermissionProvider",
+     "text": "sessionLoading"
+    },
+    {
      "kind": "access",
-     "line": 147,
+     "line": 174,
      "in": "PermissionProvider",
      "text": "return perms.some(p => hasPermission(p));",
      "via": "hasPermission"
     },
     {
      "kind": "access",
-     "line": 151,
+     "line": 178,
      "in": "PermissionProvider",
      "text": "return perms.every(p => hasPermission(p));",
      "via": "hasPermission"
     },
     {
      "kind": "value",
-     "line": 164,
+     "line": 191,
      "in": "PermissionProvider",
      "text": "{children}"
     }

@@ -4,8 +4,8 @@
  "note": "Course system: the Course Review session owns this area's structure and its own checklist (docs/planning/courses/inventory.md, not yet on main). This file is the redesign's list of what is on screen today.",
  "routesOnly": false,
  "readFrom": {
-  "commit": "0853a5567a422544cbc6cb8b7dafde403d965cdc",
-  "date": "2026-11-17T12:53:45-03:00"
+  "commit": "0a7ad8795b419990468bad9197d27dd375a392a3",
+  "date": "2026-11-18T14:19:15-03:00"
  },
  "screens": [
   {
@@ -189,6 +189,8 @@
      "components/layout/Sidebar.tsx:149",
      "components/notifications/ModernNotificationCenter.tsx:309",
      "components/notifications/ModernNotificationCenter.tsx:319",
+     "components/panel/PanelClasico.tsx:563",
+     "components/panel/PanelClasico.tsx:564",
      "lib/auth/forced-password-change.ts:152",
      "lib/notificationEvents.ts:248",
      "lib/notificationEvents.ts:262",
@@ -202,8 +204,6 @@
      "middleware.ts:347",
      "pages/api/qa/seed-codebase-index.ts:231",
      "pages/course-manager.tsx:10",
-     "pages/dashboard.tsx:1020",
-     "pages/dashboard.tsx:1021",
      "pages/mi-aprendizaje/ruta/[id].tsx:253",
      "pages/my-paths.tsx:10",
      "pages/notifications.tsx:267",
@@ -627,8 +627,8 @@
      }
     ],
     "linkedFrom": [
+     "hooks/usePanel.ts:421",
      "pages/api/qa/seed-codebase-index.ts:268",
-     "pages/dashboard.tsx:1043",
      "pages/mi-aprendizaje.tsx:498"
     ],
     "qaScenarios": {},
@@ -1073,7 +1073,7 @@
      "components/layout/Sidebar.tsx:156",
      "lib/notifications/catalog.ts:296",
      "pages/api/assignments/collaborative-submit.ts:126",
-     "pages/community/workspace.tsx:268",
+     "pages/community/workspace.tsx:273",
      "pages/community/workspace/assignments/[id]/discussion.tsx:150",
      "pages/community/workspace/assignments/[id]/discussion.tsx:279",
      "pages/community/workspace/assignments/[id]/discussion.tsx:289",
@@ -1697,6 +1697,7 @@
     "linkedFrom": [
      "components/student/LessonSidebar.tsx:138",
      "components/student/LessonSidebar.tsx:139",
+     "hooks/usePanel.ts:420",
      "lib/services/learningPathsService.ts:705",
      "lib/services/learningPathsService.ts:771",
      "lib/services/learningPathsService.ts:777",
@@ -1707,8 +1708,6 @@
      "pages/admin/course-builder/index.tsx:614",
      "pages/api/qa/seed-codebase-index.ts:251",
      "pages/api/qa/seed-codebase-index.ts:283",
-     "pages/dashboard.tsx:1011",
-     "pages/dashboard.tsx:1056",
      "pages/mi-aprendizaje.tsx:516",
      "pages/student/lesson/[lessonId].tsx:860"
     ],

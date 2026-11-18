@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "0853a5567a422544cbc6cb8b7dafde403d965cdc",
-  "date": "2026-11-17T12:53:45-03:00"
+  "commit": "0a7ad8795b419990468bad9197d27dd375a392a3",
+  "date": "2026-11-18T14:19:15-03:00"
  },
  "screens": [
   {
@@ -1914,11 +1914,11 @@
    "usedBy": [
     "/admin/feedback"
    ],
-   "lines": 474,
+   "lines": 494,
    "rows": [
     {
      "kind": "message",
-     "line": 93,
+     "line": 109,
      "in": "addComment",
      "when": "!user",
      "text": "Usuario no autenticado",
@@ -1926,48 +1926,48 @@
     },
     {
      "kind": "toast",
-     "line": 108,
+     "line": 124,
      "in": "addComment",
      "text": "Comentario agregado",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 111,
+     "line": 127,
      "in": "addComment",
      "text": "Error al agregar comentario",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 206,
+     "line": 222,
      "in": "copyErrorDetailsForClaude",
      "text": "¡Detalles copiados para Claude Code!",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 209,
+     "line": 225,
      "in": "copyErrorDetailsForClaude",
      "text": "Error al copiar los detalles",
      "variant": "error"
     },
     {
      "kind": "gate",
-     "line": 213,
+     "line": 229,
      "in": "FeedbackDetail",
      "text": "!isOpen || !feedback"
     },
     {
      "kind": "popup",
-     "line": 217,
+     "line": 233,
      "in": "FeedbackDetail",
      "text": "Detalle de Feedback",
      "how": "written in this file"
     },
     {
      "kind": "clickable",
-     "line": 219,
+     "line": 235,
      "in": "FeedbackDetail",
      "text": "",
      "tag": "div",
@@ -1978,20 +1978,20 @@
     },
     {
      "kind": "heading",
-     "line": 231,
+     "line": 247,
      "in": "FeedbackDetail",
      "text": "Detalle de Feedback",
      "level": 3
     },
     {
      "kind": "value",
-     "line": 234,
+     "line": 250,
      "in": "FeedbackDetail",
      "text": "# {feedback.id.slice(0, 8).toUpperCase…}"
     },
     {
      "kind": "button",
-     "line": 238,
+     "line": 254,
      "in": "FeedbackDetail",
      "text": "[icon X]",
      "action": "{onClose}",
@@ -2002,7 +2002,7 @@
     },
     {
      "kind": "button",
-     "line": 254,
+     "line": 270,
      "in": "FeedbackDetail",
      "text": "Copiar Detalles",
      "action": "{copyErrorDetailsForClaude}",
@@ -2010,39 +2010,39 @@
     },
     {
      "kind": "media",
-     "line": 267,
+     "line": 283,
      "in": "FeedbackDetail",
      "when": "feedback.profiles.avatar_url",
      "text": "img · alt {`${feedback.profiles.first_name} ${feedback.profiles.last_name}`} · {feedback.profiles.avatar_url}"
     },
     {
      "kind": "value",
-     "line": 278,
+     "line": 294,
      "in": "FeedbackDetail",
      "text": "{feedback.profiles.first_name} {feedback.profiles.last_name}"
     },
     {
      "kind": "value",
-     "line": 281,
+     "line": 297,
      "in": "FeedbackDetail",
      "text": "{feedback.profiles.email}"
     },
     {
      "kind": "heading",
-     "line": 291,
+     "line": 307,
      "in": "FeedbackDetail",
      "text": "Descripción",
      "level": 4
     },
     {
      "kind": "value",
-     "line": 292,
+     "line": 308,
      "in": "FeedbackDetail",
      "text": "{feedback.description}"
     },
     {
      "kind": "heading",
-     "line": 298,
+     "line": 314,
      "in": "FeedbackDetail",
      "when": "feedback.screenshot_url",
      "text": "Captura de pantalla",
@@ -2050,50 +2050,58 @@
     },
     {
      "kind": "media",
-     "line": 299,
+     "line": 315,
      "in": "FeedbackDetail",
      "when": "feedback.screenshot_url",
      "text": "img · alt Screenshot · {feedback.screenshot_url}"
     },
     {
      "kind": "heading",
-     "line": 310,
+     "line": 326,
      "in": "FeedbackDetail",
      "text": "Detalles técnicos",
      "level": 4
     },
     {
      "kind": "link",
-     "line": 314,
+     "line": 331,
      "in": "FeedbackDetail",
+     "when": "isHttpPageUrl(feedback.page_url)",
      "text": "{feedback.page_url}",
      "target": "{feedback.page_url}",
      "newTab": true
     },
     {
+     "kind": "value",
+     "line": 340,
+     "in": "FeedbackDetail",
+     "when": "!(isHttpPageUrl(feedback.page_url))",
+     "text": "{feedback.page_url}"
+    },
+    {
      "kind": "label",
-     "line": 325,
+     "line": 345,
      "in": "FeedbackDetail",
      "when": "feedback.browser_info",
      "text": "Ver información del navegador"
     },
     {
      "kind": "value",
-     "line": 326,
+     "line": 346,
      "in": "FeedbackDetail",
      "when": "feedback.browser_info",
      "text": "{JSON.stringify(feedback.browser_inf…}"
     },
     {
      "kind": "heading",
-     "line": 336,
+     "line": 356,
      "in": "FeedbackDetail",
      "text": "Acciones",
      "level": 4
     },
     {
      "kind": "button",
-     "line": 339,
+     "line": 359,
      "in": "FeedbackDetail",
      "when": "feedback.status !== 'in_progress' && feedback.status !== 'resolved' && feedback.status !== 'closed'",
      "text": "Marcar en progreso",
@@ -2101,7 +2109,7 @@
     },
     {
      "kind": "button",
-     "line": 347,
+     "line": 367,
      "in": "FeedbackDetail",
      "when": "feedback.status !== 'resolved' && feedback.status !== 'closed'",
      "text": "Marcar como resuelto",
@@ -2109,7 +2117,7 @@
     },
     {
      "kind": "button",
-     "line": 355,
+     "line": 375,
      "in": "FeedbackDetail",
      "when": "feedback.status === 'resolved'",
      "text": "Cerrar ticket",
@@ -2117,63 +2125,63 @@
     },
     {
      "kind": "text",
-     "line": 364,
+     "line": 384,
      "in": "FeedbackDetail",
      "when": "feedback.status === 'closed'",
      "text": "Ticket cerrado"
     },
     {
      "kind": "button",
-     "line": 367,
+     "line": 387,
      "in": "FeedbackDetail",
      "text": "Cerrar ventana",
      "action": "{onClose}"
     },
     {
      "kind": "heading",
-     "line": 380,
+     "line": 400,
      "in": "FeedbackDetail",
      "text": "Actividad",
      "level": 4
     },
     {
      "kind": "text",
-     "line": 388,
+     "line": 408,
      "in": "FeedbackDetail",
      "when": "activities.length === 0",
      "text": "Sin actividad aún"
     },
     {
      "kind": "value",
-     "line": 401,
+     "line": 421,
      "in": "FeedbackDetail",
      "when": "!(activities.length === 0) && each activities && activity.is_system_message",
      "text": "{activity.message}"
     },
     {
      "kind": "value",
-     "line": 407,
+     "line": 427,
      "in": "FeedbackDetail",
      "when": "!(activities.length === 0) && each activities && !(activity.is_system_message)",
      "text": "{activity.profiles?.first_name} {activity.profiles?.last_name}"
     },
     {
      "kind": "value",
-     "line": 410,
+     "line": 430,
      "in": "FeedbackDetail",
      "when": "!(activities.length === 0) && each activities && !(activity.is_system_message)",
      "text": "{formatDate(activity.created_at)}"
     },
     {
      "kind": "value",
-     "line": 414,
+     "line": 434,
      "in": "FeedbackDetail",
      "when": "!(activities.length === 0) && each activities && !(activity.is_system_message)",
      "text": "{activity.message}"
     },
     {
      "kind": "field",
-     "line": 427,
+     "line": 447,
      "in": "FeedbackDetail",
      "text": "Agregar comentario...",
      "type": "text",
@@ -2184,7 +2192,7 @@
     },
     {
      "kind": "button",
-     "line": 436,
+     "line": 456,
      "in": "FeedbackDetail",
      "text": "[icon Send]",
      "action": "{addComment}",
@@ -2196,7 +2204,7 @@
     },
     {
      "kind": "popup",
-     "line": 455,
+     "line": 475,
      "in": "FeedbackDetail",
      "when": "showFullScreenshot && feedback.screenshot_url",
      "text": "(sin título)",
@@ -2204,14 +2212,14 @@
     },
     {
      "kind": "media",
-     "line": 459,
+     "line": 479,
      "in": "FeedbackDetail",
      "when": "showFullScreenshot && feedback.screenshot_url",
      "text": "img · alt Screenshot · {feedback.screenshot_url}"
     },
     {
      "kind": "button",
-     "line": 464,
+     "line": 484,
      "in": "FeedbackDetail",
      "when": "showFullScreenshot && feedback.screenshot_url",
      "text": "[icon X]",
@@ -2219,31 +2227,31 @@
     },
     {
      "kind": "string",
-     "line": 176,
+     "line": 192,
      "in": "FeedbackDetail",
      "text": "Feature Request"
     },
     {
      "kind": "string",
-     "line": 176,
+     "line": 192,
      "in": "FeedbackDetail",
      "text": "General Feedback"
     },
     {
      "kind": "string",
-     "line": 189,
+     "line": 205,
      "in": "FeedbackDetail",
      "text": "**Console Error:** ``` {consoleError} ```"
     },
     {
      "kind": "string",
-     "line": 195,
+     "line": 211,
      "in": "FeedbackDetail",
      "text": "Not captured"
     },
     {
      "kind": "string",
-     "line": 199,
+     "line": 215,
      "in": "FeedbackDetail",
      "text": "Resolution Notes: {feedback.resolution_notes}"
     }
@@ -2585,13 +2593,13 @@
    ],
    "guards": [
     "createServiceRoleClient",
-    "getApiUser",
-    "hasAdminPrivileges"
+    "getApiUser"
    ],
    "calledBy": [
     "/expense-reports"
    ],
    "referencedIn": [
+    "__tests__/api/bots/link-code.test.ts",
     "pages/expense-reports.tsx"
    ]
   },

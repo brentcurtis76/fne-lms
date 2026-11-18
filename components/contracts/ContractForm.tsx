@@ -172,6 +172,8 @@ export default function ContractForm({ programas, clientes, editingContract, pre
   });
   // The admin typed in «Horas contratadas»: the programme no longer fills it (GES-2.2)
   const [horasEdited, setHorasEdited] = useState(false);
+  // Edit mode: the admin chose another programme during this edit (send-back 1)
+  const [programaChangedInEdit, setProgramaChangedInEdit] = useState(false);
   // Whether the edited contract already has a distribution of hours; the field is
   // locked unless the read answered 'none' (GES-2.2)
   const [hourAllocationState, setHourAllocationState] = useState<'none' | 'checking' | 'has' | 'error'>(
@@ -432,14 +434,17 @@ export default function ContractForm({ programas, clientes, editingContract, pre
 
   // Fill «Horas contratadas» from the chosen programme, unless the admin typed in the
   // field or an edit loaded a stored value (GES-2.2). An effect, not the select's
-  // onChange: the licitación effect sets programa_id directly.
+  // onChange: the licitación effect sets programa_id directly. In edit mode loading
+  // the contract never fills it: only a programme the admin chooses during the edit
+  // does (send-back 1), so older contracts without hours stay empty until typed.
   const horasStored = editingContract?.horas_contratadas != null;
   useEffect(() => {
     if (horasEdited || horasStored || esManual) return;
+    if (editingContract && !programaChangedInEdit) return;
     const programa = programas.find(p => p.id === contractForm.programa_id);
     const horas = programa && programa.horas_totales != null ? String(programa.horas_totales) : '';
     setContractForm(prev => (prev.horas_contratadas === horas ? prev : { ...prev, horas_contratadas: horas }));
-  }, [contractForm.programa_id, programas, horasEdited, horasStored, esManual]);
+  }, [contractForm.programa_id, programas, horasEdited, horasStored, esManual, editingContract, programaChangedInEdit]);
 
   // In edit mode, read once whether the contract already has a distribution of
   // hours: its total must equal horas_contratadas, so the field is then locked.
@@ -1774,7 +1779,11 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                   </label>
                   <select
                     value={contractForm.programa_id}
-                    onChange={(e) => !licitacionId && setContractForm({ ...contractForm, programa_id: e.target.value })}
+                    onChange={(e) => {
+                      if (licitacionId) return;
+                      if (editingContract) setProgramaChangedInEdit(true);
+                      setContractForm({ ...contractForm, programa_id: e.target.value });
+                    }}
                     disabled={!!licitacionId}
                     className={`w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent ${licitacionId ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                   >

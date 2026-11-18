@@ -1,5 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { getApiUser, createServiceRoleClient, sendAuthError, handleMethodNotAllowed } from '@/lib/api-auth';
+import { getApiUser, createApiSupabaseClient, createServiceRoleClient, sendAuthError, handleMethodNotAllowed } from '@/lib/api-auth';
 import { updatePublishedTemplateSnapshot } from '@/lib/services/assessment-builder/autoAssignmentService';
 import { hasAssessmentReadPermission, hasAssessmentWritePermission } from '@/lib/assessment-permissions';
 import type { IndicatorCategory } from '@/types/assessment-builder';
@@ -24,6 +24,11 @@ const LEVEL_DESCRIPTOR_KEYS = [0, 1, 2, 3, 4].map((n) => ({
 }));
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  // An unsupported method is answered before any read at all.
+  if (req.method !== 'GET' && req.method !== 'PUT' && req.method !== 'DELETE') {
+    return handleMethodNotAllowed(res, ['GET', 'PUT', 'DELETE']);
+  }
+
   const { templateId, moduleId, indicatorId } = req.query;
 
   if (!templateId || typeof templateId !== 'string') {
@@ -44,17 +49,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return sendAuthError(res, 'Autenticación requerida');
   }
 
-  // Use service role client for data operations (auth is handled above)
-  const serviceClient = createServiceRoleClient();
+  // Every read up to the method dispatch, and the GET itself, uses the caller's
+  // own session, as the builder's other routes do: the database's read rule
+  // decides which instruments the caller sees (a hidden instrument and a
+  // missing one both answer «Template no encontrado»). The service client is
+  // used only by the admin-only writes below.
+  const supabaseClient = await createApiSupabaseClient(req, res);
 
   // Read permission check (admin or consultor)
-  const canRead = await hasAssessmentReadPermission(serviceClient, user.id);
+  const canRead = await hasAssessmentReadPermission(supabaseClient, user.id);
   if (!canRead) {
     return res.status(403).json({ error: 'No tienes permiso para acceder al constructor de registros' });
   }
 
-  // Verify template exists
-  const { data: template, error: templateError } = await serviceClient
+  // Verify template exists (and that the caller may read it)
+  const { data: template, error: templateError } = await supabaseClient
     .from('assessment_templates')
     .select('id, status, is_archived')
     .eq('id', templateId)
@@ -65,7 +74,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   // Verify module exists and belongs to template
-  const { data: module, error: moduleError } = await serviceClient
+  const { data: module, error: moduleError } = await supabaseClient
     .from('assessment_modules')
     .select('id, template_id')
     .eq('id', moduleId)
@@ -82,7 +91,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // Verify indicator exists and belongs to module. Select the category-specific
   // columns too so handlePut can validate the effective post-update state without
   // a second round-trip.
-  const { data: indicator, error: indicatorError } = await serviceClient
+  const { data: indicator, error: indicatorError } = await supabaseClient
     .from('assessment_indicators')
     .select('id, module_id, code, name, category, frequency_config, level_0_descriptor, level_1_descriptor, level_2_descriptor, level_3_descriptor, level_4_descriptor, detalle_options')
     .eq('id', indicatorId)
@@ -98,9 +107,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   switch (req.method) {
     case 'GET':
-      return handleGet(req, res, serviceClient, indicatorId);
+      return handleGet(req, res, supabaseClient, indicatorId);
     case 'PUT':
     case 'DELETE': {
+      // Service role client for the admin-only writes (the caller's read of
+      // the instrument above has already admitted the request).
+      const serviceClient = createServiceRoleClient();
       const canWrite = await hasAssessmentWritePermission(serviceClient, user.id);
       if (!canWrite) {
         return res.status(403).json({ error: 'Solo administradores pueden modificar indicadores' });

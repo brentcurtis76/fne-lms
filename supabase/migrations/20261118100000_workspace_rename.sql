@@ -62,12 +62,16 @@ BEGIN
   -- name: control characters ([[:cntrl:]]: tab, line break, U+0001..U+001F,
   -- U+007F..U+009F), the line and paragraph separators U+2028 U+2029, the
   -- direction marks, overrides and isolates U+200E U+200F U+202A..U+202E
-  -- U+2066..U+2069, and the zero-width and joiner characters U+200B..U+200D
-  -- U+2060 U+FEFF. (A zero-width joiner inside an emoji sequence is thereby
-  -- refused too: accepted cost.) And a name needs at least one letter or
+  -- U+2066..U+2069, the zero-width and joiner characters U+200B..U+200D
+  -- U+2060 U+FEFF, and the Hangul fillers U+115F U+1160 U+3164 U+FFA0
+  -- (classed as letters, but they show as blank space). (A zero-width joiner
+  -- inside an emoji sequence is thereby refused too: accepted cost.)
+  -- Variation selectors, tag characters and the soft hyphen are NOT refused:
+  -- they ride on a visible character, and refusing them would refuse
+  -- ordinary emoji such as «❤️» (U+2764 U+FE0F). And a name needs at least one letter or
   -- digit ([[:alnum:]], true for accented and non-Latin letters on a UTF-8
   -- database): an emoji alone, or combining marks alone, are refused.
-  IF v_name ~ '[[:cntrl:]\u2028\u2029\u200E\u200F\u202A-\u202E\u2066-\u2069\u200B-\u200D\u2060\uFEFF]'
+  IF v_name ~ '[[:cntrl:]\u2028\u2029\u200E\u200F\u202A-\u202E\u2066-\u2069\u200B-\u200D\u2060\uFEFF\u115F\u1160\u3164\uFFA0]'
      OR v_name !~ '[[:alnum:]]' THEN
     RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'invalid_name';
   END IF;
@@ -83,4 +87,4 @@ REVOKE ALL ON FUNCTION public.rename_community_workspace(uuid, text) FROM PUBLIC
 GRANT EXECUTE ON FUNCTION public.rename_community_workspace(uuid, text) TO authenticated;
 
 COMMENT ON FUNCTION public.rename_community_workspace(uuid, text) IS
-  'F12c EC-V1a: sets custom_name (stripped at both ends of white space, control and format characters; then 1..100 characters, with at least one letter or digit, and no control character, line or paragraph separator, direction mark, override or isolate, or zero-width or joiner character anywhere, else invalid_name 22023; so an emoji alone is refused, and so is an emoji sequence joined by U+200D, an accepted cost) and updated_at of one community workspace. Allowed: an admin (auth_is_admin) or a caller with an active user_roles row in the workspace''s community whose role_type is not consultor (a consultor does not rename, even through a consultor row naming the community; one who also holds another active role row there renames through that row). A missing workspace or a caller not allowed raises not_allowed (42501); so does no sign-in or a pending forced password change. Changes no other column.';
+  'F12c EC-V1a: sets custom_name (stripped at both ends of white space, control and format characters; then 1..100 characters, with at least one letter or digit, and no control character, line or paragraph separator, direction mark, override or isolate, zero-width or joiner character, or Hangul filler (U+115F, U+1160, U+3164, U+FFA0: classed as letters but shown blank) anywhere, else invalid_name 22023; variation selectors, tag characters and the soft hyphen are not refused, so «Equipo ❤️» (U+2764 U+FE0F) is accepted; so an emoji alone is refused, and so is an emoji sequence joined by U+200D, an accepted cost) and updated_at of one community workspace. Allowed: an admin (auth_is_admin) or a caller with an active user_roles row in the workspace''s community whose role_type is not consultor (a consultor does not rename, even through a consultor row naming the community; one who also holds another active role row there renames through that row). A missing workspace or a caller not allowed raises not_allowed (42501); so does no sign-in or a pending forced password change. Changes no other column.';

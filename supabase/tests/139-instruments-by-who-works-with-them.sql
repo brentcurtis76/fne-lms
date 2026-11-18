@@ -1,0 +1,380 @@
+-- =============================================================================
+-- 139-instruments-by-who-works-with-them.sql — GENERA fixes F1b-2 (N1, part 2).
+-- Proves migration 20261118102000_instruments_by_who_works_with_them.sql:
+-- an instrument is read only by the people who work with it (owner's
+-- decision, 17 Nov 2026):
+--   * STRUCTURE (assessment_templates, assessment_objectives,
+--     assessment_modules, assessment_indicators, assessment_context_questions,
+--     assessment_sub_questions): admins; consultores with a current assignment
+--     to, and the equipo directivo of, a school the instrument is delivered to
+--     (an assessment_instances row of that school made from one of its stored
+--     versions); teachers who are assignees of a registro made from it, in
+--     any state.
+--   * EXPECTED LEVELS (assessment_year_expectations) and STORED VERSIONS
+--     (assessment_template_snapshots): the same admins, consultores and
+--     directivos; teachers only once a registro of theirs made from it has
+--     status 'completed' (sent). A registro is one shared thing: once any of
+--     its assignees has sent it, every assignee reads the levels.
+--   * everybody else (an ended assignment, a demo-access row alone, a teacher
+--     with no registro, anon): nothing.
+-- Personas: admin; consultor assigned to S1; consultor assigned to S2 only;
+-- consultor whose assignment to S1 ended; directivo of S1; directivo of S2;
+-- teacher with an unsent registro of T1 (then the same after sending); a
+-- co-assignee of that registro who did not send it himself; a teacher with no
+-- registro; a person with only a demo-access row; anon.
+-- Instruments: T1 published, delivered to S1; T2 published, delivered to S2
+-- only; T3 a draft (with a leftover stored version, delivered nowhere).
+-- Synthetic fixtures (schools -139001/-139002, grade -139011, uuids
+-- 13900000-…); everything rolls back.
+-- =============================================================================
+
+BEGIN;
+
+SELECT plan(70);
+
+-- -----------------------------------------------------------------------------
+-- Fixtures (postgres)
+-- -----------------------------------------------------------------------------
+SELECT tests.create_supabase_user('n1b_admin');
+SELECT tests.create_supabase_user('n1b_cons1');
+SELECT tests.create_supabase_user('n1b_cons2');
+SELECT tests.create_supabase_user('n1b_cons_ended');
+SELECT tests.create_supabase_user('n1b_dir1');
+SELECT tests.create_supabase_user('n1b_dir2');
+SELECT tests.create_supabase_user('n1b_teacher');
+SELECT tests.create_supabase_user('n1b_coteacher');
+SELECT tests.create_supabase_user('n1b_teacher_none');
+SELECT tests.create_supabase_user('n1b_demo');
+
+INSERT INTO public.profiles (id, email, name, approval_status, must_change_password)
+SELECT tests.get_supabase_uid(x.ident), x.ident || '@test.local', x.ident, 'approved', false
+FROM (VALUES ('n1b_admin'), ('n1b_cons1'), ('n1b_cons2'), ('n1b_cons_ended'), ('n1b_dir1'), ('n1b_dir2'),
+             ('n1b_teacher'), ('n1b_coteacher'), ('n1b_teacher_none'), ('n1b_demo')) AS x(ident);
+
+INSERT INTO public.schools (id, name) VALUES
+  (-139001, 'N1B Synthetic School 1'),
+  (-139002, 'N1B Synthetic School 2');
+
+INSERT INTO public.user_roles (user_id, role_type, school_id, is_active) VALUES
+  (tests.get_supabase_uid('n1b_admin'),        'admin',            NULL,    true),
+  (tests.get_supabase_uid('n1b_cons1'),        'consultor',        NULL,    true),
+  (tests.get_supabase_uid('n1b_cons2'),        'consultor',        NULL,    true),
+  (tests.get_supabase_uid('n1b_cons_ended'),   'consultor',        NULL,    true),
+  (tests.get_supabase_uid('n1b_dir1'),         'equipo_directivo', -139001, true),
+  (tests.get_supabase_uid('n1b_dir2'),         'equipo_directivo', -139002, true),
+  (tests.get_supabase_uid('n1b_teacher'),      'docente',          -139001, true),
+  (tests.get_supabase_uid('n1b_coteacher'),    'docente',          -139001, true),
+  (tests.get_supabase_uid('n1b_teacher_none'), 'docente',          -139001, true);
+-- n1b_demo has no role at all: only a demo-access row (below).
+
+INSERT INTO public.consultant_assignments (consultant_id, school_id, is_active, starts_at, ends_at, assignment_type) VALUES
+  (tests.get_supabase_uid('n1b_cons1'),      -139001, true, now() - interval '30 days', NULL,                     'monitoring'),
+  (tests.get_supabase_uid('n1b_cons2'),      -139002, true, now() - interval '30 days', NULL,                     'monitoring'),
+  (tests.get_supabase_uid('n1b_cons_ended'), -139001, true, now() - interval '30 days', now() - interval '1 day', 'monitoring');
+
+INSERT INTO public.ab_grades (id, name, sort_order) VALUES (-139011, 'N1B Grade', 139011);
+
+INSERT INTO public.assessment_templates (id, area, version, name, status, grade_id) VALUES
+  ('13900000-0000-4000-8000-0000000000e1', 'personalizacion', '1.0', 'N1B T1 publicado, S1', 'published', -139011),
+  ('13900000-0000-4000-8000-0000000000e2', 'aprendizaje',     '1.0', 'N1B T2 publicado, S2', 'published', -139011),
+  ('13900000-0000-4000-8000-0000000000e3', 'evaluacion',      '1.0', 'N1B T3 borrador',      'draft',     -139011);
+
+-- One proceso, práctica, indicador, expected level, context question and
+-- sub-question per instrument (the last hex digit is the instrument).
+INSERT INTO public.assessment_objectives (id, template_id, name, display_order)
+SELECT ('13900000-0000-4000-8000-0000000000a' || n)::uuid, ('13900000-0000-4000-8000-0000000000e' || n)::uuid, 'N1B Proceso ' || n, 1
+FROM generate_series(1, 3) AS n;
+INSERT INTO public.assessment_modules (id, template_id, objective_id, name, display_order)
+SELECT ('13900000-0000-4000-8000-0000000000b' || n)::uuid, ('13900000-0000-4000-8000-0000000000e' || n)::uuid,
+       ('13900000-0000-4000-8000-0000000000a' || n)::uuid, 'N1B Practica ' || n, 1
+FROM generate_series(1, 3) AS n;
+INSERT INTO public.assessment_indicators (id, module_id, name, category, display_order)
+SELECT ('13900000-0000-4000-8000-0000000000c' || n)::uuid, ('13900000-0000-4000-8000-0000000000b' || n)::uuid,
+       'N1B Indicador ' || n, 'cobertura', 1
+FROM generate_series(1, 3) AS n;
+INSERT INTO public.assessment_year_expectations (id, template_id, indicator_id, year_1_expected)
+SELECT ('13900000-0000-4000-8000-0000000000d' || n)::uuid, ('13900000-0000-4000-8000-0000000000e' || n)::uuid,
+       ('13900000-0000-4000-8000-0000000000c' || n)::uuid, 1
+FROM generate_series(1, 3) AS n;
+INSERT INTO public.assessment_context_questions (id, template_id, question_text, question_type, display_order)
+SELECT ('13900000-0000-4000-8000-0000000001d' || n)::uuid, ('13900000-0000-4000-8000-0000000000e' || n)::uuid,
+       'N1B Pregunta de contexto ' || n, 'text', 1
+FROM generate_series(1, 3) AS n;
+INSERT INTO public.assessment_sub_questions (id, indicator_id, question_text, question_type, trigger_condition, display_order)
+SELECT ('13900000-0000-4000-8000-0000000002d' || n)::uuid, ('13900000-0000-4000-8000-0000000000c' || n)::uuid,
+       'N1B Subpregunta ' || n, 'text', '{}', 1
+FROM generate_series(1, 3) AS n;
+
+-- Stored versions: T1 and T2 published; T3 keeps a leftover version that no
+-- registro refers to.
+INSERT INTO public.assessment_template_snapshots (id, template_id, version, snapshot_data)
+SELECT ('13900000-0000-4000-8000-0000000000f' || n)::uuid, ('13900000-0000-4000-8000-0000000000e' || n)::uuid,
+       '1.0', '{"modules": []}'
+FROM generate_series(1, 3) AS n;
+
+-- Registro I1: T1 at S1, in_progress, assignees teacher (sends it) and
+-- co-teacher. Registro I2: T2 at S2, no assignee from these personas.
+INSERT INTO public.assessment_instances (id, template_snapshot_id, school_id, transformation_year, status, started_at) VALUES
+  ('13900000-0000-4000-8000-000000000101', '13900000-0000-4000-8000-0000000000f1', -139001, 1, 'in_progress', now()),
+  ('13900000-0000-4000-8000-000000000102', '13900000-0000-4000-8000-0000000000f2', -139002, 1, 'pending',     NULL);
+
+INSERT INTO public.assessment_instance_assignees (id, instance_id, user_id, can_edit, can_submit) VALUES
+  ('13900000-0000-4000-8000-000000000201', '13900000-0000-4000-8000-000000000101', tests.get_supabase_uid('n1b_teacher'),   true, true),
+  ('13900000-0000-4000-8000-000000000202', '13900000-0000-4000-8000-000000000101', tests.get_supabase_uid('n1b_coteacher'), true, false);
+
+INSERT INTO public.assessment_demo_access (template_id, user_id, granted_by) VALUES
+  ('13900000-0000-4000-8000-0000000000e1', tests.get_supabase_uid('n1b_demo'), tests.get_supabase_uid('n1b_admin'));
+
+-- What the caller reads of instrument n, one count per table, in this order:
+-- {templates, objectives, modules, indicators, context questions,
+--  sub-questions, expected levels, stored versions}.
+CREATE FUNCTION pg_temp.n1b_reads(n int) RETURNS int[] LANGUAGE sql AS $$
+  SELECT ARRAY[
+    (SELECT count(*)::int FROM public.assessment_templates         WHERE id = ('13900000-0000-4000-8000-0000000000e' || n)::uuid),
+    (SELECT count(*)::int FROM public.assessment_objectives        WHERE id = ('13900000-0000-4000-8000-0000000000a' || n)::uuid),
+    (SELECT count(*)::int FROM public.assessment_modules           WHERE id = ('13900000-0000-4000-8000-0000000000b' || n)::uuid),
+    (SELECT count(*)::int FROM public.assessment_indicators        WHERE id = ('13900000-0000-4000-8000-0000000000c' || n)::uuid),
+    (SELECT count(*)::int FROM public.assessment_context_questions WHERE id = ('13900000-0000-4000-8000-0000000001d' || n)::uuid),
+    (SELECT count(*)::int FROM public.assessment_sub_questions     WHERE id = ('13900000-0000-4000-8000-0000000002d' || n)::uuid),
+    (SELECT count(*)::int FROM public.assessment_year_expectations WHERE id = ('13900000-0000-4000-8000-0000000000d' || n)::uuid),
+    (SELECT count(*)::int FROM public.assessment_template_snapshots WHERE id = ('13900000-0000-4000-8000-0000000000f' || n)::uuid)]
+$$;
+
+-- -----------------------------------------------------------------------------
+-- Real reads, per persona and instrument
+-- -----------------------------------------------------------------------------
+SELECT tests.authenticate_as('n1b_admin');
+SELECT is(pg_temp.n1b_reads(1), ARRAY[1,1,1,1,1,1,1,1], 'admin: reads all of T1');
+SELECT is(pg_temp.n1b_reads(2), ARRAY[1,1,1,1,1,1,1,1], 'admin: reads all of T2');
+SELECT is(pg_temp.n1b_reads(3), ARRAY[1,1,1,1,1,1,1,1], 'admin: reads all of the draft T3');
+RESET ROLE;
+
+SELECT tests.authenticate_as('n1b_cons1');
+SELECT is(pg_temp.n1b_reads(1), ARRAY[1,1,1,1,1,1,1,1], 'consultor assigned to S1: reads all of T1 (delivered to S1)');
+SELECT is(pg_temp.n1b_reads(2), ARRAY[0,0,0,0,0,0,0,0], 'consultor assigned to S1: reads nothing of T2 (delivered only to S2)');
+SELECT is(pg_temp.n1b_reads(3), ARRAY[0,0,0,0,0,0,0,0], 'consultor assigned to S1: reads nothing of the draft T3');
+RESET ROLE;
+
+SELECT tests.authenticate_as('n1b_cons2');
+SELECT is(pg_temp.n1b_reads(1), ARRAY[0,0,0,0,0,0,0,0], 'consultor assigned to S2 only: reads nothing of T1');
+SELECT is(pg_temp.n1b_reads(2), ARRAY[1,1,1,1,1,1,1,1], 'consultor assigned to S2 only: reads all of T2');
+SELECT is(pg_temp.n1b_reads(3), ARRAY[0,0,0,0,0,0,0,0], 'consultor assigned to S2 only: reads nothing of the draft T3');
+RESET ROLE;
+
+SELECT tests.authenticate_as('n1b_cons_ended');
+SELECT is(pg_temp.n1b_reads(1), ARRAY[0,0,0,0,0,0,0,0], 'consultor whose assignment to S1 ended: reads nothing of T1');
+SELECT is(pg_temp.n1b_reads(2), ARRAY[0,0,0,0,0,0,0,0], 'consultor whose assignment to S1 ended: reads nothing of T2');
+SELECT is(pg_temp.n1b_reads(3), ARRAY[0,0,0,0,0,0,0,0], 'consultor whose assignment to S1 ended: reads nothing of T3');
+RESET ROLE;
+
+SELECT tests.authenticate_as('n1b_dir1');
+SELECT is(pg_temp.n1b_reads(1), ARRAY[1,1,1,1,1,1,1,1], 'directivo of S1: reads all of T1');
+SELECT is(pg_temp.n1b_reads(2), ARRAY[0,0,0,0,0,0,0,0], 'directivo of S1: reads nothing of T2');
+SELECT is(pg_temp.n1b_reads(3), ARRAY[0,0,0,0,0,0,0,0], 'directivo of S1: reads nothing of the draft T3');
+RESET ROLE;
+
+SELECT tests.authenticate_as('n1b_dir2');
+SELECT is(pg_temp.n1b_reads(1), ARRAY[0,0,0,0,0,0,0,0], 'directivo of S2: reads nothing of T1');
+SELECT is(pg_temp.n1b_reads(2), ARRAY[1,1,1,1,1,1,1,1], 'directivo of S2: reads all of T2');
+SELECT is(pg_temp.n1b_reads(3), ARRAY[0,0,0,0,0,0,0,0], 'directivo of S2: reads nothing of the draft T3');
+RESET ROLE;
+
+SELECT tests.authenticate_as('n1b_teacher');
+SELECT is(pg_temp.n1b_reads(1), ARRAY[1,1,1,1,1,1,0,0],
+  'teacher with an unsent registro of T1: reads its structure, NOT its expected levels, NOT its stored version');
+SELECT is(pg_temp.n1b_reads(2), ARRAY[0,0,0,0,0,0,0,0], 'teacher with an unsent registro of T1: reads nothing of T2');
+SELECT is(pg_temp.n1b_reads(3), ARRAY[0,0,0,0,0,0,0,0], 'teacher with an unsent registro of T1: reads nothing of T3');
+-- The registro itself stays readable to its teacher (rule unchanged).
+SELECT is((SELECT status FROM public.assessment_instances WHERE id = '13900000-0000-4000-8000-000000000101'),
+  'in_progress', 'teacher with an unsent registro: still reads the registro itself');
+RESET ROLE;
+
+SELECT tests.authenticate_as('n1b_coteacher');
+SELECT is(pg_temp.n1b_reads(1), ARRAY[1,1,1,1,1,1,0,0],
+  'co-assignee of the unsent registro of T1: reads its structure, not its levels nor its stored version');
+RESET ROLE;
+
+SELECT tests.authenticate_as('n1b_teacher_none');
+SELECT is(pg_temp.n1b_reads(1), ARRAY[0,0,0,0,0,0,0,0], 'teacher with no registro: reads nothing of T1');
+SELECT is(pg_temp.n1b_reads(2), ARRAY[0,0,0,0,0,0,0,0], 'teacher with no registro: reads nothing of T2');
+SELECT is(pg_temp.n1b_reads(3), ARRAY[0,0,0,0,0,0,0,0], 'teacher with no registro: reads nothing of T3');
+RESET ROLE;
+
+SELECT tests.authenticate_as('n1b_demo');
+SELECT is(pg_temp.n1b_reads(1), ARRAY[0,0,0,0,0,0,0,0], 'person with only a demo-access row for T1: reads nothing of T1 directly (the demo goes through its route)');
+SELECT is(pg_temp.n1b_reads(2), ARRAY[0,0,0,0,0,0,0,0], 'person with only a demo-access row: reads nothing of T2');
+SELECT is(pg_temp.n1b_reads(3), ARRAY[0,0,0,0,0,0,0,0], 'person with only a demo-access row: reads nothing of T3');
+RESET ROLE;
+
+SELECT tests.clear_authentication();
+SELECT set_config('role', 'anon', true);
+SELECT is(pg_temp.n1b_reads(1), ARRAY[0,0,0,0,0,0,0,0], 'anon: reads nothing of T1');
+SELECT is(pg_temp.n1b_reads(2), ARRAY[0,0,0,0,0,0,0,0], 'anon: reads nothing of T2');
+SELECT is(pg_temp.n1b_reads(3), ARRAY[0,0,0,0,0,0,0,0], 'anon: reads nothing of T3');
+RESET ROLE;
+
+-- The teacher sends the registro (the route's own update, with the teacher's
+-- session: in_progress -> completed, the same thing submit.ts does before it
+-- calls scoring).
+SELECT tests.authenticate_as('n1b_teacher');
+WITH u AS (UPDATE public.assessment_instances SET status = 'completed', completed_at = now()
+           WHERE id = '13900000-0000-4000-8000-000000000101' RETURNING 1)
+SELECT is((SELECT count(*)::int FROM u), 1, 'teacher: sending the registro of T1 changes 1 row');
+SELECT is(pg_temp.n1b_reads(1), ARRAY[1,1,1,1,1,1,1,1],
+  'teacher after sending: reads T1''s structure, its expected levels and its stored version');
+SELECT is(pg_temp.n1b_reads(2), ARRAY[0,0,0,0,0,0,0,0], 'teacher after sending: still reads nothing of T2');
+SELECT is(pg_temp.n1b_reads(3), ARRAY[0,0,0,0,0,0,0,0], 'teacher after sending: still reads nothing of T3');
+-- What scoring reads with the teacher's own client right after sending
+-- (scoringService fetchInstanceDataForScoring): the instance with its stored
+-- version (inner join) and the instrument's expected levels.
+SELECT is(
+  (SELECT count(*)::int FROM public.assessment_instances i
+     JOIN public.assessment_template_snapshots s ON s.id = i.template_snapshot_id
+    WHERE i.id = '13900000-0000-4000-8000-000000000101'),
+  1, 'teacher after sending: the instance with its stored version reads as one row (scoring''s inner join)');
+SELECT is((SELECT count(*)::int FROM public.assessment_year_expectations
+            WHERE template_id = '13900000-0000-4000-8000-0000000000e1'),
+  1, 'teacher after sending: reads the expected levels of T1 (scoring''s read)');
+RESET ROLE;
+
+-- The co-assignee did not send it himself (his own has_submitted is false),
+-- but the registro is sent for all of its assignees.
+SELECT is((SELECT has_submitted FROM public.assessment_instance_assignees WHERE id = '13900000-0000-4000-8000-000000000202'),
+  false, 'as postgres: the co-assignee''s own has_submitted flag is still false');
+SELECT tests.authenticate_as('n1b_coteacher');
+SELECT is(pg_temp.n1b_reads(1), ARRAY[1,1,1,1,1,1,1,1],
+  'co-assignee after the registro was sent by the other teacher: reads T1''s levels and stored version too');
+RESET ROLE;
+
+-- Nothing else changed for the others after the send.
+SELECT tests.authenticate_as('n1b_teacher_none');
+SELECT is(pg_temp.n1b_reads(1), ARRAY[0,0,0,0,0,0,0,0], 'teacher with no registro, after the send: still reads nothing of T1');
+RESET ROLE;
+SELECT tests.authenticate_as('n1b_cons2');
+SELECT is(pg_temp.n1b_reads(1), ARRAY[0,0,0,0,0,0,0,0], 'consultor of S2, after the send: still reads nothing of T1');
+RESET ROLE;
+
+-- A whole-table read gives only the readable instruments (no error, no extra
+-- rows): the builder's list as consultor of S1, as admin.
+SELECT tests.authenticate_as('n1b_cons1');
+SELECT is(
+  (SELECT array_agg(id::text ORDER BY id) FROM public.assessment_templates WHERE id::text LIKE '13900000-%'),
+  ARRAY['13900000-0000-4000-8000-0000000000e1'],
+  'consultor of S1: the list of instruments holds T1 only');
+RESET ROLE;
+SELECT tests.authenticate_as('n1b_admin');
+SELECT is(
+  (SELECT count(*)::int FROM public.assessment_templates WHERE id::text LIKE '13900000-%'),
+  3, 'admin: the list of instruments holds T1, T2 and T3');
+RESET ROLE;
+
+-- -----------------------------------------------------------------------------
+-- The two helpers
+-- -----------------------------------------------------------------------------
+SELECT has_function('public', 'auth_readable_template_ids', ARRAY[]::name[], 'auth_readable_template_ids() exists');
+SELECT has_function('public', 'auth_readable_template_level_ids', ARRAY[]::name[], 'auth_readable_template_level_ids() exists');
+SELECT is_definer('public', 'auth_readable_template_ids', ARRAY[]::name[], 'auth_readable_template_ids() is SECURITY DEFINER');
+SELECT is_definer('public', 'auth_readable_template_level_ids', ARRAY[]::name[], 'auth_readable_template_level_ids() is SECURITY DEFINER');
+SELECT volatility_is('public', 'auth_readable_template_ids', ARRAY[]::name[], 'stable', 'auth_readable_template_ids() is STABLE');
+SELECT volatility_is('public', 'auth_readable_template_level_ids', ARRAY[]::name[], 'stable', 'auth_readable_template_level_ids() is STABLE');
+SELECT ok(
+  EXISTS (SELECT 1 FROM pg_proc p, unnest(p.proconfig) AS cfg
+           WHERE p.pronamespace = 'public'::regnamespace AND p.proname = 'auth_readable_template_ids'
+             AND cfg = 'search_path=public, pg_temp'),
+  'auth_readable_template_ids() pins search_path = public, pg_temp');
+SELECT ok(
+  EXISTS (SELECT 1 FROM pg_proc p, unnest(p.proconfig) AS cfg
+           WHERE p.pronamespace = 'public'::regnamespace AND p.proname = 'auth_readable_template_level_ids'
+             AND cfg = 'search_path=public, pg_temp'),
+  'auth_readable_template_level_ids() pins search_path = public, pg_temp');
+SELECT function_privs_are('public', 'auth_readable_template_ids', ARRAY[]::name[], 'anon', ARRAY[]::name[],
+  'anon cannot execute auth_readable_template_ids()');
+SELECT function_privs_are('public', 'auth_readable_template_level_ids', ARRAY[]::name[], 'anon', ARRAY[]::name[],
+  'anon cannot execute auth_readable_template_level_ids()');
+SELECT function_privs_are('public', 'auth_readable_template_ids', ARRAY[]::name[], 'authenticated', ARRAY['EXECUTE']::name[],
+  'authenticated can execute auth_readable_template_ids()');
+SELECT function_privs_are('public', 'auth_readable_template_level_ids', ARRAY[]::name[], 'authenticated', ARRAY['EXECUTE']::name[],
+  'authenticated can execute auth_readable_template_level_ids()');
+SELECT function_privs_are('public', 'auth_readable_template_ids', ARRAY[]::name[], 'service_role', ARRAY['EXECUTE']::name[],
+  'service_role can execute auth_readable_template_ids()');
+SELECT function_privs_are('public', 'auth_readable_template_level_ids', ARRAY[]::name[], 'service_role', ARRAY['EXECUTE']::name[],
+  'service_role can execute auth_readable_template_level_ids()');
+SELECT ok(
+  (SELECT obj_description(p.oid, 'pg_proc') IS NOT NULL FROM pg_proc p
+    WHERE p.pronamespace = 'public'::regnamespace AND p.proname = 'auth_readable_template_ids'),
+  'auth_readable_template_ids() has a COMMENT');
+SELECT ok(
+  (SELECT obj_description(p.oid, 'pg_proc') IS NOT NULL FROM pg_proc p
+    WHERE p.pronamespace = 'public'::regnamespace AND p.proname = 'auth_readable_template_level_ids'),
+  'auth_readable_template_level_ids() has a COMMENT');
+
+-- -----------------------------------------------------------------------------
+-- The eight read rules keep their names and commands, apply to authenticated
+-- only, and ask the helper (structure or levels) in an uncorrelated sub-select
+-- -----------------------------------------------------------------------------
+SELECT is(
+  (SELECT array_agg(tablename || '.' || policyname || ':' || cmd || ':' || array_to_string(roles, ',') || ':' ||
+                    CASE WHEN qual LIKE '%auth_readable_template_level_ids()%' THEN 'levels'
+                         WHEN qual LIKE '%auth_readable_template_ids()%' THEN 'structure'
+                         ELSE 'other' END
+                    ORDER BY tablename)
+     FROM pg_policies
+    WHERE schemaname = 'public'
+      AND (tablename, policyname) IN (
+        ('assessment_templates', 'assessment_templates_select_admin_consultor'),
+        ('assessment_objectives', 'assessment_objectives_select_authenticated'),
+        ('assessment_modules', 'assessment_modules_select'),
+        ('assessment_indicators', 'assessment_indicators_select'),
+        ('assessment_context_questions', 'assessment_context_questions_select'),
+        ('assessment_sub_questions', 'assessment_sub_questions_select'),
+        ('assessment_year_expectations', 'assessment_year_expectations_select'),
+        ('assessment_template_snapshots', 'assessment_template_snapshots_select'))),
+  ARRAY['assessment_context_questions.assessment_context_questions_select:SELECT:authenticated:structure',
+        'assessment_indicators.assessment_indicators_select:SELECT:authenticated:structure',
+        'assessment_modules.assessment_modules_select:SELECT:authenticated:structure',
+        'assessment_objectives.assessment_objectives_select_authenticated:SELECT:authenticated:structure',
+        'assessment_sub_questions.assessment_sub_questions_select:SELECT:authenticated:structure',
+        'assessment_template_snapshots.assessment_template_snapshots_select:SELECT:authenticated:levels',
+        'assessment_templates.assessment_templates_select_admin_consultor:SELECT:authenticated:structure',
+        'assessment_year_expectations.assessment_year_expectations_select:SELECT:authenticated:levels'],
+  'the eight select rules keep their names, are for authenticated only, and use the structure or the levels helper');
+SELECT is(
+  (SELECT count(*)::int FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename IN ('assessment_templates', 'assessment_objectives', 'assessment_modules', 'assessment_indicators',
+                        'assessment_context_questions', 'assessment_sub_questions', 'assessment_year_expectations',
+                        'assessment_template_snapshots')),
+  32, 'the eight tables still hold their 32 rules (no rule created or removed)');
+
+-- -----------------------------------------------------------------------------
+-- The helpers answer about the caller only, nothing without a sign-in
+-- -----------------------------------------------------------------------------
+SELECT tests.clear_authentication();
+SELECT is((SELECT count(*)::int FROM public.auth_readable_template_ids()), 0,
+  'auth_readable_template_ids(): no sign-in, no instrument');
+SELECT is((SELECT count(*)::int FROM public.auth_readable_template_level_ids()), 0,
+  'auth_readable_template_level_ids(): no sign-in, no instrument');
+SELECT tests.authenticate_as('n1b_teacher_none');
+SELECT is((SELECT count(*)::int FROM public.auth_readable_template_ids() AS t(id) WHERE t.id::text LIKE '13900000-%'), 0,
+  'auth_readable_template_ids() as a teacher with no registro: none of the fixture instruments');
+RESET ROLE;
+SELECT tests.authenticate_as('n1b_cons1');
+SELECT is((SELECT array_agg(t.id::text) FROM public.auth_readable_template_ids() AS t(id) WHERE t.id::text LIKE '13900000-%'),
+  ARRAY['13900000-0000-4000-8000-0000000000e1'], 'auth_readable_template_ids() as consultor of S1: T1 only');
+SELECT is((SELECT array_agg(t.id::text) FROM public.auth_readable_template_level_ids() AS t(id) WHERE t.id::text LIKE '13900000-%'),
+  ARRAY['13900000-0000-4000-8000-0000000000e1'], 'auth_readable_template_level_ids() as consultor of S1: T1 only');
+RESET ROLE;
+SELECT tests.authenticate_as('n1b_admin');
+SELECT is((SELECT count(*)::int FROM public.auth_readable_template_ids()), (SELECT count(*)::int FROM public.assessment_templates),
+  'auth_readable_template_ids() as admin: every instrument');
+SELECT is((SELECT count(*)::int FROM public.auth_readable_template_level_ids()), (SELECT count(*)::int FROM public.assessment_templates),
+  'auth_readable_template_level_ids() as admin: every instrument');
+RESET ROLE;
+SELECT tests.clear_authentication();
+SELECT set_config('role', 'anon', true);
+SELECT throws_ok('SELECT count(*) FROM public.auth_readable_template_ids()', '42501', NULL,
+  'anon: calling auth_readable_template_ids() is refused (42501)');
+RESET ROLE;
+
+SELECT * FROM finish();
+ROLLBACK;

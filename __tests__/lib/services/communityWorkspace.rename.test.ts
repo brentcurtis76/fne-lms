@@ -45,7 +45,7 @@ describe('EC-V1b renameWorkspace', () => {
 
   it.each([
     ['not_allowed', '42501', 'Solo los miembros de la comunidad pueden cambiar su nombre.'],
-    ['invalid_name', '22023', 'El nombre debe tener entre 1 y 100 caracteres.'],
+    ['invalid_name', '22023', 'El nombre debe tener entre 1 y 100 caracteres, con al menos una letra o un número, sin caracteres invisibles.'],
     ['Cannot coerce the result to a single JSON object', 'PGRST116', 'No se pudo guardar. Inténtalo de nuevo.'],
     ['permission denied for function rename_community_workspace', '42501', 'No se pudo guardar. Inténtalo de nuevo.'],
   ])('the database answer «%s» becomes a plain message', async (message, code, expected) => {

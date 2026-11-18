@@ -197,14 +197,26 @@ describe('path predicates', () => {
     expect(isForcedChangeGatedPath('/usernames')).toBe(false);
   });
 
-  it('requiresSessionPresence covers only the ORIGINAL five prefixes', () => {
+  it('requiresSessionPresence covers only the eight listed prefixes', () => {
     // The broadened matcher must not start bouncing anonymous visitors off
-    // pages that used to render for them.
+    // pages that used to render for them. The original five, plus the three
+    // learner areas added on 18 Nov 2026 (F15b: N66, N83).
     expect(requiresSessionPresence('/admin/users')).toBe(true);
     expect(requiresSessionPresence('/community/workspace/1')).toBe(true);
     expect(requiresSessionPresence('/school/change-history')).toBe(true);
     expect(requiresSessionPresence('/meet/session/1')).toBe(true);
     expect(requiresSessionPresence('/consultor')).toBe(true);
+
+    expect(requiresSessionPresence('/student/lesson/abc')).toBe(true);
+    expect(requiresSessionPresence('/student')).toBe(true);
+    expect(requiresSessionPresence('/mi-aprendizaje/tareas')).toBe(true);
+    expect(requiresSessionPresence('/mi-aprendizaje/ruta/abc')).toBe(true);
+    expect(requiresSessionPresence('/quiz-reviews')).toBe(true);
+    expect(requiresSessionPresence('/quiz-reviews/abc')).toBe(true);
+
+    expect(requiresSessionPresence('/studentx')).toBe(false);
+    expect(requiresSessionPresence('/mi-aprendizaje-x')).toBe(false);
+    expect(requiresSessionPresence('/quiz-reviewsx')).toBe(false);
 
     expect(requiresSessionPresence('/dashboard')).toBe(false);
     expect(requiresSessionPresence('/profile')).toBe(false);
@@ -406,6 +418,18 @@ describe('session invalidation and expiry', () => {
       expect(res.status).toBe(200);
     }
   });
+
+  // F15b (N66, N83): the three learner areas now send a visitor to sign in,
+  // carrying the path asked for, before their screens load.
+  for (const path of ['/student/lesson/abc', '/mi-aprendizaje/tareas', '/quiz-reviews/abc']) {
+    it(`an absent session on ${path} redirects to /login with next=${path}`, async () => {
+      const res = await run(path, buildSupabase({ session: null, roles: null }));
+      expect(isRedirect(res)).toBe(true);
+      const location = new URL(res.headers.get('location') as string);
+      expect(location.pathname).toBe('/login');
+      expect(location.searchParams.get('next')).toBe(path);
+    });
+  }
 
   it('an absent session on a public API is untouched — cron, webhooks, signup forms', async () => {
     for (const path of ['/api/cron/session-reminders', '/api/zoom/webhook', '/api/registro-signup']) {

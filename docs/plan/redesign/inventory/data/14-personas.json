@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "45d07ead51e5a3eec09ca6796bd72980883bc2d6",
-  "date": "2026-11-17T19:02:40-03:00"
+  "commit": "0a7ad8795b419990468bad9197d27dd375a392a3",
+  "date": "2026-11-18T14:19:15-03:00"
  },
  "screens": [
   {
@@ -5083,7 +5083,7 @@
   {
    "file": "pages/admin/user-management.tsx",
    "route": "/admin/user-management",
-   "lines": 1088,
+   "lines": 1028,
    "marks": {},
    "frame": "MainLayout",
    "server": "none",
@@ -5144,27 +5144,27 @@
     },
     "inPage": [
      {
-      "line": 339,
+      "line": 321,
       "text": "router.push → /login  (when !session?.user)"
      },
      {
-      "line": 354,
+      "line": 336,
       "text": "userRole = await getUserPrimaryRole(session.user.id)"
      },
      {
-      "line": 355,
+      "line": 337,
       "text": "adminRole = metadataHasRole(userData?.user?.user_metadata, 'admin') || userRole === 'admin'"
      },
      {
-      "line": 358,
+      "line": 340,
       "text": "router.push → /dashboard  (when !adminRole)"
      },
      {
-      "line": 736,
+      "line": 676,
       "text": "router.push → /login"
      },
      {
-      "line": 801,
+      "line": 741,
       "text": "Solo administradores pueden acceder a la gestión de usuarios."
      }
     ],
@@ -5209,13 +5209,15 @@
       "tests/e2e/auth-lifecycle.spec.ts"
      ],
      "e2e": [],
-     "unit": []
+     "unit": [
+      "__tests__/pages/admin/user-management.expense-access.test.tsx"
+     ]
     }
    },
    "rows": [
     {
      "kind": "message",
-     "line": 177,
+     "line": 175,
      "in": "UserManagement",
      "when": "!response.ok",
      "text": "Failed to fetch users",
@@ -5223,22 +5225,14 @@
     },
     {
      "kind": "toast",
-     "line": 191,
-     "in": "UserManagement",
-     "when": "expenseAccessError",
-     "text": "No se pudo cargar el acceso a reportes de gastos",
-     "variant": "error"
-    },
-    {
-     "kind": "toast",
-     "line": 223,
+     "line": 205,
      "in": "UserManagement",
      "text": "Error al cargar usuarios",
      "variant": "error"
     },
     {
      "kind": "message",
-     "line": 247,
+     "line": 229,
      "in": "handleApproveUser",
      "when": "!session?.access_token",
      "text": "No authentication token available",
@@ -5246,7 +5240,7 @@
     },
     {
      "kind": "message",
-     "line": 266,
+     "line": 248,
      "in": "handleApproveUser",
      "when": "!response.ok",
      "text": "Failed to approve user",
@@ -5254,21 +5248,21 @@
     },
     {
      "kind": "toast",
-     "line": 269,
+     "line": 251,
      "in": "handleApproveUser",
      "text": "Usuario aprobado correctamente",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 274,
+     "line": 256,
      "in": "handleApproveUser",
      "text": "Error al aprobar usuario:",
      "variant": "error"
     },
     {
      "kind": "message",
-     "line": 303,
+     "line": 285,
      "in": "handleRejectUser",
      "when": "!session?.access_token",
      "text": "No authentication token available",
@@ -5276,7 +5270,7 @@
     },
     {
      "kind": "message",
-     "line": 322,
+     "line": 304,
      "in": "handleRejectUser",
      "when": "!response.ok",
      "text": "Failed to reject user",
@@ -5284,21 +5278,21 @@
     },
     {
      "kind": "toast",
-     "line": 325,
+     "line": 307,
      "in": "handleRejectUser",
      "text": "Usuario rechazado",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 330,
+     "line": 312,
      "in": "handleRejectUser",
      "text": "Error al rechazar usuario:",
      "variant": "error"
     },
     {
      "kind": "nav",
-     "line": 339,
+     "line": 321,
      "in": "checkAdminAndFetchUsers",
      "when": "!session?.user",
      "text": "/login",
@@ -5306,21 +5300,21 @@
     },
     {
      "kind": "access",
-     "line": 354,
+     "line": 336,
      "in": "checkAdminAndFetchUsers",
      "text": "userRole = await getUserPrimaryRole(session.user.id)",
      "via": "getUserPrimaryRole"
     },
     {
      "kind": "access",
-     "line": 355,
+     "line": 337,
      "in": "checkAdminAndFetchUsers",
      "text": "adminRole = metadataHasRole(userData?.user?.user_metadata, 'admin') || userRole === 'admin'",
      "via": "metadataHasRole"
     },
     {
      "kind": "nav",
-     "line": 358,
+     "line": 340,
      "in": "checkAdminAndFetchUsers",
      "when": "!adminRole",
      "text": "/dashboard",
@@ -5328,7 +5322,7 @@
     },
     {
      "kind": "message",
-     "line": 441,
+     "line": 423,
      "in": "handleRoleChange",
      "when": "!session?.access_token",
      "text": "No authentication token available",
@@ -5336,14 +5330,14 @@
     },
     {
      "kind": "message",
-     "line": 464,
+     "line": 446,
      "in": "handleRoleChange",
      "text": "Invalid response from server: {responseText.substring(0, 1…}...",
      "via": "throw (shown by whoever catches it)"
     },
     {
      "kind": "message",
-     "line": 468,
+     "line": 450,
      "in": "handleRoleChange",
      "when": "!response.ok",
      "text": "Server error: {response.status}",
@@ -5351,44 +5345,21 @@
     },
     {
      "kind": "toast",
-     "line": 476,
+     "line": 458,
      "in": "handleRoleChange",
      "text": "Rol actualizado a {newRole}",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 488,
+     "line": 470,
      "in": "handleRoleChange",
      "text": "Error al actualizar rol: {error.message}",
      "variant": "error"
     },
     {
-     "kind": "list",
-     "line": 504,
-     "in": "handleToggleExpenseAccess",
-     "text": "note",
-     "items": [
-      "Acceso habilitado desde panel de administración / Acceso deshabilitado desde panel de administración"
-     ]
-    },
-    {
-     "kind": "toast",
-     "line": 528,
-     "in": "handleToggleExpenseAccess",
-     "text": "Acceso a reportes de gastos habilitado / Acceso a reportes de gastos deshabilitado",
-     "variant": "success"
-    },
-    {
-     "kind": "toast",
-     "line": 533,
-     "in": "handleToggleExpenseAccess",
-     "text": "No se pudo actualizar el acceso a reportes de gastos",
-     "variant": "error"
-    },
-    {
      "kind": "message",
-     "line": 554,
+     "line": 494,
      "in": "handleConfirmDelete",
      "when": "!session?.access_token",
      "text": "No authentication token available",
@@ -5396,14 +5367,14 @@
     },
     {
      "kind": "message",
-     "line": 576,
+     "line": 516,
      "in": "handleConfirmDelete",
      "text": "Invalid response from server: {responseText.substring(0, 1…}...",
      "via": "throw (shown by whoever catches it)"
     },
     {
      "kind": "message",
-     "line": 580,
+     "line": 520,
      "in": "handleConfirmDelete",
      "when": "!response.ok",
      "text": "Server error: {response.status}",
@@ -5411,21 +5382,21 @@
     },
     {
      "kind": "toast",
-     "line": 589,
+     "line": 529,
      "in": "handleConfirmDelete",
      "text": "Usuario eliminado correctamente",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 606,
+     "line": 546,
      "in": "handleConfirmDelete",
      "text": "Error al eliminar usuario: {error.message}",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 625,
+     "line": 565,
      "in": "handleAddUser",
      "when": "!newUserEmail.trim() || !newUserPassword.trim()",
      "text": "Email y contraseña son obligatorios",
@@ -5433,7 +5404,7 @@
     },
     {
      "kind": "toast",
-     "line": 643,
+     "line": 583,
      "in": "handleAddUser",
      "when": "passwordError",
      "text": "{passwordError}",
@@ -5441,7 +5412,7 @@
     },
     {
      "kind": "message",
-     "line": 660,
+     "line": 600,
      "in": "handleAddUser",
      "when": "!session",
      "text": "No active session",
@@ -5449,7 +5420,7 @@
     },
     {
      "kind": "message",
-     "line": 682,
+     "line": 622,
      "in": "handleAddUser",
      "when": "!response.ok",
      "text": "Failed to create user",
@@ -5457,7 +5428,7 @@
     },
     {
      "kind": "toast",
-     "line": 696,
+     "line": 636,
      "in": "handleAddUser",
      "when": "result.success && result.user",
      "text": "Usuario creado correctamente. El usuario deberá cambiar su contraseña en el primer inicio de sesión.",
@@ -5465,35 +5436,35 @@
     },
     {
      "kind": "toast",
-     "line": 717,
+     "line": 657,
      "in": "handleAddUser",
      "text": "Error al crear usuario: {errorMessage}",
      "variant": "error"
     },
     {
      "kind": "hook",
-     "line": 734,
+     "line": 674,
      "in": "handleLogout",
      "text": "localStorage: rememberMe",
      "type": "storage"
     },
     {
      "kind": "hook",
-     "line": 735,
+     "line": 675,
      "in": "handleLogout",
      "text": "sessionStorage: sessionOnly",
      "type": "storage"
     },
     {
      "kind": "nav",
-     "line": 736,
+     "line": 676,
      "in": "handleLogout",
      "text": "/login",
      "via": "router.push"
     },
     {
      "kind": "message",
-     "line": 742,
+     "line": 682,
      "in": "handlePasswordReset",
      "when": "!session",
      "text": "No session found",
@@ -5501,7 +5472,7 @@
     },
     {
      "kind": "message",
-     "line": 759,
+     "line": 699,
      "in": "handlePasswordReset",
      "when": "!response.ok",
      "text": "Failed to reset password",
@@ -5509,7 +5480,7 @@
     },
     {
      "kind": "piece",
-     "line": 767,
+     "line": 707,
      "in": "UserManagement",
      "when": "loading",
      "text": "pageTitle: Gestión de Usuarios",
@@ -5517,14 +5488,14 @@
     },
     {
      "kind": "text",
-     "line": 778,
+     "line": 718,
      "in": "UserManagement",
      "when": "loading",
      "text": "Cargando usuarios..."
     },
     {
      "kind": "piece",
-     "line": 787,
+     "line": 727,
      "in": "UserManagement",
      "when": "!isAdmin",
      "text": "pageTitle: Acceso Denegado",
@@ -5532,7 +5503,7 @@
     },
     {
      "kind": "heading",
-     "line": 800,
+     "line": 740,
      "in": "UserManagement",
      "when": "!isAdmin",
      "text": "Acceso Denegado",
@@ -5540,7 +5511,7 @@
     },
     {
      "kind": "text",
-     "line": 801,
+     "line": 741,
      "in": "UserManagement",
      "when": "!isAdmin",
      "text": "Solo administradores pueden acceder a la gestión de usuarios.",
@@ -5548,27 +5519,27 @@
     },
     {
      "kind": "piece",
-     "line": 810,
+     "line": 750,
      "in": "UserManagement",
      "text": "",
      "tag": "MainLayout"
     },
     {
      "kind": "piece",
-     "line": 819,
+     "line": 759,
      "in": "UserManagement",
      "text": "",
      "tag": "UnifiedUserManagement"
     },
     {
      "kind": "text",
-     "line": 856,
+     "line": 796,
      "in": "UserManagement",
      "text": "No hay usuarios para mostrar / Mostrando {pageStart}-{pageEnd} de {totalUsers} usuarios"
     },
     {
      "kind": "button",
-     "line": 860,
+     "line": 800,
      "in": "UserManagement",
      "text": "Anterior",
      "action": "{() => handlePageChange(currentPage - 1)}",
@@ -5576,13 +5547,13 @@
     },
     {
      "kind": "text",
-     "line": 867,
+     "line": 807,
      "in": "UserManagement",
      "text": "Página {currentPage} de {totalPages}"
     },
     {
      "kind": "button",
-     "line": 868,
+     "line": 808,
      "in": "UserManagement",
      "text": "Siguiente",
      "action": "{() => handlePageChange(currentPage + 1)}",
@@ -5590,7 +5561,7 @@
     },
     {
      "kind": "popup",
-     "line": 881,
+     "line": 821,
      "in": "UserManagement",
      "when": "showAddForm",
      "text": "Crear Nuevo Usuario",
@@ -5598,7 +5569,7 @@
     },
     {
      "kind": "heading",
-     "line": 884,
+     "line": 824,
      "in": "UserManagement",
      "when": "showAddForm",
      "text": "Crear Nuevo Usuario",
@@ -5606,7 +5577,7 @@
     },
     {
      "kind": "button",
-     "line": 885,
+     "line": 825,
      "in": "UserManagement",
      "when": "showAddForm",
      "text": "[icon X]",
@@ -5614,21 +5585,21 @@
     },
     {
      "kind": "form",
-     "line": 892,
+     "line": 832,
      "in": "UserManagement",
      "when": "showAddForm",
      "text": "{handleAddUser}"
     },
     {
      "kind": "label",
-     "line": 895,
+     "line": 835,
      "in": "UserManagement",
      "when": "showAddForm",
      "text": "Email *"
     },
     {
      "kind": "field",
-     "line": 898,
+     "line": 838,
      "in": "UserManagement",
      "when": "showAddForm",
      "text": "Email *",
@@ -5639,14 +5610,14 @@
     },
     {
      "kind": "label",
-     "line": 908,
+     "line": 848,
      "in": "UserManagement",
      "when": "showAddForm",
      "text": "Contraseña *"
     },
     {
      "kind": "field",
-     "line": 911,
+     "line": 851,
      "in": "UserManagement",
      "when": "showAddForm",
      "text": "Contraseña *",
@@ -5658,14 +5629,14 @@
     },
     {
      "kind": "label",
-     "line": 923,
+     "line": 863,
      "in": "UserManagement",
      "when": "showAddForm",
      "text": "Nombre"
     },
     {
      "kind": "field",
-     "line": 926,
+     "line": 866,
      "in": "UserManagement",
      "when": "showAddForm",
      "text": "Nombre",
@@ -5675,14 +5646,14 @@
     },
     {
      "kind": "label",
-     "line": 935,
+     "line": 875,
      "in": "UserManagement",
      "when": "showAddForm",
      "text": "Apellido"
     },
     {
      "kind": "field",
-     "line": 938,
+     "line": 878,
      "in": "UserManagement",
      "when": "showAddForm",
      "text": "Apellido",
@@ -5692,7 +5663,7 @@
     },
     {
      "kind": "button",
-     "line": 948,
+     "line": 888,
      "in": "UserManagement",
      "when": "showAddForm",
      "text": "Cancelar",
@@ -5700,7 +5671,7 @@
     },
     {
      "kind": "button",
-     "line": 955,
+     "line": 895,
      "in": "UserManagement",
      "when": "showAddForm",
      "text": "Creando... / Crear Usuario",
@@ -5709,7 +5680,7 @@
     },
     {
      "kind": "popup",
-     "line": 980,
+     "line": 920,
      "in": "UserManagement",
      "when": "showRoleModal && selectedUser",
      "text": "RoleAssignmentModal",
@@ -5718,7 +5689,7 @@
     },
     {
      "kind": "popup",
-     "line": 993,
+     "line": 933,
      "in": "UserManagement",
      "when": "showConsultantModal && selectedUserForAssignment",
      "text": "ConsultantAssignmentModal",
@@ -5727,7 +5698,7 @@
     },
     {
      "kind": "popup",
-     "line": 1012,
+     "line": 952,
      "in": "UserManagement",
      "when": "showDeleteModal && userToDelete",
      "text": "Confirmar Eliminación",
@@ -5735,7 +5706,7 @@
     },
     {
      "kind": "heading",
-     "line": 1019,
+     "line": 959,
      "in": "UserManagement",
      "when": "showDeleteModal && userToDelete",
      "text": "Confirmar Eliminación",
@@ -5743,28 +5714,28 @@
     },
     {
      "kind": "text",
-     "line": 1027,
+     "line": 967,
      "in": "UserManagement",
      "when": "showDeleteModal && userToDelete",
      "text": "¿Estás seguro de que quieres eliminar al usuario"
     },
     {
      "kind": "value",
-     "line": 1028,
+     "line": 968,
      "in": "UserManagement",
      "when": "showDeleteModal && userToDelete",
      "text": "{userToDelete.email}"
     },
     {
      "kind": "text",
-     "line": 1031,
+     "line": 971,
      "in": "UserManagement",
      "when": "showDeleteModal && userToDelete",
      "text": "Esta acción no se puede deshacer."
     },
     {
      "kind": "button",
-     "line": 1036,
+     "line": 976,
      "in": "UserManagement",
      "when": "showDeleteModal && userToDelete",
      "text": "Cancelar",
@@ -5772,7 +5743,7 @@
     },
     {
      "kind": "button",
-     "line": 1045,
+     "line": 985,
      "in": "UserManagement",
      "when": "showDeleteModal && userToDelete",
      "text": "Eliminar Usuario",
@@ -5780,7 +5751,7 @@
     },
     {
      "kind": "popup",
-     "line": 1058,
+     "line": 998,
      "in": "UserManagement",
      "text": "PasswordResetModal",
      "how": "component",
@@ -5788,7 +5759,7 @@
     },
     {
      "kind": "popup",
-     "line": 1069,
+     "line": 1009,
      "in": "UserManagement",
      "text": "BulkUserImportModal",
      "how": "component",
@@ -5796,7 +5767,7 @@
     },
     {
      "kind": "popup",
-     "line": 1079,
+     "line": 1019,
      "in": "UserManagement",
      "text": "UserEditModal",
      "how": "component",
@@ -5804,37 +5775,30 @@
     },
     {
      "kind": "string",
-     "line": 79,
+     "line": 78,
      "in": "UserManagement",
      "text": "Sin nombre"
     },
     {
      "kind": "string",
-     "line": 255,
+     "line": 237,
      "in": "UserManagement",
      "text": "Bearer {session.access_token}"
     },
     {
      "kind": "string",
-     "line": 295,
+     "line": 277,
      "in": "UserManagement",
      "text": "Sin escuela"
     },
     {
      "kind": "string",
-     "line": 712,
+     "line": 652,
      "in": "UserManagement",
      "text": "Este email ya está registrado en el sistema"
     }
    ],
    "db": [
-    {
-     "what": "table:expense_report_access",
-     "ops": [
-      "select",
-      "upsert"
-     ]
-    },
     {
      "what": "table:profiles",
      "ops": [
@@ -5868,8 +5832,8 @@
       "POST"
      ],
      "from": [
-      "pages/admin/user-management.tsx:251",
-      "pages/admin/user-management.tsx:307"
+      "pages/admin/user-management.tsx:233",
+      "pages/admin/user-management.tsx:289"
      ]
     },
     {
@@ -5917,7 +5881,7 @@
       "POST"
      ],
      "from": [
-      "pages/admin/user-management.tsx:664"
+      "pages/admin/user-management.tsx:604"
      ]
     },
     {
@@ -5927,7 +5891,7 @@
       "POST"
      ],
      "from": [
-      "pages/admin/user-management.tsx:558"
+      "pages/admin/user-management.tsx:498"
      ]
     },
     {
@@ -5947,7 +5911,7 @@
       "POST"
      ],
      "from": [
-      "pages/admin/user-management.tsx:745"
+      "pages/admin/user-management.tsx:685"
      ]
     },
     {
@@ -5967,7 +5931,7 @@
       "POST"
      ],
      "from": [
-      "pages/admin/user-management.tsx:445"
+      "pages/admin/user-management.tsx:427"
      ]
     },
     {
@@ -5997,7 +5961,7 @@
       "GET"
      ],
      "from": [
-      "pages/admin/user-management.tsx:175"
+      "pages/admin/user-management.tsx:173"
      ]
     }
    ]

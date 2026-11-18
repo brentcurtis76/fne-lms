@@ -1,7 +1,7 @@
 # Mi Aprendizaje (the learner's courses, lessons and routes)
 
 Area `03-aprendizaje`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `45d07ead5` (2026-11-17).
+Read from commit `0a7ad8795` (2026-11-18).
 
 Course system: the Course Review session owns this area's structure and its own checklist (docs/planning/courses/inventory.md, not yet on main). This file is the redesign's list of what is on screen today.
 
@@ -342,7 +342,7 @@ File `pages/mi-aprendizaje/tareas.tsx` · 612 lines · frame: MainLayout
 - Menu: Mi Aprendizaje › «Mis Tareas» → `/mi-aprendizaje/tareas` — everyone signed in; the group: everyone signed in (`Sidebar.tsx` l.154)
 - Middleware: no role rule. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: yes.
 - In the page: no access check found by the script.
-- Linked from: `components/layout/Sidebar.tsx:156`, `lib/notifications/catalog.ts:296`, `pages/api/assignments/collaborative-submit.ts:126`, `pages/community/workspace.tsx:268`, `pages/community/workspace/assignments/[id]/discussion.tsx:150`, `pages/community/workspace/assignments/[id]/discussion.tsx:279`, `pages/community/workspace/assignments/[id]/discussion.tsx:289`, `pages/community/workspace/assignments/[id]/groups.tsx:154`, `pages/community/workspace/assignments/[id]/groups.tsx:164`
+- Linked from: `components/layout/Sidebar.tsx:156`, `lib/notifications/catalog.ts:296`, `pages/api/assignments/collaborative-submit.ts:126`, `pages/community/workspace.tsx:273`, `pages/community/workspace/assignments/[id]/discussion.tsx:150`, `pages/community/workspace/assignments/[id]/discussion.tsx:279`, `pages/community/workspace/assignments/[id]/discussion.tsx:289`, `pages/community/workspace/assignments/[id]/groups.tsx:154`, `pages/community/workspace/assignments/[id]/groups.tsx:164`
 - Tests: browser tests that CI runs: `tests/e2e/look-frame.spec.ts`.
 - QA scenarios that name this address: admin 1.
 

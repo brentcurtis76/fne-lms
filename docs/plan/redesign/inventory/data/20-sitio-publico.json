@@ -4,8 +4,8 @@
  "note": "Redesigned separately and live since 12 Nov 2026. Listed so that every file under pages/ has a place.",
  "routesOnly": false,
  "readFrom": {
-  "commit": "45d07ead51e5a3eec09ca6796bd72980883bc2d6",
-  "date": "2026-11-17T19:02:40-03:00"
+  "commit": "0a7ad8795b419990468bad9197d27dd375a392a3",
+  "date": "2026-11-18T14:19:15-03:00"
  },
  "screens": [
   {

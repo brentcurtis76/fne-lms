@@ -1,7 +1,7 @@
 # Sistema (configuration, support, roadmap, test and debug pages, scheduled jobs)
 
 Area `19-sistema`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `45d07ead5` (2026-11-17).
+Read from commit `0a7ad8795` (2026-11-18).
 
 3 screen files, 27 API files, 6 pieces.
 
@@ -570,107 +570,108 @@ Used by: `/admin/feedback`
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «Detalle de Feedback» | h3 |  | FeedbackDetail · l.231 |
-| «Descripción» | h4 |  | FeedbackDetail · l.291 |
-| «Captura de pantalla» | h4 | `feedback.screenshot_url` | FeedbackDetail · l.298 |
-| «Detalles técnicos» | h4 |  | FeedbackDetail · l.310 |
-| «Acciones» | h4 |  | FeedbackDetail · l.336 |
-| «Actividad» | h4 |  | FeedbackDetail · l.380 |
+| «Detalle de Feedback» | h3 |  | FeedbackDetail · l.247 |
+| «Descripción» | h4 |  | FeedbackDetail · l.307 |
+| «Captura de pantalla» | h4 | `feedback.screenshot_url` | FeedbackDetail · l.314 |
+| «Detalles técnicos» | h4 |  | FeedbackDetail · l.326 |
+| «Acciones» | h4 |  | FeedbackDetail · l.356 |
+| «Actividad» | h4 |  | FeedbackDetail · l.400 |
 
 **Buttons** (8)
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «[icon X]» · aria «Close modal» | `{onClose}` |  |  | `testid=close-modal-button` | FeedbackDetail · l.238 |
-| «Copiar Detalles» · tooltip «Copiar todos los detalles del error para Claude Code» | `{copyErrorDetailsForClaude}` |  |  |  | FeedbackDetail · l.254 |
-| «Marcar en progreso» | `{() => onStatusUpdate('in_progress')}` | `feedback.status !== 'in_progress' && feedback.status !== 'resolved' && feedback.status !== 'closed'` |  |  | FeedbackDetail · l.339 |
-| «Marcar como resuelto» | `{() => onStatusUpdate('resolved')}` | `feedback.status !== 'resolved' && feedback.status !== 'closed'` |  |  | FeedbackDetail · l.347 |
-| «Cerrar ticket» | `{() => onStatusUpdate('closed')}` | `feedback.status === 'resolved'` |  |  | FeedbackDetail · l.355 |
-| «Cerrar ventana» | `{onClose}` |  |  |  | FeedbackDetail · l.367 |
-| «[icon Send]» · aria «Send comment» | `{addComment}` |  | `{isSubmitting \|\| !newComment.trim()}` | `testid=send-comment-button` | FeedbackDetail · l.436 |
-| «[icon X]» | `{() => setShowFullScreenshot(false)}` | `showFullScreenshot && feedback.screenshot_url` |  |  | FeedbackDetail · l.464 |
+| «[icon X]» · aria «Close modal» | `{onClose}` |  |  | `testid=close-modal-button` | FeedbackDetail · l.254 |
+| «Copiar Detalles» · tooltip «Copiar todos los detalles del error para Claude Code» | `{copyErrorDetailsForClaude}` |  |  |  | FeedbackDetail · l.270 |
+| «Marcar en progreso» | `{() => onStatusUpdate('in_progress')}` | `feedback.status !== 'in_progress' && feedback.status !== 'resolved' && feedback.status !== 'closed'` |  |  | FeedbackDetail · l.359 |
+| «Marcar como resuelto» | `{() => onStatusUpdate('resolved')}` | `feedback.status !== 'resolved' && feedback.status !== 'closed'` |  |  | FeedbackDetail · l.367 |
+| «Cerrar ticket» | `{() => onStatusUpdate('closed')}` | `feedback.status === 'resolved'` |  |  | FeedbackDetail · l.375 |
+| «Cerrar ventana» | `{onClose}` |  |  |  | FeedbackDetail · l.387 |
+| «[icon Send]» · aria «Send comment» | `{addComment}` |  | `{isSubmitting \|\| !newComment.trim()}` | `testid=send-comment-button` | FeedbackDetail · l.456 |
+| «[icon X]» | `{() => setShowFullScreenshot(false)}` | `showFullScreenshot && feedback.screenshot_url` |  |  | FeedbackDetail · l.484 |
 
 **Links** (1)
 
 | Text | Goes to | Shown when | Hook | Where |
 |---|---|---|---|---|
-| «{feedback.page_url}» | `{feedback.page_url}` (new tab) |  |  | FeedbackDetail · l.314 |
+| «{feedback.page_url}» | `{feedback.page_url}` (new tab) | `isHttpPageUrl(feedback.page_url)` |  | FeedbackDetail · l.331 |
 
 **Other things that react to a click** (1)
 
 | Element | Text | Does | Shown when | Where |
 |---|---|---|---|---|
-| `div` |  | `{onClose}` |  | FeedbackDetail · l.219 |
+| `div` |  | `{onClose}` |  | FeedbackDetail · l.235 |
 
 **Fields** (1)
 
 | Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
 |---|---|---|---|---|---|---|
-| «Agregar comentario...» | text | «Agregar comentario...» · disabled: `{isSubmitting}` · also `onKeyPress={(e) => e.key === 'Enter' && addComment()}` |  |  |  | FeedbackDetail · l.427 |
+| «Agregar comentario...» | text | «Agregar comentario...» · disabled: `{isSubmitting}` · also `onKeyPress={(e) => e.key === 'Enter' && addComment()}` |  |  |  | FeedbackDetail · l.447 |
 
 **Embedded media** (3)
 
 | What | Shown when | Hook | Where |
 |---|---|---|---|
-| img · alt {`${feedback.profiles.first_name} ${feedback.profiles.last_name}`} · {feedback.profiles.avatar_url} | `feedback.profiles.avatar_url` |  | FeedbackDetail · l.267 |
-| img · alt Screenshot · {feedback.screenshot_url} | `feedback.screenshot_url` |  | FeedbackDetail · l.299 |
-| img · alt Screenshot · {feedback.screenshot_url} | `showFullScreenshot && feedback.screenshot_url` |  | FeedbackDetail · l.459 |
+| img · alt {`${feedback.profiles.first_name} ${feedback.profiles.last_name}`} · {feedback.profiles.avatar_url} | `feedback.profiles.avatar_url` |  | FeedbackDetail · l.283 |
+| img · alt Screenshot · {feedback.screenshot_url} | `feedback.screenshot_url` |  | FeedbackDetail · l.315 |
+| img · alt Screenshot · {feedback.screenshot_url} | `showFullScreenshot && feedback.screenshot_url` |  | FeedbackDetail · l.479 |
 
 **Pop-ups** (2)
 
 | Name or title | How | Opens when | Texts passed to it | Where |
 |---|---|---|---|---|
-| «Detalle de Feedback» | written in this file |  |  | FeedbackDetail · l.217 |
-| «(sin título)» | written in this file | `showFullScreenshot && feedback.screenshot_url` |  | FeedbackDetail · l.455 |
+| «Detalle de Feedback» | written in this file |  |  | FeedbackDetail · l.233 |
+| «(sin título)» | written in this file | `showFullScreenshot && feedback.screenshot_url` |  | FeedbackDetail · l.475 |
 
 **Toasts** (4)
 
 | Kind | Text | When | Where |
 |---|---|---|---|
-| success | «Comentario agregado» |  | addComment · l.108 |
-| error | «Error al agregar comentario» |  | addComment · l.111 |
-| success | «¡Detalles copiados para Claude Code!» |  | copyErrorDetailsForClaude · l.206 |
-| error | «Error al copiar los detalles» |  | copyErrorDetailsForClaude · l.209 |
+| success | «Comentario agregado» |  | addComment · l.124 |
+| error | «Error al agregar comentario» |  | addComment · l.127 |
+| success | «¡Detalles copiados para Claude Code!» |  | copyErrorDetailsForClaude · l.222 |
+| error | «Error al copiar los detalles» |  | copyErrorDetailsForClaude · l.225 |
 
 **Messages set on the page** (1)
 
 | Text | Set by | When | Where |
 |---|---|---|---|
-| «Usuario no autenticado» | `throw (shown by whoever catches it)` | `!user` | addComment · l.93 |
+| «Usuario no autenticado» | `throw (shown by whoever catches it)` | `!user` | addComment · l.109 |
 
 **Draws nothing when** (1)
 
 | Condition | Where |
 |---|---|
-| `!isOpen \|\| !feedback` | FeedbackDetail · l.213 |
+| `!isOpen \|\| !feedback` | FeedbackDetail · l.229 |
 
 **Other texts written in the code (safety net: not tied to an element by the script)** (5)
 
 | Text | Where |
 |---|---|
-| «Feature Request» | FeedbackDetail · l.176 |
-| «General Feedback» | FeedbackDetail · l.176 |
-| «**Console Error:** ``` {consoleError} ```» | FeedbackDetail · l.189 |
-| «Not captured» | FeedbackDetail · l.195 |
-| «Resolution Notes: {feedback.resolution_notes}» | FeedbackDetail · l.199 |
+| «Feature Request» | FeedbackDetail · l.192 |
+| «General Feedback» | FeedbackDetail · l.192 |
+| «**Console Error:** ``` {consoleError} ```» | FeedbackDetail · l.205 |
+| «Not captured» | FeedbackDetail · l.211 |
+| «Resolution Notes: {feedback.resolution_notes}» | FeedbackDetail · l.215 |
 
-**Values shown from data** (9)
+**Values shown from data** (10)
 
-- `# {feedback.id.slice(0, 8).toUpperCase…}` — FeedbackDetail · l.234
-- `{feedback.profiles.first_name} {feedback.profiles.last_name}` — FeedbackDetail · l.278
-- `{feedback.profiles.email}` — FeedbackDetail · l.281
-- `{feedback.description}` — FeedbackDetail · l.292
-- `{JSON.stringify(feedback.browser_inf…}` — FeedbackDetail · l.326, when `feedback.browser_info`
-- `{activity.message}` — FeedbackDetail · l.401, when `!(activities.length === 0) && each activities && activity.is_system_message`
-- `{activity.profiles?.first_name} {activity.profiles?.last_name}` — FeedbackDetail · l.407, when `!(activities.length === 0) && each activities && !(activity.is_system_message)`
-- `{formatDate(activity.created_at)}` — FeedbackDetail · l.410, when `!(activities.length === 0) && each activities && !(activity.is_system_message)`
-- `{activity.message}` — FeedbackDetail · l.414, when `!(activities.length === 0) && each activities && !(activity.is_system_message)`
+- `# {feedback.id.slice(0, 8).toUpperCase…}` — FeedbackDetail · l.250
+- `{feedback.profiles.first_name} {feedback.profiles.last_name}` — FeedbackDetail · l.294
+- `{feedback.profiles.email}` — FeedbackDetail · l.297
+- `{feedback.description}` — FeedbackDetail · l.308
+- `{feedback.page_url}` — FeedbackDetail · l.340, when `!(isHttpPageUrl(feedback.page_url))`
+- `{JSON.stringify(feedback.browser_inf…}` — FeedbackDetail · l.346, when `feedback.browser_info`
+- `{activity.message}` — FeedbackDetail · l.421, when `!(activities.length === 0) && each activities && activity.is_system_message`
+- `{activity.profiles?.first_name} {activity.profiles?.last_name}` — FeedbackDetail · l.427, when `!(activities.length === 0) && each activities && !(activity.is_system_message)`
+- `{formatDate(activity.created_at)}` — FeedbackDetail · l.430, when `!(activities.length === 0) && each activities && !(activity.is_system_message)`
+- `{activity.message}` — FeedbackDetail · l.434, when `!(activities.length === 0) && each activities && !(activity.is_system_message)`
 
 **Other texts on screen** (3)
 
-- «Ver información del navegador» (label) — FeedbackDetail · l.325, when `feedback.browser_info`
-- «Ticket cerrado» — FeedbackDetail · l.364, when `feedback.status === 'closed'`
-- «Sin actividad aún» — FeedbackDetail · l.388, when `activities.length === 0`
+- «Ver información del navegador» (label) — FeedbackDetail · l.345, when `feedback.browser_info`
+- «Ticket cerrado» — FeedbackDetail · l.384, when `feedback.status === 'closed'`
+- «Sin actividad aún» — FeedbackDetail · l.408, when `activities.length === 0`
 
 **Reads and writes the database directly:** `table:feedback_activity` (insert, select)
 
@@ -760,7 +761,7 @@ Used by: `/admin/feedback`, `/admin/roadmap`
 | `/api/admin/emergency-restore` | `pages/api/admin/emergency-restore.ts` |  | **no screen** |  |
 | `/api/admin/form-usage-stats` | `pages/api/admin/form-usage-stats.ts` | GET | **no screen** |  |
 | `/api/admin/system-updates` | `pages/api/admin/system-updates.ts` | POST | **no screen** |  |
-| `/api/bots/link-code` | `pages/api/bots/link-code.ts` | POST | `/expense-reports` | `pages/expense-reports.tsx` |
+| `/api/bots/link-code` | `pages/api/bots/link-code.ts` | POST | `/expense-reports` | `__tests__/api/bots/link-code.test.ts`, `pages/expense-reports.tsx` |
 | `/api/bots/telegram` | `pages/api/bots/telegram.ts` | POST | **no screen** | `__tests__/api/bots/telegram.test.ts` |
 | `/api/check-env` | `pages/api/check-env.js` |  | **no screen** |  |
 | `/api/cron/assessment-delivery` | `pages/api/cron/assessment-delivery.ts` |  | **no screen** | `__tests__/api/cron/assessment-delivery.test.ts`, `__tests__/api/cron/session-reminders.test.ts`, `__tests__/lib/notificationService.dispatch.test.ts`, `tests/e2e/assessment-delivery.spec.ts`, `tests/e2e/due-reminders.spec.ts` +3 |

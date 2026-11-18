@@ -1,6 +1,6 @@
 # API files that no screen calls
 
-Written by `scripts/redesign/inventory.mjs` from commit `45d07ead5`. An API file is listed here when no screen, and no piece a screen draws, names its address. "Named in" shows where else the address appears (scheduled jobs in `vercel.json`, server code, tests). Nothing here is a verdict: an address can be called from outside the platform (a webhook, a link in an email).
+Written by `scripts/redesign/inventory.mjs` from commit `0a7ad8795`. An API file is listed here when no screen, and no piece a screen draws, names its address. "Named in" shows where else the address appears (scheduled jobs in `vercel.json`, server code, tests). Nothing here is a verdict: an address can be called from outside the platform (a webhook, a link in an email).
 
 ## Marco (the frame around every screen)
 
@@ -179,7 +179,7 @@ Written by `scripts/redesign/inventory.mjs` from commit `45d07ead5`. An API file
 | `/api/test-bucket` | `pages/api/test-bucket.js` |  | **nothing** |
 | `/api/test/notification-triggers` | `pages/api/test/notification-triggers.ts` |  | **nothing** |
 
-87 of 367 API files.
+87 of 369 API files.
 
 ## Addresses the code names that have no file
 

@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "45d07ead51e5a3eec09ca6796bd72980883bc2d6",
-  "date": "2026-11-17T19:02:40-03:00"
+  "commit": "0a7ad8795b419990468bad9197d27dd375a392a3",
+  "date": "2026-11-18T14:19:15-03:00"
  },
  "screens": [
   {
@@ -2131,7 +2131,7 @@
   {
    "file": "pages/community/workspace.tsx",
    "route": "/community/workspace",
-   "lines": 2726,
+   "lines": 2995,
    "marks": {},
    "frame": "MainLayout",
    "server": "none",
@@ -2210,19 +2210,19 @@
     },
     "inPage": [
      {
-      "line": 332,
+      "line": 337,
       "text": "router.push → /login  (when !(!authLoading && user) && !authLoading && !user)"
      },
      {
-      "line": 336,
+      "line": 341,
       "text": "location.href → /login  (when !(!authLoading && user) && !authLoading && !user)"
      },
      {
-      "line": 865,
+      "line": 870,
       "text": "router.push → /dashboard  (when error)"
      },
      {
-      "line": 2483,
+      "line": 2752,
       "text": "No tienes permisos para ver los mensajes de esta comunidad."
      }
     ],
@@ -2294,6 +2294,7 @@
       "tests/e2e/urgent-anonymous-current.spec.ts"
      ],
      "unit": [
+      "__tests__/pages/community/workspace.documents.test.tsx",
       "__tests__/pages/community/workspace.mention-scope.test.tsx",
       "__tests__/pages/community/workspace.messages.test.tsx",
       "components/__tests__/GroupAssignmentsContent.test.skip.tsx",
@@ -2304,7 +2305,7 @@
    "rows": [
     {
      "kind": "toast",
-     "line": 206,
+     "line": 211,
      "in": "notifyError",
      "when": "membersErrorToastRef.current !== communityId",
      "text": "No se pudieron cargar los miembros de la comunidad. Intenta nuevamente.",
@@ -2312,14 +2313,14 @@
     },
     {
      "kind": "hook",
-     "line": 251,
+     "line": 256,
      "in": "CommunityWorkspacePage",
      "text": "localStorage: workspace-sidebar-collapsed",
      "type": "storage"
     },
     {
      "kind": "list",
-     "line": 267,
+     "line": 272,
      "in": "CommunityWorkspacePage",
      "when": "urlSection === 'group-assignments'",
      "text": "communityParam",
@@ -2329,7 +2330,7 @@
     },
     {
      "kind": "nav",
-     "line": 268,
+     "line": 273,
      "in": "CommunityWorkspacePage",
      "when": "urlSection === 'group-assignments'",
      "text": "/mi-aprendizaje/tareas[*]",
@@ -2337,20 +2338,20 @@
     },
     {
      "kind": "hook",
-     "line": 285,
+     "line": 290,
      "in": "CommunityWorkspacePage",
      "text": "window.addEventListener('resize')",
      "type": "listener"
     },
     {
      "kind": "gate",
-     "line": 295,
+     "line": 300,
      "in": "CommunityWorkspacePage",
      "text": "!workspaceAccess?.canAccess"
     },
     {
      "kind": "nav",
-     "line": 332,
+     "line": 337,
      "in": "CommunityWorkspacePage",
      "when": "!(!authLoading && user) && !authLoading && !user",
      "text": "/login",
@@ -2358,7 +2359,7 @@
     },
     {
      "kind": "nav",
-     "line": 336,
+     "line": 341,
      "in": "CommunityWorkspacePage",
      "when": "!(!authLoading && user) && !authLoading && !user",
      "text": "/login",
@@ -2366,7 +2367,7 @@
     },
     {
      "kind": "message",
-     "line": 361,
+     "line": 366,
      "in": "initializeWorkspace",
      "when": "!access.canAccess",
      "text": "No tienes acceso a ningún espacio colaborativo. Contacta al administrador.",
@@ -2374,7 +2375,7 @@
     },
     {
      "kind": "hook",
-     "line": 372,
+     "line": 377,
      "in": "initializeWorkspace",
      "when": "typeof window !== 'undefined'",
      "text": "sessionStorage: workspace_return_community",
@@ -2382,58 +2383,58 @@
     },
     {
      "kind": "message",
-     "line": 396,
+     "line": 401,
      "in": "initializeWorkspace",
      "text": "Error al cargar el espacio colaborativo",
      "via": "setError"
     },
     {
      "kind": "toast",
-     "line": 397,
+     "line": 402,
      "in": "initializeWorkspace",
      "text": "Error al cargar el espacio colaborativo",
-     "variant": "error"
-    },
-    {
-     "kind": "message",
-     "line": 423,
-     "in": "loadWorkspace",
-     "when": "!(workspace)",
-     "text": "No se pudo cargar el espacio de trabajo",
-     "via": "setError"
-    },
-    {
-     "kind": "toast",
-     "line": 424,
-     "in": "loadWorkspace",
-     "when": "!(workspace)",
-     "text": "No se pudo cargar el espacio de trabajo",
      "variant": "error"
     },
     {
      "kind": "message",
      "line": 428,
      "in": "loadWorkspace",
-     "text": "Error al cargar el espacio de trabajo",
+     "when": "!(workspace)",
+     "text": "No se pudo cargar el espacio de trabajo",
      "via": "setError"
     },
     {
      "kind": "toast",
      "line": 429,
      "in": "loadWorkspace",
+     "when": "!(workspace)",
+     "text": "No se pudo cargar el espacio de trabajo",
+     "variant": "error"
+    },
+    {
+     "kind": "message",
+     "line": 433,
+     "in": "loadWorkspace",
+     "text": "Error al cargar el espacio de trabajo",
+     "via": "setError"
+    },
+    {
+     "kind": "toast",
+     "line": 434,
+     "in": "loadWorkspace",
      "text": "Error al cargar el espacio de trabajo",
      "variant": "error"
     },
     {
      "kind": "button",
-     "line": 555,
+     "line": 560,
      "in": "renderCommunitySelector",
      "text": "{selectedCommunity?.display_name} / {selectedCommunity?.name} / Seleccionar Comunidad [{selectedCommunity.school_name} - {selectedCommunity.generation_name}]",
      "action": "{() => setShowCommunitySelector(!showCommunitySelector)}"
     },
     {
      "kind": "button",
-     "line": 580,
+     "line": 585,
      "in": "renderCommunitySelector",
      "when": "showCommunitySelector && each workspaceAccess.availableCommunities",
      "text": "{community.display_name} / {community.name} {community.school_name} - {community.generation_name}",
@@ -2441,7 +2442,7 @@
     },
     {
      "kind": "hook",
-     "line": 610,
+     "line": 615,
      "in": "renderMainContent",
      "when": "threadLinkFailed",
      "text": "role=alert",
@@ -2450,7 +2451,7 @@
     },
     {
      "kind": "hook",
-     "line": 610,
+     "line": 615,
      "in": "renderMainContent",
      "when": "threadLinkFailed",
      "text": "testid=thread-link-unavailable",
@@ -2459,14 +2460,14 @@
     },
     {
      "kind": "text",
-     "line": 615,
+     "line": 620,
      "in": "renderMainContent",
      "when": "threadLinkFailed",
      "text": "No pudimos abrir la conversación del enlace. Puede que ya no exista o que no tengas acceso a ella."
     },
     {
      "kind": "button",
-     "line": 616,
+     "line": 621,
      "in": "renderMainContent",
      "when": "threadLinkFailed",
      "text": "[icon X]",
@@ -2478,7 +2479,7 @@
     },
     {
      "kind": "heading",
-     "line": 633,
+     "line": 638,
      "in": "renderMainContent",
      "when": "!currentWorkspace",
      "text": "Selecciona una Comunidad",
@@ -2486,14 +2487,14 @@
     },
     {
      "kind": "text",
-     "line": 637,
+     "line": 642,
      "in": "renderMainContent",
      "when": "!currentWorkspace",
      "text": "Elige una comunidad de crecimiento para acceder a su espacio colaborativo."
     },
     {
      "kind": "clickable",
-     "line": 644,
+     "line": 649,
      "in": "renderMainContent",
      "when": "!(!currentWorkspace)",
      "text": "Miembros de la Comunidad ( — / {communityMembers.length} ) [Error al cargar]",
@@ -2502,7 +2503,7 @@
     },
     {
      "kind": "heading",
-     "line": 649,
+     "line": 654,
      "in": "renderMainContent",
      "when": "!(!currentWorkspace)",
      "text": "Miembros de la Comunidad",
@@ -2510,14 +2511,14 @@
     },
     {
      "kind": "value",
-     "line": 652,
+     "line": 657,
      "in": "renderMainContent",
      "when": "!(!currentWorkspace)",
      "text": "( — / {communityMembers.length} )"
     },
     {
      "kind": "text",
-     "line": 656,
+     "line": 661,
      "in": "renderMainContent",
      "when": "!(!currentWorkspace) && membersError",
      "text": "No se pudieron cargar los miembros de la comunidad",
@@ -2525,35 +2526,35 @@
     },
     {
      "kind": "text",
-     "line": 661,
+     "line": 666,
      "in": "renderMainContent",
      "when": "!(!currentWorkspace) && membersError",
      "text": "Error al cargar"
     },
     {
      "kind": "button",
-     "line": 666,
+     "line": 671,
      "in": "renderMainContent",
      "when": "!(!currentWorkspace)",
      "text": "[icon ChevronDownIcon]"
     },
     {
      "kind": "text",
-     "line": 676,
+     "line": 681,
      "in": "renderMainContent",
      "when": "!(!currentWorkspace) && showMembers && membersError",
      "text": "No se pudieron cargar los miembros de la comunidad."
     },
     {
      "kind": "text",
-     "line": 678,
+     "line": 683,
      "in": "renderMainContent",
      "when": "!(!currentWorkspace) && showMembers && membersError",
      "text": "Revisa tu conexión e inténtalo nuevamente."
     },
     {
      "kind": "link",
-     "line": 684,
+     "line": 689,
      "in": "renderMainContent",
      "when": "showMembers && !(membersError) && communityMembers.length > 0 && each communityMembers",
      "text": "{member.first_name?.charAt(0)} / U {member.last_name?.charAt(0)} {member.first_name} {member.last_name} / {member.email} / Usuario sin nombre {member.user_roles?.map((role: any) …}",
@@ -2561,14 +2562,14 @@
     },
     {
      "kind": "media",
-     "line": 690,
+     "line": 695,
      "in": "renderMainContent",
      "when": "!(membersError) && communityMembers.length > 0 && each communityMembers && member.avatar_url",
      "text": "img · alt {`${member.first_name} ${member.last_name}`} · {member.avatar_url}"
     },
     {
      "kind": "text",
-     "line": 724,
+     "line": 729,
      "in": "renderMainContent",
      "when": "!(membersError) && communityMembers.length > 0 && each communityMembers && member.id === user?.id",
      "text": "Tú",
@@ -2576,14 +2577,14 @@
     },
     {
      "kind": "text",
-     "line": 731,
+     "line": 736,
      "in": "renderMainContent",
      "when": "!(!currentWorkspace) && showMembers && !(membersError) && !(communityMembers.length > 0)",
      "text": "No hay otros miembros en esta comunidad aún."
     },
     {
      "kind": "piece",
-     "line": 739,
+     "line": 744,
      "in": "renderMainContent",
      "when": "!(!currentWorkspace)",
      "text": "userName: Usuario",
@@ -2591,33 +2592,33 @@
     },
     {
      "kind": "heading",
-     "line": 751,
+     "line": 756,
      "in": "renderMainContent",
      "text": "Gestión de Comunidades",
      "level": 2
     },
     {
      "kind": "text",
-     "line": 755,
+     "line": 760,
      "in": "renderMainContent",
      "text": "Administra las comunidades de crecimiento bajo tu supervisión."
     },
     {
      "kind": "text",
-     "line": 759,
+     "line": 764,
      "in": "renderMainContent",
      "text": "🚧 Gestión de comunidades en desarrollo. Próximamente podrás administrar múltiples comunidades desde aquí."
     },
     {
      "kind": "piece",
-     "line": 777,
+     "line": 782,
      "in": "renderMainContent",
      "text": "",
      "tag": "WorkspaceSessionsTab"
     },
     {
      "kind": "piece",
-     "line": 824,
+     "line": 829,
      "in": "CommunityWorkspacePage",
      "when": "authLoading || loading",
      "text": "",
@@ -2625,7 +2626,7 @@
     },
     {
      "kind": "piece",
-     "line": 835,
+     "line": 840,
      "in": "CommunityWorkspacePage",
      "when": "authLoading || loading",
      "text": "",
@@ -2633,7 +2634,7 @@
     },
     {
      "kind": "piece",
-     "line": 843,
+     "line": 848,
      "in": "CommunityWorkspacePage",
      "when": "error",
      "text": "",
@@ -2641,7 +2642,7 @@
     },
     {
      "kind": "heading",
-     "line": 858,
+     "line": 863,
      "in": "CommunityWorkspacePage",
      "when": "error",
      "text": "Sin Acceso al Espacio Colaborativo",
@@ -2649,14 +2650,14 @@
     },
     {
      "kind": "value",
-     "line": 861,
+     "line": 866,
      "in": "CommunityWorkspacePage",
      "when": "error",
      "text": "{error}"
     },
     {
      "kind": "button",
-     "line": 864,
+     "line": 869,
      "in": "CommunityWorkspacePage",
      "when": "error",
      "text": "Volver al Panel Principal",
@@ -2664,7 +2665,7 @@
     },
     {
      "kind": "nav",
-     "line": 865,
+     "line": 870,
      "in": "CommunityWorkspacePage",
      "when": "error",
      "text": "/dashboard",
@@ -2672,7 +2673,7 @@
     },
     {
      "kind": "list",
-     "line": 900,
+     "line": 905,
      "in": "getBreadcrumbs",
      "text": "breadcrumbs",
      "items": [
@@ -2681,35 +2682,35 @@
     },
     {
      "kind": "piece",
-     "line": 923,
+     "line": 928,
      "in": "CommunityWorkspacePage",
      "text": "",
      "tag": "MainLayout"
     },
     {
      "kind": "piece",
-     "line": 932,
+     "line": 937,
      "in": "CommunityWorkspacePage",
      "text": "title: Espacio Colaborativo · subtitle: {selectedCommunity.name} • {selectedCommunity.school_na…} / Herramientas de colaboración para comunidades · searchPlaceholder: Buscar en documentos, mensajes, reuniones...",
      "tag": "ResponsiveFunctionalPageHeader"
     },
     {
      "kind": "piece",
-     "line": 940,
+     "line": 945,
      "in": "CommunityWorkspacePage",
      "text": "sectionId: espacio-colaborativo",
      "tag": "HelpButton"
     },
     {
      "kind": "media",
-     "line": 951,
+     "line": 956,
      "in": "CommunityWorkspacePage",
      "when": "currentWorkspace && currentWorkspace.image_url",
      "text": "img · alt {currentWorkspace.custom_name || currentWorkspace.name} · {currentWorkspace.image_url}"
     },
     {
      "kind": "heading",
-     "line": 962,
+     "line": 967,
      "in": "CommunityWorkspacePage",
      "when": "currentWorkspace",
      "text": "{currentWorkspace.custom_name} / {currentWorkspace.name}",
@@ -2717,21 +2718,21 @@
     },
     {
      "kind": "value",
-     "line": 965,
+     "line": 970,
      "in": "CommunityWorkspacePage",
      "when": "currentWorkspace",
      "text": "{selectedCommunity?.school_name} • {selectedCommunity?.generation_name}"
     },
     {
      "kind": "value",
-     "line": 969,
+     "line": 974,
      "in": "CommunityWorkspacePage",
      "when": "currentWorkspace && workspaceAccess && workspaceAccess.availableCommunities.length > 1",
      "text": "{renderCommunitySelector()}"
     },
     {
      "kind": "button",
-     "line": 976,
+     "line": 981,
      "in": "CommunityWorkspacePage",
      "when": "currentWorkspace && canEditWorkspace",
      "text": "[icon Settings]",
@@ -2740,21 +2741,21 @@
     },
     {
      "kind": "piece",
-     "line": 990,
+     "line": 995,
      "in": "CommunityWorkspacePage",
      "text": "",
      "tag": "WorkspaceTabNavigation"
     },
     {
      "kind": "media",
-     "line": 1003,
+     "line": 1008,
      "in": "CommunityWorkspacePage",
      "when": "currentWorkspace && activeSection !== 'overview' && activeSection !== 'communities' && false && currentWorkspace.image_url",
      "text": "img · alt {currentWorkspace.custom_name || currentWorkspace.name} · {currentWorkspace.image_url}"
     },
     {
      "kind": "heading",
-     "line": 1014,
+     "line": 1019,
      "in": "CommunityWorkspacePage",
      "when": "currentWorkspace && activeSection !== 'overview' && activeSection !== 'communities' && false",
      "text": "{currentWorkspace.custom_name} / {currentWorkspace.name}",
@@ -2762,14 +2763,14 @@
     },
     {
      "kind": "value",
-     "line": 1017,
+     "line": 1022,
      "in": "CommunityWorkspacePage",
      "when": "currentWorkspace && activeSection !== 'overview' && activeSection !== 'communities' && false",
      "text": "{currentWorkspace.community?.school?…} - {currentWorkspace.community?.generat…}"
     },
     {
      "kind": "button",
-     "line": 1023,
+     "line": 1028,
      "in": "CommunityWorkspacePage",
      "when": "currentWorkspace && activeSection !== 'overview' && activeSection !== 'communities' && false && canEditWorkspace",
      "text": "Configuración de la comunidad",
@@ -2778,13 +2779,13 @@
     },
     {
      "kind": "value",
-     "line": 1040,
+     "line": 1045,
      "in": "CommunityWorkspacePage",
      "text": "{renderMainContent()}"
     },
     {
      "kind": "popup",
-     "line": 1047,
+     "line": 1052,
      "in": "CommunityWorkspacePage",
      "when": "currentWorkspace",
      "text": "WorkspaceSettingsModal",
@@ -2793,7 +2794,7 @@
     },
     {
      "kind": "toast",
-     "line": 1060,
+     "line": 1065,
      "in": "CommunityWorkspacePage",
      "when": "currentWorkspace",
      "text": "Configuración actualizada",
@@ -2801,14 +2802,14 @@
     },
     {
      "kind": "toast",
-     "line": 1131,
+     "line": 1136,
      "in": "loadMeetings",
      "text": "Error al cargar las reuniones",
      "variant": "error"
     },
     {
      "kind": "heading",
-     "line": 1209,
+     "line": 1214,
      "in": "MeetingsTabContent",
      "when": "!workspace",
      "text": "No hay espacio de trabajo seleccionado",
@@ -2816,27 +2817,27 @@
     },
     {
      "kind": "text",
-     "line": 1213,
+     "line": 1218,
      "in": "MeetingsTabContent",
      "when": "!workspace",
      "text": "Selecciona una comunidad para ver sus reuniones."
     },
     {
      "kind": "heading",
-     "line": 1224,
+     "line": 1229,
      "in": "MeetingsTabContent",
      "text": "Reuniones de {workspace.community?.name}",
      "level": 2
     },
     {
      "kind": "text",
-     "line": 1228,
+     "line": 1233,
      "in": "MeetingsTabContent",
      "text": "Documentación y seguimiento de reuniones"
     },
     {
      "kind": "button",
-     "line": 1233,
+     "line": 1238,
      "in": "MeetingsTabContent",
      "when": "canManage",
      "text": "Nueva Reunión",
@@ -2844,20 +2845,20 @@
     },
     {
      "kind": "piece",
-     "line": 1244,
+     "line": 1249,
      "in": "MeetingsTabContent",
      "text": "",
      "tag": "MeetingFilters"
     },
     {
      "kind": "text",
-     "line": 1252,
+     "line": 1257,
      "in": "MeetingsTabContent",
      "text": "Ordenar por:"
     },
     {
      "kind": "button",
-     "line": 1260,
+     "line": 1265,
      "in": "MeetingsTabContent",
      "when": "each [ { field: 'meeting_date' as const, label: 'Fecha…",
      "text": "{label}",
@@ -2865,7 +2866,7 @@
     },
     {
      "kind": "piece",
-     "line": 1298,
+     "line": 1303,
      "in": "MeetingsTabContent",
      "when": "!(loading) && meetings.length > 0 && each filterMeetingsBySearch(meetings)",
      "text": "",
@@ -2873,7 +2874,7 @@
     },
     {
      "kind": "heading",
-     "line": 1314,
+     "line": 1319,
      "in": "MeetingsTabContent",
      "when": "!(loading) && !(meetings.length > 0)",
      "text": "No hay reuniones",
@@ -2881,14 +2882,14 @@
     },
     {
      "kind": "text",
-     "line": 1317,
+     "line": 1322,
      "in": "MeetingsTabContent",
      "when": "!(loading) && !(meetings.length > 0)",
      "text": "Comienza creando la primera reunión de la comunidad. / No se han programado reuniones en esta comunidad."
     },
     {
      "kind": "button",
-     "line": 1323,
+     "line": 1328,
      "in": "MeetingsTabContent",
      "when": "!(loading) && !(meetings.length > 0) && canManage",
      "text": "Crear Primera Reunión",
@@ -2896,7 +2897,7 @@
     },
     {
      "kind": "popup",
-     "line": 1336,
+     "line": 1341,
      "in": "MeetingsTabContent",
      "when": "showCreateModal && workspace && user",
      "text": "MeetingDocumentationModal",
@@ -2905,7 +2906,7 @@
     },
     {
      "kind": "popup",
-     "line": 1354,
+     "line": 1359,
      "in": "MeetingsTabContent",
      "when": "showDetailsModal && detailsMeetingId",
      "text": "MeetingDetailsModal",
@@ -2914,7 +2915,7 @@
     },
     {
      "kind": "popup",
-     "line": 1371,
+     "line": 1377,
      "in": "MeetingsTabContent",
      "when": "showDeleteModal && deleteMeetingId && user",
      "text": "MeetingDeletionModal",
@@ -2923,28 +2924,28 @@
     },
     {
      "kind": "toast",
-     "line": 1476,
+     "line": 1509,
      "in": "loadDocuments",
      "text": "Error al cargar los documentos",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 1545,
+     "line": 1588,
      "in": "handleCreateFolder",
      "text": "Carpeta creada exitosamente",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 1548,
+     "line": 1591,
      "in": "handleCreateFolder",
      "text": "Error al crear la carpeta",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 1576,
+     "line": 1619,
      "in": "handleDocumentAction",
      "when": "action === 'download' && document.storage_path && !documentUrl",
      "text": "El enlace del documento no es válido",
@@ -2952,7 +2953,7 @@
     },
     {
      "kind": "nav",
-     "line": 1587,
+     "line": 1630,
      "in": "handleDocumentAction",
      "when": "action === 'download' && document.storage_path && !session?.access_token",
      "text": "{documentUrl}",
@@ -2960,7 +2961,7 @@
     },
     {
      "kind": "toast",
-     "line": 1591,
+     "line": 1634,
      "in": "handleDocumentAction",
      "when": "action === 'download' && document.storage_path",
      "text": "Preparando descarga...",
@@ -2968,7 +2969,7 @@
     },
     {
      "kind": "nav",
-     "line": 1605,
+     "line": 1648,
      "in": "handleDocumentAction",
      "when": "action === 'download' && document.storage_path && !response.ok",
      "text": "{documentUrl}",
@@ -2976,7 +2977,7 @@
     },
     {
      "kind": "download",
-     "line": 1611,
+     "line": 1654,
      "in": "handleDocumentAction",
      "when": "action === 'download' && document.storage_path",
      "text": "window.URL.createObjectURL()",
@@ -2984,7 +2985,7 @@
     },
     {
      "kind": "download",
-     "line": 1615,
+     "line": 1658,
      "in": "handleDocumentAction",
      "when": "action === 'download' && document.storage_path",
      "text": "archivo: {document.file_name}",
@@ -2992,7 +2993,7 @@
     },
     {
      "kind": "toast",
-     "line": 1624,
+     "line": 1667,
      "in": "handleDocumentAction",
      "when": "action === 'download' && document.storage_path",
      "text": "Descarga completada",
@@ -3000,7 +3001,7 @@
     },
     {
      "kind": "nav",
-     "line": 1629,
+     "line": 1672,
      "in": "handleDocumentAction",
      "when": "action === 'download' && document.storage_path",
      "text": "{documentUrl}",
@@ -3008,38 +3009,7 @@
     },
     {
      "kind": "toast",
-     "line": 1635,
-     "in": "handleDocumentAction",
-     "when": "action === 'edit'",
-     "text": "Edición de documentos próximamente",
-     "variant": "plain"
-    },
-    {
-     "kind": "confirm",
-     "line": 1639,
-     "in": "handleDocumentAction",
-     "when": "action === 'delete'",
-     "text": "¿Estás seguro de que quieres eliminar este documento?"
-    },
-    {
-     "kind": "toast",
-     "line": 1640,
-     "in": "handleDocumentAction",
-     "when": "action === 'delete' && window.confirm('¿Estás seguro de que quieres eliminar este documento?')",
-     "text": "Eliminación de documentos próximamente",
-     "variant": "plain"
-    },
-    {
-     "kind": "toast",
-     "line": 1645,
-     "in": "handleDocumentAction",
-     "when": "action === 'move'",
-     "text": "Mover documentos próximamente",
-     "variant": "plain"
-    },
-    {
-     "kind": "toast",
-     "line": 1649,
+     "line": 1691,
      "in": "handleDocumentAction",
      "when": "action === 'share'",
      "text": "Compartir documentos próximamente",
@@ -3047,14 +3017,74 @@
     },
     {
      "kind": "toast",
-     "line": 1660,
+     "line": 1716,
+     "in": "handleRenameSave",
+     "text": "Nombre actualizado",
+     "variant": "success"
+    },
+    {
+     "kind": "toast",
+     "line": 1719,
+     "in": "handleRenameSave",
+     "text": "{(error as Error).message}",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 1734,
+     "in": "handleMoveSave",
+     "when": "!moveBulk",
+     "text": "Documento movido",
+     "variant": "success"
+    },
+    {
+     "kind": "toast",
+     "line": 1736,
+     "in": "handleMoveSave",
+     "when": "!moveBulk",
+     "text": "{(error as Error).message}",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 1753,
+     "in": "handleMoveSave",
+     "when": "!(!moveBulk) && refused === 0",
+     "text": "{moved} documento(s) movido(s)",
+     "variant": "success"
+    },
+    {
+     "kind": "toast",
+     "line": 1755,
+     "in": "handleMoveSave",
+     "when": "!(!moveBulk) && !(refused === 0)",
+     "text": "{moved} documento(s) movido(s). {refused} no se pudieron mover: solo quien los subió o el líder de la comunidad puede moverlos.",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 1768,
+     "in": "handleHideConfirm",
+     "text": "Documento eliminado",
+     "variant": "success"
+    },
+    {
+     "kind": "toast",
+     "line": 1771,
+     "in": "handleHideConfirm",
+     "text": "{(error as Error).message}",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 1778,
      "in": "handleUploadComplete",
      "text": "{uploadedDocuments.length} documento(s) subido(s) exitosamente",
      "variant": "success"
     },
     {
      "kind": "heading",
-     "line": 1671,
+     "line": 1789,
      "in": "DocumentsTabContent",
      "when": "!workspace",
      "text": "No hay espacio de trabajo seleccionado",
@@ -3062,41 +3092,41 @@
     },
     {
      "kind": "text",
-     "line": 1675,
+     "line": 1793,
      "in": "DocumentsTabContent",
      "when": "!workspace",
      "text": "Selecciona una comunidad para ver sus documentos."
     },
     {
      "kind": "piece",
-     "line": 1684,
+     "line": 1802,
      "in": "DocumentsTabContent",
      "text": "",
      "tag": "FolderNavigation"
     },
     {
      "kind": "piece",
-     "line": 1694,
+     "line": 1812,
      "in": "DocumentsTabContent",
      "text": "",
      "tag": "DocumentFilters"
     },
     {
      "kind": "heading",
-     "line": 1707,
+     "line": 1825,
      "in": "DocumentsTabContent",
      "text": "Documentos en {currentFolder.folder_name} / Documentos",
      "level": 2
     },
     {
      "kind": "text",
-     "line": 1710,
+     "line": 1828,
      "in": "DocumentsTabContent",
      "text": "{documents.length} documento(s) • {folders.length} carpeta(s)"
     },
     {
      "kind": "button",
-     "line": 1716,
+     "line": 1834,
      "in": "DocumentsTabContent",
      "when": "permissions.can_view",
      "text": "Subir Documento",
@@ -3104,30 +3134,22 @@
     },
     {
      "kind": "text",
-     "line": 1730,
+     "line": 1848,
      "in": "DocumentsTabContent",
      "when": "selectedDocuments.length > 0",
      "text": "{selectedDocuments.length} documento(s) seleccionados"
     },
     {
      "kind": "button",
-     "line": 1734,
+     "line": 1852,
      "in": "DocumentsTabContent",
      "when": "selectedDocuments.length > 0",
      "text": "Mover",
-     "action": "{() => toast('Mover documentos próximamente', { icon: 'ℹ️' })}"
-    },
-    {
-     "kind": "toast",
-     "line": 1735,
-     "in": "DocumentsTabContent",
-     "when": "selectedDocuments.length > 0",
-     "text": "Mover documentos próximamente",
-     "variant": "plain"
+     "action": "{() => openMoveDialog(documents.filter(doc => selectedDocuments.includes(doc.id)…}"
     },
     {
      "kind": "button",
-     "line": 1740,
+     "line": 1858,
      "in": "DocumentsTabContent",
      "when": "selectedDocuments.length > 0",
      "text": "Descargar",
@@ -3135,7 +3157,7 @@
     },
     {
      "kind": "toast",
-     "line": 1741,
+     "line": 1859,
      "in": "DocumentsTabContent",
      "when": "selectedDocuments.length > 0",
      "text": "Descargar múltiples próximamente",
@@ -3143,7 +3165,7 @@
     },
     {
      "kind": "button",
-     "line": 1746,
+     "line": 1864,
      "in": "DocumentsTabContent",
      "when": "selectedDocuments.length > 0",
      "text": "Cancelar",
@@ -3151,14 +3173,14 @@
     },
     {
      "kind": "piece",
-     "line": 1758,
+     "line": 1876,
      "in": "DocumentsTabContent",
      "text": "",
      "tag": "DocumentGrid"
     },
     {
      "kind": "popup",
-     "line": 1774,
+     "line": 1893,
      "in": "DocumentsTabContent",
      "when": "showUploadModal && workspace && user",
      "text": "DocumentUploadModal",
@@ -3167,7 +3189,7 @@
     },
     {
      "kind": "popup",
-     "line": 1787,
+     "line": 1906,
      "in": "DocumentsTabContent",
      "when": "showPreviewModal && previewDocument",
      "text": "DocumentPreview",
@@ -3175,35 +3197,216 @@
      "open": "{showPreviewModal}"
     },
     {
+     "kind": "popup",
+     "line": 1920,
+     "in": "DocumentsTabContent",
+     "when": "renameTarget",
+     "text": "Cambiar nombre del documento",
+     "how": "written in this file"
+    },
+    {
+     "kind": "popup",
+     "line": 1924,
+     "in": "DocumentsTabContent",
+     "when": "renameTarget",
+     "text": "Cambiar nombre del documento",
+     "how": "written in this file",
+     "labelledby": "document-rename-title",
+     "hook": {
+      "testid": "document-rename-dialog"
+     }
+    },
+    {
+     "kind": "heading",
+     "line": 1933,
+     "in": "DocumentsTabContent",
+     "when": "renameTarget",
+     "text": "Cambiar nombre del documento",
+     "level": 3,
+     "hook": {
+      "id": "document-rename-title",
+      "idUsed": true
+     }
+    },
+    {
+     "kind": "button",
+     "line": 1936,
+     "in": "DocumentsTabContent",
+     "when": "renameTarget",
+     "text": "[icon X]",
+     "action": "{() => setRenameTarget(null)}",
+     "disabled": "{actionBusy}"
+    },
+    {
+     "kind": "form",
+     "line": 1944,
+     "in": "DocumentsTabContent",
+     "when": "renameTarget",
+     "text": "{(e) => { e.preventDefault(); void handleRenameSave(); }}"
+    },
+    {
+     "kind": "field",
+     "line": 1951,
+     "in": "DocumentsTabContent",
+     "when": "renameTarget",
+     "text": "Nombre del documento",
+     "type": "text",
+     "aria": "Nombre del documento",
+     "limits": "maxLength={200}",
+     "action": "{(e) => setRenameTitle(e.target.value)}",
+     "hook": {
+      "testid": "document-rename-input"
+     }
+    },
+    {
+     "kind": "button",
+     "line": 1963,
+     "in": "DocumentsTabContent",
+     "when": "renameTarget",
+     "text": "Cancelar",
+     "action": "{() => setRenameTarget(null)}",
+     "disabled": "{actionBusy}"
+    },
+    {
+     "kind": "button",
+     "line": 1971,
+     "in": "DocumentsTabContent",
+     "when": "renameTarget",
+     "text": "Guardar",
+     "submit": true,
+     "disabled": "{actionBusy}",
+     "hook": {
+      "testid": "document-rename-save"
+     }
+    },
+    {
+     "kind": "popup",
+     "line": 1987,
+     "in": "DocumentsTabContent",
+     "when": "moveTargets",
+     "text": "Mover documento",
+     "how": "written in this file"
+    },
+    {
+     "kind": "popup",
+     "line": 1991,
+     "in": "DocumentsTabContent",
+     "when": "moveTargets",
+     "text": "Mover documento",
+     "how": "written in this file",
+     "labelledby": "document-move-title",
+     "hook": {
+      "testid": "document-move-dialog"
+     }
+    },
+    {
+     "kind": "heading",
+     "line": 2000,
+     "in": "DocumentsTabContent",
+     "when": "moveTargets",
+     "text": "Mover documento",
+     "level": 3,
+     "hook": {
+      "id": "document-move-title",
+      "idUsed": true
+     }
+    },
+    {
+     "kind": "button",
+     "line": 2003,
+     "in": "DocumentsTabContent",
+     "when": "moveTargets",
+     "text": "[icon X]",
+     "action": "{() => setMoveTargets(null)}",
+     "disabled": "{actionBusy}"
+    },
+    {
+     "kind": "field",
+     "line": 2012,
+     "in": "DocumentsTabContent",
+     "when": "moveTargets",
+     "text": "Carpeta de destino",
+     "type": "select",
+     "aria": "Carpeta de destino",
+     "action": "{(e) => setMoveFolderId(e.target.value)}",
+     "options": [
+      "Sin carpeta",
+      "(lista) {folder.folder_name}"
+     ],
+     "hook": {
+      "testid": "document-move-folder"
+     }
+    },
+    {
+     "kind": "button",
+     "line": 2028,
+     "in": "DocumentsTabContent",
+     "when": "moveTargets",
+     "text": "Cancelar",
+     "action": "{() => setMoveTargets(null)}",
+     "disabled": "{actionBusy}"
+    },
+    {
+     "kind": "button",
+     "line": 2036,
+     "in": "DocumentsTabContent",
+     "when": "moveTargets",
+     "text": "Mover",
+     "action": "{() => void handleMoveSave()}",
+     "disabled": "{actionBusy}",
+     "hook": {
+      "testid": "document-move-save"
+     }
+    },
+    {
+     "kind": "hook",
+     "line": 2052,
+     "in": "DocumentsTabContent",
+     "when": "deleteTarget",
+     "text": "testid=document-delete-confirm",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "popup",
+     "line": 2053,
+     "in": "DocumentsTabContent",
+     "when": "deleteTarget",
+     "text": "ConfirmModal",
+     "how": "component",
+     "open": "{true}",
+     "props": "title: Eliminar documento · message: El documento «{deleteTarget.title}» dejará de verse en este espacio. ¿Continuar? · confirmText: Eliminar · cancelText: Cancelar"
+    },
+    {
      "kind": "gate",
-     "line": 1945,
+     "line": 2214,
      "in": "MessagingTabContent",
      "text": "!targetThreadId || !workspace || loading"
     },
     {
      "kind": "toast",
-     "line": 1978,
+     "line": 2247,
      "in": "loadThreads",
      "text": "Error al cargar los hilos de conversación",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 1995,
+     "line": 2264,
      "in": "loadThreadMessages",
      "text": "Error al cargar los mensajes",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 2162,
+     "line": 2431,
      "in": "handleThreadCreate",
      "text": "Hilo de conversación creado exitosamente",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 2168,
+     "line": 2437,
      "in": "handleThreadCreate",
      "when": "typeof error?.threadId === 'string'",
      "text": "No se pudo crear la conversación. Tu texto sigue aquí; inténtalo de nuevo.",
@@ -3211,7 +3414,7 @@
     },
     {
      "kind": "toast",
-     "line": 2170,
+     "line": 2439,
      "in": "handleThreadCreate",
      "when": "!(typeof error?.threadId === 'string')",
      "text": "Error al crear el hilo: {error?.message || 'Error de…}",
@@ -3219,21 +3422,21 @@
     },
     {
      "kind": "toast",
-     "line": 2207,
+     "line": 2476,
      "in": "handleMessageSend",
      "text": "Mensaje enviado",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 2210,
+     "line": 2479,
      "in": "handleMessageSend",
      "text": "Error al enviar el mensaje",
      "variant": "error"
     },
     {
      "kind": "nav",
-     "line": 2226,
+     "line": 2495,
      "in": "handleAttachmentDownload",
      "when": "attachment.storage_path && !session?.access_token",
      "text": "{attachment.storage_path}",
@@ -3241,7 +3444,7 @@
     },
     {
      "kind": "toast",
-     "line": 2230,
+     "line": 2499,
      "in": "handleAttachmentDownload",
      "when": "attachment.storage_path",
      "text": "Preparando descarga...",
@@ -3249,7 +3452,7 @@
     },
     {
      "kind": "nav",
-     "line": 2242,
+     "line": 2511,
      "in": "handleAttachmentDownload",
      "when": "attachment.storage_path && !response.ok",
      "text": "{attachment.storage_path}",
@@ -3257,7 +3460,7 @@
     },
     {
      "kind": "download",
-     "line": 2247,
+     "line": 2516,
      "in": "handleAttachmentDownload",
      "when": "attachment.storage_path",
      "text": "window.URL.createObjectURL()",
@@ -3265,7 +3468,7 @@
     },
     {
      "kind": "download",
-     "line": 2251,
+     "line": 2520,
      "in": "handleAttachmentDownload",
      "when": "attachment.storage_path",
      "text": "archivo: {attachment.file_name}",
@@ -3273,7 +3476,7 @@
     },
     {
      "kind": "toast",
-     "line": 2258,
+     "line": 2527,
      "in": "handleAttachmentDownload",
      "when": "attachment.storage_path",
      "text": "Descarga completada",
@@ -3281,7 +3484,7 @@
     },
     {
      "kind": "nav",
-     "line": 2262,
+     "line": 2531,
      "in": "handleAttachmentDownload",
      "when": "attachment.storage_path",
      "text": "{attachment.storage_path}",
@@ -3289,7 +3492,7 @@
     },
     {
      "kind": "toast",
-     "line": 2300,
+     "line": 2569,
      "in": "handleSaveEdit",
      "when": "error",
      "text": "Error al editar el mensaje",
@@ -3297,21 +3500,21 @@
     },
     {
      "kind": "toast",
-     "line": 2311,
+     "line": 2580,
      "in": "handleSaveEdit",
      "text": "Mensaje editado",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 2314,
+     "line": 2583,
      "in": "handleSaveEdit",
      "text": "Error al editar el mensaje",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 2346,
+     "line": 2615,
      "in": "handleReaction",
      "when": "existingReaction && deleteError",
      "text": "Error al quitar la reacción",
@@ -3319,7 +3522,7 @@
     },
     {
      "kind": "toast",
-     "line": 2376,
+     "line": 2645,
      "in": "handleReaction",
      "when": "!(existingReaction) && insertError",
      "text": "Error al agregar la reacción",
@@ -3327,14 +3530,14 @@
     },
     {
      "kind": "toast",
-     "line": 2421,
+     "line": 2690,
      "in": "handleReaction",
      "text": "Error al procesar la reacción",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 2445,
+     "line": 2714,
      "in": "confirmDeleteMessage",
      "when": "error",
      "text": "Error al eliminar el mensaje",
@@ -3342,21 +3545,21 @@
     },
     {
      "kind": "toast",
-     "line": 2451,
+     "line": 2720,
      "in": "confirmDeleteMessage",
      "text": "Mensaje eliminado",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 2454,
+     "line": 2723,
      "in": "confirmDeleteMessage",
      "text": "Error al eliminar el mensaje",
      "variant": "error"
     },
     {
      "kind": "heading",
-     "line": 2465,
+     "line": 2734,
      "in": "MessagingTabContent",
      "when": "!workspace",
      "text": "No hay espacio de trabajo seleccionado",
@@ -3364,14 +3567,14 @@
     },
     {
      "kind": "text",
-     "line": 2469,
+     "line": 2738,
      "in": "MessagingTabContent",
      "when": "!workspace",
      "text": "Selecciona una comunidad para acceder a la mensajería."
     },
     {
      "kind": "heading",
-     "line": 2479,
+     "line": 2748,
      "in": "MessagingTabContent",
      "when": "!permissions.can_view_messages",
      "text": "Sin permisos de acceso",
@@ -3379,7 +3582,7 @@
     },
     {
      "kind": "text",
-     "line": 2483,
+     "line": 2752,
      "in": "MessagingTabContent",
      "when": "!permissions.can_view_messages",
      "text": "No tienes permisos para ver los mensajes de esta comunidad.",
@@ -3387,20 +3590,20 @@
     },
     {
      "kind": "heading",
-     "line": 2494,
+     "line": 2763,
      "in": "MessagingTabContent",
      "text": "Mensajería de {workspace.community?.name}",
      "level": 2
     },
     {
      "kind": "text",
-     "line": 2498,
+     "line": 2767,
      "in": "MessagingTabContent",
      "text": "Comunicación en tiempo real con los miembros de la comunidad"
     },
     {
      "kind": "button",
-     "line": 2503,
+     "line": 2772,
      "in": "MessagingTabContent",
      "when": "permissions.can_create_threads",
      "text": "Nuevo Hilo",
@@ -3408,14 +3611,14 @@
     },
     {
      "kind": "piece",
-     "line": 2514,
+     "line": 2783,
      "in": "MessagingTabContent",
      "text": "",
      "tag": "MessageFilters"
     },
     {
      "kind": "clickable",
-     "line": 2546,
+     "line": 2815,
      "in": "MessagingTabContent",
      "when": "(activeView === 'threads' || !selectedThread) && !(loading) && threads.length > 0 && each filterThreadsBySearch(threads)",
      "text": "{thread.thread_title} {thread.category_config.label} [{thread.description}] Por {thread.creator_name} {thread.message_c…",
@@ -3424,7 +3627,7 @@
     },
     {
      "kind": "heading",
-     "line": 2552,
+     "line": 2821,
      "in": "MessagingTabContent",
      "when": "(activeView === 'threads' || !selectedThread) && !(loading) && threads.length > 0 && each filterThreadsBySearch(threads)",
      "text": "{thread.thread_title}",
@@ -3432,63 +3635,63 @@
     },
     {
      "kind": "value",
-     "line": 2553,
+     "line": 2822,
      "in": "MessagingTabContent",
      "when": "(activeView === 'threads' || !selectedThread) && !(loading) && threads.length > 0 && each filterThreadsBySearch(threads)",
      "text": "{thread.category_config.label}"
     },
     {
      "kind": "value",
-     "line": 2565,
+     "line": 2834,
      "in": "MessagingTabContent",
      "when": "!(loading) && threads.length > 0 && each filterThreadsBySearch(threads) && thread.description",
      "text": "{thread.description}"
     },
     {
      "kind": "text",
-     "line": 2569,
+     "line": 2838,
      "in": "MessagingTabContent",
      "when": "(activeView === 'threads' || !selectedThread) && !(loading) && threads.length > 0 && each filterThreadsBySearch(threads)",
      "text": "Por {thread.creator_name}"
     },
     {
      "kind": "text",
-     "line": 2571,
+     "line": 2840,
      "in": "MessagingTabContent",
      "when": "(activeView === 'threads' || !selectedThread) && !(loading) && threads.length > 0 && each filterThreadsBySearch(threads)",
      "text": "{thread.message_count} mensaje(s)"
     },
     {
      "kind": "text",
-     "line": 2572,
+     "line": 2841,
      "in": "MessagingTabContent",
      "when": "(activeView === 'threads' || !selectedThread) && !(loading) && threads.length > 0 && each filterThreadsBySearch(threads)",
      "text": "{thread.participant_count} participante(s)"
     },
     {
      "kind": "text",
-     "line": 2574,
+     "line": 2843,
      "in": "MessagingTabContent",
      "when": "!(loading) && threads.length > 0 && each filterThreadsBySearch(threads) && thread.latest_message",
      "text": "Último: {new Date(thread.latest_message.crea…}"
     },
     {
      "kind": "value",
-     "line": 2581,
+     "line": 2850,
      "in": "MessagingTabContent",
      "when": "!(loading) && threads.length > 0 && each filterThreadsBySearch(threads) && thread.latest_message",
      "text": "{thread.latest_message.author_name} :"
     },
     {
      "kind": "value",
-     "line": 2582,
+     "line": 2851,
      "in": "MessagingTabContent",
      "when": "!(loading) && threads.length > 0 && each filterThreadsBySearch(threads) && thread.latest_message",
      "text": "{thread.latest_message.content.slice…} ..."
     },
     {
      "kind": "heading",
-     "line": 2591,
+     "line": 2860,
      "in": "MessagingTabContent",
      "when": "(activeView === 'threads' || !selectedThread) && !(loading) && !(threads.length > 0)",
      "text": "No hay hilos de conversación",
@@ -3496,14 +3699,14 @@
     },
     {
      "kind": "text",
-     "line": 2594,
+     "line": 2863,
      "in": "MessagingTabContent",
      "when": "(activeView === 'threads' || !selectedThread) && !(loading) && !(threads.length > 0)",
      "text": "Comienza creando el primer hilo de conversación. / No se han creado hilos de conversación en esta comunidad."
     },
     {
      "kind": "button",
-     "line": 2600,
+     "line": 2869,
      "in": "MessagingTabContent",
      "when": "(activeView === 'threads' || !selectedThread) && !(loading) && !(threads.length > 0) && permissions.can_create_threads",
      "text": "Crear Primer Hilo",
@@ -3511,7 +3714,7 @@
     },
     {
      "kind": "heading",
-     "line": 2618,
+     "line": 2887,
      "in": "MessagingTabContent",
      "when": "!(activeView === 'threads' || !selectedThread)",
      "text": "{selectedThread.thread_title}",
@@ -3519,14 +3722,14 @@
     },
     {
      "kind": "text",
-     "line": 2619,
+     "line": 2888,
      "in": "MessagingTabContent",
      "when": "!(activeView === 'threads' || !selectedThread)",
      "text": "{selectedThread.message_count} mensaje(s)"
     },
     {
      "kind": "button",
-     "line": 2621,
+     "line": 2890,
      "in": "MessagingTabContent",
      "when": "!(activeView === 'threads' || !selectedThread)",
      "text": "[icon X]",
@@ -3534,7 +3737,7 @@
     },
     {
      "kind": "piece",
-     "line": 2637,
+     "line": 2906,
      "in": "MessagingTabContent",
      "when": "(!(activeView === 'threads' || !selectedThread)) && messages.length > 0 && each messages",
      "text": "",
@@ -3542,14 +3745,14 @@
     },
     {
      "kind": "text",
-     "line": 2653,
+     "line": 2922,
      "in": "MessagingTabContent",
      "when": "(!(activeView === 'threads' || !selectedThread)) && !(messages.length > 0)",
      "text": "No hay mensajes en este hilo"
     },
     {
      "kind": "piece",
-     "line": 2661,
+     "line": 2930,
      "in": "MessagingTabContent",
      "when": "(!(activeView === 'threads' || !selectedThread)) && permissions.can_send_messages",
      "text": "",
@@ -3557,7 +3760,7 @@
     },
     {
      "kind": "popup",
-     "line": 2682,
+     "line": 2951,
      "in": "MessagingTabContent",
      "when": "showAttachmentPreview && previewAttachment",
      "text": "AttachmentPreview",
@@ -3566,7 +3769,7 @@
     },
     {
      "kind": "popup",
-     "line": 2699,
+     "line": 2968,
      "in": "MessagingTabContent",
      "when": "showThreadCreationModal",
      "text": "ThreadCreationModal",
@@ -3575,7 +3778,7 @@
     },
     {
      "kind": "popup",
-     "line": 2708,
+     "line": 2977,
      "in": "MessagingTabContent",
      "text": "ConfirmModal",
      "how": "component",
@@ -3584,91 +3787,91 @@
     },
     {
      "kind": "string",
-     "line": 712,
+     "line": 717,
      "in": "CommunityWorkspacePage",
      "text": "Administrador"
     },
     {
      "kind": "string",
-     "line": 713,
+     "line": 718,
      "in": "CommunityWorkspacePage",
      "text": "Consultor"
     },
     {
      "kind": "string",
-     "line": 714,
+     "line": 719,
      "in": "CommunityWorkspacePage",
      "text": "Equipo Directivo"
     },
     {
      "kind": "string",
-     "line": 715,
+     "line": 720,
      "in": "CommunityWorkspacePage",
      "text": "Líder de Generación"
     },
     {
      "kind": "string",
-     "line": 716,
+     "line": 721,
      "in": "CommunityWorkspacePage",
      "text": "Líder de Comunidad"
     },
     {
      "kind": "string",
-     "line": 717,
+     "line": 722,
      "in": "CommunityWorkspacePage",
      "text": "Docente"
     },
     {
      "kind": "string",
-     "line": 890,
+     "line": 895,
      "in": "CommunityWorkspacePage",
      "text": "Vista General - Espacio Colaborativo"
     },
     {
      "kind": "string",
-     "line": 1255,
+     "line": 1260,
      "in": "MeetingsTabContent",
      "text": "Fecha"
     },
     {
      "kind": "string",
-     "line": 1256,
+     "line": 1261,
      "in": "MeetingsTabContent",
      "text": "Título"
     },
     {
      "kind": "string",
-     "line": 1257,
+     "line": 1262,
      "in": "MeetingsTabContent",
      "text": "Estado"
     },
     {
      "kind": "string",
-     "line": 1258,
+     "line": 1263,
      "in": "MeetingsTabContent",
      "text": "Creación"
     },
     {
      "kind": "string",
-     "line": 1464,
+     "line": 1496,
      "in": "DocumentsTabContent",
      "text": "Usuario desconocido"
     },
     {
      "kind": "string",
-     "line": 1598,
+     "line": 1641,
      "in": "DocumentsTabContent",
      "text": "Bearer {session.access_token}"
     },
     {
      "kind": "string",
-     "line": 2170,
+     "line": 2439,
      "in": "MessagingTabContent",
      "text": "Error desconocido"
     },
     {
      "kind": "list",
-     "line": 712,
+     "line": 717,
      "in": "renderMainContent",
      "text": "renderMainContent()",
      "items": [
@@ -3682,7 +3885,7 @@
     },
     {
      "kind": "list",
-     "line": 890,
+     "line": 895,
      "in": "getPageTitle",
      "text": "getPageTitle()",
      "items": [
@@ -3788,6 +3991,7 @@
     "utils/messagingUtils-simple.ts",
     "utils/messagingUtils.ts",
     "utils/navigationManager.ts",
+    "utils/roleUtils.ts",
     "utils/storage.js",
     "utils/workspaceUtils.ts"
    ],
@@ -3810,7 +4014,7 @@
      ],
      "from": [
       "lib/community/fetchCommunityMembers.ts:45",
-      "pages/community/workspace.tsx:221"
+      "pages/community/workspace.tsx:226"
      ]
     },
     {
@@ -3840,7 +4044,7 @@
       "POST"
      ],
      "from": [
-      "components/meetings/MeetingDocumentationModal.tsx:607"
+      "components/meetings/MeetingDocumentationModal.tsx:619"
      ]
     },
     {
@@ -3868,7 +4072,7 @@
      "route": "/api/meetings/[id]/work-session/[sessionId]/end",
      "methods": [],
      "from": [
-      "components/meetings/MeetingDocumentationModal.tsx:361"
+      "components/meetings/MeetingDocumentationModal.tsx:369"
      ]
     },
     {
@@ -3878,7 +4082,7 @@
       "POST"
      ],
      "from": [
-      "components/meetings/MeetingDocumentationModal.tsx:568"
+      "components/meetings/MeetingDocumentationModal.tsx:579"
      ]
     },
     {
@@ -3908,7 +4112,7 @@
       "GET"
      ],
      "from": [
-      "components/workspace/WorkspaceSessionsTab.tsx:97"
+      "components/workspace/WorkspaceSessionsTab.tsx:124"
      ]
     },
     {
@@ -3916,8 +4120,8 @@
      "route": "/api/storage/download",
      "methods": [],
      "from": [
-      "pages/community/workspace.tsx:1594",
-      "pages/community/workspace.tsx:2232"
+      "pages/community/workspace.tsx:1637",
+      "pages/community/workspace.tsx:2501"
      ]
     }
    ]
@@ -4004,8 +4208,8 @@
      "components/community/MemberProfileModal.tsx:163",
      "components/community/MemberProfileModal.tsx:164",
      "middleware.ts:358",
-     "pages/community/workspace.tsx:684",
-     "pages/community/workspace.tsx:686"
+     "pages/community/workspace.tsx:689",
+     "pages/community/workspace.tsx:691"
     ],
     "qaScenarios": {},
     "tests": {
@@ -4802,45 +5006,45 @@
    "usedBy": [
     "/community/workspace"
    ],
-   "lines": 648,
+   "lines": 651,
    "rows": [
     {
      "kind": "hook",
-     "line": 79,
+     "line": 80,
      "in": "DocumentGrid",
      "text": "document.addEventListener('click')",
      "type": "listener"
     },
     {
      "kind": "media",
-     "line": 91,
+     "line": 92,
      "in": "getFileIcon",
      "text": "Image"
     },
     {
      "kind": "access",
-     "line": 118,
+     "line": 120,
      "in": "DocumentActionsDropdown",
-     "text": "canEdit = canUserEditDocument(document, userId, permissions)",
+     "text": "canManage = canManageAll || (!!userId && document.uploaded_by === userId)",
      "via": "declaration"
     },
     {
      "kind": "button",
-     "line": 123,
+     "line": 124,
      "in": "DocumentActionsDropdown",
      "text": "Ver",
      "action": "{() => { onDocumentAction('view', document); setActiveDropdown(null); }}"
     },
     {
      "kind": "button",
-     "line": 134,
+     "line": 135,
      "in": "DocumentActionsDropdown",
      "text": "Descargar",
      "action": "{() => { onDocumentAction('download', document); setActiveDropdown(null); }}"
     },
     {
      "kind": "button",
-     "line": 146,
+     "line": 147,
      "in": "DocumentActionsDropdown",
      "when": "permissions.can_share",
      "text": "Compartir",
@@ -4848,30 +5052,31 @@
     },
     {
      "kind": "button",
-     "line": 159,
+     "line": 160,
      "in": "DocumentActionsDropdown",
-     "when": "canEdit",
+     "when": "canManage",
      "text": "Editar",
      "action": "{() => { onDocumentAction('edit', document); setActiveDropdown(null); }}"
     },
     {
      "kind": "button",
-     "line": 171,
+     "line": 173,
      "in": "DocumentActionsDropdown",
+     "when": "canManage",
      "text": "Mover",
      "action": "{() => { onDocumentAction('move', document); setActiveDropdown(null); }}"
     },
     {
      "kind": "button",
-     "line": 185,
+     "line": 188,
      "in": "DocumentActionsDropdown",
-     "when": "canDelete",
+     "when": "canManage",
      "text": "Eliminar",
      "action": "{() => { onDocumentAction('delete', document); setActiveDropdown(null); }}"
     },
     {
      "kind": "clickable",
-     "line": 203,
+     "line": 206,
      "in": "FolderCard",
      "text": "{folder.folder_name} {folder.document_count} documentos {folder.subfolder_count} subcarpetas",
      "tag": "div",
@@ -4879,26 +5084,26 @@
     },
     {
      "kind": "heading",
-     "line": 212,
+     "line": 215,
      "in": "FolderCard",
      "text": "{folder.folder_name}",
      "level": 3
     },
     {
      "kind": "text",
-     "line": 216,
+     "line": 219,
      "in": "FolderCard",
      "text": "{folder.document_count} documentos"
     },
     {
      "kind": "text",
-     "line": 217,
+     "line": 220,
      "in": "FolderCard",
      "text": "{folder.subfolder_count} subcarpetas"
     },
     {
      "kind": "field",
-     "line": 238,
+     "line": 241,
      "in": "DocumentCard",
      "text": "",
      "type": "checkbox",
@@ -4906,14 +5111,14 @@
     },
     {
      "kind": "button",
-     "line": 248,
+     "line": 251,
      "in": "DocumentCard",
      "text": "[icon MoreVertical]",
      "action": "{(e) => { e.stopPropagation(); setActiveDropdown(activeDropdown === document.id …}"
     },
     {
      "kind": "clickable",
-     "line": 261,
+     "line": 264,
      "in": "DocumentCard",
      "text": "{getFileIcon(document.mime_type)} {document.title} {document.description} / Sin descripción [{tag} [+ {document.tags.le…",
      "tag": "div",
@@ -4921,72 +5126,72 @@
     },
     {
      "kind": "media",
-     "line": 268,
+     "line": 271,
      "in": "DocumentCard",
      "when": "document.thumbnail_url",
      "text": "img · alt {document.title} · {document.thumbnail_url}"
     },
     {
      "kind": "value",
-     "line": 278,
+     "line": 281,
      "in": "DocumentCard",
      "when": "!(document.thumbnail_url)",
      "text": "{getFileIcon(document.mime_type)}"
     },
     {
      "kind": "heading",
-     "line": 287,
+     "line": 290,
      "in": "DocumentCard",
      "text": "{document.title}",
      "level": 3
     },
     {
      "kind": "text",
-     "line": 290,
+     "line": 293,
      "in": "DocumentCard",
      "text": "{document.description} / Sin descripción"
     },
     {
      "kind": "value",
-     "line": 298,
+     "line": 301,
      "in": "DocumentCard",
      "when": "document.tags.length > 0 && each document.tags.slice(0, 2)",
      "text": "{tag}"
     },
     {
      "kind": "value",
-     "line": 306,
+     "line": 309,
      "in": "DocumentCard",
      "when": "document.tags.length > 0 && document.tags.length > 2",
      "text": "+ {document.tags.length - 2}"
     },
     {
      "kind": "value",
-     "line": 313,
+     "line": 316,
      "in": "DocumentCard",
      "text": "{document.formatted_size}"
     },
     {
      "kind": "value",
-     "line": 314,
+     "line": 317,
      "in": "DocumentCard",
      "text": "{document.relative_time}"
     },
     {
      "kind": "value",
-     "line": 321,
+     "line": 324,
      "in": "DocumentCard",
      "text": "{document.view_count}"
     },
     {
      "kind": "value",
-     "line": 325,
+     "line": 328,
      "in": "DocumentCard",
      "text": "{document.download_count}"
     },
     {
      "kind": "field",
-     "line": 347,
+     "line": 350,
      "in": "DocumentRow",
      "text": "",
      "type": "checkbox",
@@ -4994,7 +5199,7 @@
     },
     {
      "kind": "clickable",
-     "line": 357,
+     "line": 360,
      "in": "DocumentRow",
      "text": "{getFileIcon(document.mime_type)} {document.title} {document.file_name}",
      "tag": "div",
@@ -5002,104 +5207,104 @@
     },
     {
      "kind": "value",
-     "line": 361,
+     "line": 364,
      "in": "DocumentRow",
      "text": "{getFileIcon(document.mime_type)}"
     },
     {
      "kind": "value",
-     "line": 365,
+     "line": 368,
      "in": "DocumentRow",
      "text": "{document.title}"
     },
     {
      "kind": "value",
-     "line": 368,
+     "line": 371,
      "in": "DocumentRow",
      "text": "{document.file_name}"
     },
     {
      "kind": "value",
-     "line": 376,
+     "line": 379,
      "in": "DocumentRow",
      "text": "{document.formatted_size}"
     },
     {
      "kind": "value",
-     "line": 384,
+     "line": 387,
      "in": "DocumentRow",
      "text": "{document.uploader_name}"
     },
     {
      "kind": "value",
-     "line": 392,
+     "line": 395,
      "in": "DocumentRow",
      "text": "{document.relative_time}"
     },
     {
      "kind": "value",
-     "line": 401,
+     "line": 404,
      "in": "DocumentRow",
      "text": "{document.view_count}"
     },
     {
      "kind": "value",
-     "line": 405,
+     "line": 408,
      "in": "DocumentRow",
      "text": "{document.download_count}"
     },
     {
      "kind": "button",
-     "line": 413,
+     "line": 416,
      "in": "DocumentRow",
      "text": "[icon MoreVertical]",
      "action": "{(e) => { e.stopPropagation(); setActiveDropdown(activeDropdown === document.id …}"
     },
     {
      "kind": "column",
-     "line": 460,
+     "line": 463,
      "in": "DocumentGrid",
      "when": "loading",
      "text": "Documento"
     },
     {
      "kind": "column",
-     "line": 463,
+     "line": 466,
      "in": "DocumentGrid",
      "when": "loading",
      "text": "Tamaño"
     },
     {
      "kind": "column",
-     "line": 466,
+     "line": 469,
      "in": "DocumentGrid",
      "when": "loading",
      "text": "Subido por"
     },
     {
      "kind": "column",
-     "line": 469,
+     "line": 472,
      "in": "DocumentGrid",
      "when": "loading",
      "text": "Fecha"
     },
     {
      "kind": "column",
-     "line": 472,
+     "line": 475,
      "in": "DocumentGrid",
      "when": "loading",
      "text": "Estadísticas"
     },
     {
      "kind": "column",
-     "line": 475,
+     "line": 478,
      "in": "DocumentGrid",
      "when": "loading",
      "text": "Acciones"
     },
     {
      "kind": "heading",
-     "line": 526,
+     "line": 529,
      "in": "DocumentGrid",
      "when": "folders.length === 0 && documents.length === 0",
      "text": "No hay documentos",
@@ -5107,14 +5312,14 @@
     },
     {
      "kind": "text",
-     "line": 530,
+     "line": 533,
      "in": "DocumentGrid",
      "when": "folders.length === 0 && documents.length === 0",
      "text": "Comienza subiendo tu primer documento o creando una carpeta."
     },
     {
      "kind": "heading",
-     "line": 543,
+     "line": 546,
      "in": "DocumentGrid",
      "when": "viewMode === 'grid' && folders.length > 0",
      "text": "Carpetas",
@@ -5122,7 +5327,7 @@
     },
     {
      "kind": "heading",
-     "line": 556,
+     "line": 559,
      "in": "DocumentGrid",
      "when": "viewMode === 'grid' && documents.length > 0",
      "text": "Documentos ( {documents.length} )",
@@ -5130,14 +5335,14 @@
     },
     {
      "kind": "text",
-     "line": 560,
+     "line": 563,
      "in": "DocumentGrid",
      "when": "viewMode === 'grid' && documents.length > 0 && selectedDocuments.length > 0",
      "text": "{selectedDocuments.length} seleccionados"
     },
     {
      "kind": "heading",
-     "line": 582,
+     "line": 585,
      "in": "DocumentGrid",
      "when": "folders.length > 0",
      "text": "Carpetas",
@@ -5145,7 +5350,7 @@
     },
     {
      "kind": "heading",
-     "line": 595,
+     "line": 598,
      "in": "DocumentGrid",
      "when": "documents.length > 0",
      "text": "Documentos ( {documents.length} )",
@@ -5153,14 +5358,14 @@
     },
     {
      "kind": "text",
-     "line": 599,
+     "line": 602,
      "in": "DocumentGrid",
      "when": "documents.length > 0 && selectedDocuments.length > 0",
      "text": "{selectedDocuments.length} seleccionados"
     },
     {
      "kind": "field",
-     "line": 610,
+     "line": 613,
      "in": "DocumentGrid",
      "when": "documents.length > 0",
      "text": "",
@@ -5169,42 +5374,42 @@
     },
     {
      "kind": "column",
-     "line": 617,
+     "line": 620,
      "in": "DocumentGrid",
      "when": "documents.length > 0",
      "text": "Documento"
     },
     {
      "kind": "column",
-     "line": 620,
+     "line": 623,
      "in": "DocumentGrid",
      "when": "documents.length > 0",
      "text": "Tamaño"
     },
     {
      "kind": "column",
-     "line": 623,
+     "line": 626,
      "in": "DocumentGrid",
      "when": "documents.length > 0",
      "text": "Subido por"
     },
     {
      "kind": "column",
-     "line": 626,
+     "line": 629,
      "in": "DocumentGrid",
      "when": "documents.length > 0",
      "text": "Fecha"
     },
     {
      "kind": "column",
-     "line": 629,
+     "line": 632,
      "in": "DocumentGrid",
      "when": "documents.length > 0",
      "text": "Estadísticas"
     },
     {
      "kind": "column",
-     "line": 632,
+     "line": 635,
      "in": "DocumentGrid",
      "when": "documents.length > 0",
      "text": "Acciones"
@@ -7607,7 +7812,7 @@
      "line": 371,
      "in": "MeetingCard",
      "when": "meetingWithDetails && meetingWithDetails.attendees && meetingWithDetails.attendees.length > 0 && each meetingWithDetails.attendees.slice(0, 5)",
-     "text": "{profileName(attendee.user_profile, …} / Usuario"
+     "text": "{profileName(attendee.user_profile, …} / Participante"
     },
     {
      "kind": "value",
@@ -8091,11 +8296,11 @@
    "usedBy": [
     "/community/workspace"
    ],
-   "lines": 590,
+   "lines": 592,
    "rows": [
     {
      "kind": "toast",
-     "line": 87,
+     "line": 90,
      "in": "loadMeetingDetails",
      "when": "!(details)",
      "text": "No se pudo cargar la información de la reunión",
@@ -8103,14 +8308,14 @@
     },
     {
      "kind": "toast",
-     "line": 91,
+     "line": 94,
      "in": "loadMeetingDetails",
      "text": "Error al cargar los detalles de la reunión",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 139,
+     "line": 142,
      "in": "handleDownload",
      "when": "!url",
      "text": "No se pudo abrir el archivo",
@@ -8118,34 +8323,34 @@
     },
     {
      "kind": "nav",
-     "line": 142,
+     "line": 145,
      "in": "handleDownload",
      "text": "{url}",
      "via": "window.open"
     },
     {
      "kind": "toast",
-     "line": 145,
+     "line": 148,
      "in": "handleDownload",
      "text": "Error al descargar el archivo",
      "variant": "error"
     },
     {
      "kind": "gate",
-     "line": 149,
+     "line": 152,
      "in": "MeetingDetailsModal",
      "text": "!isOpen"
     },
     {
      "kind": "popup",
-     "line": 152,
+     "line": 155,
      "in": "MeetingDetailsModal",
      "text": "{meeting.title}",
      "how": "written in this file"
     },
     {
      "kind": "popup",
-     "line": 155,
+     "line": 158,
      "in": "MeetingDetailsModal",
      "screen": "sm:block",
      "text": "(sin título)",
@@ -8153,7 +8358,7 @@
     },
     {
      "kind": "clickable",
-     "line": 156,
+     "line": 159,
      "in": "MeetingDetailsModal",
      "screen": "sm:block",
      "text": "",
@@ -8162,7 +8367,7 @@
     },
     {
      "kind": "heading",
-     "line": 175,
+     "line": 178,
      "in": "MeetingDetailsModal",
      "when": "!(loading) && meeting",
      "screen": "sm:block",
@@ -8171,7 +8376,7 @@
     },
     {
      "kind": "value",
-     "line": 179,
+     "line": 182,
      "in": "MeetingDetailsModal",
      "when": "!(loading) && meeting",
      "screen": "sm:block",
@@ -8179,7 +8384,7 @@
     },
     {
      "kind": "value",
-     "line": 184,
+     "line": 187,
      "in": "MeetingDetailsModal",
      "when": "!(loading) && meeting",
      "screen": "sm:block",
@@ -8187,7 +8392,7 @@
     },
     {
      "kind": "text",
-     "line": 188,
+     "line": 191,
      "in": "MeetingDetailsModal",
      "when": "!(loading) && meeting",
      "screen": "sm:block",
@@ -8195,7 +8400,7 @@
     },
     {
      "kind": "button",
-     "line": 192,
+     "line": 195,
      "in": "MeetingDetailsModal",
      "when": "!(loading) && meeting",
      "screen": "sm:block",
@@ -8204,7 +8409,7 @@
     },
     {
      "kind": "text",
-     "line": 209,
+     "line": 212,
      "in": "MeetingDetailsModal",
      "when": "!(loading) && meeting && meeting.status === 'completada' && meeting.finalized_at",
      "screen": "sm:block",
@@ -8212,7 +8417,7 @@
     },
     {
      "kind": "text",
-     "line": 211,
+     "line": 214,
      "in": "MeetingDetailsModal",
      "when": "!(loading) && meeting && meeting.status === 'completada' && meeting.finalized_at && meeting.finalized_by_profile",
      "screen": "sm:block",
@@ -8220,7 +8425,7 @@
     },
     {
      "kind": "text",
-     "line": 215,
+     "line": 218,
      "in": "MeetingDetailsModal",
      "when": "!(loading) && meeting && meeting.status === 'completada' && meeting.finalized_at && meeting.finalize_audience",
      "screen": "sm:block",
@@ -8228,7 +8433,7 @@
     },
     {
      "kind": "button",
-     "line": 221,
+     "line": 224,
      "in": "MeetingDetailsModal",
      "when": "!(loading) && meeting && meeting.status === 'completada' && meeting.finalized_at",
      "screen": "sm:block",
@@ -8238,7 +8443,7 @@
     },
     {
      "kind": "value",
-     "line": 239,
+     "line": 242,
      "in": "MeetingDetailsModal",
      "when": "!(loading) && meeting && meeting.location",
      "screen": "sm:block",
@@ -8246,7 +8451,7 @@
     },
     {
      "kind": "text",
-     "line": 245,
+     "line": 248,
      "in": "MeetingDetailsModal",
      "when": "!(loading) && meeting && meeting.facilitator",
      "screen": "sm:block",
@@ -8254,7 +8459,7 @@
     },
     {
      "kind": "text",
-     "line": 253,
+     "line": 256,
      "in": "MeetingDetailsModal",
      "when": "!(loading) && meeting && meeting.created_by_profile",
      "screen": "sm:block",
@@ -8262,7 +8467,7 @@
     },
     {
      "kind": "text",
-     "line": 261,
+     "line": 264,
      "in": "MeetingDetailsModal",
      "when": "!(loading) && meeting && meeting.attendees && meeting.attendees.length > 0",
      "screen": "sm:block",
@@ -8270,7 +8475,7 @@
     },
     {
      "kind": "button",
-     "line": 328,
+     "line": 331,
      "in": "MeetingDetailsModal",
      "when": "!(loading) && meeting && each ([ { id: 'summary', label: 'Resumen y Notas', ico…",
      "screen": "sm:block",
@@ -8279,7 +8484,7 @@
     },
     {
      "kind": "hook",
-     "line": 349,
+     "line": 352,
      "in": "MeetingDetailsModal",
      "when": "!(loading) && meeting && !canReadContent",
      "screen": "sm:block",
@@ -8289,7 +8494,7 @@
     },
     {
      "kind": "value",
-     "line": 349,
+     "line": 352,
      "in": "MeetingDetailsModal",
      "when": "!(loading) && meeting && !canReadContent",
      "screen": "sm:block",
@@ -8297,7 +8502,7 @@
     },
     {
      "kind": "heading",
-     "line": 361,
+     "line": 364,
      "in": "MeetingDetailsModal",
      "when": "!(loading) && meeting && activeTab === 'summary' && hasSummary",
      "screen": "sm:block",
@@ -8306,7 +8511,7 @@
     },
     {
      "kind": "piece",
-     "line": 362,
+     "line": 365,
      "in": "MeetingDetailsModal",
      "when": "!(loading) && meeting && activeTab === 'summary' && hasSummary",
      "screen": "sm:block",
@@ -8315,7 +8520,7 @@
     },
     {
      "kind": "heading",
-     "line": 367,
+     "line": 370,
      "in": "MeetingDetailsModal",
      "when": "!(loading) && meeting && activeTab === 'summary' && hasNotes",
      "screen": "sm:block",
@@ -8324,7 +8529,7 @@
     },
     {
      "kind": "piece",
-     "line": 368,
+     "line": 371,
      "in": "MeetingDetailsModal",
      "when": "!(loading) && meeting && activeTab === 'summary' && hasNotes",
      "screen": "sm:block",
@@ -8333,7 +8538,7 @@
     },
     {
      "kind": "text",
-     "line": 373,
+     "line": 376,
      "in": "MeetingDetailsModal",
      "when": "!(loading) && meeting && activeTab === 'summary' && !hasSummary && !hasNotes",
      "screen": "sm:block",
@@ -8341,7 +8546,7 @@
     },
     {
      "kind": "media",
-     "line": 388,
+     "line": 391,
      "in": "MeetingDetailsModal",
      "when": "activeTab === 'attendees' && meeting.attendees && meeting.attendees.length > 0 && each meeting.attendees && attendee.user_profile && attendee.user_profile.avatar_url",
      "screen": "sm:block",
@@ -8349,19 +8554,11 @@
     },
     {
      "kind": "text",
-     "line": 399,
+     "line": 402,
      "in": "MeetingDetailsModal",
      "when": "meeting && activeTab === 'attendees' && meeting.attendees && meeting.attendees.length > 0 && each meeting.attendees",
      "screen": "sm:block",
-     "text": "{profileName(attendee.user_profile, …} / Usuario no encontrado"
-    },
-    {
-     "kind": "value",
-     "line": 405,
-     "in": "MeetingDetailsModal",
-     "when": "activeTab === 'attendees' && meeting.attendees && meeting.attendees.length > 0 && each meeting.attendees && attendee.user_profile && attendee.user_profile.email",
-     "screen": "sm:block",
-     "text": "{attendee.user_profile.email}"
+     "text": "{profileName(attendee.user_profile, …} / Participante"
     },
     {
      "kind": "text",
@@ -8423,7 +8620,7 @@
     },
     {
      "kind": "piece",
-     "line": 485,
+     "line": 486,
      "in": "MeetingDetailsModal",
      "when": "meeting && canReadContent && activeTab === 'tasks' && meeting.tasks.length > 0 && each meeting.tasks",
      "screen": "sm:block",
@@ -8432,7 +8629,7 @@
     },
     {
      "kind": "value",
-     "line": 514,
+     "line": 516,
      "in": "MeetingDetailsModal",
      "when": "canReadContent && activeTab === 'documents' && !(loadingAttachments) && attachments.length > 0 && each attachments",
      "screen": "sm:block",
@@ -8440,7 +8637,7 @@
     },
     {
      "kind": "value",
-     "line": 516,
+     "line": 518,
      "in": "MeetingDetailsModal",
      "when": "canReadContent && activeTab === 'documents' && !(loadingAttachments) && attachments.length > 0 && each attachments",
      "screen": "sm:block",
@@ -8448,7 +8645,7 @@
     },
     {
      "kind": "value",
-     "line": 517,
+     "line": 519,
      "in": "MeetingDetailsModal",
      "when": "canReadContent && activeTab === 'documents' && !(loadingAttachments) && attachments.length > 0 && each attachments",
      "screen": "sm:block",
@@ -8456,7 +8653,7 @@
     },
     {
      "kind": "button",
-     "line": 520,
+     "line": 522,
      "in": "MeetingDetailsModal",
      "when": "canReadContent && activeTab === 'documents' && !(loadingAttachments) && attachments.length > 0 && each attachments",
      "screen": "sm:block",
@@ -8466,7 +8663,7 @@
     },
     {
      "kind": "text",
-     "line": 532,
+     "line": 534,
      "in": "MeetingDetailsModal",
      "when": "meeting && canReadContent && activeTab === 'documents' && !(loadingAttachments) && !(attachments.length > 0)",
      "screen": "sm:block",
@@ -8474,7 +8671,7 @@
     },
     {
      "kind": "button",
-     "line": 542,
+     "line": 544,
      "in": "MeetingDetailsModal",
      "when": "!(loading) && meeting",
      "screen": "sm:block",
@@ -8483,7 +8680,7 @@
     },
     {
      "kind": "button",
-     "line": 549,
+     "line": 551,
      "in": "MeetingDetailsModal",
      "when": "!(loading) && meeting && canDelete && onDelete",
      "screen": "sm:block",
@@ -8492,7 +8689,7 @@
     },
     {
      "kind": "hook",
-     "line": 554,
+     "line": 556,
      "in": "MeetingDetailsModal",
      "when": "!(loading) && meeting && canDelete && onDelete",
      "screen": "sm:block",
@@ -8501,7 +8698,7 @@
     },
     {
      "kind": "button",
-     "line": 566,
+     "line": 568,
      "in": "MeetingDetailsModal",
      "when": "!(loading) && meeting && canEdit && onEdit",
      "screen": "sm:block",
@@ -8510,7 +8707,7 @@
     },
     {
      "kind": "text",
-     "line": 580,
+     "line": 582,
      "in": "MeetingDetailsModal",
      "when": "!(loading) && !(meeting)",
      "screen": "sm:block",
@@ -8518,55 +8715,55 @@
     },
     {
      "kind": "string",
-     "line": 246,
+     "line": 249,
      "in": "MeetingDetailsModal",
      "text": "Sin asignar"
     },
     {
      "kind": "string",
-     "line": 254,
+     "line": 257,
      "in": "MeetingDetailsModal",
      "text": "Sin nombre"
     },
     {
      "kind": "string",
-     "line": 279,
+     "line": 282,
      "in": "MeetingDetailsModal",
      "text": "Resumen y Notas"
     },
     {
      "kind": "string",
-     "line": 286,
+     "line": 289,
      "in": "MeetingDetailsModal",
      "text": "Participantes"
     },
     {
      "kind": "string",
-     "line": 293,
+     "line": 296,
      "in": "MeetingDetailsModal",
      "text": "Acuerdos"
     },
     {
      "kind": "string",
-     "line": 302,
+     "line": 305,
      "in": "MeetingDetailsModal",
      "text": "Compromisos"
     },
     {
      "kind": "string",
-     "line": 309,
+     "line": 312,
      "in": "MeetingDetailsModal",
      "text": "Tareas"
     },
     {
      "kind": "string",
-     "line": 316,
+     "line": 319,
      "in": "MeetingDetailsModal",
      "text": "Documentos"
     },
     {
      "kind": "string",
-     "line": 401,
+     "line": 404,
      "in": "MeetingDetailsModal",
      "text": "Usuario sin nombre"
     }
@@ -8584,7 +8781,7 @@
    "usedBy": [
     "/community/workspace"
    ],
-   "lines": 2046,
+   "lines": 2070,
    "rows": [
     {
      "kind": "list",
@@ -8609,84 +8806,90 @@
     },
     {
      "kind": "gate",
-     "line": 304,
+     "line": 312,
      "in": "MeetingDocumentationModal",
      "text": "!isOpen"
     },
     {
      "kind": "gate",
-     "line": 314,
+     "line": 322,
      "in": "MeetingDocumentationModal",
      "text": "!active"
     },
     {
      "kind": "gate",
-     "line": 319,
+     "line": 327,
      "in": "MeetingDocumentationModal",
      "text": "!active || controller.signal.aborted"
     },
     {
      "kind": "toast",
-     "line": 323,
+     "line": 331,
      "in": "MeetingDocumentationModal",
      "text": "{MEMBERS_LOAD_ERROR_MESSAGE}",
      "variant": "error"
     },
     {
      "kind": "gate",
-     "line": 335,
+     "line": 343,
      "in": "MeetingDocumentationModal",
      "text": "!isOpen || !lastSavedAt"
     },
     {
      "kind": "hook",
-     "line": 336,
+     "line": 344,
      "in": "MeetingDocumentationModal",
      "text": "setInterval(…, SAVED_TICK_INTERVAL_MS)",
      "type": "timer"
     },
     {
      "kind": "gate",
-     "line": 359,
+     "line": 367,
      "in": "MeetingDocumentationModal",
      "text": "workSessionEndedRef.current"
     },
     {
      "kind": "gate",
-     "line": 384,
+     "line": 392,
      "in": "MeetingDocumentationModal",
      "text": "typeof window === 'undefined'"
     },
     {
      "kind": "hook",
-     "line": 390,
+     "line": 398,
      "in": "MeetingDocumentationModal",
      "text": "window.addEventListener('beforeunload')",
      "type": "listener"
     },
     {
      "kind": "hook",
-     "line": 391,
+     "line": 399,
      "in": "MeetingDocumentationModal",
      "text": "window.addEventListener('pagehide')",
      "type": "listener"
     },
     {
      "kind": "toast",
-     "line": 515,
+     "line": 526,
      "in": "loadMeetingData",
      "text": "Error al cargar los datos de la reunión",
      "variant": "error"
     },
     {
      "kind": "gate",
-     "line": 603,
+     "line": 614,
      "in": "MeetingDocumentationModal",
      "text": "!id || autosaveInFlightRef.current"
     },
     {
+     "kind": "gate",
+     "line": 615,
+     "in": "MeetingDocumentationModal",
+     "text": "storedStatusRef.current !== MEETING_STATUS.BORRADOR"
+    },
+    {
      "kind": "list",
-     "line": 630,
+     "line": 642,
      "in": "MeetingDocumentationModal",
      "when": "res.status === 409 && (body?.code === 'meeting_finalized_concurrently' || body?.code === 'meeting_not_draft') && typeof window !== 'undefined'",
      "text": "msg",
@@ -8696,14 +8899,14 @@
     },
     {
      "kind": "alert",
-     "line": 634,
+     "line": 646,
      "in": "MeetingDocumentationModal",
      "when": "res.status === 409 && (body?.code === 'meeting_finalized_concurrently' || body?.code === 'meeting_not_draft') && typeof window !== 'undefined'",
      "text": "{msg}"
     },
     {
      "kind": "list",
-     "line": 639,
+     "line": 651,
      "in": "MeetingDocumentationModal",
      "when": "res.status === 409",
      "text": "who",
@@ -8713,27 +8916,33 @@
     },
     {
      "kind": "confirm",
-     "line": 640,
+     "line": 652,
      "in": "MeetingDocumentationModal",
      "when": "res.status === 409",
      "text": "Esta reunión fue modificada{who} mientras editabas. / ¿Recargar para ver los últimos cambios? Se perderán los cambios locales no guardados."
     },
     {
      "kind": "gate",
-     "line": 677,
+     "line": 689,
      "in": "MeetingDocumentationModal",
      "text": "!currentMeetingId"
     },
     {
+     "kind": "gate",
+     "line": 690,
+     "in": "MeetingDocumentationModal",
+     "text": "storedStatusRef.current !== MEETING_STATUS.BORRADOR"
+    },
+    {
      "kind": "hook",
-     "line": 679,
+     "line": 692,
      "in": "MeetingDocumentationModal",
      "text": "setTimeout(…, AUTOSAVE_DEBOUNCE_MS)",
      "type": "timer"
     },
     {
      "kind": "toast",
-     "line": 756,
+     "line": 771,
      "in": "persistMeetingData",
      "when": "runValidations && !validateStep(currentStep)",
      "text": "Por favor completa los campos requeridos",
@@ -8741,7 +8950,7 @@
     },
     {
      "kind": "toast",
-     "line": 765,
+     "line": 780,
      "in": "persistMeetingData",
      "when": "!formData.meeting_info.title || !meetingDateIso",
      "text": "{meetingInfoProblem()}",
@@ -8749,7 +8958,7 @@
     },
     {
      "kind": "toast",
-     "line": 777,
+     "line": 792,
      "in": "persistMeetingData",
      "when": "itemProblems.length > 0",
      "text": "{saveFailureSummary(itemProblems)}",
@@ -8757,7 +8966,7 @@
     },
     {
      "kind": "toast",
-     "line": 835,
+     "line": 853,
      "in": "persistMeetingData",
      "when": "!targetMeetingId || problems.length > 0",
      "text": "No se pudo guardar la reunión.",
@@ -8765,7 +8974,7 @@
     },
     {
      "kind": "toast",
-     "line": 902,
+     "line": 920,
      "in": "persistMeetingData",
      "when": "problems.length > 0",
      "text": "{saveFailureSummary(problems)}",
@@ -8773,28 +8982,28 @@
     },
     {
      "kind": "toast",
-     "line": 971,
+     "line": 989,
      "in": "handleSaveDraft",
      "text": "Borrador guardado",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 975,
+     "line": 993,
      "in": "handleSaveDraft",
      "text": "Error inesperado al guardar el borrador",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 996,
+     "line": 1014,
      "in": "handleOpenFinalize",
      "text": "No se pudo guardar la reunión antes de finalizarla.",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 1025,
+     "line": 1043,
      "in": "handleNext",
      "when": "!validateStep(currentStep)",
      "text": "Por favor completa los campos requeridos",
@@ -8802,22 +9011,22 @@
     },
     {
      "kind": "toast",
-     "line": 1051,
+     "line": 1069,
      "in": "handleSubmit",
      "text": "Error inesperado al {mode === 'edit' ? 'actualiz…} la reunión",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 1060,
+     "line": 1078,
      "in": "handleSubmit",
      "when": "saved && mountedRef.current",
-     "text": "Reunión actualizada correctamente / Reunión documentada correctamente",
+     "text": "Reunión actualizada correctamente / Reunión guardada como borrador. Ábrela y pulsa «Finalizar reunión» para enviar el resumen.",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 1195,
+     "line": 1217,
      "in": "handleFileSelect",
      "when": "!ALLOWED_ATTACHMENT_MIME_TYPES.includes(file.type)",
      "text": "Tipo de archivo no permitido: {file.name}",
@@ -8825,7 +9034,7 @@
     },
     {
      "kind": "toast",
-     "line": 1202,
+     "line": 1224,
      "in": "handleFileSelect",
      "when": "file.size > MAX_ATTACHMENT_BYTES",
      "text": "Archivo demasiado grande: {file.name}. Máximo {MAX_ATTACHMENT_LABEL}.",
@@ -8833,7 +9042,7 @@
     },
     {
      "kind": "hook",
-     "line": 1271,
+     "line": 1293,
      "in": "renderItemMessages",
      "text": "testid=meeting-{kind}-{index}-errors",
      "type": "mark",
@@ -8841,14 +9050,14 @@
     },
     {
      "kind": "value",
-     "line": 1273,
+     "line": 1295,
      "in": "renderItemMessages",
      "when": "each messages",
      "text": "{problem.message}"
     },
     {
      "kind": "hook",
-     "line": 1281,
+     "line": 1303,
      "in": "renderNoParticipantsHint",
      "when": "membersLoadState === 'success' && participantOptions.length === 0",
      "text": "testid=meeting-no-participants-{scope}",
@@ -8857,14 +9066,14 @@
     },
     {
      "kind": "text",
-     "line": 1282,
+     "line": 1304,
      "in": "renderNoParticipantsHint",
      "when": "membersLoadState === 'success' && participantOptions.length === 0",
      "text": "Marca primero a los participantes en el paso 1 (Información): solo a ellos se les puede asignar."
     },
     {
      "kind": "hook",
-     "line": 1312,
+     "line": 1334,
      "in": "renderMembersStatus",
      "when": "membersLoadState === 'idle' || membersLoadState === 'loading'",
      "text": "testid=meeting-members-status-{scope}",
@@ -8873,14 +9082,14 @@
     },
     {
      "kind": "text",
-     "line": 1313,
+     "line": 1335,
      "in": "renderMembersStatus",
      "when": "membersLoadState === 'idle' || membersLoadState === 'loading'",
      "text": "Cargando miembros de la comunidad…"
     },
     {
      "kind": "hook",
-     "line": 1319,
+     "line": 1341,
      "in": "renderMembersStatus",
      "when": "membersLoadState === 'error'",
      "text": "testid=meeting-members-status-{scope}",
@@ -8889,14 +9098,14 @@
     },
     {
      "kind": "text",
-     "line": 1320,
+     "line": 1342,
      "in": "renderMembersStatus",
      "when": "membersLoadState === 'error'",
      "text": "No se pudieron cargar los miembros de la comunidad."
     },
     {
      "kind": "hook",
-     "line": 1326,
+     "line": 1348,
      "in": "renderMembersStatus",
      "when": "availableUsers.length === 0",
      "text": "testid=meeting-members-status-{scope}",
@@ -8905,27 +9114,27 @@
     },
     {
      "kind": "text",
-     "line": 1327,
+     "line": 1349,
      "in": "renderMembersStatus",
      "when": "availableUsers.length === 0",
      "text": "Esta comunidad aún no tiene miembros asignados."
     },
     {
      "kind": "gate",
-     "line": 1334,
+     "line": 1356,
      "in": "MeetingDocumentationModal",
      "text": "!isOpen"
     },
     {
      "kind": "popup",
-     "line": 1337,
+     "line": 1359,
      "in": "MeetingDocumentationModal",
      "text": "Editar Reunión / Documentar Reunión",
      "how": "written in this file"
     },
     {
      "kind": "clickable",
-     "line": 1339,
+     "line": 1361,
      "in": "MeetingDocumentationModal",
      "text": "",
      "tag": "div",
@@ -8933,41 +9142,41 @@
     },
     {
      "kind": "heading",
-     "line": 1345,
+     "line": 1367,
      "in": "MeetingDocumentationModal",
      "text": "Editar Reunión / Documentar Reunión",
      "level": 2
     },
     {
      "kind": "value",
-     "line": 1348,
+     "line": 1370,
      "in": "MeetingDocumentationModal",
      "text": "{STEPS[currentStep].title} : {STEPS[currentStep].description}"
     },
     {
      "kind": "text",
-     "line": 1356,
+     "line": 1378,
      "in": "MeetingDocumentationModal",
-     "when": "currentMeetingId && savingIndicator === 'saving'",
+     "when": "currentMeetingId && storedStatusRef.current === MEETING_STATUS.BORRADOR && savingIndicator === 'saving'",
      "text": "Guardando…"
     },
     {
      "kind": "text",
-     "line": 1358,
+     "line": 1380,
      "in": "MeetingDocumentationModal",
-     "when": "currentMeetingId && savingIndicator === 'error'",
+     "when": "currentMeetingId && storedStatusRef.current === MEETING_STATUS.BORRADOR && savingIndicator === 'error'",
      "text": "Error al guardar"
     },
     {
      "kind": "text",
-     "line": 1361,
+     "line": 1383,
      "in": "MeetingDocumentationModal",
-     "when": "currentMeetingId && savingIndicator === 'idle' && lastSavedAt",
+     "when": "currentMeetingId && storedStatusRef.current === MEETING_STATUS.BORRADOR && savingIndicator === 'idle' && lastSavedAt",
      "text": "Guardado hace {formatDistanceToNowStrict(lastSaved…}"
     },
     {
      "kind": "button",
-     "line": 1368,
+     "line": 1390,
      "in": "MeetingDocumentationModal",
      "text": "[icon XIcon]",
      "action": "{handleClose}",
@@ -8975,7 +9184,7 @@
     },
     {
      "kind": "piece",
-     "line": 1380,
+     "line": 1402,
      "in": "MeetingDocumentationModal",
      "when": "formData.summary_info.status === MEETING_STATUS.BORRADOR",
      "text": "",
@@ -8983,14 +9192,14 @@
     },
     {
      "kind": "value",
-     "line": 1399,
+     "line": 1421,
      "in": "MeetingDocumentationModal",
      "when": "each STEPS",
      "text": "{step.title}"
     },
     {
      "kind": "hook",
-     "line": 1415,
+     "line": 1437,
      "in": "MeetingDocumentationModal",
      "text": "testid=meeting-step-body",
      "type": "mark",
@@ -8998,7 +9207,7 @@
     },
     {
      "kind": "hook",
-     "line": 1423,
+     "line": 1445,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && meetingLevelProblems.length > 0",
      "text": "testid=meeting-save-problems",
@@ -9007,28 +9216,28 @@
     },
     {
      "kind": "text",
-     "line": 1424,
+     "line": 1446,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && meetingLevelProblems.length > 0",
      "text": "No se guardó todo:"
     },
     {
      "kind": "value",
-     "line": 1427,
+     "line": 1449,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && meetingLevelProblems.length > 0 && each meetingLevelProblems",
      "text": "{problem.message}"
     },
     {
      "kind": "label",
-     "line": 1437,
+     "line": 1459,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.INFORMATION",
      "text": "Título de la Reunión *"
     },
     {
      "kind": "field",
-     "line": 1440,
+     "line": 1462,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.INFORMATION",
      "text": "Título de la Reunión *",
@@ -9038,14 +9247,14 @@
     },
     {
      "kind": "label",
-     "line": 1451,
+     "line": 1473,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.INFORMATION",
      "text": "Fecha y Hora *"
     },
     {
      "kind": "field",
-     "line": 1454,
+     "line": 1476,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.INFORMATION",
      "text": "Fecha y Hora *",
@@ -9058,7 +9267,7 @@
     },
     {
      "kind": "hook",
-     "line": 1466,
+     "line": 1488,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.INFORMATION && meetingDateIncomplete",
      "text": "testid=meeting-date-incomplete",
@@ -9067,21 +9276,21 @@
     },
     {
      "kind": "text",
-     "line": 1467,
+     "line": 1489,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.INFORMATION && meetingDateIncomplete",
      "text": "La fecha y hora están incompletas: completa día, mes, año, hora y minutos."
     },
     {
      "kind": "label",
-     "line": 1473,
+     "line": 1495,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.INFORMATION",
      "text": "Duración (minutos)"
     },
     {
      "kind": "field",
-     "line": 1476,
+     "line": 1498,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.INFORMATION",
      "text": "Duración (minutos)",
@@ -9091,14 +9300,14 @@
     },
     {
      "kind": "label",
-     "line": 1488,
+     "line": 1510,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.INFORMATION",
      "text": "Ubicación"
     },
     {
      "kind": "field",
-     "line": 1491,
+     "line": 1513,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.INFORMATION",
      "text": "Ubicación",
@@ -9108,21 +9317,21 @@
     },
     {
      "kind": "label",
-     "line": 1502,
+     "line": 1524,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.INFORMATION",
      "text": "Asistentes"
     },
     {
      "kind": "label",
-     "line": 1508,
+     "line": 1530,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.INFORMATION && each availableUsers",
      "text": "{profileName(user, 'Usuario sin nomb…} [( {PROTECTED_ROLE_LABELS[protectedAtte…} )]"
     },
     {
      "kind": "field",
-     "line": 1509,
+     "line": 1531,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.INFORMATION && each availableUsers",
      "text": "{profileName(user, 'Usuario sin nomb…} [( {PROTECTED_ROLE_LABELS[protectedAtte…} )]",
@@ -9135,14 +9344,14 @@
     },
     {
      "kind": "label",
-     "line": 1535,
+     "line": 1557,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.INFORMATION && each historicalAttendeeIds",
      "text": "Usuario fuera de la comunidad"
     },
     {
      "kind": "field",
-     "line": 1540,
+     "line": 1562,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.INFORMATION && each historicalAttendeeIds",
      "text": "Usuario fuera de la comunidad",
@@ -9152,7 +9361,7 @@
     },
     {
      "kind": "hook",
-     "line": 1552,
+     "line": 1574,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.INFORMATION && assigneesNotParticipating.length > 0",
      "text": "testid=meeting-assignee-not-participant-warning",
@@ -9161,28 +9370,28 @@
     },
     {
      "kind": "text",
-     "line": 1557,
+     "line": 1579,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.INFORMATION && assigneesNotParticipating.length > 0 && each assigneesNotParticipating",
      "text": "{person.name} ya no es participante, pero tiene [{person.commitments} compromiso{person.commitments === 1 ? …}] [y] [{person.tasks} tarea{person.tasks === 1 ? '' : '…}] asignad o / os . Vuelve a marcarla o reasigna en el paso 3 antes de gu…"
     },
     {
      "kind": "label",
-     "line": 1571,
+     "line": 1593,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.INFORMATION",
      "text": "Otras personas con acceso"
     },
     {
      "kind": "text",
-     "line": 1575,
+     "line": 1597,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.INFORMATION",
      "text": "Por ejemplo, alguien que no pudo asistir. Podrán ver los acuerdos, compromisos, tareas y documentos de esta reunión."
     },
     {
      "kind": "hook",
-     "line": 1577,
+     "line": 1599,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.INFORMATION",
      "text": "testid=meeting-readers",
@@ -9191,21 +9400,21 @@
     },
     {
      "kind": "text",
-     "line": 1580,
+     "line": 1602,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.INFORMATION && membersLoadState === 'success' && availableUsers.length > 0 && readerCandidates.length === 0",
      "text": "Todos los miembros de la comunidad son participantes."
     },
     {
      "kind": "label",
-     "line": 1583,
+     "line": 1605,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.INFORMATION && each readerCandidates",
      "text": "{profileName(user, 'Usuario sin nomb…}"
     },
     {
      "kind": "field",
-     "line": 1584,
+     "line": 1606,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.INFORMATION && each readerCandidates",
      "text": "{profileName(user, 'Usuario sin nomb…}",
@@ -9217,14 +9426,14 @@
     },
     {
      "kind": "label",
-     "line": 1610,
+     "line": 1632,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.SUMMARY",
      "text": "Estado de la Reunión"
     },
     {
      "kind": "field",
-     "line": 1613,
+     "line": 1635,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.SUMMARY",
      "text": "Estado de la Reunión",
@@ -9236,14 +9445,14 @@
     },
     {
      "kind": "label",
-     "line": 1625,
+     "line": 1649,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.SUMMARY",
      "text": "Resumen de la Reunión *"
     },
     {
      "kind": "piece",
-     "line": 1628,
+     "line": 1652,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.SUMMARY",
      "text": "placeholder: Resumen de la reunión…",
@@ -9251,21 +9460,21 @@
     },
     {
      "kind": "text",
-     "line": 1639,
+     "line": 1663,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.SUMMARY",
      "text": "Puedes incluir enlaces en el resumen. Los enlaces se mostrarán como texto clickeable."
     },
     {
      "kind": "label",
-     "line": 1644,
+     "line": 1668,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.SUMMARY",
      "text": "Notas Adicionales"
     },
     {
      "kind": "piece",
-     "line": 1647,
+     "line": 1671,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.SUMMARY",
      "text": "placeholder: Notas adicionales, observaciones…",
@@ -9273,7 +9482,7 @@
     },
     {
      "kind": "heading",
-     "line": 1667,
+     "line": 1691,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS",
      "text": "Documentos",
@@ -9281,7 +9490,7 @@
     },
     {
      "kind": "label",
-     "line": 1676,
+     "line": 1700,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS",
      "text": "Seleccionar archivos",
@@ -9289,7 +9498,7 @@
     },
     {
      "kind": "field",
-     "line": 1678,
+     "line": 1702,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS",
      "screen": "sr-only",
@@ -9306,21 +9515,21 @@
     },
     {
      "kind": "text",
-     "line": 1688,
+     "line": 1712,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS",
      "text": "o arrastrar y soltar"
     },
     {
      "kind": "text",
-     "line": 1690,
+     "line": 1714,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS",
      "text": "PDF, Word, Excel, PowerPoint, o imágenes hasta {MAX_ATTACHMENT_LABEL}"
     },
     {
      "kind": "heading",
-     "line": 1698,
+     "line": 1722,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && existingAttachments.length > 0",
      "text": "Archivos existentes ( {existingAttachments.length} )",
@@ -9328,7 +9537,7 @@
     },
     {
      "kind": "piece",
-     "line": 1703,
+     "line": 1727,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && existingAttachments.length > 0 && each existingAttachments",
      "text": "",
@@ -9336,7 +9545,7 @@
     },
     {
      "kind": "heading",
-     "line": 1725,
+     "line": 1749,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && selectedFiles.length > 0",
      "text": "Archivos seleccionados ( {selectedFiles.length} )",
@@ -9344,7 +9553,7 @@
     },
     {
      "kind": "piece",
-     "line": 1728,
+     "line": 1752,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && selectedFiles.length > 0 && each selectedFiles",
      "text": "",
@@ -9352,7 +9561,7 @@
     },
     {
      "kind": "heading",
-     "line": 1745,
+     "line": 1769,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS",
      "text": "Acuerdos",
@@ -9360,7 +9569,7 @@
     },
     {
      "kind": "button",
-     "line": 1748,
+     "line": 1772,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS",
      "text": "Agregar Acuerdo",
@@ -9368,21 +9577,21 @@
     },
     {
      "kind": "text",
-     "line": 1759,
+     "line": 1783,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && formData.agreements.length === 0",
      "text": "No se han agregado acuerdos."
     },
     {
      "kind": "value",
-     "line": 1766,
+     "line": 1790,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && !(formData.agreements.length === 0) && each formData.agreements",
      "text": "{index + 1}"
     },
     {
      "kind": "button",
-     "line": 1769,
+     "line": 1793,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && !(formData.agreements.length === 0) && each formData.agreements",
      "text": "[icon TrashIcon]",
@@ -9390,7 +9599,7 @@
     },
     {
      "kind": "piece",
-     "line": 1777,
+     "line": 1801,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && !(formData.agreements.length === 0) && each formData.agreements",
      "text": "placeholder: Describe el acuerdo…",
@@ -9398,7 +9607,7 @@
     },
     {
      "kind": "heading",
-     "line": 1803,
+     "line": 1827,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS",
      "text": "Compromisos",
@@ -9406,7 +9615,7 @@
     },
     {
      "kind": "button",
-     "line": 1806,
+     "line": 1830,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS",
      "text": "Agregar Compromiso",
@@ -9414,28 +9623,28 @@
     },
     {
      "kind": "text",
-     "line": 1818,
+     "line": 1842,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && formData.commitments.length === 0",
      "text": "No se han agregado compromisos."
     },
     {
      "kind": "text",
-     "line": 1819,
+     "line": 1843,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && formData.commitments.length === 0",
      "text": "Los compromisos son opcionales."
     },
     {
      "kind": "value",
-     "line": 1828,
+     "line": 1852,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && !(formData.commitments.length === 0) && each formData.commitments",
      "text": "{index + 1}"
     },
     {
      "kind": "button",
-     "line": 1831,
+     "line": 1855,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && !(formData.commitments.length === 0) && each formData.commitments",
      "text": "[icon TrashIcon]",
@@ -9443,7 +9652,7 @@
     },
     {
      "kind": "piece",
-     "line": 1840,
+     "line": 1864,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && !(formData.commitments.length === 0) && each formData.commitments",
      "text": "placeholder: Describe el compromiso…",
@@ -9451,7 +9660,7 @@
     },
     {
      "kind": "field",
-     "line": 1851,
+     "line": 1875,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && !(formData.commitments.length === 0) && each formData.commitments",
      "text": "",
@@ -9468,7 +9677,7 @@
     },
     {
      "kind": "field",
-     "line": 1867,
+     "line": 1891,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && !(formData.commitments.length === 0) && each formData.commitments",
      "text": "Fecha límite del compromiso",
@@ -9481,7 +9690,7 @@
     },
     {
      "kind": "heading",
-     "line": 1887,
+     "line": 1911,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS",
      "text": "Tareas",
@@ -9489,7 +9698,7 @@
     },
     {
      "kind": "button",
-     "line": 1890,
+     "line": 1914,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS",
      "text": "Agregar Tarea",
@@ -9497,21 +9706,21 @@
     },
     {
      "kind": "text",
-     "line": 1901,
+     "line": 1925,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && formData.tasks.length === 0",
      "text": "No se han agregado tareas."
     },
     {
      "kind": "text",
-     "line": 1910,
+     "line": 1934,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && !(formData.tasks.length === 0) && each formData.tasks",
      "text": "T {index + 1}"
     },
     {
      "kind": "button",
-     "line": 1913,
+     "line": 1937,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && !(formData.tasks.length === 0) && each formData.tasks",
      "text": "[icon TrashIcon]",
@@ -9523,7 +9732,7 @@
     },
     {
      "kind": "field",
-     "line": 1924,
+     "line": 1948,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && !(formData.tasks.length === 0) && each formData.tasks",
      "text": "Título de la tarea...",
@@ -9536,7 +9745,7 @@
     },
     {
      "kind": "piece",
-     "line": 1933,
+     "line": 1957,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && !(formData.tasks.length === 0) && each formData.tasks",
      "text": "placeholder: Describe la tarea…",
@@ -9544,7 +9753,7 @@
     },
     {
      "kind": "field",
-     "line": 1944,
+     "line": 1968,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && !(formData.tasks.length === 0) && each formData.tasks",
      "text": "",
@@ -9561,7 +9770,7 @@
     },
     {
      "kind": "field",
-     "line": 1960,
+     "line": 1984,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && !(formData.tasks.length === 0) && each formData.tasks",
      "text": "Fecha límite de la tarea",
@@ -9574,7 +9783,7 @@
     },
     {
      "kind": "field",
-     "line": 1969,
+     "line": 1993,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && !(formData.tasks.length === 0) && each formData.tasks",
      "text": "",
@@ -9586,7 +9795,7 @@
     },
     {
      "kind": "field",
-     "line": 1981,
+     "line": 2005,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && !(formData.tasks.length === 0) && each formData.tasks",
      "text": "Categoría (opcional)",
@@ -9596,7 +9805,7 @@
     },
     {
      "kind": "field",
-     "line": 1989,
+     "line": 2013,
      "in": "MeetingDocumentationModal",
      "when": "!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && !(formData.tasks.length === 0) && each formData.tasks",
      "text": "Horas estimadas",
@@ -9607,14 +9816,14 @@
     },
     {
      "kind": "piece",
-     "line": 2013,
+     "line": 2037,
      "in": "MeetingDocumentationModal",
      "text": "",
      "tag": "MeetingModalFooter"
     },
     {
      "kind": "popup",
-     "line": 2034,
+     "line": 2058,
      "in": "MeetingDocumentationModal",
      "when": "mode === 'edit' && meetingId",
      "text": "FinalizeMeetingDialog",
@@ -9623,49 +9832,49 @@
     },
     {
      "kind": "string",
-     "line": 1018,
+     "line": 1036,
      "in": "MeetingDocumentationModal",
      "text": "Escribe el título de la reunión."
     },
     {
      "kind": "string",
-     "line": 1020,
+     "line": 1038,
      "in": "MeetingDocumentationModal",
      "text": "Indica la fecha y hora de la reunión."
     },
     {
      "kind": "string",
-     "line": 1235,
+     "line": 1257,
      "in": "MeetingDocumentationModal",
      "text": "{profileName(member, 'Usuari…} (no es participante)"
     },
     {
      "kind": "string",
-     "line": 1235,
+     "line": 1257,
      "in": "MeetingDocumentationModal",
      "text": "Usuario sin nombre"
     },
     {
      "kind": "string",
-     "line": 1237,
+     "line": 1259,
      "in": "MeetingDocumentationModal",
      "text": "No se pudo verificar la membresía"
     },
     {
      "kind": "string",
-     "line": 1238,
+     "line": 1260,
      "in": "MeetingDocumentationModal",
      "text": "Verificando membresía…"
     },
     {
      "kind": "string",
-     "line": 1299,
+     "line": 1321,
      "in": "MeetingDocumentationModal",
      "text": "Una persona"
     },
     {
      "kind": "list",
-     "line": 1018,
+     "line": 1036,
      "in": "meetingInfoProblem",
      "text": "meetingInfoProblem()",
      "items": [
@@ -9676,7 +9885,7 @@
     },
     {
      "kind": "list",
-     "line": 1236,
+     "line": 1258,
      "in": "historicalAssigneeLabel",
      "text": "historicalAssigneeLabel()",
      "items": [
@@ -9991,11 +10200,11 @@
    "usedBy": [
     "/community/workspace"
    ],
-   "lines": 401,
+   "lines": 408,
    "rows": [
     {
      "kind": "toast",
-     "line": 94,
+     "line": 101,
      "in": "handleStatusChange",
      "when": "result.success",
      "text": "{itemType === 'task' ? 'Tare…} actualizado correctamente",
@@ -10003,7 +10212,7 @@
     },
     {
      "kind": "toast",
-     "line": 97,
+     "line": 104,
      "in": "handleStatusChange",
      "when": "!(result.success)",
      "text": "Error al actualizar estado",
@@ -10011,14 +10220,14 @@
     },
     {
      "kind": "toast",
-     "line": 101,
+     "line": 108,
      "in": "handleStatusChange",
      "text": "Error inesperado al actualizar estado",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 122,
+     "line": 129,
      "in": "handleProgressUpdate",
      "when": "result.success",
      "text": "Progreso actualizado",
@@ -10026,7 +10235,7 @@
     },
     {
      "kind": "toast",
-     "line": 125,
+     "line": 132,
      "in": "handleProgressUpdate",
      "when": "!(result.success)",
      "text": "Error al actualizar progreso",
@@ -10034,14 +10243,14 @@
     },
     {
      "kind": "toast",
-     "line": 129,
+     "line": 136,
      "in": "handleProgressUpdate",
      "text": "Error inesperado al actualizar progreso",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 143,
+     "line": 150,
      "in": "saveNotes",
      "when": "result.success",
      "text": "Notas guardadas",
@@ -10049,7 +10258,7 @@
     },
     {
      "kind": "toast",
-     "line": 147,
+     "line": 154,
      "in": "saveNotes",
      "when": "!(result.success)",
      "text": "Error al guardar notas",
@@ -10057,20 +10266,20 @@
     },
     {
      "kind": "toast",
-     "line": 151,
+     "line": 158,
      "in": "saveNotes",
      "text": "Error inesperado al guardar notas",
      "variant": "error"
     },
     {
      "kind": "value",
-     "line": 185,
+     "line": 192,
      "in": "TaskTracker",
      "text": "{getStatusIcon(item.status)}"
     },
     {
      "kind": "piece",
-     "line": 190,
+     "line": 197,
      "in": "TaskTracker",
      "when": "itemType === 'commitment' && !isEmptyDoc(commitmentDoc)",
      "text": "",
@@ -10078,7 +10287,7 @@
     },
     {
      "kind": "heading",
-     "line": 196,
+     "line": 203,
      "in": "TaskTracker",
      "when": "!(itemType === 'commitment' && !isEmptyDoc(commitmentDoc))",
      "text": "{title}",
@@ -10086,7 +10295,7 @@
     },
     {
      "kind": "piece",
-     "line": 201,
+     "line": 208,
      "in": "TaskTracker",
      "when": "itemType === 'task' && !isEmptyDoc(taskDescriptionDoc)",
      "text": "",
@@ -10094,111 +10303,111 @@
     },
     {
      "kind": "value",
-     "line": 207,
+     "line": 214,
      "in": "TaskTracker",
      "when": "!(itemType === 'task' && !isEmptyDoc(taskDescriptionDoc)) && description",
      "text": "{description}"
     },
     {
      "kind": "value",
-     "line": 215,
+     "line": 222,
      "in": "TaskTracker",
      "text": "{statusLabels[item.status]}"
     },
     {
      "kind": "value",
-     "line": 226,
+     "line": 233,
      "in": "TaskTracker",
      "when": "item.assigned_to_profile",
      "text": "{profileName(item.assigned_to_profil…}"
     },
     {
      "kind": "text",
-     "line": 237,
+     "line": 244,
      "in": "TaskTracker",
      "when": "item.due_date && daysUntilDue !== null",
      "text": "( Hoy / {daysUntilDue}d / {Math.abs(daysUntilDue)}d vencido )"
     },
     {
      "kind": "value",
-     "line": 249,
+     "line": 256,
      "in": "TaskTracker",
      "when": "priority",
      "text": "{priorityLabels[priority]}"
     },
     {
      "kind": "value",
-     "line": 256,
+     "line": 263,
      "in": "TaskTracker",
      "when": "category",
      "text": "{category}"
     },
     {
      "kind": "text",
-     "line": 263,
+     "line": 270,
      "in": "TaskTracker",
      "when": "estimatedHours",
      "text": "{estimatedHours} h estimadas"
     },
     {
      "kind": "text",
-     "line": 272,
+     "line": 279,
      "in": "TaskTracker",
      "text": "Progreso"
     },
     {
      "kind": "value",
-     "line": 273,
+     "line": 280,
      "in": "TaskTracker",
      "text": "{item.progress_percentage} %"
     },
     {
      "kind": "button",
-     "line": 291,
+     "line": 298,
      "in": "TaskTracker",
-     "when": "canEdit && item.status !== 'completado' && item.status === 'pendiente'",
+     "when": "canUpdateProgress && item.status !== 'completado' && item.status === 'pendiente'",
      "text": "Iniciar",
      "action": "{() => handleStatusChange('en_progreso')}",
      "disabled": "{isUpdating}"
     },
     {
      "kind": "button",
-     "line": 300,
+     "line": 307,
      "in": "TaskTracker",
-     "when": "canEdit && item.status !== 'completado'",
+     "when": "canUpdateProgress && item.status !== 'completado'",
      "text": "Completar",
      "action": "{() => handleStatusChange('completado')}",
      "disabled": "{isUpdating}"
     },
     {
      "kind": "button",
-     "line": 312,
+     "line": 319,
      "in": "TaskTracker",
-     "when": "canEdit && item.status === 'completado'",
+     "when": "canUpdateProgress && item.status === 'completado'",
      "text": "Reabrir",
      "action": "{() => handleStatusChange('en_progreso')}",
      "disabled": "{isUpdating}"
     },
     {
      "kind": "button",
-     "line": 322,
+     "line": 329,
      "in": "TaskTracker",
-     "when": "canEdit",
+     "when": "canUpdateProgress",
      "text": "Notas",
      "action": "{() => setShowNotes(!showNotes)}"
     },
     {
      "kind": "label",
-     "line": 334,
+     "line": 341,
      "in": "TaskTracker",
-     "when": "canEdit && item.status !== 'completado' && item.status !== 'cancelado'",
+     "when": "canUpdateProgress && item.status !== 'completado' && item.status !== 'cancelado'",
      "text": "Actualizar progreso: {item.progress_percentage} %"
     },
     {
      "kind": "field",
-     "line": 337,
+     "line": 344,
      "in": "TaskTracker",
-     "when": "canEdit && item.status !== 'completado' && item.status !== 'cancelado'",
+     "when": "canUpdateProgress && item.status !== 'completado' && item.status !== 'cancelado'",
      "text": "Actualizar progreso: {item.progress_percentage} %",
      "type": "range",
      "disabled": "{isUpdating}",
@@ -10207,16 +10416,16 @@
     },
     {
      "kind": "label",
-     "line": 353,
+     "line": 360,
      "in": "TaskTracker",
-     "when": "canEdit && showNotes",
+     "when": "canUpdateProgress && showNotes",
      "text": "Notas y comentarios"
     },
     {
      "kind": "field",
-     "line": 356,
+     "line": 363,
      "in": "TaskTracker",
-     "when": "canEdit && showNotes",
+     "when": "canUpdateProgress && showNotes",
      "text": "Notas y comentarios",
      "type": "textarea",
      "placeholder": "Agregar notas sobre el progreso...",
@@ -10225,50 +10434,50 @@
     },
     {
      "kind": "button",
-     "line": 364,
+     "line": 371,
      "in": "TaskTracker",
-     "when": "canEdit && showNotes",
+     "when": "canUpdateProgress && showNotes",
      "text": "Cancelar",
      "action": "{() => setShowNotes(false)}"
     },
     {
      "kind": "button",
-     "line": 370,
+     "line": 377,
      "in": "TaskTracker",
-     "when": "canEdit && showNotes",
+     "when": "canUpdateProgress && showNotes",
      "text": "Guardar",
      "action": "{saveNotes}",
      "disabled": "{isUpdating}"
     },
     {
      "kind": "text",
-     "line": 386,
+     "line": 393,
      "in": "TaskTracker",
-     "when": "!canEdit && item.notes",
+     "when": "!canUpdateProgress && item.notes",
      "text": "Notas:"
     },
     {
      "kind": "value",
-     "line": 387,
+     "line": 394,
      "in": "TaskTracker",
-     "when": "!canEdit && item.notes",
+     "when": "!canUpdateProgress && item.notes",
      "text": "{item.notes}"
     },
     {
      "kind": "string",
-     "line": 94,
+     "line": 101,
      "in": "TaskTracker",
      "text": "Tarea"
     },
     {
      "kind": "string",
-     "line": 94,
+     "line": 101,
      "in": "TaskTracker",
      "text": "Compromiso"
     },
     {
      "kind": "string",
-     "line": 226,
+     "line": 233,
      "in": "TaskTracker",
      "text": "Sin asignar"
     }
@@ -12296,11 +12505,24 @@
    "usedBy": [
     "/community/workspace"
    ],
-   "lines": 372,
+   "lines": 409,
    "rows": [
     {
+     "kind": "gate",
+     "line": 95,
+     "in": "WorkspaceSessionsTab",
+     "text": "!userId"
+    },
+    {
+     "kind": "access",
+     "line": 96,
+     "in": "WorkspaceSessionsTab",
+     "text": "getUserPrimaryRole(userId) .then((role) => { if (!cancelled) setCanOpenDetails(SESSION_DETAILS_ROLES.has(role)); }) .catch(() => { if (!cancelled) se…",
+     "via": "getUserPrimaryRole"
+    },
+    {
      "kind": "message",
-     "line": 93,
+     "line": 120,
      "in": "WorkspaceSessionsTab",
      "when": "!authSession?.access_token",
      "text": "No hay sesión de autenticación",
@@ -12308,7 +12530,7 @@
     },
     {
      "kind": "message",
-     "line": 107,
+     "line": 134,
      "in": "WorkspaceSessionsTab",
      "when": "!response.ok",
      "text": "Error al cargar sesiones",
@@ -12316,34 +12538,34 @@
     },
     {
      "kind": "message",
-     "line": 114,
+     "line": 141,
      "in": "WorkspaceSessionsTab",
      "text": "Error al cargar sesiones",
      "via": "setError"
     },
     {
      "kind": "toast",
-     "line": 115,
+     "line": 142,
      "in": "WorkspaceSessionsTab",
      "text": "Error al cargar sesiones",
      "variant": "error"
     },
     {
      "kind": "gate",
-     "line": 141,
+     "line": 168,
      "in": "WorkspaceSessionsTab",
      "text": "!data"
     },
     {
      "kind": "text",
-     "line": 181,
+     "line": 208,
      "in": "WorkspaceSessionsTab",
      "when": "!workspace",
      "text": "Selecciona una comunidad para ver sus sesiones"
     },
     {
      "kind": "heading",
-     "line": 192,
+     "line": 219,
      "in": "WorkspaceSessionsTab",
      "when": "loading",
      "text": "Sesiones",
@@ -12351,7 +12573,7 @@
     },
     {
      "kind": "button",
-     "line": 193,
+     "line": 220,
      "in": "WorkspaceSessionsTab",
      "when": "loading",
      "text": "[icon RefreshCw]",
@@ -12359,7 +12581,7 @@
     },
     {
      "kind": "heading",
-     "line": 211,
+     "line": 238,
      "in": "WorkspaceSessionsTab",
      "when": "sessions.length === 0",
      "text": "Sesiones",
@@ -12367,7 +12589,7 @@
     },
     {
      "kind": "button",
-     "line": 212,
+     "line": 239,
      "in": "WorkspaceSessionsTab",
      "when": "sessions.length === 0",
      "text": "[icon RefreshCw]",
@@ -12376,85 +12598,76 @@
     },
     {
      "kind": "text",
-     "line": 223,
+     "line": 250,
      "in": "WorkspaceSessionsTab",
      "when": "sessions.length === 0",
      "text": "No hay sesiones registradas para esta comunidad"
     },
     {
-     "kind": "clickable",
-     "line": 234,
-     "in": "renderSessionCard",
-     "text": "{session.title} [# {session.session_number}] {getModalityIcon(session.modality)} {badge.label} [{(() => { const ledger …",
-     "tag": "div",
-     "action": "{() => router.push(`/consultor/sessions/${session.id}`)}",
-     "aria": "{`Ver detalles de ${session.title}`}",
-     "also": "onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') router.push(`/consultor/sessio…}"
-    },
-    {
      "kind": "nav",
-     "line": 235,
+     "line": 264,
      "in": "renderSessionCard",
+     "when": "canOpenDetails",
      "text": "/consultor/sessions/[*]",
      "via": "router.push"
     },
     {
      "kind": "nav",
-     "line": 238,
+     "line": 268,
      "in": "renderSessionCard",
-     "when": "e.key === 'Enter' || e.key === ' '",
+     "when": "canOpenDetails && (e.key === 'Enter' || e.key === ' ')",
      "text": "/consultor/sessions/[*]",
      "via": "router.push"
     },
     {
      "kind": "heading",
-     "line": 245,
+     "line": 282,
      "in": "renderSessionCard",
      "text": "{session.title}",
      "level": 3
     },
     {
      "kind": "value",
-     "line": 249,
+     "line": 286,
      "in": "renderSessionCard",
      "when": "session.recurrence_group_id && session.session_number",
      "text": "# {session.session_number}"
     },
     {
      "kind": "value",
-     "line": 257,
+     "line": 294,
      "in": "renderSessionCard",
      "text": "{badge.label}"
     },
     {
      "kind": "value",
-     "line": 273,
+     "line": 310,
      "in": "renderSessionCard",
      "text": "{format(parseISO(session.session_dat…}"
     },
     {
      "kind": "value",
-     "line": 279,
+     "line": 316,
      "in": "renderSessionCard",
      "text": "{formatTime(session.start_time)} - {formatTime(session.end_time)}"
     },
     {
      "kind": "value",
-     "line": 286,
+     "line": 323,
      "in": "renderSessionCard",
      "when": "session.schools",
      "text": "{session.schools.name}"
     },
     {
      "kind": "value",
-     "line": 292,
+     "line": 329,
      "in": "renderSessionCard",
      "when": "session.growth_communities",
      "text": "{session.growth_communities.name}"
     },
     {
      "kind": "link",
-     "line": 299,
+     "line": 336,
      "in": "renderSessionCard",
      "when": "sessionHasJoinControl(session)",
      "text": "Unirse a la reunión",
@@ -12467,7 +12680,7 @@
     },
     {
      "kind": "piece",
-     "line": 308,
+     "line": 345,
      "in": "renderSessionCard",
      "when": "sessionHasJoinControl(session)",
      "text": "aria-hidden: true",
@@ -12475,14 +12688,14 @@
     },
     {
      "kind": "heading",
-     "line": 320,
+     "line": 357,
      "in": "WorkspaceSessionsTab",
      "text": "Sesiones",
      "level": 2
     },
     {
      "kind": "button",
-     "line": 321,
+     "line": 358,
      "in": "WorkspaceSessionsTab",
      "text": "[icon RefreshCw]",
      "action": "{handleRefresh}",
@@ -12490,7 +12703,7 @@
     },
     {
      "kind": "heading",
-     "line": 334,
+     "line": 371,
      "in": "WorkspaceSessionsTab",
      "when": "upcomingSessions.length > 0",
      "text": "Próximas Sesiones",
@@ -12502,14 +12715,14 @@
     },
     {
      "kind": "value",
-     "line": 337,
+     "line": 374,
      "in": "WorkspaceSessionsTab",
      "when": "upcomingSessions.length > 0",
      "text": "{upcomingSessions.length}"
     },
     {
      "kind": "hook",
-     "line": 341,
+     "line": 378,
      "in": "WorkspaceSessionsTab",
      "when": "upcomingSessions.length > 0",
      "text": "role=list",
@@ -12518,14 +12731,14 @@
     },
     {
      "kind": "value",
-     "line": 343,
+     "line": 380,
      "in": "WorkspaceSessionsTab",
      "when": "upcomingSessions.length > 0 && each upcomingSessions",
      "text": "{renderSessionCard(session)}"
     },
     {
      "kind": "heading",
-     "line": 353,
+     "line": 390,
      "in": "WorkspaceSessionsTab",
      "when": "pastSessions.length > 0",
      "text": "Sesiones Pasadas",
@@ -12537,14 +12750,14 @@
     },
     {
      "kind": "value",
-     "line": 356,
+     "line": 393,
      "in": "WorkspaceSessionsTab",
      "when": "pastSessions.length > 0",
      "text": "{pastSessions.length}"
     },
     {
      "kind": "hook",
-     "line": 360,
+     "line": 397,
      "in": "WorkspaceSessionsTab",
      "when": "pastSessions.length > 0",
      "text": "role=list",
@@ -12553,16 +12766,22 @@
     },
     {
      "kind": "value",
-     "line": 362,
+     "line": 399,
      "in": "WorkspaceSessionsTab",
      "when": "pastSessions.length > 0 && each pastSessions",
      "text": "{renderSessionCard(session)}"
     },
     {
      "kind": "string",
-     "line": 100,
+     "line": 127,
      "in": "WorkspaceSessionsTab",
      "text": "Bearer {authSession.access_token}"
+    },
+    {
+     "kind": "string",
+     "line": 270,
+     "in": "WorkspaceSessionsTab",
+     "text": "Ver detalles de {session.title}"
     }
    ],
    "db": [
@@ -13632,11 +13851,11 @@
    "usedBy": [
     "/community/workspace"
    ],
-   "lines": 455,
+   "lines": 452,
    "rows": [
     {
      "kind": "list",
-     "line": 406,
+     "line": 403,
      "text": "statusLabels",
      "items": [
       "Pendiente",
@@ -13648,7 +13867,7 @@
     },
     {
      "kind": "list",
-     "line": 414,
+     "line": 411,
      "text": "priorityLabels",
      "items": [
       "Baja",
@@ -13659,7 +13878,7 @@
     },
     {
      "kind": "list",
-     "line": 421,
+     "line": 418,
      "text": "meetingStatusLabels",
      "items": [
       "Borrador",
@@ -13797,11 +14016,11 @@
    "usedBy": [
     "/community/workspace"
    ],
-   "lines": 649,
+   "lines": 681,
    "rows": [
     {
      "kind": "message",
-     "line": 230,
+     "line": 240,
      "in": "uploadDocument",
      "when": "!fileTypeConfig",
      "text": "Tipo de archivo no soportado: {file.type}",
@@ -13809,7 +14028,7 @@
     },
     {
      "kind": "message",
-     "line": 234,
+     "line": 244,
      "in": "uploadDocument",
      "when": "file.size > fileTypeConfig.max_size",
      "text": "Archivo demasiado grande: {file.name}. Máximo permitido: {formatFileSize( fileTypeCon…}",
@@ -13817,7 +14036,7 @@
     },
     {
      "kind": "list",
-     "line": 244,
+     "line": 254,
      "in": "uploadDocument",
      "text": "folderPath",
      "items": [
@@ -13825,38 +14044,49 @@
      ]
     },
     {
+     "kind": "list",
+     "line": 349,
+     "text": "DOCUMENT_ACTION_MESSAGES",
+     "items": [
+      "Solo quien subió el documento o el líder de la comunidad puede hacerlo.",
+      "El nombre debe tener entre 1 y 200 caracteres.",
+      "La carpeta ya no existe en este espacio.",
+      "No se pudo completar la acción. Inténtalo de nuevo."
+     ]
+    },
+    {
      "kind": "string",
-     "line": 116,
+     "line": 126,
      "in": "getWorkspaceDocuments",
      "text": "Usuario"
     },
     {
      "kind": "string",
-     "line": 545,
+     "line": 577,
      "in": "formatRelativeTime",
      "text": "Hace un momento"
     },
     {
      "kind": "string",
-     "line": 546,
+     "line": 578,
      "in": "formatRelativeTime",
      "text": "Hace {Math.floor(diffInSeconds / …} minutos"
     },
     {
      "kind": "string",
-     "line": 547,
+     "line": 579,
      "in": "formatRelativeTime",
      "text": "Hace {Math.floor(diffInSeconds / …} horas"
     },
     {
      "kind": "string",
-     "line": 548,
+     "line": 580,
      "in": "formatRelativeTime",
      "text": "Hace {Math.floor(diffInSeconds / …} días"
     },
     {
      "kind": "list",
-     "line": 545,
+     "line": 577,
      "in": "formatRelativeTime",
      "text": "formatRelativeTime()",
      "items": [
@@ -13875,11 +14105,27 @@
      ]
     },
     {
+     "what": "rpc:can_manage_workspace_documents",
+     "ops": []
+    },
+    {
      "what": "rpc:get_folder_breadcrumb",
      "ops": []
     },
     {
+     "what": "rpc:hide_community_document",
+     "ops": []
+    },
+    {
      "what": "rpc:increment_document_counter",
+     "ops": []
+    },
+    {
+     "what": "rpc:move_community_document",
+     "ops": []
+    },
+    {
+     "what": "rpc:rename_community_document",
      "ops": []
     },
     {
@@ -13969,17 +14215,17 @@
    "usedBy": [
     "/community/workspace"
    ],
-   "lines": 694,
+   "lines": 703,
    "rows": [
     {
      "kind": "string",
-     "line": 472,
+     "line": 481,
      "in": "updateTaskStatus",
      "text": "Error al actualizar {itemType === 'task' ? 'tare…}"
     },
     {
      "kind": "string",
-     "line": 479,
+     "line": 488,
      "in": "updateTaskStatus",
      "text": "Error inesperado al actualizar estado"
     }
@@ -13990,10 +14236,8 @@
      "ops": []
     },
     {
-     "what": "table:{tableName}",
-     "ops": [
-      "update"
-     ]
+     "what": "rpc:update_meeting_item_progress",
+     "ops": []
     },
     {
      "what": "table:community_meetings",
@@ -14179,6 +14423,7 @@
   },
   "utils/roleUtils.ts": {
    "usedBy": [
+    "/community/workspace",
     "/user/[userId]"
    ],
    "lines": 1605,
@@ -14409,6 +14654,7 @@
     "__tests__/components/meetings/MeetingDocumentationModal.end-dedup.test.tsx",
     "__tests__/components/meetings/MeetingDocumentationModal.members.test.tsx",
     "__tests__/components/meetings/MeetingDocumentationModal.save-draft.test.tsx",
+    "__tests__/components/meetings/MeetingDocumentationModal.status.test.tsx",
     "__tests__/pages/community/workspace.mention-scope.test.tsx",
     "components/assignments/CreateGroupModal.tsx",
     "lib/community/fetchCommunityMembers.ts",

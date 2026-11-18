@@ -1,7 +1,7 @@
 # Cursos (course builder, upcoming courses, learning paths, assignment matrix)
 
 Area `04-cursos`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `45d07ead5` (2026-11-17).
+Read from commit `0a7ad8795` (2026-11-18).
 
 Course system: see the note on 03-aprendizaje.
 
@@ -4445,7 +4445,7 @@ Used by: `/admin/course-builder/[courseId]/[moduleId]/[lessonId]`, `/admin/cours
 | `/api/courses/batch-assign` | `pages/api/courses/batch-assign.ts` | POST | `/admin/assignment-matrix`, `/admin/courses/[id]/assign` | `__tests__/api/courses/batch-assign.test.ts`, `components/admin/assignment-matrix/BatchAssignModal.tsx`, `components/admin/assignment-matrix/hooks/useAssignmentMatrix.ts`, `pages/admin/courses/[id]/assign.tsx`, `scripts/populate-qa-scenarios.js` +1 |
 | `/api/courses/complete` | `pages/api/courses/complete.ts` | POST | **no screen** | `__tests__/api/cursos-admin-only-routes.test.ts` |
 | `/api/courses/search-assignees` | `pages/api/courses/search-assignees.ts` | POST | `/admin/assignment-matrix`, `/admin/courses/[id]/assign` | `components/admin/assignment-matrix/BatchAssignModal.tsx`, `pages/admin/courses/[id]/assign.tsx` |
-| `/api/courses/unassign` | `pages/api/courses/unassign.ts` | DELETE | `/admin/assignment-matrix`, `/admin/courses/[id]/assign` | `components/admin/assignment-matrix/hooks/useAssignmentMatrix.ts`, `pages/admin/courses/[id]/assign.tsx` |
+| `/api/courses/unassign` | `pages/api/courses/unassign.ts` | DELETE | `/admin/assignment-matrix`, `/admin/courses/[id]/assign` | `__tests__/api/courses/unassign.test.ts`, `components/admin/assignment-matrix/hooks/useAssignmentMatrix.ts`, `pages/admin/courses/[id]/assign.tsx` |
 | `/api/learning-paths/[id]` | `pages/api/learning-paths/[id].ts` | DELETE, GET, PUT | `/admin/learning-paths`, `/admin/learning-paths/[id]/assign`, `/admin/learning-paths/[id]/edit`, `/mi-aprendizaje/ruta/[id]` | `__tests__/api/learning-paths/governance-boundary.test.ts`, `__tests__/api/learning-paths/management-routes-boundary.test.ts`, `lib/services/learningPathSessionTracker.ts`, `pages/admin/learning-paths.tsx`, `pages/admin/learning-paths/[id]/assign.tsx` +4 |
 | `/api/learning-paths/[id]/enhanced-progress` | `pages/api/learning-paths/[id]/enhanced-progress.ts` | GET | `/mi-aprendizaje/ruta/[id]` | `__tests__/api/learning-paths/enhanced-progress.test.ts`, `pages/mi-aprendizaje/ruta/[id].tsx`, `tests/e2e/learning-path-governance.spec.ts` |
 | `/api/learning-paths/analytics` | `pages/api/learning-paths/analytics.ts` | GET | `/reports` | `__tests__/api/learning-paths/analytics-contract.test.ts`, `__tests__/api/learning-paths/governance-boundary.test.ts`, `components/reports/LearningPathAnalytics.tsx`, `tests/e2e/learning-path-governance.spec.ts` |

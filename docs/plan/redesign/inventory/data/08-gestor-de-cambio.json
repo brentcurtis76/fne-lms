@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "45d07ead51e5a3eec09ca6796bd72980883bc2d6",
-  "date": "2026-11-17T19:02:40-03:00"
+  "commit": "0a7ad8795b419990468bad9197d27dd375a392a3",
+  "date": "2026-11-18T14:19:15-03:00"
  },
  "screens": [
   {
@@ -75,8 +75,8 @@
      }
     ],
     "linkedFrom": [
-     "pages/admin/assessment-builder/[templateId]/index.tsx:1599",
-     "pages/admin/assessment-builder/[templateId]/index.tsx:1736",
+     "pages/admin/assessment-builder/[templateId]/index.tsx:1643",
+     "pages/admin/assessment-builder/[templateId]/index.tsx:1785",
      "pages/api/qa/seed-codebase-index.ts:200"
     ],
     "qaScenarios": {},
@@ -1501,7 +1501,7 @@
   {
    "file": "pages/admin/assessment-builder/[templateId]/index.tsx",
    "route": "/admin/assessment-builder/[templateId]",
-   "lines": 3207,
+   "lines": 3256,
    "marks": {},
    "frame": "MainLayout",
    "server": "none",
@@ -1552,15 +1552,15 @@
     },
     "inPage": [
      {
-      "line": 1337,
+      "line": 1381,
       "text": "router.push → /login"
      },
      {
-      "line": 1385,
+      "line": 1429,
       "text": "No tienes permiso para editar templates de registro."
      },
      {
-      "line": 1426,
+      "line": 1470,
       "text": "canEdit = !isArchived && isAdmin"
      }
     ],
@@ -1581,6 +1581,7 @@
      "unit": [
       "__tests__/api/assessment-builder/duplicate-from-editor.test.ts",
       "__tests__/api/assessment-builder/publish-indicator-count.test.ts",
+      "__tests__/pages/admin/assessment-builder-delivery-preview-text.test.ts",
       "__tests__/pages/admin/assessment-builder-frequency.test.tsx",
       "__tests__/pages/admin/assessment-builder-publish.test.tsx"
      ]
@@ -1599,20 +1600,20 @@
     },
     {
      "kind": "hook",
-     "line": 304,
+     "line": 326,
      "in": "TemplateEditor",
      "text": "document.addEventListener('keydown')",
      "type": "listener"
     },
     {
      "kind": "gate",
-     "line": 345,
+     "line": 367,
      "in": "TemplateEditor",
      "text": "!templateId || typeof templateId !== 'string' || !userId || hasPermission === false"
     },
     {
      "kind": "message",
-     "line": 353,
+     "line": 375,
      "in": "TemplateEditor",
      "when": "!templateRes.ok",
      "text": "Error al cargar el template",
@@ -1620,14 +1621,14 @@
     },
     {
      "kind": "toast",
-     "line": 381,
+     "line": 403,
      "in": "TemplateEditor",
      "text": "Error al cargar el template",
      "variant": "error"
     },
     {
      "kind": "message",
-     "line": 411,
+     "line": 433,
      "in": "handleUpdateTemplate",
      "when": "!response.ok",
      "text": "Error al actualizar el template",
@@ -1635,21 +1636,21 @@
     },
     {
      "kind": "toast",
-     "line": 417,
+     "line": 439,
      "in": "handleUpdateTemplate",
      "text": "Template actualizado",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 420,
+     "line": 442,
      "in": "handleUpdateTemplate",
      "text": "Error al actualizar el template",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 444,
+     "line": 466,
      "in": "handleSaveObjective",
      "when": "!objectiveForm.name.trim()",
      "text": "El nombre del objetivo es requerido",
@@ -1657,7 +1658,7 @@
     },
     {
      "kind": "message",
-     "line": 465,
+     "line": 487,
      "in": "handleSaveObjective",
      "when": "editingObjective && !response.ok",
      "text": "Error al actualizar el objetivo",
@@ -1665,7 +1666,7 @@
     },
     {
      "kind": "toast",
-     "line": 472,
+     "line": 494,
      "in": "handleSaveObjective",
      "when": "editingObjective",
      "text": "{ENTITY_LABELS.objective} actualizado",
@@ -1673,7 +1674,7 @@
     },
     {
      "kind": "message",
-     "line": 486,
+     "line": 508,
      "in": "handleSaveObjective",
      "when": "!(editingObjective) && !response.ok",
      "text": "Error al crear el objetivo",
@@ -1681,7 +1682,7 @@
     },
     {
      "kind": "toast",
-     "line": 491,
+     "line": 513,
      "in": "handleSaveObjective",
      "when": "!(editingObjective)",
      "text": "{ENTITY_LABELS.objective} creado",
@@ -1689,7 +1690,7 @@
     },
     {
      "kind": "list",
-     "line": 496,
+     "line": 518,
      "in": "handleSaveObjective",
      "text": "msg",
      "items": [
@@ -1698,14 +1699,14 @@
     },
     {
      "kind": "toast",
-     "line": 497,
+     "line": 519,
      "in": "handleSaveObjective",
      "text": "{msg}",
      "variant": "error"
     },
     {
      "kind": "message",
-     "line": 514,
+     "line": 536,
      "in": "handleDeleteObjective",
      "when": "!response.ok",
      "text": "Error al eliminar el objetivo",
@@ -1713,14 +1714,14 @@
     },
     {
      "kind": "toast",
-     "line": 520,
+     "line": 542,
      "in": "handleDeleteObjective",
      "text": "{ENTITY_LABELS.objective} eliminado",
      "variant": "success"
     },
     {
      "kind": "list",
-     "line": 522,
+     "line": 544,
      "in": "handleDeleteObjective",
      "text": "msg",
      "items": [
@@ -1729,14 +1730,14 @@
     },
     {
      "kind": "toast",
-     "line": 523,
+     "line": 545,
      "in": "handleDeleteObjective",
      "text": "{msg}",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 547,
+     "line": 569,
      "in": "handleSaveModule",
      "when": "!moduleForm.name.trim()",
      "text": "El nombre de la {ENTITY_LABELS.module} es requerido",
@@ -1744,7 +1745,7 @@
     },
     {
      "kind": "message",
-     "line": 570,
+     "line": 592,
      "in": "handleSaveModule",
      "when": "editingModule && !response.ok",
      "text": "Error al actualizar la {ENTITY_LABELS.module}",
@@ -1752,7 +1753,7 @@
     },
     {
      "kind": "toast",
-     "line": 577,
+     "line": 599,
      "in": "handleSaveModule",
      "when": "editingModule",
      "text": "{ENTITY_LABELS.module} actualizada",
@@ -1760,7 +1761,7 @@
     },
     {
      "kind": "message",
-     "line": 594,
+     "line": 616,
      "in": "handleSaveModule",
      "when": "!(editingModule) && !response.ok",
      "text": "Error al crear la {ENTITY_LABELS.module}",
@@ -1768,7 +1769,7 @@
     },
     {
      "kind": "toast",
-     "line": 599,
+     "line": 621,
      "in": "handleSaveModule",
      "when": "!(editingModule)",
      "text": "{ENTITY_LABELS.module} creada",
@@ -1776,14 +1777,14 @@
     },
     {
      "kind": "toast",
-     "line": 605,
+     "line": 627,
      "in": "handleSaveModule",
      "text": "Error al guardar la {ENTITY_LABELS.module.toLowe…}",
      "variant": "error"
     },
     {
      "kind": "message",
-     "line": 622,
+     "line": 644,
      "in": "handleDeleteModule",
      "when": "!response.ok",
      "text": "Error al eliminar la {ENTITY_LABELS.module}",
@@ -1791,14 +1792,14 @@
     },
     {
      "kind": "toast",
-     "line": 626,
+     "line": 648,
      "in": "handleDeleteModule",
      "text": "{ENTITY_LABELS.module} eliminada",
      "variant": "success"
     },
     {
      "kind": "list",
-     "line": 628,
+     "line": 650,
      "in": "handleDeleteModule",
      "text": "msg",
      "items": [
@@ -1807,14 +1808,14 @@
     },
     {
      "kind": "toast",
-     "line": 629,
+     "line": 651,
      "in": "handleDeleteModule",
      "text": "{msg}",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 754,
+     "line": 776,
      "in": "handleSaveIndicator",
      "when": "!indicatorForm.name.trim()",
      "text": "El nombre del indicador es requerido",
@@ -1822,7 +1823,7 @@
     },
     {
      "kind": "toast",
-     "line": 768,
+     "line": 790,
      "in": "handleSaveIndicator",
      "when": "indicatorForm.category === 'profundidad' && !result.valid",
      "text": "{result.error!}",
@@ -1830,7 +1831,7 @@
     },
     {
      "kind": "toast",
-     "line": 777,
+     "line": 799,
      "in": "handleSaveIndicator",
      "when": "indicatorForm.category === 'frecuencia' && indicatorForm.frequencyUnitOptions.length === 0",
      "text": "Los indicadores de frecuencia requieren al menos un período permitido",
@@ -1838,7 +1839,7 @@
     },
     {
      "kind": "toast",
-     "line": 782,
+     "line": 804,
      "in": "handleSaveIndicator",
      "when": "indicatorForm.category === 'frecuencia' && !check.valid",
      "text": "Configuración de frecuencia incompleta: {check.errors[0]}",
@@ -1846,7 +1847,7 @@
     },
     {
      "kind": "toast",
-     "line": 791,
+     "line": 813,
      "in": "handleSaveIndicator",
      "when": "indicatorForm.category === 'detalle' && filledOptions.length < 2",
      "text": "Los indicadores de detalle requieren al menos 2 opciones",
@@ -1854,7 +1855,7 @@
     },
     {
      "kind": "toast",
-     "line": 796,
+     "line": 818,
      "in": "handleSaveIndicator",
      "when": "indicatorForm.category === 'detalle' && unique.size !== filledOptions.length",
      "text": "Las opciones de detalle no pueden repetirse",
@@ -1862,7 +1863,7 @@
     },
     {
      "kind": "toast",
-     "line": 863,
+     "line": 885,
      "in": "handleSaveIndicator",
      "when": "editingIndicator",
      "text": "Indicador actualizado",
@@ -1870,7 +1871,7 @@
     },
     {
      "kind": "toast",
-     "line": 867,
+     "line": 889,
      "in": "handleSaveIndicator",
      "when": "editingIndicator && Array.isArray(data.expectationWarnings) && data.expectationWarnings.length > 0",
      "text": "Atención: {data.expectationWarnings.le…} expectativa(s) ya no calzan con las nuevas reglas / y deben corregirse en Expectativas antes de publicar. {data.expectationWarnings.jo…}",
@@ -1878,7 +1879,7 @@
     },
     {
      "kind": "message",
-     "line": 886,
+     "line": 908,
      "in": "handleSaveIndicator",
      "when": "!(editingIndicator) && !response.ok",
      "text": "Error al crear el indicador",
@@ -1886,7 +1887,7 @@
     },
     {
      "kind": "toast",
-     "line": 897,
+     "line": 919,
      "in": "handleSaveIndicator",
      "when": "!(editingIndicator)",
      "text": "Indicador creado",
@@ -1894,7 +1895,7 @@
     },
     {
      "kind": "list",
-     "line": 902,
+     "line": 924,
      "in": "handleSaveIndicator",
      "text": "msg",
      "items": [
@@ -1903,14 +1904,14 @@
     },
     {
      "kind": "toast",
-     "line": 903,
+     "line": 925,
      "in": "handleSaveIndicator",
      "text": "{msg}",
      "variant": "error"
     },
     {
      "kind": "message",
-     "line": 920,
+     "line": 942,
      "in": "handleDeleteIndicator",
      "when": "!response.ok",
      "text": "Error al eliminar el indicador",
@@ -1918,21 +1919,21 @@
     },
     {
      "kind": "toast",
-     "line": 930,
+     "line": 952,
      "in": "handleDeleteIndicator",
      "text": "Indicador eliminado",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 931,
+     "line": 953,
      "in": "handleDeleteIndicator",
      "text": "Los códigos de indicadores pueden no coincidir con el orden actual",
      "variant": "plain"
     },
     {
      "kind": "list",
-     "line": 933,
+     "line": 955,
      "in": "handleDeleteIndicator",
      "text": "msg",
      "items": [
@@ -1941,14 +1942,14 @@
     },
     {
      "kind": "toast",
-     "line": 934,
+     "line": 956,
      "in": "handleDeleteIndicator",
      "text": "{msg}",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 943,
+     "line": 965,
      "in": "handlePublish",
      "when": "modules.length === 0",
      "text": "El template debe tener al menos una {ENTITY_LABELS.module.toLowe…} para ser publicado",
@@ -1956,7 +1957,7 @@
     },
     {
      "kind": "toast",
-     "line": 949,
+     "line": 971,
      "in": "handlePublish",
      "when": "indicatorBlocker",
      "text": "{indicatorBlocker}",
@@ -1964,7 +1965,15 @@
     },
     {
      "kind": "message",
-     "line": 973,
+     "line": 987,
+     "in": "loadDeliveryPreview",
+     "when": "!response.ok",
+     "text": "preview failed",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "message",
+     "line": 1017,
      "in": "executePublish",
      "when": "!response.ok",
      "text": "Error al publicar",
@@ -1972,21 +1981,21 @@
     },
     {
      "kind": "toast",
-     "line": 979,
+     "line": 1023,
      "in": "executePublish",
      "text": "Template publicado correctamente",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 982,
+     "line": 1026,
      "in": "executePublish",
      "text": "Error al publicar template",
      "variant": "error"
     },
     {
      "kind": "message",
-     "line": 1000,
+     "line": 1044,
      "in": "handleDuplicate",
      "when": "!response.ok",
      "text": "Error al duplicar",
@@ -1994,28 +2003,28 @@
     },
     {
      "kind": "toast",
-     "line": 1004,
+     "line": 1048,
      "in": "handleDuplicate",
      "text": "Nueva versión borrador creada. Ahora puedes editar.",
      "variant": "success"
     },
     {
      "kind": "nav",
-     "line": 1006,
+     "line": 1050,
      "in": "handleDuplicate",
      "text": "/admin/assessment-builder/[*]",
      "via": "router.push"
     },
     {
      "kind": "toast",
-     "line": 1009,
+     "line": 1053,
      "in": "handleDuplicate",
      "text": "Error al duplicar template",
      "variant": "error"
     },
     {
      "kind": "message",
-     "line": 1045,
+     "line": 1089,
      "in": "handleArchive",
      "when": "!response.ok",
      "text": "Error al archivar template",
@@ -2023,28 +2032,28 @@
     },
     {
      "kind": "toast",
-     "line": 1048,
+     "line": 1092,
      "in": "handleArchive",
      "text": "Template archivado correctamente",
      "variant": "success"
     },
     {
      "kind": "nav",
-     "line": 1049,
+     "line": 1093,
      "in": "handleArchive",
      "text": "/admin/assessment-builder",
      "via": "router.push"
     },
     {
      "kind": "toast",
-     "line": 1052,
+     "line": 1096,
      "in": "handleArchive",
      "text": "Error al archivar template",
      "variant": "error"
     },
     {
      "kind": "message",
-     "line": 1070,
+     "line": 1114,
      "in": "handleRestore",
      "when": "!response.ok",
      "text": "Error al restaurar template",
@@ -2052,21 +2061,21 @@
     },
     {
      "kind": "toast",
-     "line": 1073,
+     "line": 1117,
      "in": "handleRestore",
      "text": "Template restaurado correctamente",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 1078,
+     "line": 1122,
      "in": "handleRestore",
      "text": "Error al restaurar template",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 1096,
+     "line": 1140,
      "in": "handleDelete",
      "when": "!template.is_archived",
      "text": "Los templates publicados deben ser archivados antes de eliminarse",
@@ -2074,7 +2083,7 @@
     },
     {
      "kind": "message",
-     "line": 1118,
+     "line": 1162,
      "in": "handleDelete",
      "when": "!response.ok",
      "text": "Error al eliminar template",
@@ -2082,28 +2091,28 @@
     },
     {
      "kind": "toast",
-     "line": 1121,
+     "line": 1165,
      "in": "handleDelete",
      "text": "Template eliminado correctamente",
      "variant": "success"
     },
     {
      "kind": "nav",
-     "line": 1122,
+     "line": 1166,
      "in": "handleDelete",
      "text": "/admin/assessment-builder",
      "via": "router.push"
     },
     {
      "kind": "toast",
-     "line": 1125,
+     "line": 1169,
      "in": "handleDelete",
      "text": "Error al eliminar template",
      "variant": "error"
     },
     {
      "kind": "message",
-     "line": 1147,
+     "line": 1191,
      "in": "executeDelete",
      "when": "!response.ok",
      "text": "Error al eliminar template",
@@ -2111,34 +2120,34 @@
     },
     {
      "kind": "toast",
-     "line": 1150,
+     "line": 1194,
      "in": "executeDelete",
      "text": "Template eliminado correctamente",
      "variant": "success"
     },
     {
      "kind": "nav",
-     "line": 1151,
+     "line": 1195,
      "in": "executeDelete",
      "text": "/admin/assessment-builder",
      "via": "router.push"
     },
     {
      "kind": "toast",
-     "line": 1154,
+     "line": 1198,
      "in": "executeDelete",
      "text": "Error al eliminar template",
      "variant": "error"
     },
     {
      "kind": "gate",
-     "line": 1216,
+     "line": 1260,
      "in": "TemplateEditor",
      "text": "!template"
     },
     {
      "kind": "message",
-     "line": 1283,
+     "line": 1327,
      "in": "handleGrantDemoAccess",
      "when": "!response.ok",
      "text": "Error al otorgar acceso demo",
@@ -2146,21 +2155,21 @@
     },
     {
      "kind": "toast",
-     "line": 1285,
+     "line": 1329,
      "in": "handleGrantDemoAccess",
      "text": "Acceso demo otorgado",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 1291,
+     "line": 1335,
      "in": "handleGrantDemoAccess",
      "text": "Error al otorgar acceso demo",
      "variant": "error"
     },
     {
      "kind": "message",
-     "line": 1311,
+     "line": 1355,
      "in": "handleRevokeDemoAccess",
      "when": "!response.ok",
      "text": "Error al revocar acceso demo",
@@ -2168,63 +2177,63 @@
     },
     {
      "kind": "toast",
-     "line": 1313,
+     "line": 1357,
      "in": "handleRevokeDemoAccess",
      "text": "Acceso demo revocado",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 1316,
+     "line": 1360,
      "in": "handleRevokeDemoAccess",
      "text": "Error al revocar acceso demo",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 1327,
+     "line": 1371,
      "in": "copyDemoLink",
      "text": "Enlace copiado al portapapeles",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 1329,
+     "line": 1373,
      "in": "copyDemoLink",
      "text": "No se pudo copiar el enlace",
      "variant": "error"
     },
     {
      "kind": "hook",
-     "line": 1335,
+     "line": 1379,
      "in": "handleLogout",
      "text": "localStorage: rememberMe",
      "type": "storage"
     },
     {
      "kind": "hook",
-     "line": 1336,
+     "line": 1380,
      "in": "handleLogout",
      "text": "sessionStorage: sessionOnly",
      "type": "storage"
     },
     {
      "kind": "nav",
-     "line": 1337,
+     "line": 1381,
      "in": "handleLogout",
      "text": "/login",
      "via": "router.push"
     },
     {
      "kind": "text",
-     "line": 1365,
+     "line": 1409,
      "in": "TemplateEditor",
      "when": "loading || hasPermission === null",
      "text": "Cargando..."
     },
     {
      "kind": "piece",
-     "line": 1373,
+     "line": 1417,
      "in": "TemplateEditor",
      "when": "hasPermission === false",
      "text": "",
@@ -2232,7 +2241,7 @@
     },
     {
      "kind": "heading",
-     "line": 1384,
+     "line": 1428,
      "in": "TemplateEditor",
      "when": "hasPermission === false",
      "text": "Acceso Denegado",
@@ -2240,7 +2249,7 @@
     },
     {
      "kind": "text",
-     "line": 1385,
+     "line": 1429,
      "in": "TemplateEditor",
      "when": "hasPermission === false",
      "text": "No tienes permiso para editar templates de registro.",
@@ -2248,7 +2257,7 @@
     },
     {
      "kind": "link",
-     "line": 1386,
+     "line": 1430,
      "in": "TemplateEditor",
      "when": "hasPermission === false",
      "text": "Ir al Panel",
@@ -2256,7 +2265,7 @@
     },
     {
      "kind": "link",
-     "line": 1387,
+     "line": 1431,
      "in": "TemplateEditor",
      "when": "hasPermission === false",
      "text": "Ir al Panel",
@@ -2264,7 +2273,7 @@
     },
     {
      "kind": "piece",
-     "line": 1399,
+     "line": 1443,
      "in": "TemplateEditor",
      "when": "!template",
      "text": "",
@@ -2272,7 +2281,7 @@
     },
     {
      "kind": "heading",
-     "line": 1410,
+     "line": 1454,
      "in": "TemplateEditor",
      "when": "!template",
      "text": "Template no encontrado",
@@ -2280,7 +2289,7 @@
     },
     {
      "kind": "link",
-     "line": 1411,
+     "line": 1455,
      "in": "TemplateEditor",
      "when": "!template",
      "text": "Volver a la lista",
@@ -2288,7 +2297,7 @@
     },
     {
      "kind": "link",
-     "line": 1412,
+     "line": 1456,
      "in": "TemplateEditor",
      "when": "!template",
      "text": "Volver a la lista",
@@ -2296,42 +2305,42 @@
     },
     {
      "kind": "access",
-     "line": 1426,
+     "line": 1470,
      "in": "TemplateEditor",
      "text": "canEdit = !isArchived && isAdmin",
      "via": "declaration"
     },
     {
      "kind": "piece",
-     "line": 1429,
+     "line": 1473,
      "in": "TemplateEditor",
      "text": "",
      "tag": "MainLayout"
     },
     {
      "kind": "piece",
-     "line": 1438,
+     "line": 1482,
      "in": "TemplateEditor",
      "text": "title: Constructor de Registros",
      "tag": "ResponsiveFunctionalPageHeader"
     },
     {
      "kind": "link",
-     "line": 1446,
+     "line": 1490,
      "in": "TemplateEditor",
      "text": "Volver a la lista",
      "target": "/admin/assessment-builder"
     },
     {
      "kind": "link",
-     "line": 1447,
+     "line": 1491,
      "in": "TemplateEditor",
      "text": "Volver a la lista",
      "target": ""
     },
     {
      "kind": "heading",
-     "line": 1463,
+     "line": 1507,
      "in": "TemplateEditor",
      "when": "!isDraft && usageStats?.hasResponses",
      "text": "Este template tiene registros en uso",
@@ -2339,21 +2348,21 @@
     },
     {
      "kind": "text",
-     "line": 1466,
+     "line": 1510,
      "in": "TemplateEditor",
      "when": "!isDraft && usageStats?.hasResponses",
      "text": "Hay {usageStats.instanceCount} registro s asignado s con {usageStats.responseCount} respuesta s registrada s . Los cambios que realices afectarán a los nuevos registros. Las respuestas existentes mantendrán su snapshot actual."
     },
     {
      "kind": "label",
-     "line": 1483,
+     "line": 1527,
      "in": "TemplateEditor",
      "when": "isEditingTemplate",
      "text": "Nombre"
     },
     {
      "kind": "field",
-     "line": 1484,
+     "line": 1528,
      "in": "TemplateEditor",
      "when": "isEditingTemplate",
      "text": "Nombre",
@@ -2362,14 +2371,14 @@
     },
     {
      "kind": "label",
-     "line": 1492,
+     "line": 1536,
      "in": "TemplateEditor",
      "when": "isEditingTemplate",
      "text": "Descripción"
     },
     {
      "kind": "field",
-     "line": 1493,
+     "line": 1537,
      "in": "TemplateEditor",
      "when": "isEditingTemplate",
      "text": "Descripción",
@@ -2379,7 +2388,7 @@
     },
     {
      "kind": "button",
-     "line": 1501,
+     "line": 1545,
      "in": "TemplateEditor",
      "when": "isEditingTemplate",
      "text": "Guardando... / Guardar",
@@ -2388,7 +2397,7 @@
     },
     {
      "kind": "button",
-     "line": 1508,
+     "line": 1552,
      "in": "TemplateEditor",
      "when": "isEditingTemplate",
      "text": "Cancelar",
@@ -2396,7 +2405,7 @@
     },
     {
      "kind": "heading",
-     "line": 1522,
+     "line": 1566,
      "in": "TemplateEditor",
      "when": "!(isEditingTemplate)",
      "text": "{template.name}",
@@ -2404,35 +2413,35 @@
     },
     {
      "kind": "value",
-     "line": 1523,
+     "line": 1567,
      "in": "TemplateEditor",
      "when": "!(isEditingTemplate)",
      "text": "{statusStyle.label}"
     },
     {
      "kind": "value",
-     "line": 1528,
+     "line": 1572,
      "in": "TemplateEditor",
      "when": "!(isEditingTemplate) && template.description",
      "text": "{template.description}"
     },
     {
      "kind": "text",
-     "line": 1531,
+     "line": 1575,
      "in": "TemplateEditor",
      "when": "!(isEditingTemplate)",
      "text": "Vía de Evolución: {AREA_LABELS[template.area]}"
     },
     {
      "kind": "text",
-     "line": 1532,
+     "line": 1576,
      "in": "TemplateEditor",
      "when": "!(isEditingTemplate)",
      "text": "Versión: {template.version}"
     },
     {
      "kind": "button",
-     "line": 1540,
+     "line": 1584,
      "in": "TemplateEditor",
      "when": "!isEditingTemplate && canEdit",
      "text": "[icon Edit2]",
@@ -2442,7 +2451,7 @@
     },
     {
      "kind": "button",
-     "line": 1549,
+     "line": 1593,
      "in": "TemplateEditor",
      "when": "!isEditingTemplate",
      "text": "[icon History]",
@@ -2452,14 +2461,14 @@
     },
     {
      "kind": "text",
-     "line": 1568,
+     "line": 1612,
      "in": "TemplateEditor",
      "when": "isDraft",
      "text": "Modo edición - Puedes modificar el template / Modo lectura - Solo visualización"
     },
     {
      "kind": "button",
-     "line": 1574,
+     "line": 1618,
      "in": "TemplateEditor",
      "when": "isDraft && isAdmin && pendingConfirm?.key === 'delete-draft-template'",
      "text": "¿Eliminar?",
@@ -2467,7 +2476,7 @@
     },
     {
      "kind": "button",
-     "line": 1580,
+     "line": 1624,
      "in": "TemplateEditor",
      "when": "isDraft && isAdmin && pendingConfirm?.key === 'delete-draft-template'",
      "text": "Cancelar",
@@ -2475,7 +2484,7 @@
     },
     {
      "kind": "button",
-     "line": 1588,
+     "line": 1632,
      "in": "TemplateEditor",
      "when": "isDraft && isAdmin && !(pendingConfirm?.key === 'delete-draft-template')",
      "text": "Eliminando... / Eliminar",
@@ -2485,7 +2494,7 @@
     },
     {
      "kind": "link",
-     "line": 1599,
+     "line": 1643,
      "in": "TemplateEditor",
      "when": "isDraft",
      "text": "Calibración",
@@ -2493,7 +2502,7 @@
     },
     {
      "kind": "link",
-     "line": 1600,
+     "line": 1644,
      "in": "TemplateEditor",
      "when": "isDraft",
      "text": "Calibración",
@@ -2501,14 +2510,30 @@
     },
     {
      "kind": "text",
-     "line": 1608,
+     "line": 1653,
      "in": "TemplateEditor",
      "when": "isDraft && isAdmin && publishStep === 'confirm'",
      "text": "¿Publicar este template?"
     },
     {
+     "kind": "hook",
+     "line": 1654,
+     "in": "TemplateEditor",
+     "when": "isDraft && isAdmin && publishStep === 'confirm'",
+     "text": "testid=publish-delivery-preview",
+     "type": "mark",
+     "tag": "span"
+    },
+    {
+     "kind": "value",
+     "line": 1654,
+     "in": "TemplateEditor",
+     "when": "isDraft && isAdmin && publishStep === 'confirm'",
+     "text": "{publishDeliveryPreviewText(delivery…}"
+    },
+    {
      "kind": "button",
-     "line": 1609,
+     "line": 1658,
      "in": "TemplateEditor",
      "when": "isDraft && isAdmin && publishStep === 'confirm'",
      "text": "Sí, publicar",
@@ -2519,7 +2544,7 @@
     },
     {
      "kind": "button",
-     "line": 1616,
+     "line": 1665,
      "in": "TemplateEditor",
      "when": "isDraft && isAdmin && publishStep === 'confirm'",
      "text": "Cancelar",
@@ -2530,7 +2555,7 @@
     },
     {
      "kind": "button",
-     "line": 1625,
+     "line": 1674,
      "in": "TemplateEditor",
      "when": "isDraft && isAdmin && !(publishStep === 'confirm')",
      "text": "Publicando... / Publicar",
@@ -2543,14 +2568,14 @@
     },
     {
      "kind": "text",
-     "line": 1643,
+     "line": 1692,
      "in": "TemplateEditor",
      "when": "!(isDraft) && isArchived",
      "text": "Template archivado v {template.version} - No disponible para nuevos registros"
     },
     {
      "kind": "button",
-     "line": 1647,
+     "line": 1696,
      "in": "TemplateEditor",
      "when": "!(isDraft) && isArchived && isAdmin",
      "text": "Eliminando... / Eliminar",
@@ -2560,7 +2585,7 @@
     },
     {
      "kind": "button",
-     "line": 1656,
+     "line": 1705,
      "in": "TemplateEditor",
      "when": "!(isDraft) && isArchived && isAdmin",
      "text": "Restaurando... / Restaurar",
@@ -2569,7 +2594,7 @@
     },
     {
      "kind": "button",
-     "line": 1666,
+     "line": 1715,
      "in": "TemplateEditor",
      "when": "!(isDraft) && isArchived && isAdmin && pendingConfirm?.key === 'duplicate-template'",
      "text": "¿Confirmar?",
@@ -2577,7 +2602,7 @@
     },
     {
      "kind": "button",
-     "line": 1672,
+     "line": 1721,
      "in": "TemplateEditor",
      "when": "!(isDraft) && isArchived && isAdmin && pendingConfirm?.key === 'duplicate-template'",
      "text": "Cancelar",
@@ -2585,7 +2610,7 @@
     },
     {
      "kind": "button",
-     "line": 1680,
+     "line": 1729,
      "in": "TemplateEditor",
      "when": "!(isDraft) && isArchived && isAdmin && !(pendingConfirm?.key === 'duplicate-template')",
      "text": "Creando borrador... / Editar (Nueva Versión)",
@@ -2594,21 +2619,21 @@
     },
     {
      "kind": "text",
-     "line": 1696,
+     "line": 1745,
      "in": "TemplateEditor",
      "when": "!(isDraft) && !(isArchived)",
      "text": "Template publicado v{template.version} - Puedes editar / Template publicado v{template.version} - Solo lectura"
     },
     {
      "kind": "text",
-     "line": 1698,
+     "line": 1747,
      "in": "TemplateEditor",
      "when": "!(isDraft) && !(isArchived) && usageStats?.hasResponses",
      "text": "(con {usageStats.responseCount} respuestas)"
     },
     {
      "kind": "link",
-     "line": 1702,
+     "line": 1751,
      "in": "TemplateEditor",
      "when": "!(isDraft) && !(isArchived)",
      "text": "Probar Demo",
@@ -2616,7 +2641,7 @@
     },
     {
      "kind": "link",
-     "line": 1703,
+     "line": 1752,
      "in": "TemplateEditor",
      "when": "!(isDraft) && !(isArchived)",
      "text": "Probar Demo",
@@ -2624,7 +2649,7 @@
     },
     {
      "kind": "button",
-     "line": 1711,
+     "line": 1760,
      "in": "TemplateEditor",
      "when": "!(isDraft) && !(isArchived) && isAdmin && pendingConfirm?.key === 'archive-template'",
      "text": "¿Archivar?",
@@ -2632,7 +2657,7 @@
     },
     {
      "kind": "button",
-     "line": 1717,
+     "line": 1766,
      "in": "TemplateEditor",
      "when": "!(isDraft) && !(isArchived) && isAdmin && pendingConfirm?.key === 'archive-template'",
      "text": "Cancelar",
@@ -2640,7 +2665,7 @@
     },
     {
      "kind": "button",
-     "line": 1725,
+     "line": 1774,
      "in": "TemplateEditor",
      "when": "!(isDraft) && !(isArchived) && isAdmin && !(pendingConfirm?.key === 'archive-template')",
      "text": "Archivando... / Archivar",
@@ -2650,7 +2675,7 @@
     },
     {
      "kind": "link",
-     "line": 1736,
+     "line": 1785,
      "in": "TemplateEditor",
      "when": "!(isDraft) && !(isArchived)",
      "text": "Calibración",
@@ -2658,7 +2683,7 @@
     },
     {
      "kind": "link",
-     "line": 1737,
+     "line": 1786,
      "in": "TemplateEditor",
      "when": "!(isDraft) && !(isArchived)",
      "text": "Calibración",
@@ -2666,7 +2691,7 @@
     },
     {
      "kind": "button",
-     "line": 1745,
+     "line": 1794,
      "in": "TemplateEditor",
      "when": "!(isDraft) && !(isArchived) && isAdmin && pendingConfirm?.key === 'duplicate-template'",
      "text": "¿Confirmar?",
@@ -2674,7 +2699,7 @@
     },
     {
      "kind": "button",
-     "line": 1751,
+     "line": 1800,
      "in": "TemplateEditor",
      "when": "!(isDraft) && !(isArchived) && isAdmin && pendingConfirm?.key === 'duplicate-template'",
      "text": "Cancelar",
@@ -2682,7 +2707,7 @@
     },
     {
      "kind": "button",
-     "line": 1759,
+     "line": 1808,
      "in": "TemplateEditor",
      "when": "!(isDraft) && !(isArchived) && isAdmin && !(pendingConfirm?.key === 'duplicate-template')",
      "text": "Duplicando... / Duplicar",
@@ -2692,20 +2717,20 @@
     },
     {
      "kind": "heading",
-     "line": 1780,
+     "line": 1829,
      "in": "TemplateEditor",
      "text": "{ENTITY_LABELS.objectives}",
      "level": 3
     },
     {
      "kind": "text",
-     "line": 1781,
+     "line": 1830,
      "in": "TemplateEditor",
      "text": "{objectives.length} objetivo s"
     },
     {
      "kind": "button",
-     "line": 1784,
+     "line": 1833,
      "in": "TemplateEditor",
      "when": "canEdit",
      "text": "Agregar {ENTITY_LABELS.objective}",
@@ -2716,7 +2741,7 @@
     },
     {
      "kind": "heading",
-     "line": 1798,
+     "line": 1847,
      "in": "TemplateEditor",
      "when": "objectives.length === 0",
      "text": "Sin {ENTITY_LABELS.objectives.toLowerCas…}",
@@ -2724,14 +2749,14 @@
     },
     {
      "kind": "text",
-     "line": 1799,
+     "line": 1848,
      "in": "TemplateEditor",
      "when": "objectives.length === 0",
      "text": "Agrega {ENTITY_LABELS.objectives.toLowerCas…} para organizar las {ENTITY_LABELS.modules.toLowerCase()} e indicadores que componen el registro"
     },
     {
      "kind": "button",
-     "line": 1803,
+     "line": 1852,
      "in": "TemplateEditor",
      "when": "objectives.length === 0 && canEdit",
      "text": "Agregar {ENTITY_LABELS.objective}",
@@ -2739,7 +2764,7 @@
     },
     {
      "kind": "hook",
-     "line": 1819,
+     "line": 1868,
      "in": "TemplateEditor",
      "when": "!(objectives.length === 0) && each objectives",
      "text": "testid=objective-card",
@@ -2748,7 +2773,7 @@
     },
     {
      "kind": "button",
-     "line": 1826,
+     "line": 1875,
      "in": "TemplateEditor",
      "when": "!(objectives.length === 0) && each objectives",
      "text": "# {objIndex + 1} {objective.name} {objectiveModules.length} {ENTITY_LABELS.modules.toLowerCase()} / {ENTITY_LABELS.module.toLowerCase()} [{objective.description}]",
@@ -2757,7 +2782,7 @@
     },
     {
      "kind": "button",
-     "line": 1855,
+     "line": 1904,
      "in": "TemplateEditor",
      "when": "!(objectives.length === 0) && each objectives && canEdit",
      "text": "[icon Edit2]",
@@ -2767,7 +2792,7 @@
     },
     {
      "kind": "button",
-     "line": 1865,
+     "line": 1914,
      "in": "TemplateEditor",
      "when": "!(objectives.length === 0) && each objectives && canEdit && pendingConfirm?.key === `delete-objective-${objective.id}`",
      "text": "¿Eliminar?",
@@ -2775,7 +2800,7 @@
     },
     {
      "kind": "button",
-     "line": 1871,
+     "line": 1920,
      "in": "TemplateEditor",
      "when": "!(objectives.length === 0) && each objectives && canEdit && pendingConfirm?.key === `delete-objective-${objective.id}`",
      "text": "Cancelar",
@@ -2783,7 +2808,7 @@
     },
     {
      "kind": "button",
-     "line": 1879,
+     "line": 1928,
      "in": "TemplateEditor",
      "when": "!(objectives.length === 0) && each objectives && canEdit && !(pendingConfirm?.key === `delete-objective-${objective.id}`)",
      "text": "[icon Trash2]",
@@ -2793,7 +2818,7 @@
     },
     {
      "kind": "heading",
-     "line": 1896,
+     "line": 1945,
      "in": "TemplateEditor",
      "when": "!(objectives.length === 0) && each objectives && objective.isExpanded",
      "text": "{ENTITY_LABELS.modules} ( {objectiveModules.length} )",
@@ -2801,7 +2826,7 @@
     },
     {
      "kind": "button",
-     "line": 1900,
+     "line": 1949,
      "in": "TemplateEditor",
      "when": "!(objectives.length === 0) && each objectives && objective.isExpanded && canEdit",
      "text": "Agregar {ENTITY_LABELS.module}",
@@ -2812,14 +2837,14 @@
     },
     {
      "kind": "text",
-     "line": 1912,
+     "line": 1961,
      "in": "TemplateEditor",
      "when": "!(objectives.length === 0) && each objectives && objective.isExpanded && objectiveModules.length === 0",
      "text": "Sin {ENTITY_LABELS.modules.toLowerCase()} . Agrega {ENTITY_LABELS.modules.toLow…} usando el botón de arriba."
     },
     {
      "kind": "hook",
-     "line": 1918,
+     "line": 1967,
      "in": "TemplateEditor",
      "when": "each objectives && objective.isExpanded && !(objectiveModules.length === 0) && each objectiveModules",
      "text": "testid=module-card",
@@ -2828,7 +2853,7 @@
     },
     {
      "kind": "button",
-     "line": 1924,
+     "line": 1973,
      "in": "TemplateEditor",
      "when": "each objectives && objective.isExpanded && !(objectiveModules.length === 0) && each objectiveModules",
      "text": "# {modIndex + 1} {module.name} [{module.description}]",
@@ -2836,7 +2861,7 @@
     },
     {
      "kind": "button",
-     "line": 1944,
+     "line": 1993,
      "in": "TemplateEditor",
      "when": "each objectives && objective.isExpanded && !(objectiveModules.length === 0) && each objectiveModules",
      "text": "[icon Eye]",
@@ -2846,7 +2871,7 @@
     },
     {
      "kind": "button",
-     "line": 1954,
+     "line": 2003,
      "in": "TemplateEditor",
      "when": "objective.isExpanded && !(objectiveModules.length === 0) && each objectiveModules && canEdit",
      "text": "[icon Edit2]",
@@ -2856,7 +2881,7 @@
     },
     {
      "kind": "button",
-     "line": 1964,
+     "line": 2013,
      "in": "TemplateEditor",
      "when": "!(objectiveModules.length === 0) && each objectiveModules && canEdit && pendingConfirm?.key === `delete-module-${module.id}`",
      "text": "¿Eliminar?",
@@ -2864,7 +2889,7 @@
     },
     {
      "kind": "button",
-     "line": 1970,
+     "line": 2019,
      "in": "TemplateEditor",
      "when": "!(objectiveModules.length === 0) && each objectiveModules && canEdit && pendingConfirm?.key === `delete-module-${module.id}`",
      "text": "Cancelar",
@@ -2872,7 +2897,7 @@
     },
     {
      "kind": "button",
-     "line": 1978,
+     "line": 2027,
      "in": "TemplateEditor",
      "when": "!(objectiveModules.length === 0) && each objectiveModules && canEdit && !(pendingConfirm?.key === `delete-module-${module.id}`)",
      "text": "[icon Trash2]",
@@ -2882,21 +2907,21 @@
     },
     {
      "kind": "text",
-     "line": 1996,
+     "line": 2045,
      "in": "TemplateEditor",
      "when": "!(objectiveModules.length === 0) && each objectiveModules && module.isExpanded && module.instructions",
      "text": "Instrucciones:"
     },
     {
      "kind": "value",
-     "line": 1997,
+     "line": 2046,
      "in": "TemplateEditor",
      "when": "!(objectiveModules.length === 0) && each objectiveModules && module.isExpanded && module.instructions",
      "text": "{module.instructions}"
     },
     {
      "kind": "heading",
-     "line": 2003,
+     "line": 2052,
      "in": "TemplateEditor",
      "when": "objective.isExpanded && !(objectiveModules.length === 0) && each objectiveModules && module.isExpanded",
      "text": "{ENTITY_LABELS.indicators} ( {(module.indicators || []).length} )",
@@ -2904,7 +2929,7 @@
     },
     {
      "kind": "button",
-     "line": 2007,
+     "line": 2056,
      "in": "TemplateEditor",
      "when": "!(objectiveModules.length === 0) && each objectiveModules && module.isExpanded && canEdit",
      "text": "Agregar",
@@ -2915,21 +2940,21 @@
     },
     {
      "kind": "text",
-     "line": 2019,
+     "line": 2068,
      "in": "TemplateEditor",
      "when": "!(objectiveModules.length === 0) && each objectiveModules && module.isExpanded && !module.indicatorsLoaded",
      "text": "Cargando indicadores..."
     },
     {
      "kind": "text",
-     "line": 2021,
+     "line": 2070,
      "in": "TemplateEditor",
      "when": "each objectiveModules && module.isExpanded && !(!module.indicatorsLoaded) && ((module.indicators || []).length === 0)",
      "text": "Sin indicadores. Agrega indicadores usando el botón de arriba."
     },
     {
      "kind": "hook",
-     "line": 2029,
+     "line": 2078,
      "in": "TemplateEditor",
      "when": "module.isExpanded && !(!module.indicatorsLoaded) && (!((module.indicators || []).length === 0)) && (each (module.indicators || []))",
      "text": "testid=indicator-row",
@@ -2938,14 +2963,14 @@
     },
     {
      "kind": "value",
-     "line": 2036,
+     "line": 2085,
      "in": "TemplateEditor",
      "when": "module.isExpanded && !(!module.indicatorsLoaded) && (!((module.indicators || []).length === 0)) && (each (module.indicators || []))",
      "text": "# {indIndex + 1}"
     },
     {
      "kind": "text",
-     "line": 2038,
+     "line": 2087,
      "in": "TemplateEditor",
      "when": "!(!module.indicatorsLoaded) && (!((module.indicators || []).length === 0)) && (each (module.indicators || [])) && isLockedCobertura",
      "text": "{ENTITY_LABELS.indicator} de cobertura bloqueado (primer {ENTITY_LABELS.indicator.toL…})",
@@ -2953,28 +2978,28 @@
     },
     {
      "kind": "value",
-     "line": 2041,
+     "line": 2090,
      "in": "TemplateEditor",
      "when": "!(!module.indicatorsLoaded) && (!((module.indicators || []).length === 0)) && (each (module.indicators || [])) && indicator.code",
      "text": "{indicator.code}"
     },
     {
      "kind": "value",
-     "line": 2045,
+     "line": 2094,
      "in": "TemplateEditor",
      "when": "module.isExpanded && !(!module.indicatorsLoaded) && (!((module.indicators || []).length === 0)) && (each (module.indicators || []))",
      "text": "{indicator.name}"
     },
     {
      "kind": "value",
-     "line": 2048,
+     "line": 2097,
      "in": "TemplateEditor",
      "when": "module.isExpanded && !(!module.indicatorsLoaded) && (!((module.indicators || []).length === 0)) && (each (module.indicators || []))",
      "text": "{CATEGORY_LABELS[indicator.category]}"
     },
     {
      "kind": "button",
-     "line": 2067,
+     "line": 2116,
      "in": "TemplateEditor",
      "when": "!(!module.indicatorsLoaded) && (!((module.indicators || []).length === 0)) && (each (module.indicators || [])) && canEdit",
      "text": "[icon Edit2]",
@@ -2984,7 +3009,7 @@
     },
     {
      "kind": "button",
-     "line": 2078,
+     "line": 2127,
      "in": "TemplateEditor",
      "when": "(each (module.indicators || [])) && canEdit && !isLockedCobertura && pendingConfirm?.key === `delete-indicator-${indicator.id}`",
      "text": "¿Eliminar?",
@@ -2992,7 +3017,7 @@
     },
     {
      "kind": "button",
-     "line": 2084,
+     "line": 2133,
      "in": "TemplateEditor",
      "when": "(each (module.indicators || [])) && canEdit && !isLockedCobertura && pendingConfirm?.key === `delete-indicator-${indicator.id}`",
      "text": "Cancelar",
@@ -3000,7 +3025,7 @@
     },
     {
      "kind": "button",
-     "line": 2092,
+     "line": 2141,
      "in": "TemplateEditor",
      "when": "(each (module.indicators || [])) && canEdit && !isLockedCobertura && !(pendingConfirm?.key === `delete-indicator-${indicator.id}`)",
      "text": "[icon Trash2]",
@@ -3010,7 +3035,7 @@
     },
     {
      "kind": "button",
-     "line": 2130,
+     "line": 2179,
      "in": "TemplateEditor",
      "when": "template.status === 'published' && !isArchived && isAdmin",
      "text": "Acceso Demo {demoUsers.length} usuario s con acceso",
@@ -3018,7 +3043,7 @@
     },
     {
      "kind": "heading",
-     "line": 2137,
+     "line": 2186,
      "in": "TemplateEditor",
      "when": "template.status === 'published' && !isArchived && isAdmin",
      "text": "Acceso Demo",
@@ -3026,7 +3051,7 @@
     },
     {
      "kind": "button",
-     "line": 2154,
+     "line": 2203,
      "in": "TemplateEditor",
      "when": "template.status === 'published' && !isArchived && isAdmin && isDemoSectionOpen",
      "text": "Copiar enlace demo",
@@ -3034,21 +3059,21 @@
     },
     {
      "kind": "text",
-     "line": 2161,
+     "line": 2210,
      "in": "TemplateEditor",
      "when": "template.status === 'published' && !isArchived && isAdmin && isDemoSectionOpen",
      "text": "/demo/assessments/ {template.id}"
     },
     {
      "kind": "label",
-     "line": 2168,
+     "line": 2217,
      "in": "TemplateEditor",
      "when": "template.status === 'published' && !isArchived && isAdmin && isDemoSectionOpen",
      "text": "Agregar usuarios"
     },
     {
      "kind": "field",
-     "line": 2174,
+     "line": 2223,
      "in": "TemplateEditor",
      "when": "template.status === 'published' && !isArchived && isAdmin && isDemoSectionOpen",
      "text": "Agregar usuarios",
@@ -3058,14 +3083,14 @@
     },
     {
      "kind": "text",
-     "line": 2182,
+     "line": 2231,
      "in": "TemplateEditor",
      "when": "template.status === 'published' && !isArchived && isAdmin && isDemoSectionOpen && demoSearching",
      "text": "Buscando..."
     },
     {
      "kind": "button",
-     "line": 2190,
+     "line": 2239,
      "in": "TemplateEditor",
      "when": "template.status === 'published' && !isArchived && isAdmin && isDemoSectionOpen && demoSearchResults.length > 0 && each demoSearchResults",
      "text": "{u.full_name} / {u.email} [{u.email}] [Seleccionado]",
@@ -3073,7 +3098,7 @@
     },
     {
      "kind": "button",
-     "line": 2231,
+     "line": 2280,
      "in": "TemplateEditor",
      "when": "template.status === 'published' && !isArchived && isAdmin && isDemoSectionOpen && selectedDemoUsers.length > 0 && each selectedDemoUsers",
      "text": "[icon X]",
@@ -3081,7 +3106,7 @@
     },
     {
      "kind": "button",
-     "line": 2240,
+     "line": 2289,
      "in": "TemplateEditor",
      "when": "template.status === 'published' && !isArchived && isAdmin && isDemoSectionOpen && selectedDemoUsers.length > 0",
      "text": "Otorgando... / Otorgar Acceso",
@@ -3090,70 +3115,70 @@
     },
     {
      "kind": "text",
-     "line": 2254,
+     "line": 2303,
      "in": "TemplateEditor",
      "when": "template.status === 'published' && !isArchived && isAdmin && isDemoSectionOpen && loadingDemoUsers",
      "text": "Cargando usuarios..."
     },
     {
      "kind": "text",
-     "line": 2257,
+     "line": 2306,
      "in": "TemplateEditor",
      "when": "template.status === 'published' && !isArchived && isAdmin && isDemoSectionOpen && !(loadingDemoUsers) && demoUsers.length === 0",
      "text": "Ningún usuario tiene acceso demo a este template."
     },
     {
      "kind": "column",
-     "line": 2264,
+     "line": 2313,
      "in": "TemplateEditor",
      "when": "template.status === 'published' && !isArchived && isAdmin && isDemoSectionOpen && !(loadingDemoUsers) && !(demoUsers.length === 0)",
      "text": "Nombre"
     },
     {
      "kind": "column",
-     "line": 2267,
+     "line": 2316,
      "in": "TemplateEditor",
      "when": "template.status === 'published' && !isArchived && isAdmin && isDemoSectionOpen && !(loadingDemoUsers) && !(demoUsers.length === 0)",
      "text": "Email"
     },
     {
      "kind": "column",
-     "line": 2270,
+     "line": 2319,
      "in": "TemplateEditor",
      "when": "template.status === 'published' && !isArchived && isAdmin && isDemoSectionOpen && !(loadingDemoUsers) && !(demoUsers.length === 0)",
      "text": "Acceso otorgado"
     },
     {
      "kind": "column",
-     "line": 2273,
+     "line": 2322,
      "in": "TemplateEditor",
      "when": "template.status === 'published' && !isArchived && isAdmin && isDemoSectionOpen && !(loadingDemoUsers) && !(demoUsers.length === 0)",
      "text": "Acción"
     },
     {
      "kind": "value",
-     "line": 2281,
+     "line": 2330,
      "in": "TemplateEditor",
      "when": "isDemoSectionOpen && !(loadingDemoUsers) && !(demoUsers.length === 0) && each demoUsers",
      "text": "{du.full_name} / —"
     },
     {
      "kind": "value",
-     "line": 2284,
+     "line": 2333,
      "in": "TemplateEditor",
      "when": "isDemoSectionOpen && !(loadingDemoUsers) && !(demoUsers.length === 0) && each demoUsers",
      "text": "{du.email}"
     },
     {
      "kind": "value",
-     "line": 2287,
+     "line": 2336,
      "in": "TemplateEditor",
      "when": "isDemoSectionOpen && !(loadingDemoUsers) && !(demoUsers.length === 0) && each demoUsers",
      "text": "{new Date(du.granted_at).toLocaleDat…}"
     },
     {
      "kind": "button",
-     "line": 2291,
+     "line": 2340,
      "in": "TemplateEditor",
      "when": "isDemoSectionOpen && !(loadingDemoUsers) && !(demoUsers.length === 0) && each demoUsers",
      "text": "Revocando... / Revocar",
@@ -3162,7 +3187,7 @@
     },
     {
      "kind": "popup",
-     "line": 2314,
+     "line": 2363,
      "in": "TemplateEditor",
      "when": "isObjectiveModalOpen",
      "text": "Editar {ENTITY_LABELS.objective} / Nuevo {ENTITY_LABELS.objective}",
@@ -3170,7 +3195,7 @@
     },
     {
      "kind": "clickable",
-     "line": 2316,
+     "line": 2365,
      "in": "TemplateEditor",
      "when": "isObjectiveModalOpen",
      "text": "",
@@ -3179,7 +3204,7 @@
     },
     {
      "kind": "popup",
-     "line": 2318,
+     "line": 2367,
      "in": "TemplateEditor",
      "when": "isObjectiveModalOpen",
      "text": "Editar {ENTITY_LABELS.objective} / Nuevo {ENTITY_LABELS.objective}",
@@ -3188,7 +3213,7 @@
     },
     {
      "kind": "heading",
-     "line": 2324,
+     "line": 2373,
      "in": "TemplateEditor",
      "when": "isObjectiveModalOpen",
      "text": "Editar {ENTITY_LABELS.objective} / Nuevo {ENTITY_LABELS.objective}",
@@ -3200,7 +3225,7 @@
     },
     {
      "kind": "label",
-     "line": 2330,
+     "line": 2379,
      "in": "TemplateEditor",
      "when": "isObjectiveModalOpen",
      "text": "Nombre *",
@@ -3208,7 +3233,7 @@
     },
     {
      "kind": "field",
-     "line": 2333,
+     "line": 2382,
      "in": "TemplateEditor",
      "when": "isObjectiveModalOpen",
      "text": "Nombre *",
@@ -3222,7 +3247,7 @@
     },
     {
      "kind": "label",
-     "line": 2344,
+     "line": 2393,
      "in": "TemplateEditor",
      "when": "isObjectiveModalOpen",
      "text": "Descripción",
@@ -3230,7 +3255,7 @@
     },
     {
      "kind": "field",
-     "line": 2345,
+     "line": 2394,
      "in": "TemplateEditor",
      "when": "isObjectiveModalOpen",
      "text": "Descripción",
@@ -3245,7 +3270,7 @@
     },
     {
      "kind": "button",
-     "line": 2358,
+     "line": 2407,
      "in": "TemplateEditor",
      "when": "isObjectiveModalOpen",
      "text": "Cancelar",
@@ -3253,7 +3278,7 @@
     },
     {
      "kind": "button",
-     "line": 2364,
+     "line": 2413,
      "in": "TemplateEditor",
      "when": "isObjectiveModalOpen",
      "text": "Guardando... / Actualizar / Crear",
@@ -3262,7 +3287,7 @@
     },
     {
      "kind": "popup",
-     "line": 2379,
+     "line": 2428,
      "in": "TemplateEditor",
      "when": "isModuleModalOpen",
      "text": "Editar {ENTITY_LABELS.module} / Nueva {ENTITY_LABELS.module}",
@@ -3270,7 +3295,7 @@
     },
     {
      "kind": "clickable",
-     "line": 2381,
+     "line": 2430,
      "in": "TemplateEditor",
      "when": "isModuleModalOpen",
      "text": "",
@@ -3279,7 +3304,7 @@
     },
     {
      "kind": "popup",
-     "line": 2383,
+     "line": 2432,
      "in": "TemplateEditor",
      "when": "isModuleModalOpen",
      "text": "Editar {ENTITY_LABELS.module} / Nueva {ENTITY_LABELS.module}",
@@ -3288,7 +3313,7 @@
     },
     {
      "kind": "heading",
-     "line": 2389,
+     "line": 2438,
      "in": "TemplateEditor",
      "when": "isModuleModalOpen",
      "text": "Editar {ENTITY_LABELS.module} / Nueva {ENTITY_LABELS.module}",
@@ -3300,7 +3325,7 @@
     },
     {
      "kind": "label",
-     "line": 2395,
+     "line": 2444,
      "in": "TemplateEditor",
      "when": "isModuleModalOpen",
      "text": "Nombre *",
@@ -3308,7 +3333,7 @@
     },
     {
      "kind": "field",
-     "line": 2398,
+     "line": 2447,
      "in": "TemplateEditor",
      "when": "isModuleModalOpen",
      "text": "Nombre *",
@@ -3322,7 +3347,7 @@
     },
     {
      "kind": "label",
-     "line": 2409,
+     "line": 2458,
      "in": "TemplateEditor",
      "when": "isModuleModalOpen",
      "text": "Descripción",
@@ -3330,7 +3355,7 @@
     },
     {
      "kind": "field",
-     "line": 2410,
+     "line": 2459,
      "in": "TemplateEditor",
      "when": "isModuleModalOpen",
      "text": "Descripción",
@@ -3345,14 +3370,14 @@
     },
     {
      "kind": "text",
-     "line": 2419,
+     "line": 2468,
      "in": "TemplateEditor",
      "when": "isModuleModalOpen",
      "text": "Breve resumen de esta práctica. Aparece como subtítulo bajo el nombre — siempre visible para el evaluador. (1-2 oraciones)"
     },
     {
      "kind": "label",
-     "line": 2424,
+     "line": 2473,
      "in": "TemplateEditor",
      "when": "isModuleModalOpen",
      "text": "Instrucciones",
@@ -3360,7 +3385,7 @@
     },
     {
      "kind": "field",
-     "line": 2425,
+     "line": 2474,
      "in": "TemplateEditor",
      "when": "isModuleModalOpen",
      "text": "Instrucciones",
@@ -3375,14 +3400,14 @@
     },
     {
      "kind": "text",
-     "line": 2434,
+     "line": 2483,
      "in": "TemplateEditor",
      "when": "isModuleModalOpen",
      "text": "Guía detallada para el evaluador. Aparece en un recuadro azul al expandir la sección. Explica qué evidencia buscar y cómo evaluar los indicadores."
     },
     {
      "kind": "button",
-     "line": 2441,
+     "line": 2490,
      "in": "TemplateEditor",
      "when": "isModuleModalOpen",
      "text": "Cancelar",
@@ -3390,7 +3415,7 @@
     },
     {
      "kind": "button",
-     "line": 2447,
+     "line": 2496,
      "in": "TemplateEditor",
      "when": "isModuleModalOpen",
      "text": "Guardando... / Actualizar / Crear",
@@ -3399,7 +3424,7 @@
     },
     {
      "kind": "popup",
-     "line": 2463,
+     "line": 2512,
      "in": "TemplateEditor",
      "when": "isIndicatorModalOpen",
      "text": "Editar {ENTITY_LABELS.indicator} / Nuevo {ENTITY_LABELS.indicator}",
@@ -3407,7 +3432,7 @@
     },
     {
      "kind": "clickable",
-     "line": 2465,
+     "line": 2514,
      "in": "TemplateEditor",
      "when": "isIndicatorModalOpen",
      "text": "",
@@ -3416,7 +3441,7 @@
     },
     {
      "kind": "popup",
-     "line": 2467,
+     "line": 2516,
      "in": "TemplateEditor",
      "when": "isIndicatorModalOpen",
      "text": "Editar {ENTITY_LABELS.indicator} / Nuevo {ENTITY_LABELS.indicator}",
@@ -3425,7 +3450,7 @@
     },
     {
      "kind": "heading",
-     "line": 2473,
+     "line": 2522,
      "in": "TemplateEditor",
      "when": "isIndicatorModalOpen",
      "text": "Editar {ENTITY_LABELS.indicator} / Nuevo {ENTITY_LABELS.indicator}",
@@ -3437,7 +3462,7 @@
     },
     {
      "kind": "label",
-     "line": 2481,
+     "line": 2530,
      "in": "TemplateEditor",
      "when": "isIndicatorModalOpen",
      "text": "Nombre *",
@@ -3445,7 +3470,7 @@
     },
     {
      "kind": "field",
-     "line": 2484,
+     "line": 2533,
      "in": "TemplateEditor",
      "when": "isIndicatorModalOpen",
      "text": "Nombre *",
@@ -3459,7 +3484,7 @@
     },
     {
      "kind": "label",
-     "line": 2494,
+     "line": 2543,
      "in": "TemplateEditor",
      "when": "isIndicatorModalOpen",
      "text": "Código",
@@ -3467,7 +3492,7 @@
     },
     {
      "kind": "field",
-     "line": 2495,
+     "line": 2544,
      "in": "TemplateEditor",
      "when": "isIndicatorModalOpen",
      "text": "Código",
@@ -3481,7 +3506,7 @@
     },
     {
      "kind": "label",
-     "line": 2507,
+     "line": 2556,
      "in": "TemplateEditor",
      "when": "isIndicatorModalOpen",
      "text": "Descripción",
@@ -3489,7 +3514,7 @@
     },
     {
      "kind": "field",
-     "line": 2508,
+     "line": 2557,
      "in": "TemplateEditor",
      "when": "isIndicatorModalOpen",
      "text": "Descripción",
@@ -3504,14 +3529,14 @@
     },
     {
      "kind": "text",
-     "line": 2517,
+     "line": 2566,
      "in": "TemplateEditor",
      "when": "isIndicatorModalOpen",
      "text": "Aparece como texto de ayuda junto al indicador cuando el evaluador lo completa. Aclara qué se está midiendo."
     },
     {
      "kind": "label",
-     "line": 2522,
+     "line": 2571,
      "in": "TemplateEditor",
      "when": "isIndicatorModalOpen",
      "text": "Orientaciones para interpretar el indicador",
@@ -3519,7 +3544,7 @@
     },
     {
      "kind": "field",
-     "line": 2525,
+     "line": 2574,
      "in": "TemplateEditor",
      "when": "isIndicatorModalOpen",
      "text": "Orientaciones para interpretar el indicador",
@@ -3534,14 +3559,14 @@
     },
     {
      "kind": "text",
-     "line": 2534,
+     "line": 2583,
      "in": "TemplateEditor",
      "when": "isIndicatorModalOpen",
      "text": "Instrucciones para la IA al generar el informe a partir de las respuestas del registro. Ejemplo: &quot;Realizar esto más de una vez al año no es necesario — no señalar baja frecuencia como problema.&quot;"
     },
     {
      "kind": "label",
-     "line": 2540,
+     "line": 2589,
      "in": "TemplateEditor",
      "when": "isIndicatorModalOpen",
      "text": "Categoría *",
@@ -3549,7 +3574,7 @@
     },
     {
      "kind": "field",
-     "line": 2543,
+     "line": 2592,
      "in": "TemplateEditor",
      "when": "isIndicatorModalOpen",
      "text": "Categoría *",
@@ -3570,42 +3595,42 @@
     },
     {
      "kind": "text",
-     "line": 2560,
+     "line": 2609,
      "in": "TemplateEditor",
      "when": "isIndicatorModalOpen && isFirstIndicatorLocked",
      "text": "El primer indicador de cada práctica siempre es de tipo Cobertura"
     },
     {
      "kind": "text",
-     "line": 2569,
+     "line": 2618,
      "in": "TemplateEditor",
      "when": "isIndicatorModalOpen && indicatorForm.category === 'frecuencia'",
      "text": "Períodos permitidos"
     },
     {
      "kind": "text",
-     "line": 2571,
+     "line": 2620,
      "in": "TemplateEditor",
      "when": "isIndicatorModalOpen && indicatorForm.category === 'frecuencia'",
      "text": "(selecciona al menos uno)"
     },
     {
      "kind": "text",
-     "line": 2575,
+     "line": 2624,
      "in": "TemplateEditor",
      "when": "isIndicatorModalOpen && indicatorForm.category === 'frecuencia'",
      "text": "El docente podrá elegir entre estas opciones al responder"
     },
     {
      "kind": "label",
-     "line": 2579,
+     "line": 2628,
      "in": "TemplateEditor",
      "when": "isIndicatorModalOpen && indicatorForm.category === 'frecuencia' && each FREQUENCY_UNIT_OPTIONS",
      "text": "Por {FREQUENCY_UNIT_LABELS[unit]}"
     },
     {
      "kind": "field",
-     "line": 2580,
+     "line": 2629,
      "in": "TemplateEditor",
      "when": "isIndicatorModalOpen && indicatorForm.category === 'frecuencia' && each FREQUENCY_UNIT_OPTIONS",
      "text": "Por {FREQUENCY_UNIT_LABELS[unit]}",
@@ -3617,14 +3642,14 @@
     },
     {
      "kind": "text",
-     "line": 2610,
+     "line": 2659,
      "in": "TemplateEditor",
      "when": "isIndicatorModalOpen && indicatorForm.category === 'frecuencia' && indicatorForm.frequencyUnitOptions.length === 0",
      "text": "Debes seleccionar al menos un período"
     },
     {
      "kind": "label",
-     "line": 2615,
+     "line": 2664,
      "in": "TemplateEditor",
      "when": "isIndicatorModalOpen && indicatorForm.category === 'frecuencia'",
      "text": "Período por defecto *",
@@ -3632,7 +3657,7 @@
     },
     {
      "kind": "field",
-     "line": 2618,
+     "line": 2667,
      "in": "TemplateEditor",
      "when": "isIndicatorModalOpen && indicatorForm.category === 'frecuencia'",
      "text": "Período por defecto *",
@@ -3649,28 +3674,28 @@
     },
     {
      "kind": "text",
-     "line": 2632,
+     "line": 2681,
      "in": "TemplateEditor",
      "when": "isIndicatorModalOpen && indicatorForm.category === 'frecuencia'",
      "text": "Se muestra seleccionado al docente hasta que elija otro período permitido"
     },
     {
      "kind": "text",
-     "line": 2637,
+     "line": 2686,
      "in": "TemplateEditor",
      "when": "isIndicatorModalOpen && indicatorForm.category === 'frecuencia'",
      "text": "Rango de puntuación"
     },
     {
      "kind": "text",
-     "line": 2640,
+     "line": 2689,
      "in": "TemplateEditor",
      "when": "isIndicatorModalOpen && indicatorForm.category === 'frecuencia'",
      "text": "El puntaje del indicador se normaliza entre el mínimo y el máximo. Requerido para publicar."
     },
     {
      "kind": "label",
-     "line": 2644,
+     "line": 2693,
      "in": "TemplateEditor",
      "when": "isIndicatorModalOpen && indicatorForm.category === 'frecuencia'",
      "text": "Valor mínimo",
@@ -3678,7 +3703,7 @@
     },
     {
      "kind": "field",
-     "line": 2645,
+     "line": 2694,
      "in": "TemplateEditor",
      "when": "isIndicatorModalOpen && indicatorForm.category === 'frecuencia'",
      "text": "Valor mínimo",
@@ -3692,7 +3717,7 @@
     },
     {
      "kind": "label",
-     "line": 2655,
+     "line": 2704,
      "in": "TemplateEditor",
      "when": "isIndicatorModalOpen && indicatorForm.category === 'frecuencia'",
      "text": "Valor máximo",
@@ -3700,7 +3725,7 @@
     },
     {
      "kind": "field",
-     "line": 2656,
+     "line": 2705,
      "in": "TemplateEditor",
      "when": "isIndicatorModalOpen && indicatorForm.category === 'frecuencia'",
      "text": "Valor máximo",
@@ -3714,7 +3739,7 @@
     },
     {
      "kind": "label",
-     "line": 2666,
+     "line": 2715,
      "in": "TemplateEditor",
      "when": "isIndicatorModalOpen && indicatorForm.category === 'frecuencia'",
      "text": "Paso",
@@ -3722,7 +3747,7 @@
     },
     {
      "kind": "field",
-     "line": 2667,
+     "line": 2716,
      "in": "TemplateEditor",
      "when": "isIndicatorModalOpen && indicatorForm.category === 'frecuencia'",
      "text": "Paso",
@@ -3737,7 +3762,7 @@
     },
     {
      "kind": "hook",
-     "line": 2681,
+     "line": 2730,
      "in": "TemplateEditor",
      "when": "isIndicatorModalOpen && indicatorForm.category === 'frecuencia' && !(check.valid)",
      "text": "testid=frequency-config-hint",
@@ -3746,35 +3771,35 @@
     },
     {
      "kind": "text",
-     "line": 2681,
+     "line": 2730,
      "in": "TemplateEditor",
      "when": "isIndicatorModalOpen && indicatorForm.category === 'frecuencia' && !(check.valid)",
      "text": "Para publicar: {check.errors[0]}"
     },
     {
      "kind": "text",
-     "line": 2692,
+     "line": 2741,
      "in": "TemplateEditor",
      "when": "isIndicatorModalOpen && indicatorForm.category === 'traspaso'",
      "text": "Vista previa de campos Traspaso"
     },
     {
      "kind": "text",
-     "line": 2694,
+     "line": 2743,
      "in": "TemplateEditor",
      "when": "isIndicatorModalOpen && indicatorForm.category === 'traspaso'",
      "text": "Los docentes verán estos dos campos al responder este indicador"
     },
     {
      "kind": "label",
-     "line": 2698,
+     "line": 2747,
      "in": "TemplateEditor",
      "when": "isIndicatorModalOpen && indicatorForm.category === 'traspaso'",
      "text": "Enlace de Evidencia (URL)"
     },
     {
      "kind": "field",
-     "line": 2701,
+     "line": 2750,
      "in": "TemplateEditor",
      "when": "isIndicatorModalOpen && indicatorForm.category === 'traspaso'",
      "text": "Enlace de Evidencia (URL)",
@@ -3784,14 +3809,14 @@
     },
     {
      "kind": "label",
-     "line": 2709,
+     "line": 2758,
      "in": "TemplateEditor",
      "when": "isIndicatorModalOpen && indicatorForm.category === 'traspaso'",
      "text": "Sugerencias de Mejora"
     },
     {
      "kind": "field",
-     "line": 2712,
+     "line": 2761,
      "in": "TemplateEditor",
      "when": "isIndicatorModalOpen && indicatorForm.category === 'traspaso'",
      "text": "Sugerencias de Mejora",
@@ -3802,28 +3827,28 @@
     },
     {
      "kind": "text",
-     "line": 2727,
+     "line": 2776,
      "in": "TemplateEditor",
      "when": "isIndicatorModalOpen && indicatorForm.category === 'detalle'",
      "text": "Opciones de selección"
     },
     {
      "kind": "text",
-     "line": 2729,
+     "line": 2778,
      "in": "TemplateEditor",
      "when": "isIndicatorModalOpen && indicatorForm.category === 'detalle'",
      "text": "(mínimo 2, máximo 15)"
     },
     {
      "kind": "text",
-     "line": 2733,
+     "line": 2782,
      "in": "TemplateEditor",
      "when": "isIndicatorModalOpen && indicatorForm.category === 'detalle'",
      "text": "El evaluador podrá marcar todas las que aplican"
     },
     {
      "kind": "field",
-     "line": 2738,
+     "line": 2787,
      "in": "TemplateEditor",
      "when": "isIndicatorModalOpen && indicatorForm.category === 'detalle' && each indicatorForm.detalleOptions",
      "text": "{`Opción ${idx + 1}`}",
@@ -3834,7 +3859,7 @@
     },
     {
      "kind": "button",
-     "line": 2751,
+     "line": 2800,
      "in": "TemplateEditor",
      "when": "isIndicatorModalOpen && indicatorForm.category === 'detalle' && each indicatorForm.detalleOptions && indicatorForm.detalleOptions.length > 2",
      "text": "[icon X]",
@@ -3843,7 +3868,7 @@
     },
     {
      "kind": "button",
-     "line": 2767,
+     "line": 2816,
      "in": "TemplateEditor",
      "when": "isIndicatorModalOpen && indicatorForm.category === 'detalle' && indicatorForm.detalleOptions.length < 15",
      "text": "Agregar opción",
@@ -3851,35 +3876,35 @@
     },
     {
      "kind": "text",
-     "line": 2783,
+     "line": 2832,
      "in": "TemplateEditor",
      "when": "isIndicatorModalOpen && indicatorForm.category === 'detalle' && indicatorForm.detalleOptions.map(o => o.trim()).filter(o => o.length > 0).length < 2",
      "text": "Debes ingresar al menos 2 opciones"
     },
     {
      "kind": "text",
-     "line": 2793,
+     "line": 2842,
      "in": "TemplateEditor",
      "when": "isIndicatorModalOpen && indicatorForm.category === 'profundidad'",
      "text": "Descriptores de nivel"
     },
     {
      "kind": "text",
-     "line": 2795,
+     "line": 2844,
      "in": "TemplateEditor",
      "when": "isIndicatorModalOpen && indicatorForm.category === 'profundidad'",
      "text": "(al menos uno requerido)"
     },
     {
      "kind": "label",
-     "line": 2800,
+     "line": 2849,
      "in": "TemplateEditor",
      "when": "isIndicatorModalOpen && indicatorForm.category === 'profundidad'",
      "text": "Nivel 0 - No implementado"
     },
     {
      "kind": "field",
-     "line": 2803,
+     "line": 2852,
      "in": "TemplateEditor",
      "when": "isIndicatorModalOpen && indicatorForm.category === 'profundidad'",
      "text": "Nivel 0 - No implementado",
@@ -3889,14 +3914,14 @@
     },
     {
      "kind": "label",
-     "line": 2812,
+     "line": 2861,
      "in": "TemplateEditor",
      "when": "isIndicatorModalOpen && indicatorForm.category === 'profundidad'",
      "text": "Nivel 1 - Inicial"
     },
     {
      "kind": "field",
-     "line": 2815,
+     "line": 2864,
      "in": "TemplateEditor",
      "when": "isIndicatorModalOpen && indicatorForm.category === 'profundidad'",
      "text": "Nivel 1 - Inicial",
@@ -3906,14 +3931,14 @@
     },
     {
      "kind": "label",
-     "line": 2824,
+     "line": 2873,
      "in": "TemplateEditor",
      "when": "isIndicatorModalOpen && indicatorForm.category === 'profundidad'",
      "text": "Nivel 2 - En desarrollo"
     },
     {
      "kind": "field",
-     "line": 2827,
+     "line": 2876,
      "in": "TemplateEditor",
      "when": "isIndicatorModalOpen && indicatorForm.category === 'profundidad'",
      "text": "Nivel 2 - En desarrollo",
@@ -3923,14 +3948,14 @@
     },
     {
      "kind": "label",
-     "line": 2836,
+     "line": 2885,
      "in": "TemplateEditor",
      "when": "isIndicatorModalOpen && indicatorForm.category === 'profundidad'",
      "text": "Nivel 3 - Consolidado"
     },
     {
      "kind": "field",
-     "line": 2839,
+     "line": 2888,
      "in": "TemplateEditor",
      "when": "isIndicatorModalOpen && indicatorForm.category === 'profundidad'",
      "text": "Nivel 3 - Consolidado",
@@ -3940,14 +3965,14 @@
     },
     {
      "kind": "label",
-     "line": 2848,
+     "line": 2897,
      "in": "TemplateEditor",
      "when": "isIndicatorModalOpen && indicatorForm.category === 'profundidad'",
      "text": "Nivel 4 - Ejemplar"
     },
     {
      "kind": "field",
-     "line": 2851,
+     "line": 2900,
      "in": "TemplateEditor",
      "when": "isIndicatorModalOpen && indicatorForm.category === 'profundidad'",
      "text": "Nivel 4 - Ejemplar",
@@ -3957,7 +3982,7 @@
     },
     {
      "kind": "button",
-     "line": 2865,
+     "line": 2914,
      "in": "TemplateEditor",
      "when": "isIndicatorModalOpen",
      "text": "Cancelar",
@@ -3965,7 +3990,7 @@
     },
     {
      "kind": "button",
-     "line": 2871,
+     "line": 2920,
      "in": "TemplateEditor",
      "when": "isIndicatorModalOpen",
      "text": "Guardando... / Actualizar / Crear",
@@ -3977,7 +4002,7 @@
     },
     {
      "kind": "popup",
-     "line": 2887,
+     "line": 2936,
      "in": "TemplateEditor",
      "when": "isVersionHistoryOpen",
      "text": "Historial de Versiones",
@@ -3985,7 +4010,7 @@
     },
     {
      "kind": "clickable",
-     "line": 2889,
+     "line": 2938,
      "in": "TemplateEditor",
      "when": "isVersionHistoryOpen",
      "text": "",
@@ -3994,7 +4019,7 @@
     },
     {
      "kind": "popup",
-     "line": 2891,
+     "line": 2940,
      "in": "TemplateEditor",
      "when": "isVersionHistoryOpen",
      "text": "Historial de Versiones",
@@ -4003,7 +4028,7 @@
     },
     {
      "kind": "heading",
-     "line": 2898,
+     "line": 2947,
      "in": "TemplateEditor",
      "when": "isVersionHistoryOpen",
      "text": "Historial de Versiones",
@@ -4015,7 +4040,7 @@
     },
     {
      "kind": "button",
-     "line": 2901,
+     "line": 2950,
      "in": "TemplateEditor",
      "when": "isVersionHistoryOpen",
      "text": "×",
@@ -4023,63 +4048,63 @@
     },
     {
      "kind": "text",
-     "line": 2911,
+     "line": 2960,
      "in": "TemplateEditor",
      "when": "isVersionHistoryOpen && loadingVersions",
      "text": "Cargando versiones..."
     },
     {
      "kind": "text",
-     "line": 2917,
+     "line": 2966,
      "in": "TemplateEditor",
      "when": "isVersionHistoryOpen && !(loadingVersions) && versions.length === 0",
      "text": "No hay versiones publicadas aún."
     },
     {
      "kind": "text",
-     "line": 2920,
+     "line": 2969,
      "in": "TemplateEditor",
      "when": "isVersionHistoryOpen && !(loadingVersions) && versions.length === 0",
      "text": "Publica el template para crear la primera versión."
     },
     {
      "kind": "text",
-     "line": 2931,
+     "line": 2980,
      "in": "TemplateEditor",
      "when": "isVersionHistoryOpen && !(loadingVersions) && !(versions.length === 0) && each versions",
      "text": "Versión {version.version}"
     },
     {
      "kind": "value",
-     "line": 2934,
+     "line": 2983,
      "in": "TemplateEditor",
      "when": "isVersionHistoryOpen && !(loadingVersions) && !(versions.length === 0) && each versions",
      "text": "{new Date(version.createdAt).toLocal…}"
     },
     {
      "kind": "text",
-     "line": 2945,
+     "line": 2994,
      "in": "TemplateEditor",
      "when": "!(loadingVersions) && !(versions.length === 0) && each versions && version.stats.objectives > 0",
      "text": "{version.stats.objectives} objetivos"
     },
     {
      "kind": "value",
-     "line": 2946,
+     "line": 2995,
      "in": "TemplateEditor",
      "when": "isVersionHistoryOpen && !(loadingVersions) && !(versions.length === 0) && each versions",
      "text": "{version.stats.modules} {ENTITY_LABELS.modules.toLowerCase()}"
     },
     {
      "kind": "text",
-     "line": 2947,
+     "line": 2996,
      "in": "TemplateEditor",
      "when": "isVersionHistoryOpen && !(loadingVersions) && !(versions.length === 0) && each versions",
      "text": "{version.stats.indicators} indicadores"
     },
     {
      "kind": "button",
-     "line": 2955,
+     "line": 3004,
      "in": "TemplateEditor",
      "when": "isVersionHistoryOpen",
      "text": "Cerrar",
@@ -4087,7 +4112,7 @@
     },
     {
      "kind": "popup",
-     "line": 2969,
+     "line": 3018,
      "in": "TemplateEditor",
      "when": "isPreviewOpen && previewModule",
      "text": "Vista Previa del Evaluador",
@@ -4095,7 +4120,7 @@
     },
     {
      "kind": "clickable",
-     "line": 2971,
+     "line": 3020,
      "in": "TemplateEditor",
      "when": "isPreviewOpen && previewModule",
      "text": "",
@@ -4104,7 +4129,7 @@
     },
     {
      "kind": "popup",
-     "line": 2973,
+     "line": 3022,
      "in": "TemplateEditor",
      "when": "isPreviewOpen && previewModule",
      "text": "Vista Previa del Evaluador",
@@ -4113,7 +4138,7 @@
     },
     {
      "kind": "heading",
-     "line": 2982,
+     "line": 3031,
      "in": "TemplateEditor",
      "when": "isPreviewOpen && previewModule",
      "text": "Vista Previa del Evaluador",
@@ -4125,14 +4150,14 @@
     },
     {
      "kind": "text",
-     "line": 2983,
+     "line": 3032,
      "in": "TemplateEditor",
      "when": "isPreviewOpen && previewModule",
      "text": "Así verá esta práctica quien complete el registro"
     },
     {
      "kind": "button",
-     "line": 2985,
+     "line": 3034,
      "in": "TemplateEditor",
      "when": "isPreviewOpen && previewModule",
      "text": "[icon X]",
@@ -4141,7 +4166,7 @@
     },
     {
      "kind": "heading",
-     "line": 2998,
+     "line": 3047,
      "in": "TemplateEditor",
      "when": "isPreviewOpen && previewModule",
      "text": "{previewModule.name}",
@@ -4149,63 +4174,63 @@
     },
     {
      "kind": "value",
-     "line": 3000,
+     "line": 3049,
      "in": "TemplateEditor",
      "when": "isPreviewOpen && previewModule && previewModule.description",
      "text": "{previewModule.description}"
     },
     {
      "kind": "value",
-     "line": 3005,
+     "line": 3054,
      "in": "TemplateEditor",
      "when": "isPreviewOpen && previewModule && previewModule.instructions",
      "text": "{previewModule.instructions}"
     },
     {
      "kind": "text",
-     "line": 3013,
+     "line": 3062,
      "in": "TemplateEditor",
      "when": "isPreviewOpen && previewModule && !previewModule.indicatorsLoaded",
      "text": "Cargando indicadores..."
     },
     {
      "kind": "text",
-     "line": 3015,
+     "line": 3064,
      "in": "TemplateEditor",
      "when": "isPreviewOpen && previewModule && !(!previewModule.indicatorsLoaded) && ((previewModule.indicators || []).length === 0)",
      "text": "Esta práctica aún no tiene indicadores."
     },
     {
      "kind": "gate",
-     "line": 3026,
+     "line": 3075,
      "in": "TemplateEditor",
      "when": "!(!previewModule.indicatorsLoaded) && (!((previewModule.indicators || []).length === 0)) && each sorted && !isFirstIndicator",
      "text": "previewCoberturaAnswer === null"
     },
     {
      "kind": "gate",
-     "line": 3027,
+     "line": 3076,
      "in": "TemplateEditor",
      "when": "!(!previewModule.indicatorsLoaded) && (!((previewModule.indicators || []).length === 0)) && each sorted && !isFirstIndicator",
      "text": "previewCoberturaAnswer === false"
     },
     {
      "kind": "value",
-     "line": 3033,
+     "line": 3082,
      "in": "TemplateEditor",
      "when": "isPreviewOpen && previewModule && !(!previewModule.indicatorsLoaded) && (!((previewModule.indicators || []).length === 0)) && each sorted",
      "text": "{CATEGORY_LABELS[indicator.category]}"
     },
     {
      "kind": "value",
-     "line": 3043,
+     "line": 3092,
      "in": "TemplateEditor",
      "when": "!(!previewModule.indicatorsLoaded) && (!((previewModule.indicators || []).length === 0)) && each sorted && indicator.code",
      "text": "{indicator.code}"
     },
     {
      "kind": "heading",
-     "line": 3046,
+     "line": 3095,
      "in": "TemplateEditor",
      "when": "isPreviewOpen && previewModule && !(!previewModule.indicatorsLoaded) && (!((previewModule.indicators || []).length === 0)) && each sorted",
      "text": "{indicator.name}",
@@ -4213,21 +4238,21 @@
     },
     {
      "kind": "value",
-     "line": 3048,
+     "line": 3097,
      "in": "TemplateEditor",
      "when": "!(!previewModule.indicatorsLoaded) && (!((previewModule.indicators || []).length === 0)) && each sorted && indicator.description",
      "text": "{indicator.description}"
     },
     {
      "kind": "label",
-     "line": 3055,
+     "line": 3104,
      "in": "TemplateEditor",
      "when": "!(!previewModule.indicatorsLoaded) && (!((previewModule.indicators || []).length === 0)) && each sorted && indicator.category === 'cobertura'",
      "text": "Sí"
     },
     {
      "kind": "field",
-     "line": 3056,
+     "line": 3105,
      "in": "TemplateEditor",
      "when": "!(!previewModule.indicatorsLoaded) && (!((previewModule.indicators || []).length === 0)) && each sorted && indicator.category === 'cobertura'",
      "text": "Sí",
@@ -4237,14 +4262,14 @@
     },
     {
      "kind": "label",
-     "line": 3063,
+     "line": 3112,
      "in": "TemplateEditor",
      "when": "!(!previewModule.indicatorsLoaded) && (!((previewModule.indicators || []).length === 0)) && each sorted && indicator.category === 'cobertura'",
      "text": "No"
     },
     {
      "kind": "field",
-     "line": 3064,
+     "line": 3113,
      "in": "TemplateEditor",
      "when": "!(!previewModule.indicatorsLoaded) && (!((previewModule.indicators || []).length === 0)) && each sorted && indicator.category === 'cobertura'",
      "text": "No",
@@ -4254,7 +4279,7 @@
     },
     {
      "kind": "field",
-     "line": 3074,
+     "line": 3123,
      "in": "TemplateEditor",
      "when": "!(!previewModule.indicatorsLoaded) && (!((previewModule.indicators || []).length === 0)) && each sorted && indicator.category === 'frecuencia'",
      "text": "Valor",
@@ -4264,14 +4289,14 @@
     },
     {
      "kind": "label",
-     "line": 3082,
+     "line": 3131,
      "in": "TemplateEditor",
      "when": "each sorted && indicator.category === 'profundidad' && each ([0, 1, 2, 3, 4] as const) && desc",
      "text": "{level} : {desc}"
     },
     {
      "kind": "field",
-     "line": 3083,
+     "line": 3132,
      "in": "TemplateEditor",
      "when": "each sorted && indicator.category === 'profundidad' && each ([0, 1, 2, 3, 4] as const) && desc",
      "text": "{level} : {desc}",
@@ -4281,14 +4306,14 @@
     },
     {
      "kind": "label",
-     "line": 3093,
+     "line": 3142,
      "in": "TemplateEditor",
      "when": "!(!previewModule.indicatorsLoaded) && (!((previewModule.indicators || []).length === 0)) && each sorted && indicator.category === 'traspaso'",
      "text": "Adjunte link a carpeta con evidencia de sus respuestas"
     },
     {
      "kind": "field",
-     "line": 3096,
+     "line": 3145,
      "in": "TemplateEditor",
      "when": "!(!previewModule.indicatorsLoaded) && (!((previewModule.indicators || []).length === 0)) && each sorted && indicator.category === 'traspaso'",
      "text": "Adjunte link a carpeta con evidencia de sus respuestas",
@@ -4298,21 +4323,21 @@
     },
     {
      "kind": "text",
-     "line": 3097,
+     "line": 3146,
      "in": "TemplateEditor",
      "when": "!(!previewModule.indicatorsLoaded) && (!((previewModule.indicators || []).length === 0)) && each sorted && indicator.category === 'traspaso'",
      "text": "El archivo enlazado debe ser accesible para cualquier persona con el link"
     },
     {
      "kind": "label",
-     "line": 3100,
+     "line": 3149,
      "in": "TemplateEditor",
      "when": "!(!previewModule.indicatorsLoaded) && (!((previewModule.indicators || []).length === 0)) && each sorted && indicator.category === 'traspaso'",
      "text": "Mejoras sugeridas"
     },
     {
      "kind": "field",
-     "line": 3103,
+     "line": 3152,
      "in": "TemplateEditor",
      "when": "!(!previewModule.indicatorsLoaded) && (!((previewModule.indicators || []).length === 0)) && each sorted && indicator.category === 'traspaso'",
      "text": "Mejoras sugeridas",
@@ -4323,21 +4348,21 @@
     },
     {
      "kind": "text",
-     "line": 3109,
+     "line": 3158,
      "in": "TemplateEditor",
      "when": "!(!previewModule.indicatorsLoaded) && (!((previewModule.indicators || []).length === 0)) && each sorted && indicator.category === 'detalle'",
      "text": "Selecciona todas las que aplican:"
     },
     {
      "kind": "label",
-     "line": 3111,
+     "line": 3160,
      "in": "TemplateEditor",
      "when": "(!((previewModule.indicators || []).length === 0)) && each sorted && indicator.category === 'detalle' && (each (indicator.detalleOptions || []))",
      "text": "{opt}"
     },
     {
      "kind": "field",
-     "line": 3112,
+     "line": 3161,
      "in": "TemplateEditor",
      "when": "(!((previewModule.indicators || []).length === 0)) && each sorted && indicator.category === 'detalle' && (each (indicator.detalleOptions || []))",
      "text": "{opt}",
@@ -4346,49 +4371,49 @@
     },
     {
      "kind": "text",
-     "line": 3117,
+     "line": 3166,
      "in": "TemplateEditor",
      "when": "(!((previewModule.indicators || []).length === 0)) && each sorted && indicator.category === 'detalle' && ((!indicator.detalleOptions || indicator.detalleOptions.length === 0))",
      "text": "Sin opciones definidas"
     },
     {
      "kind": "text",
-     "line": 3129,
+     "line": 3178,
      "in": "TemplateEditor",
      "when": "isPreviewOpen && previewModule && !(!previewModule.indicatorsLoaded) && (!((previewModule.indicators || []).length === 0)) && previewCoberturaAnswer === null && sorted.length > 1",
      "text": "Seleccione Sí o No para ver cómo se comporta el registro"
     },
     {
      "kind": "text",
-     "line": 3134,
+     "line": 3183,
      "in": "TemplateEditor",
      "when": "isPreviewOpen && previewModule && !(!previewModule.indicatorsLoaded) && (!((previewModule.indicators || []).length === 0)) && previewCoberturaAnswer === false",
      "text": "Esta práctica no se implementa en este establecimiento"
     },
     {
      "kind": "text",
-     "line": 3135,
+     "line": 3184,
      "in": "TemplateEditor",
      "when": "isPreviewOpen && previewModule && !(!previewModule.indicatorsLoaded) && (!((previewModule.indicators || []).length === 0)) && previewCoberturaAnswer === false",
      "text": "Los demás indicadores no se mostrarán al evaluador"
     },
     {
      "kind": "text",
-     "line": 3146,
+     "line": 3195,
      "in": "TemplateEditor",
      "when": "isPreviewOpen && previewModule",
      "text": "Comportamiento real:"
     },
     {
      "kind": "text",
-     "line": 3146,
+     "line": 3195,
      "in": "TemplateEditor",
      "when": "isPreviewOpen && previewModule",
      "text": "El primer indicador (Cobertura) actúa como filtro. Pruebe seleccionando Sí o No arriba para ver cómo cambia la vista del evaluador."
     },
     {
      "kind": "popup",
-     "line": 3157,
+     "line": 3206,
      "in": "TemplateEditor",
      "when": "showDeleteConfirm && deleteConfirmData",
      "text": "Confirmar Eliminación",
@@ -4396,7 +4421,7 @@
     },
     {
      "kind": "heading",
-     "line": 3159,
+     "line": 3208,
      "in": "TemplateEditor",
      "when": "showDeleteConfirm && deleteConfirmData",
      "text": "Confirmar Eliminación",
@@ -4404,63 +4429,63 @@
     },
     {
      "kind": "text",
-     "line": 3163,
+     "line": 3212,
      "in": "TemplateEditor",
      "when": "showDeleteConfirm && deleteConfirmData",
      "text": "¿Estás seguro de eliminar el template"
     },
     {
      "kind": "text",
-     "line": 3163,
+     "line": 3212,
      "in": "TemplateEditor",
      "when": "showDeleteConfirm && deleteConfirmData",
      "text": "&quot; {template.name} &quot;"
     },
     {
      "kind": "text",
-     "line": 3168,
+     "line": 3217,
      "in": "TemplateEditor",
      "when": "showDeleteConfirm && deleteConfirmData && deleteConfirmData.counts",
      "text": "⚠️ Este template tiene datos asociados:"
     },
     {
      "kind": "text",
-     "line": 3171,
+     "line": 3220,
      "in": "TemplateEditor",
      "when": "showDeleteConfirm && deleteConfirmData && deleteConfirmData.counts",
      "text": "• {deleteConfirmData.counts.instances} registros"
     },
     {
      "kind": "text",
-     "line": 3172,
+     "line": 3221,
      "in": "TemplateEditor",
      "when": "showDeleteConfirm && deleteConfirmData && deleteConfirmData.counts",
      "text": "• {deleteConfirmData.counts.responses} respuestas"
     },
     {
      "kind": "text",
-     "line": 3173,
+     "line": 3222,
      "in": "TemplateEditor",
      "when": "showDeleteConfirm && deleteConfirmData && deleteConfirmData.counts",
      "text": "• {deleteConfirmData.counts.snapshots} versiones guardadas"
     },
     {
      "kind": "value",
-     "line": 3174,
+     "line": 3223,
      "in": "TemplateEditor",
      "when": "showDeleteConfirm && deleteConfirmData && deleteConfirmData.counts",
      "text": "• {deleteConfirmData.counts.modules} {ENTITY_LABELS.modules.toLowerCase()}"
     },
     {
      "kind": "text",
-     "line": 3177,
+     "line": 3226,
      "in": "TemplateEditor",
      "when": "showDeleteConfirm && deleteConfirmData && deleteConfirmData.counts",
      "text": "Esta acción es permanente y no se puede deshacer."
     },
     {
      "kind": "button",
-     "line": 3182,
+     "line": 3231,
      "in": "TemplateEditor",
      "when": "showDeleteConfirm && deleteConfirmData",
      "text": "Cancelar",
@@ -4468,7 +4493,7 @@
     },
     {
      "kind": "button",
-     "line": 3191,
+     "line": 3240,
      "in": "TemplateEditor",
      "when": "showDeleteConfirm && deleteConfirmData",
      "text": "Eliminando... / Eliminar Permanentemente",
@@ -4477,19 +4502,49 @@
     },
     {
      "kind": "string",
-     "line": 847,
+     "line": 106,
+     "in": "publishDeliveryPreviewText",
+     "text": "Calculando cuántos cursos lo recibirán…"
+    },
+    {
+     "kind": "string",
+     "line": 107,
+     "in": "publishDeliveryPreviewText",
+     "text": "No se pudo calcular cuántos cursos lo recibirán. Puede publicar igualmente."
+    },
+    {
+     "kind": "string",
+     "line": 109,
+     "in": "publishDeliveryPreviewText",
+     "text": "Al publicar, {preview.courses} curso(s) con docente asignado recibirán este registro."
+    },
+    {
+     "kind": "string",
+     "line": 112,
+     "in": "publishDeliveryPreviewText",
+     "text": "Al publicar, {preview.schools} escuela(s) con responsable asignado recibirán este registro."
+    },
+    {
+     "kind": "string",
+     "line": 114,
+     "in": "publishDeliveryPreviewText",
+     "text": "Por ahora ningún curso recibirá este registro; llegará cuando se asigne un docente o responsable."
+    },
+    {
+     "kind": "string",
+     "line": 869,
      "in": "TemplateEditor",
      "text": "Error al actualizar el indicador"
     },
     {
      "kind": "string",
-     "line": 1630,
+     "line": 1679,
      "in": "TemplateEditor",
      "text": "Agrega {ENTITY_LABELS.modules.toLow…} e indicadores antes de publicar"
     },
     {
      "kind": "string",
-     "line": 1630,
+     "line": 1679,
      "in": "TemplateEditor",
      "text": "Publicar template"
     },
@@ -4504,7 +4559,20 @@
     },
     {
      "kind": "list",
-     "line": 2680,
+     "line": 106,
+     "in": "publishDeliveryPreviewText",
+     "text": "publishDeliveryPreviewText()",
+     "items": [
+      "Calculando cuántos cursos lo recibirán…",
+      "No se pudo calcular cuántos cursos lo recibirán. Puede publicar igualmente.",
+      "Al publicar, {preview.courses} curso(s) con docente asignado recibirán este registro.",
+      "Al publicar, {preview.schools} escuela(s) con responsable asignado recibirán este registro.",
+      "Por ahora ningún curso recibirá este registro; llegará cuando se asigne un docente o responsable."
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 2729,
      "in": "TemplateEditor",
      "text": "TemplateEditor()",
      "items": [
@@ -4548,11 +4616,11 @@
       "PUT"
      ],
      "from": [
-      "pages/admin/assessment-builder/[templateId]/index.tsx:1103",
-      "pages/admin/assessment-builder/[templateId]/index.tsx:1137",
-      "pages/admin/assessment-builder/[templateId]/index.tsx:1138",
-      "pages/admin/assessment-builder/[templateId]/index.tsx:350",
-      "pages/admin/assessment-builder/[templateId]/index.tsx:400"
+      "pages/admin/assessment-builder/[templateId]/index.tsx:1147",
+      "pages/admin/assessment-builder/[templateId]/index.tsx:1181",
+      "pages/admin/assessment-builder/[templateId]/index.tsx:1182",
+      "pages/admin/assessment-builder/[templateId]/index.tsx:372",
+      "pages/admin/assessment-builder/[templateId]/index.tsx:422"
      ]
     },
     {
@@ -4562,8 +4630,18 @@
       "POST"
      ],
      "from": [
-      "pages/admin/assessment-builder/[templateId]/index.tsx:1039",
-      "pages/admin/assessment-builder/[templateId]/index.tsx:1064"
+      "pages/admin/assessment-builder/[templateId]/index.tsx:1083",
+      "pages/admin/assessment-builder/[templateId]/index.tsx:1108"
+     ]
+    },
+    {
+     "file": "pages/api/admin/assessment-builder/templates/[templateId]/delivery-preview.ts",
+     "route": "/api/admin/assessment-builder/templates/[templateId]/delivery-preview",
+     "methods": [
+      "GET"
+     ],
+     "from": [
+      "pages/admin/assessment-builder/[templateId]/index.tsx:986"
      ]
     },
     {
@@ -4575,9 +4653,9 @@
       "POST"
      ],
      "from": [
-      "pages/admin/assessment-builder/[templateId]/index.tsx:1220",
-      "pages/admin/assessment-builder/[templateId]/index.tsx:1274",
-      "pages/admin/assessment-builder/[templateId]/index.tsx:1302"
+      "pages/admin/assessment-builder/[templateId]/index.tsx:1264",
+      "pages/admin/assessment-builder/[templateId]/index.tsx:1318",
+      "pages/admin/assessment-builder/[templateId]/index.tsx:1346"
      ]
     },
     {
@@ -4587,7 +4665,7 @@
       "POST"
      ],
      "from": [
-      "pages/admin/assessment-builder/[templateId]/index.tsx:992"
+      "pages/admin/assessment-builder/[templateId]/index.tsx:1036"
      ]
     },
     {
@@ -4598,8 +4676,8 @@
       "POST"
      ],
      "from": [
-      "pages/admin/assessment-builder/[templateId]/index.tsx:374",
-      "pages/admin/assessment-builder/[templateId]/index.tsx:580"
+      "pages/admin/assessment-builder/[templateId]/index.tsx:396",
+      "pages/admin/assessment-builder/[templateId]/index.tsx:602"
      ]
     },
     {
@@ -4610,8 +4688,8 @@
       "PUT"
      ],
      "from": [
-      "pages/admin/assessment-builder/[templateId]/index.tsx:556",
-      "pages/admin/assessment-builder/[templateId]/index.tsx:616"
+      "pages/admin/assessment-builder/[templateId]/index.tsx:578",
+      "pages/admin/assessment-builder/[templateId]/index.tsx:638"
      ]
     },
     {
@@ -4622,9 +4700,9 @@
       "POST"
      ],
      "from": [
-      "pages/admin/assessment-builder/[templateId]/index.tsx:1169",
-      "pages/admin/assessment-builder/[templateId]/index.tsx:1198",
-      "pages/admin/assessment-builder/[templateId]/index.tsx:876"
+      "pages/admin/assessment-builder/[templateId]/index.tsx:1213",
+      "pages/admin/assessment-builder/[templateId]/index.tsx:1242",
+      "pages/admin/assessment-builder/[templateId]/index.tsx:898"
      ]
     },
     {
@@ -4635,8 +4713,8 @@
       "PUT"
      ],
      "from": [
-      "pages/admin/assessment-builder/[templateId]/index.tsx:836",
-      "pages/admin/assessment-builder/[templateId]/index.tsx:914"
+      "pages/admin/assessment-builder/[templateId]/index.tsx:858",
+      "pages/admin/assessment-builder/[templateId]/index.tsx:936"
      ]
     },
     {
@@ -4647,8 +4725,8 @@
       "POST"
      ],
      "from": [
-      "pages/admin/assessment-builder/[templateId]/index.tsx:367",
-      "pages/admin/assessment-builder/[templateId]/index.tsx:474"
+      "pages/admin/assessment-builder/[templateId]/index.tsx:389",
+      "pages/admin/assessment-builder/[templateId]/index.tsx:496"
      ]
     },
     {
@@ -4659,8 +4737,8 @@
       "PUT"
      ],
      "from": [
-      "pages/admin/assessment-builder/[templateId]/index.tsx:452",
-      "pages/admin/assessment-builder/[templateId]/index.tsx:508"
+      "pages/admin/assessment-builder/[templateId]/index.tsx:474",
+      "pages/admin/assessment-builder/[templateId]/index.tsx:530"
      ]
     },
     {
@@ -4670,7 +4748,7 @@
       "POST"
      ],
      "from": [
-      "pages/admin/assessment-builder/[templateId]/index.tsx:965"
+      "pages/admin/assessment-builder/[templateId]/index.tsx:1009"
      ]
     },
     {
@@ -4680,7 +4758,7 @@
       "GET"
      ],
      "from": [
-      "pages/admin/assessment-builder/[templateId]/index.tsx:1021"
+      "pages/admin/assessment-builder/[templateId]/index.tsx:1065"
      ]
     },
     {
@@ -4690,7 +4768,7 @@
       "GET"
      ],
      "from": [
-      "pages/admin/assessment-builder/[templateId]/index.tsx:1250"
+      "pages/admin/assessment-builder/[templateId]/index.tsx:1294"
      ]
     }
    ]
@@ -5287,12 +5365,12 @@
      "middleware.ts:223",
      "pages/admin/assessment-builder/[templateId]/expectations.tsx:1027",
      "pages/admin/assessment-builder/[templateId]/expectations.tsx:469",
-     "pages/admin/assessment-builder/[templateId]/index.tsx:1049",
-     "pages/admin/assessment-builder/[templateId]/index.tsx:1122",
-     "pages/admin/assessment-builder/[templateId]/index.tsx:1151",
-     "pages/admin/assessment-builder/[templateId]/index.tsx:1411",
-     "pages/admin/assessment-builder/[templateId]/index.tsx:1446",
-     "pages/admin/assessment-builder/[templateId]/index.tsx:382",
+     "pages/admin/assessment-builder/[templateId]/index.tsx:1093",
+     "pages/admin/assessment-builder/[templateId]/index.tsx:1166",
+     "pages/admin/assessment-builder/[templateId]/index.tsx:1195",
+     "pages/admin/assessment-builder/[templateId]/index.tsx:1455",
+     "pages/admin/assessment-builder/[templateId]/index.tsx:1490",
+     "pages/admin/assessment-builder/[templateId]/index.tsx:404",
      "pages/admin/assessment-builder/create.tsx:288",
      "pages/admin/assessment-builder/create.tsx:428",
      "pages/admin/assessment-builder/create.tsx:74",
@@ -7324,7 +7402,7 @@
      }
     ],
     "linkedFrom": [
-     "pages/admin/assessment-builder/[templateId]/index.tsx:1702",
+     "pages/admin/assessment-builder/[templateId]/index.tsx:1751",
      "pages/demo/assessments/[templateId]/results.tsx:181",
      "pages/demo/assessments/[templateId]/results.tsx:192",
      "pages/demo/assessments/[templateId]/results.tsx:240",
@@ -10545,8 +10623,8 @@
     ],
     "linkedFrom": [
      "components/layout/Sidebar.tsx:310",
-     "pages/school/transversal-context/index.tsx:935",
-     "pages/school/transversal-context/index.tsx:936"
+     "pages/school/transversal-context/index.tsx:969",
+     "pages/school/transversal-context/index.tsx:970"
     ],
     "qaScenarios": {
      "admin": [
@@ -11270,10 +11348,10 @@
      }
     ],
     "linkedFrom": [
-     "pages/school/transversal-context/index.tsx:1384",
-     "pages/school/transversal-context/index.tsx:1385",
-     "pages/school/transversal-context/index.tsx:894",
-     "pages/school/transversal-context/index.tsx:895"
+     "pages/school/transversal-context/index.tsx:1429",
+     "pages/school/transversal-context/index.tsx:1430",
+     "pages/school/transversal-context/index.tsx:928",
+     "pages/school/transversal-context/index.tsx:929"
     ],
     "qaScenarios": {},
     "tests": {
@@ -12135,7 +12213,7 @@
   {
    "file": "pages/school/transversal-context/index.tsx",
    "route": "/school/transversal-context",
-   "lines": 1633,
+   "lines": 1678,
    "marks": {},
    "frame": "MainLayout",
    "server": "none",
@@ -12205,19 +12283,19 @@
     },
     "inPage": [
      {
-      "line": 179,
+      "line": 182,
       "text": "router.push → /login  (when !session?.user)"
      },
      {
-      "line": 209,
+      "line": 212,
       "text": "isAdmin = roles.some(r => r.role_type === 'admin')"
      },
      {
-      "line": 236,
+      "line": 239,
       "text": "router.push → /dashboard  (when (!(isAdmin || isConsultor)) && directivoRole?.school_id && parsedQuerySchoolId !== null && parsedQuerySchoolId !== effectiveSchoolId)"
      },
      {
-      "line": 428,
+      "line": 431,
       "text": "router.push → /login"
      }
     ],
@@ -12262,14 +12340,15 @@
      "unit": [
       "__tests__/pages/school/transversal-context-assign.test.tsx",
       "__tests__/pages/school/transversal-context-late-answer.test.tsx",
-      "__tests__/pages/school/transversal-context-replace.test.tsx"
+      "__tests__/pages/school/transversal-context-replace.test.tsx",
+      "__tests__/pages/school/transversal-context-resend.test.tsx"
      ]
     }
    },
    "rows": [
     {
      "kind": "list",
-     "line": 42,
+     "line": 43,
      "text": "DOCENTE_ROLE_BADGE_LABELS",
      "items": [
       "Docente",
@@ -12282,7 +12361,7 @@
     },
     {
      "kind": "nav",
-     "line": 179,
+     "line": 182,
      "in": "checkAuth",
      "when": "!session?.user",
      "text": "/login",
@@ -12290,14 +12369,14 @@
     },
     {
      "kind": "access",
-     "line": 209,
+     "line": 212,
      "in": "checkAuth",
      "text": "isAdmin = roles.some(r => r.role_type === 'admin')",
      "via": "declaration"
     },
     {
      "kind": "nav",
-     "line": 236,
+     "line": 239,
      "in": "checkAuth",
      "when": "(!(isAdmin || isConsultor)) && directivoRole?.school_id && parsedQuerySchoolId !== null && parsedQuerySchoolId !== effectiveSchoolId",
      "text": "/dashboard",
@@ -12305,7 +12384,7 @@
     },
     {
      "kind": "message",
-     "line": 337,
+     "line": 340,
      "in": "TransversalContextDashboard",
      "when": "!response.ok",
      "text": "Error al cargar el contexto",
@@ -12313,45 +12392,45 @@
     },
     {
      "kind": "gate",
-     "line": 343,
+     "line": 346,
      "in": "TransversalContextDashboard",
      "text": "!isCurrent()"
     },
     {
      "kind": "gate",
-     "line": 347,
+     "line": 350,
      "in": "TransversalContextDashboard",
      "text": "!isCurrent()"
     },
     {
      "kind": "toast",
-     "line": 349,
+     "line": 352,
      "in": "TransversalContextDashboard",
      "text": "Error al cargar el contexto",
      "variant": "error"
     },
     {
      "kind": "gate",
-     "line": 366,
+     "line": 369,
      "in": "TransversalContextDashboard",
      "text": "!schoolId || !hasPermission"
     },
     {
      "kind": "gate",
-     "line": 410,
+     "line": 413,
      "in": "TransversalContextDashboard",
      "text": "previousSchoolId === null || previousSchoolId === schoolId"
     },
     {
      "kind": "nav",
-     "line": 428,
+     "line": 431,
      "in": "handleLogout",
      "text": "/login",
      "via": "router.push"
     },
     {
      "kind": "message",
-     "line": 451,
+     "line": 454,
      "in": "openAssignModal",
      "when": "!response.ok",
      "text": "Error al cargar docentes",
@@ -12359,14 +12438,14 @@
     },
     {
      "kind": "toast",
-     "line": 469,
+     "line": 472,
      "in": "openAssignModal",
      "text": "Error al cargar docentes",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 527,
+     "line": 530,
      "in": "handleAssignDocente",
      "when": "!response.ok || data.success !== true",
      "text": "{message}",
@@ -12374,7 +12453,7 @@
     },
     {
      "kind": "toast",
-     "line": 540,
+     "line": 543,
      "in": "handleAssignDocente",
      "when": "warnings.length > 0",
      "text": "{message} Hay advertencias que revisar.",
@@ -12382,7 +12461,7 @@
     },
     {
      "kind": "toast",
-     "line": 543,
+     "line": 546,
      "in": "handleAssignDocente",
      "when": "!(warnings.length > 0)",
      "text": "{message}",
@@ -12390,14 +12469,37 @@
     },
     {
      "kind": "toast",
-     "line": 552,
+     "line": 555,
      "in": "handleAssignDocente",
      "text": "{message}",
      "variant": "error"
     },
     {
+     "kind": "toast",
+     "line": 589,
+     "in": "resendRegistros",
+     "when": "response.ok && data.success === true",
+     "text": "{data.message}",
+     "variant": "success"
+    },
+    {
+     "kind": "toast",
+     "line": 591,
+     "in": "resendRegistros",
+     "when": "!(response.ok && data.success === true)",
+     "text": "No se pudieron reenviar los registros",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 595,
+     "in": "resendRegistros",
+     "text": "No se pudieron reenviar los registros",
+     "variant": "error"
+    },
+    {
      "kind": "message",
-     "line": 585,
+     "line": 619,
      "in": "openReplaceModal",
      "when": "!response.ok",
      "text": "Error al cargar docentes",
@@ -12405,14 +12507,14 @@
     },
     {
      "kind": "toast",
-     "line": 594,
+     "line": 628,
      "in": "openReplaceModal",
      "text": "Error al cargar docentes",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 636,
+     "line": 670,
      "in": "handleReplaceDocente",
      "when": "!response.ok || data.success !== true",
      "text": "{message}",
@@ -12420,21 +12522,21 @@
     },
     {
      "kind": "toast",
-     "line": 645,
+     "line": 679,
      "in": "handleReplaceDocente",
      "text": "{message}",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 652,
+     "line": 686,
      "in": "handleReplaceDocente",
      "text": "{message}",
      "variant": "error"
     },
     {
      "kind": "piece",
-     "line": 683,
+     "line": 717,
      "in": "TransversalContextDashboard",
      "when": "hasPermission === false",
      "text": "",
@@ -12442,7 +12544,7 @@
     },
     {
      "kind": "hook",
-     "line": 693,
+     "line": 727,
      "in": "TransversalContextDashboard",
      "when": "hasPermission === false",
      "text": "testid=access-denied",
@@ -12451,7 +12553,7 @@
     },
     {
      "kind": "heading",
-     "line": 694,
+     "line": 728,
      "in": "TransversalContextDashboard",
      "when": "hasPermission === false",
      "text": "Acceso Denegado",
@@ -12459,14 +12561,14 @@
     },
     {
      "kind": "text",
-     "line": 698,
+     "line": 732,
      "in": "TransversalContextDashboard",
      "when": "hasPermission === false",
      "text": "Solo directivos, consultores y administradores pueden acceder al contexto transversal."
     },
     {
      "kind": "link",
-     "line": 700,
+     "line": 734,
      "in": "TransversalContextDashboard",
      "when": "hasPermission === false",
      "text": "Ir al Panel",
@@ -12474,7 +12576,7 @@
     },
     {
      "kind": "link",
-     "line": 701,
+     "line": 735,
      "in": "TransversalContextDashboard",
      "when": "hasPermission === false",
      "text": "Ir al Panel",
@@ -12482,7 +12584,7 @@
     },
     {
      "kind": "nav",
-     "line": 716,
+     "line": 750,
      "in": "handleSchoolSelect",
      "when": "selectedId",
      "text": "/school/transversal-context?school_id=[*]",
@@ -12490,7 +12592,7 @@
     },
     {
      "kind": "piece",
-     "line": 721,
+     "line": 755,
      "in": "TransversalContextDashboard",
      "when": "!schoolId",
      "text": "",
@@ -12498,7 +12600,7 @@
     },
     {
      "kind": "piece",
-     "line": 730,
+     "line": 764,
      "in": "TransversalContextDashboard",
      "when": "!schoolId",
      "text": "title: Contexto Transversal · subtitle: Selecciona una escuela",
@@ -12506,7 +12608,7 @@
     },
     {
      "kind": "heading",
-     "line": 738,
+     "line": 772,
      "in": "TransversalContextDashboard",
      "when": "!schoolId",
      "text": "Selecciona una escuela",
@@ -12514,7 +12616,7 @@
     },
     {
      "kind": "hook",
-     "line": 741,
+     "line": 775,
      "in": "TransversalContextDashboard",
      "when": "!schoolId",
      "text": "testid=school-picker-hint",
@@ -12523,14 +12625,14 @@
     },
     {
      "kind": "text",
-     "line": 741,
+     "line": 775,
      "in": "TransversalContextDashboard",
      "when": "!schoolId",
      "text": "Como administrador, selecciona una escuela para ver su contexto transversal. / Como consultor, selecciona una escuela para consultar su contexto transversal en modo solo lectura."
     },
     {
      "kind": "field",
-     "line": 753,
+     "line": 787,
      "in": "TransversalContextDashboard",
      "when": "!schoolId && !(loadingSchools) && schools.length > 0",
      "text": "",
@@ -12543,28 +12645,28 @@
     },
     {
      "kind": "text",
-     "line": 767,
+     "line": 801,
      "in": "TransversalContextDashboard",
      "when": "!schoolId && !(loadingSchools) && !(schools.length > 0)",
      "text": "No hay escuelas disponibles"
     },
     {
      "kind": "piece",
-     "line": 801,
+     "line": 835,
      "in": "TransversalContextDashboard",
      "text": "",
      "tag": "MainLayout"
     },
     {
      "kind": "piece",
-     "line": 810,
+     "line": 844,
      "in": "TransversalContextDashboard",
      "text": "title: Contexto Transversal · subtitle: Mi Escuela",
      "tag": "ResponsiveFunctionalPageHeader"
     },
     {
      "kind": "button",
-     "line": 819,
+     "line": 853,
      "in": "TransversalContextDashboard",
      "when": "canSelectSchool",
      "text": "Volver a Selección de Escuelas",
@@ -12572,7 +12674,7 @@
     },
     {
      "kind": "nav",
-     "line": 837,
+     "line": 871,
      "in": "TransversalContextDashboard",
      "when": "canSelectSchool",
      "text": "/school/transversal-context",
@@ -12580,7 +12682,7 @@
     },
     {
      "kind": "hook",
-     "line": 848,
+     "line": 882,
      "in": "TransversalContextDashboard",
      "when": "isReadOnlyViewer",
      "text": "role=status",
@@ -12589,7 +12691,7 @@
     },
     {
      "kind": "hook",
-     "line": 848,
+     "line": 882,
      "in": "TransversalContextDashboard",
      "when": "isReadOnlyViewer",
      "text": "testid=consultor-read-only-notice",
@@ -12598,49 +12700,49 @@
     },
     {
      "kind": "text",
-     "line": 853,
+     "line": 887,
      "in": "TransversalContextDashboard",
      "when": "isReadOnlyViewer",
      "text": "Vista de solo lectura"
     },
     {
      "kind": "text",
-     "line": 855,
+     "line": 889,
      "in": "TransversalContextDashboard",
      "when": "isReadOnlyViewer",
      "text": "Como consultor puede consultar el contexto transversal de cualquier escuela registrada, pero no puede editarlo ni asignar o cambiar docentes."
     },
     {
      "kind": "text",
-     "line": 871,
+     "line": 905,
      "in": "TransversalContextDashboard",
      "when": "hasCompleteContext",
      "text": "Contexto Estructural"
     },
     {
      "kind": "text",
-     "line": 872,
+     "line": 906,
      "in": "TransversalContextDashboard",
      "when": "hasCompleteContext",
      "text": "Última actualización: {new Date(context.updated_at).toLoca…}"
     },
     {
      "kind": "text",
-     "line": 881,
+     "line": 915,
      "in": "TransversalContextDashboard",
      "when": "!(hasCompleteContext)",
      "text": "Cuestionario pendiente"
     },
     {
      "kind": "text",
-     "line": 882,
+     "line": 916,
      "in": "TransversalContextDashboard",
      "when": "!(hasCompleteContext)",
      "text": "El equipo directivo de esta escuela aún no ha completado el cuestionario transversal / El equipo directivo debe completar el cuestionario transversal; como administrador también puede completarlo / Complete el cuestionario transversal para…"
     },
     {
      "kind": "link",
-     "line": 894,
+     "line": 928,
      "in": "TransversalContextDashboard",
      "when": "!isReadOnlyViewer",
      "text": "Editar / Completar",
@@ -12648,7 +12750,7 @@
     },
     {
      "kind": "link",
-     "line": 898,
+     "line": 932,
      "in": "TransversalContextDashboard",
      "when": "!isReadOnlyViewer",
      "text": "Editar / Completar",
@@ -12656,14 +12758,14 @@
     },
     {
      "kind": "text",
-     "line": 910,
+     "line": 944,
      "in": "TransversalContextDashboard",
      "when": "schoolId && Object.keys(completionStatus).length > 0",
      "text": "Contexto Estructural"
     },
     {
      "kind": "piece",
-     "line": 911,
+     "line": 945,
      "in": "TransversalContextDashboard",
      "when": "schoolId && Object.keys(completionStatus).length > 0",
      "text": "",
@@ -12671,14 +12773,14 @@
     },
     {
      "kind": "text",
-     "line": 920,
+     "line": 954,
      "in": "TransversalContextDashboard",
      "when": "schoolId && Object.keys(completionStatus).length > 0",
      "text": "Preguntas de Contexto"
     },
     {
      "kind": "piece",
-     "line": 921,
+     "line": 955,
      "in": "TransversalContextDashboard",
      "when": "schoolId && Object.keys(completionStatus).length > 0",
      "text": "",
@@ -12686,7 +12788,7 @@
     },
     {
      "kind": "link",
-     "line": 935,
+     "line": 969,
      "in": "TransversalContextDashboard",
      "when": "context",
      "text": "Ver Plan de Migración",
@@ -12694,7 +12796,7 @@
     },
     {
      "kind": "link",
-     "line": 939,
+     "line": 973,
      "in": "TransversalContextDashboard",
      "when": "context",
      "text": "Ver Plan de Migración",
@@ -12702,7 +12804,7 @@
     },
     {
      "kind": "heading",
-     "line": 963,
+     "line": 997,
      "in": "TransversalContextDashboard",
      "when": "context && each allQuestions && widgetType === 'total_students'",
      "text": "{q.question_text}",
@@ -12710,14 +12812,14 @@
     },
     {
      "kind": "text",
-     "line": 966,
+     "line": 1000,
      "in": "TransversalContextDashboard",
      "when": "context && each allQuestions && widgetType === 'total_students'",
      "text": "{context.total_students?.toLocaleStr…} / No especificado"
     },
     {
      "kind": "heading",
-     "line": 984,
+     "line": 1018,
      "in": "TransversalContextDashboard",
      "when": "context && each allQuestions && widgetType === 'grade_levels'",
      "text": "{q.question_text} ( {sortedGradeLevels.length} seleccionados)",
@@ -12725,28 +12827,28 @@
     },
     {
      "kind": "value",
-     "line": 989,
+     "line": 1023,
      "in": "TransversalContextDashboard",
      "when": "context && each allQuestions && widgetType === 'grade_levels' && each sortedGradeLevels",
      "text": "{GRADE_LEVEL_LABELS[level as GradeLe…} / {level}"
     },
     {
      "kind": "text",
-     "line": 997,
+     "line": 1031,
      "in": "TransversalContextDashboard",
      "when": "context && each allQuestions && widgetType === 'grade_levels' && sortedGradeLevels.length === 0",
      "text": "No hay niveles seleccionados"
     },
     {
      "kind": "gate",
-     "line": 1008,
+     "line": 1042,
      "in": "TransversalContextDashboard",
      "when": "context && each allQuestions && widgetType === 'courses_per_level'",
      "text": "!context.courses_per_level || Object.keys(context.courses_per_level).length === 0"
     },
     {
      "kind": "heading",
-     "line": 1018,
+     "line": 1052,
      "in": "TransversalContextDashboard",
      "when": "context && each allQuestions && widgetType === 'courses_per_level'",
      "text": "{q.question_text}",
@@ -12754,21 +12856,21 @@
     },
     {
      "kind": "value",
-     "line": 1026,
+     "line": 1060,
      "in": "TransversalContextDashboard",
      "when": "context && each allQuestions && widgetType === 'courses_per_level' && each sortedGradeLevels",
      "text": "{GRADE_LEVEL_LABELS[level as GradeLe…} / {level}"
     },
     {
      "kind": "value",
-     "line": 1029,
+     "line": 1063,
      "in": "TransversalContextDashboard",
      "when": "context && each allQuestions && widgetType === 'courses_per_level' && each sortedGradeLevels",
      "text": "{count}"
     },
     {
      "kind": "heading",
-     "line": 1051,
+     "line": 1085,
      "in": "TransversalContextDashboard",
      "when": "context && each allQuestions && widgetType === 'implementation_year'",
      "text": "{q.question_text}",
@@ -12776,21 +12878,21 @@
     },
     {
      "kind": "text",
-     "line": 1054,
+     "line": 1088,
      "in": "TransversalContextDashboard",
      "when": "context && each allQuestions && widgetType === 'implementation_year'",
      "text": "Año {context.implementation_year_2026} / No especificado"
     },
     {
      "kind": "text",
-     "line": 1057,
+     "line": 1091,
      "in": "TransversalContextDashboard",
      "when": "context && each allQuestions && widgetType === 'implementation_year'",
      "text": "[Incipiente - Primer año de transformación] [En Desarrollo - Segundo año de transformación] [Avanzado - Tercer año de transformación] [Consolidando - Cuarto año de transformación] [Consolidado - Quinto año de transformación]"
     },
     {
      "kind": "heading",
-     "line": 1079,
+     "line": 1113,
      "in": "TransversalContextDashboard",
      "when": "context && each allQuestions && widgetType === 'period_system'",
      "text": "{q.question_text}",
@@ -12798,21 +12900,21 @@
     },
     {
      "kind": "text",
-     "line": 1082,
+     "line": 1116,
      "in": "TransversalContextDashboard",
      "when": "context && each allQuestions && widgetType === 'period_system'",
      "text": "{context.period_system} / No especificado"
     },
     {
      "kind": "text",
-     "line": 1085,
+     "line": 1119,
      "in": "TransversalContextDashboard",
      "when": "context && each allQuestions && widgetType === 'period_system'",
      "text": "[2 períodos por año académico] [3 períodos por año académico]"
     },
     {
      "kind": "heading",
-     "line": 1104,
+     "line": 1138,
      "in": "TransversalContextDashboard",
      "when": "context && each allQuestions && widgetType === 'programa_inicia'",
      "text": "{q.question_text}",
@@ -12820,28 +12922,28 @@
     },
     {
      "kind": "text",
-     "line": 1107,
+     "line": 1141,
      "in": "TransversalContextDashboard",
      "when": "context && each allQuestions && widgetType === 'programa_inicia'",
      "text": "Sí / No"
     },
     {
      "kind": "text",
-     "line": 1111,
+     "line": 1145,
      "in": "TransversalContextDashboard",
      "when": "context && each allQuestions && widgetType === 'programa_inicia' && context.programa_inicia_completed && context.programa_inicia_hours",
      "text": "{context.programa_inicia_hours} horas/año"
     },
     {
      "kind": "gate",
-     "line": 1124,
+     "line": 1158,
      "in": "TransversalContextDashboard",
      "when": "context && each allQuestions && widgetType === 'generic'",
      "text": "isReadOnlyViewer"
     },
     {
      "kind": "heading",
-     "line": 1134,
+     "line": 1168,
      "in": "TransversalContextDashboard",
      "when": "context && each allQuestions && widgetType === 'generic'",
      "text": "{q.question_text}",
@@ -12849,21 +12951,21 @@
     },
     {
      "kind": "text",
-     "line": 1138,
+     "line": 1172,
      "in": "TransversalContextDashboard",
      "when": "context && each allQuestions && widgetType === 'generic'",
      "text": "Sí / No"
     },
     {
      "kind": "text",
-     "line": 1139,
+     "line": 1173,
      "in": "TransversalContextDashboard",
      "when": "context && each allQuestions && widgetType === 'generic' && (value === undefined || value === null || value === '')",
      "text": "Sin respuesta"
     },
     {
      "kind": "hook",
-     "line": 1161,
+     "line": 1195,
      "in": "TransversalContextDashboard",
      "when": "assignmentNotice",
      "text": "role=status",
@@ -12872,7 +12974,7 @@
     },
     {
      "kind": "hook",
-     "line": 1161,
+     "line": 1195,
      "in": "TransversalContextDashboard",
      "when": "assignmentNotice",
      "text": "testid=assign-docente-warnings",
@@ -12881,28 +12983,28 @@
     },
     {
      "kind": "text",
-     "line": 1168,
+     "line": 1202,
      "in": "TransversalContextDashboard",
      "when": "assignmentNotice",
      "text": "Docente asignado con advertencias: {assignmentNotice.courseName}"
     },
     {
      "kind": "value",
-     "line": 1171,
+     "line": 1205,
      "in": "TransversalContextDashboard",
      "when": "assignmentNotice",
      "text": "{assignmentNotice.message}"
     },
     {
      "kind": "value",
-     "line": 1174,
+     "line": 1208,
      "in": "TransversalContextDashboard",
      "when": "assignmentNotice && each assignmentNotice.warnings",
      "text": "{w}"
     },
     {
      "kind": "button",
-     "line": 1178,
+     "line": 1212,
      "in": "TransversalContextDashboard",
      "when": "assignmentNotice",
      "text": "[icon X]",
@@ -12914,7 +13016,7 @@
     },
     {
      "kind": "hook",
-     "line": 1192,
+     "line": 1226,
      "in": "TransversalContextDashboard",
      "when": "replacementNotice",
      "text": "role=status",
@@ -12923,7 +13025,7 @@
     },
     {
      "kind": "hook",
-     "line": 1192,
+     "line": 1226,
      "in": "TransversalContextDashboard",
      "when": "replacementNotice",
      "text": "testid=replace-docente-success",
@@ -12932,21 +13034,21 @@
     },
     {
      "kind": "text",
-     "line": 1199,
+     "line": 1233,
      "in": "TransversalContextDashboard",
      "when": "replacementNotice",
      "text": "Docente cambiado: {replacementNotice.courseName}"
     },
     {
      "kind": "value",
-     "line": 1200,
+     "line": 1234,
      "in": "TransversalContextDashboard",
      "when": "replacementNotice",
      "text": "{replacementNotice.message}"
     },
     {
      "kind": "button",
-     "line": 1202,
+     "line": 1236,
      "in": "TransversalContextDashboard",
      "when": "replacementNotice",
      "text": "[icon X]",
@@ -12958,7 +13060,7 @@
     },
     {
      "kind": "heading",
-     "line": 1218,
+     "line": 1252,
      "in": "TransversalContextDashboard",
      "when": "courseStructure.length > 0",
      "text": "Estructura de Cursos",
@@ -12966,14 +13068,14 @@
     },
     {
      "kind": "text",
-     "line": 1219,
+     "line": 1253,
      "in": "TransversalContextDashboard",
      "when": "courseStructure.length > 0",
      "text": "{courseStructure.length} cursos configurados"
     },
     {
      "kind": "heading",
-     "line": 1227,
+     "line": 1261,
      "in": "TransversalContextDashboard",
      "when": "courseStructure.length > 0 && each Object.entries(coursesByGrade)",
      "text": "{GRADE_LEVEL_LABELS[gradeLevel as Gr…} / {gradeLevel}",
@@ -12981,7 +13083,7 @@
     },
     {
      "kind": "hook",
-     "line": 1248,
+     "line": 1282,
      "in": "TransversalContextDashboard",
      "when": "courseStructure.length > 0 && each Object.entries(coursesByGrade) && each courses",
      "text": "testid=course-card-{course.id}",
@@ -12990,14 +13092,14 @@
     },
     {
      "kind": "value",
-     "line": 1261,
+     "line": 1295,
      "in": "TransversalContextDashboard",
      "when": "courseStructure.length > 0 && each Object.entries(coursesByGrade) && each courses",
      "text": "{course.course_name}"
     },
     {
      "kind": "button",
-     "line": 1267,
+     "line": 1301,
      "in": "TransversalContextDashboard",
      "when": "courseStructure.length > 0 && each Object.entries(coursesByGrade) && each courses && canOfferAssign",
      "text": "Asignar",
@@ -13008,7 +13110,7 @@
     },
     {
      "kind": "hook",
-     "line": 1282,
+     "line": 1316,
      "in": "TransversalContextDashboard",
      "when": "each Object.entries(coursesByGrade) && each courses && activeCount > 0 && each activeAssignments",
      "text": "testid=course-active-assignment-{assignment.id}",
@@ -13017,14 +13119,14 @@
     },
     {
      "kind": "value",
-     "line": 1287,
+     "line": 1321,
      "in": "TransversalContextDashboard",
      "when": "each Object.entries(coursesByGrade) && each courses && activeCount > 0 && each activeAssignments",
      "text": "{assignment.profiles?.name} / {assignment.docente_id}"
     },
     {
      "kind": "hook",
-     "line": 1297,
+     "line": 1331,
      "in": "TransversalContextDashboard",
      "when": "courseStructure.length > 0 && each Object.entries(coursesByGrade) && each courses && isLocked",
      "text": "testid=course-assignment-locked-{course.id}",
@@ -13033,14 +13135,14 @@
     },
     {
      "kind": "text",
-     "line": 1301,
+     "line": 1335,
      "in": "TransversalContextDashboard",
      "when": "courseStructure.length > 0 && each Object.entries(coursesByGrade) && each courses && isLocked",
      "text": "Este curso ya tiene un docente asignado. Mientras el registro no haya comenzado, el equipo directivo puede cambiar el docente con «Cambiar docente»; si ya comenzó, se requiere una resolución administrativa controlada. No es posible desasignar desde esta página."
     },
     {
      "kind": "button",
-     "line": 1306,
+     "line": 1340,
      "in": "TransversalContextDashboard",
      "when": "each Object.entries(coursesByGrade) && each courses && isLocked && canReplaceDocente",
      "text": "Cambiar docente",
@@ -13050,8 +13152,20 @@
      }
     },
     {
+     "kind": "button",
+     "line": 1350,
+     "in": "TransversalContextDashboard",
+     "when": "each Object.entries(coursesByGrade) && each courses && isLocked && canReplaceDocente",
+     "text": "Reenviar registros",
+     "action": "{() => resendRegistros(course.id, activeAssignments[0].docente_id)}",
+     "disabled": "{resendingCourses[course.id] === true}",
+     "hook": {
+      "testid": "resend-registros-{course.id}"
+     }
+    },
+    {
      "kind": "hook",
-     "line": 1319,
+     "line": 1364,
      "in": "TransversalContextDashboard",
      "when": "courseStructure.length > 0 && each Object.entries(coursesByGrade) && each courses && hasIntegrityConflict",
      "text": "role=alert",
@@ -13060,7 +13174,7 @@
     },
     {
      "kind": "hook",
-     "line": 1319,
+     "line": 1364,
      "in": "TransversalContextDashboard",
      "when": "courseStructure.length > 0 && each Object.entries(coursesByGrade) && each courses && hasIntegrityConflict",
      "text": "testid=course-assignment-integrity-warning-{course.id}",
@@ -13069,21 +13183,21 @@
     },
     {
      "kind": "text",
-     "line": 1324,
+     "line": 1369,
      "in": "TransversalContextDashboard",
      "when": "courseStructure.length > 0 && each Object.entries(coursesByGrade) && each courses && hasIntegrityConflict",
      "text": "Estado de asignación inválido"
     },
     {
      "kind": "text",
-     "line": 1325,
+     "line": 1370,
      "in": "TransversalContextDashboard",
      "when": "courseStructure.length > 0 && each Object.entries(coursesByGrade) && each courses && hasIntegrityConflict",
      "text": "Este curso registra {activeCount} docentes activos y solo debe tener uno. No es posible asignar ni desasignar desde esta página: solicite una resolución administrativa controlada para corregir la asignación de este curso."
     },
     {
      "kind": "piece",
-     "line": 1343,
+     "line": 1388,
      "in": "TransversalContextDashboard",
      "when": "context && schoolId",
      "text": "",
@@ -13091,7 +13205,7 @@
     },
     {
      "kind": "piece",
-     "line": 1350,
+     "line": 1395,
      "in": "TransversalContextDashboard",
      "when": "context && schoolId && !isReadOnlyViewer",
      "text": "feature: transversal_context",
@@ -13099,7 +13213,7 @@
     },
     {
      "kind": "piece",
-     "line": 1356,
+     "line": 1401,
      "in": "TransversalContextDashboard",
      "when": "context && schoolId && !isReadOnlyViewer",
      "text": "feature: context_responses",
@@ -13107,7 +13221,7 @@
     },
     {
      "kind": "heading",
-     "line": 1373,
+     "line": 1418,
      "in": "TransversalContextDashboard",
      "when": "!context",
      "text": "Escuela sin configurar / Configure su escuela",
@@ -13115,14 +13229,14 @@
     },
     {
      "kind": "text",
-     "line": 1376,
+     "line": 1421,
      "in": "TransversalContextDashboard",
      "when": "!context",
      "text": "El equipo directivo de esta escuela aún no ha completado el cuestionario transversal. No hay contexto que consultar por ahora. / El equipo directivo de esta escuela aún no ha completado el cuestionario transversal. Como administrador puede…"
     },
     {
      "kind": "link",
-     "line": 1384,
+     "line": 1429,
      "in": "TransversalContextDashboard",
      "when": "!context && !isReadOnlyViewer",
      "text": "Completar Cuestionario",
@@ -13130,7 +13244,7 @@
     },
     {
      "kind": "link",
-     "line": 1388,
+     "line": 1433,
      "in": "TransversalContextDashboard",
      "when": "!context && !isReadOnlyViewer",
      "text": "Completar Cuestionario",
@@ -13138,7 +13252,7 @@
     },
     {
      "kind": "popup",
-     "line": 1400,
+     "line": 1445,
      "in": "TransversalContextDashboard",
      "when": "assignModalOpen",
      "text": "Asignar Docente",
@@ -13146,7 +13260,7 @@
     },
     {
      "kind": "heading",
-     "line": 1403,
+     "line": 1448,
      "in": "TransversalContextDashboard",
      "when": "assignModalOpen",
      "text": "Asignar Docente",
@@ -13154,7 +13268,7 @@
     },
     {
      "kind": "button",
-     "line": 1406,
+     "line": 1451,
      "in": "TransversalContextDashboard",
      "when": "assignModalOpen",
      "text": "[icon X]",
@@ -13165,42 +13279,42 @@
     },
     {
      "kind": "text",
-     "line": 1417,
+     "line": 1462,
      "in": "TransversalContextDashboard",
      "when": "assignModalOpen",
      "text": "Asignar docente al curso"
     },
     {
      "kind": "value",
-     "line": 1417,
+     "line": 1462,
      "in": "TransversalContextDashboard",
      "when": "assignModalOpen",
      "text": "{selectedCourse?.course_name}"
     },
     {
      "kind": "text",
-     "line": 1428,
+     "line": 1473,
      "in": "TransversalContextDashboard",
      "when": "assignModalOpen && !(loadingDocentes) && availableDocentes.length === 0",
      "text": "No hay docentes disponibles para asignar"
     },
     {
      "kind": "text",
-     "line": 1431,
+     "line": 1476,
      "in": "TransversalContextDashboard",
      "when": "assignModalOpen && !(loadingDocentes) && availableDocentes.length === 0",
      "text": "Todos los docentes ya están asignados o no hay docentes en esta escuela"
     },
     {
      "kind": "label",
-     "line": 1436,
+     "line": 1481,
      "in": "TransversalContextDashboard",
      "when": "assignModalOpen && !(loadingDocentes) && !(availableDocentes.length === 0)",
      "text": "Seleccionar Docente"
     },
     {
      "kind": "field",
-     "line": 1439,
+     "line": 1484,
      "in": "TransversalContextDashboard",
      "when": "assignModalOpen && !(loadingDocentes) && !(availableDocentes.length === 0)",
      "text": "Seleccionar Docente",
@@ -13216,7 +13330,7 @@
     },
     {
      "kind": "hook",
-     "line": 1462,
+     "line": 1507,
      "in": "TransversalContextDashboard",
      "when": "assignModalOpen && assignError",
      "text": "role=alert",
@@ -13225,7 +13339,7 @@
     },
     {
      "kind": "hook",
-     "line": 1462,
+     "line": 1507,
      "in": "TransversalContextDashboard",
      "when": "assignModalOpen && assignError",
      "text": "testid=assign-docente-error",
@@ -13234,28 +13348,28 @@
     },
     {
      "kind": "text",
-     "line": 1467,
+     "line": 1512,
      "in": "TransversalContextDashboard",
      "when": "assignModalOpen && assignError",
      "text": "No se pudo completar la asignación"
     },
     {
      "kind": "value",
-     "line": 1468,
+     "line": 1513,
      "in": "TransversalContextDashboard",
      "when": "assignModalOpen && assignError",
      "text": "{assignError}"
     },
     {
      "kind": "value",
-     "line": 1472,
+     "line": 1517,
      "in": "TransversalContextDashboard",
      "when": "assignModalOpen && assignError && assignErrorWarnings.length > 0 && each assignErrorWarnings",
      "text": "{w}"
     },
     {
      "kind": "button",
-     "line": 1481,
+     "line": 1526,
      "in": "TransversalContextDashboard",
      "when": "assignModalOpen",
      "text": "Cancelar",
@@ -13266,7 +13380,7 @@
     },
     {
      "kind": "button",
-     "line": 1488,
+     "line": 1533,
      "in": "TransversalContextDashboard",
      "when": "assignModalOpen",
      "text": "Asignando... / Asignar",
@@ -13278,7 +13392,7 @@
     },
     {
      "kind": "popup",
-     "line": 1513,
+     "line": 1558,
      "in": "TransversalContextDashboard",
      "when": "replaceModalOpen",
      "text": "Cambiar Docente",
@@ -13286,7 +13400,7 @@
     },
     {
      "kind": "heading",
-     "line": 1516,
+     "line": 1561,
      "in": "TransversalContextDashboard",
      "when": "replaceModalOpen",
      "text": "Cambiar Docente",
@@ -13294,7 +13408,7 @@
     },
     {
      "kind": "button",
-     "line": 1519,
+     "line": 1564,
      "in": "TransversalContextDashboard",
      "when": "replaceModalOpen",
      "text": "[icon X]",
@@ -13305,21 +13419,21 @@
     },
     {
      "kind": "text",
-     "line": 1530,
+     "line": 1575,
      "in": "TransversalContextDashboard",
      "when": "replaceModalOpen",
      "text": "Curso"
     },
     {
      "kind": "value",
-     "line": 1530,
+     "line": 1575,
      "in": "TransversalContextDashboard",
      "when": "replaceModalOpen",
      "text": "{replaceCourse?.course_name}"
     },
     {
      "kind": "hook",
-     "line": 1532,
+     "line": 1577,
      "in": "TransversalContextDashboard",
      "when": "replaceModalOpen",
      "text": "testid=replace-docente-current",
@@ -13328,42 +13442,42 @@
     },
     {
      "kind": "text",
-     "line": 1533,
+     "line": 1578,
      "in": "TransversalContextDashboard",
      "when": "replaceModalOpen",
      "text": "Docente actual:"
     },
     {
      "kind": "value",
-     "line": 1534,
+     "line": 1579,
      "in": "TransversalContextDashboard",
      "when": "replaceModalOpen",
      "text": "{currentDocenteOf(replaceCourse)?.pr…} / {currentDocenteOf(replaceCourse)?.do…} / —"
     },
     {
      "kind": "text",
-     "line": 1539,
+     "line": 1584,
      "in": "TransversalContextDashboard",
      "when": "replaceModalOpen",
      "text": "El cambio solo es posible mientras el registro del curso no haya comenzado y no registre respuestas. El docente anterior pierde el acceso a los registros pendientes y el nuevo docente los recibe en blanco: las respuestas nunca se transfieren."
     },
     {
      "kind": "text",
-     "line": 1552,
+     "line": 1597,
      "in": "TransversalContextDashboard",
      "when": "replaceModalOpen && !(loadingReplaceCandidates) && replaceCandidates.length === 0",
      "text": "No hay otros docentes disponibles en esta escuela"
     },
     {
      "kind": "label",
-     "line": 1557,
+     "line": 1602,
      "in": "TransversalContextDashboard",
      "when": "replaceModalOpen && !(loadingReplaceCandidates) && !(replaceCandidates.length === 0)",
      "text": "Nuevo docente"
     },
     {
      "kind": "field",
-     "line": 1560,
+     "line": 1605,
      "in": "TransversalContextDashboard",
      "when": "replaceModalOpen && !(loadingReplaceCandidates) && !(replaceCandidates.length === 0)",
      "text": "Nuevo docente",
@@ -13379,7 +13493,7 @@
     },
     {
      "kind": "hook",
-     "line": 1583,
+     "line": 1628,
      "in": "TransversalContextDashboard",
      "when": "replaceModalOpen && replaceError",
      "text": "role=alert",
@@ -13388,7 +13502,7 @@
     },
     {
      "kind": "hook",
-     "line": 1583,
+     "line": 1628,
      "in": "TransversalContextDashboard",
      "when": "replaceModalOpen && replaceError",
      "text": "testid=replace-docente-error",
@@ -13397,21 +13511,21 @@
     },
     {
      "kind": "text",
-     "line": 1588,
+     "line": 1633,
      "in": "TransversalContextDashboard",
      "when": "replaceModalOpen && replaceError",
      "text": "El registro ya comenzó / No se pudo cambiar el docente"
     },
     {
      "kind": "value",
-     "line": 1593,
+     "line": 1638,
      "in": "TransversalContextDashboard",
      "when": "replaceModalOpen && replaceError",
      "text": "{replaceError.message}"
     },
     {
      "kind": "button",
-     "line": 1599,
+     "line": 1644,
      "in": "TransversalContextDashboard",
      "when": "replaceModalOpen",
      "text": "Cancelar",
@@ -13422,7 +13536,7 @@
     },
     {
      "kind": "button",
-     "line": 1606,
+     "line": 1651,
      "in": "TransversalContextDashboard",
      "when": "replaceModalOpen",
      "text": "Cambiando... / Cambiar docente",
@@ -13434,49 +13548,49 @@
     },
     {
      "kind": "string",
-     "line": 524,
+     "line": 527,
      "in": "TransversalContextDashboard",
      "text": "No se pudo completar la asignación del docente"
     },
     {
      "kind": "string",
-     "line": 537,
+     "line": 540,
      "in": "TransversalContextDashboard",
      "text": "Docente asignado correctamente"
     },
     {
      "kind": "string",
-     "line": 550,
+     "line": 553,
      "in": "TransversalContextDashboard",
      "text": "Error al asignar docente"
     },
     {
      "kind": "string",
-     "line": 643,
+     "line": 677,
      "in": "TransversalContextDashboard",
      "text": "Docente cambiado correctamente"
     },
     {
      "kind": "string",
-     "line": 650,
+     "line": 684,
      "in": "TransversalContextDashboard",
      "text": "Error al cambiar docente"
     },
     {
      "kind": "string",
-     "line": 887,
+     "line": 921,
      "in": "TransversalContextDashboard",
      "text": "Complete el cuestionario transversal para configurar su escuela"
     },
     {
      "kind": "string",
-     "line": 1380,
+     "line": 1425,
      "in": "TransversalContextDashboard",
      "text": "El equipo directivo de esta escuela aún no ha completado el cuestionario transversal. Como administrador puede completarlo ahora."
     },
     {
      "kind": "string",
-     "line": 1381,
+     "line": 1426,
      "in": "TransversalContextDashboard",
      "text": "Complete el cuestionario transversal para configurar los datos de su escuela y habilitar los registros de transformación."
     },
@@ -13533,7 +13647,7 @@
       "GET"
      ],
      "from": [
-      "pages/school/transversal-context/index.tsx:382"
+      "pages/school/transversal-context/index.tsx:385"
      ]
     },
     {
@@ -13543,7 +13657,7 @@
       "GET"
      ],
      "from": [
-      "pages/school/transversal-context/index.tsx:335"
+      "pages/school/transversal-context/index.tsx:338"
      ]
     },
     {
@@ -13553,7 +13667,8 @@
       "POST"
      ],
      "from": [
-      "pages/school/transversal-context/index.tsx:501"
+      "pages/school/transversal-context/index.tsx:504",
+      "pages/school/transversal-context/index.tsx:577"
      ]
     },
     {
@@ -13563,7 +13678,7 @@
       "GET"
      ],
      "from": [
-      "pages/school/transversal-context/index.tsx:381"
+      "pages/school/transversal-context/index.tsx:384"
      ]
     },
     {
@@ -13573,8 +13688,8 @@
       "GET"
      ],
      "from": [
-      "pages/school/transversal-context/index.tsx:444",
-      "pages/school/transversal-context/index.tsx:579"
+      "pages/school/transversal-context/index.tsx:447",
+      "pages/school/transversal-context/index.tsx:613"
      ]
     },
     {
@@ -13584,7 +13699,7 @@
       "GET"
      ],
      "from": [
-      "pages/school/transversal-context/index.tsx:371"
+      "pages/school/transversal-context/index.tsx:374"
      ]
     },
     {
@@ -13594,7 +13709,7 @@
       "POST"
      ],
      "from": [
-      "pages/school/transversal-context/index.tsx:617"
+      "pages/school/transversal-context/index.tsx:651"
      ]
     },
     {
@@ -13604,8 +13719,8 @@
       "GET"
      ],
      "from": [
-      "pages/school/transversal-context/index.tsx:292",
-      "pages/school/transversal-context/index.tsx:827"
+      "pages/school/transversal-context/index.tsx:295",
+      "pages/school/transversal-context/index.tsx:861"
      ]
     },
     {
@@ -15912,6 +16027,25 @@
    ]
   },
   {
+   "file": "pages/api/admin/assessment-builder/templates/[templateId]/delivery-preview.ts",
+   "route": "/api/admin/assessment-builder/templates/[templateId]/delivery-preview",
+   "methods": [
+    "GET"
+   ],
+   "guards": [
+    "createServiceRoleClient",
+    "getApiUser",
+    "hasPermission"
+   ],
+   "calledBy": [
+    "/admin/assessment-builder/[templateId]"
+   ],
+   "referencedIn": [
+    "__tests__/api/assessment-builder/delivery-preview.test.ts",
+    "pages/admin/assessment-builder/[templateId]/index.tsx"
+   ]
+  },
+  {
    "file": "pages/api/admin/assessment-builder/templates/[templateId]/demo-access.ts",
    "route": "/api/admin/assessment-builder/templates/[templateId]/demo-access",
    "methods": [
@@ -16449,6 +16583,7 @@
     "__tests__/pages/school/transversal-context-assign.test.tsx",
     "__tests__/pages/school/transversal-context-late-answer.test.tsx",
     "__tests__/pages/school/transversal-context-replace.test.tsx",
+    "__tests__/pages/school/transversal-context-resend.test.tsx",
     "pages/school/migration-plan/index.tsx",
     "pages/school/transversal-context/index.tsx"
    ]
@@ -16491,6 +16626,7 @@
    "referencedIn": [
     "__tests__/api/school/assign-docente.test.ts",
     "__tests__/pages/school/transversal-context-assign.test.tsx",
+    "__tests__/pages/school/transversal-context-resend.test.tsx",
     "pages/school/transversal-context/index.tsx"
    ]
   },
@@ -16517,6 +16653,7 @@
     "__tests__/pages/school/transversal-context-edit.test.tsx",
     "__tests__/pages/school/transversal-context-late-answer.test.tsx",
     "__tests__/pages/school/transversal-context-replace.test.tsx",
+    "__tests__/pages/school/transversal-context-resend.test.tsx",
     "pages/school/transversal-context/edit.tsx",
     "pages/school/transversal-context/index.tsx",
     "tests/e2e/context-questions/api-security.spec.ts"
@@ -16566,6 +16703,7 @@
     "__tests__/pages/school/transversal-context-edit.test.tsx",
     "__tests__/pages/school/transversal-context-late-answer.test.tsx",
     "__tests__/pages/school/transversal-context-replace.test.tsx",
+    "__tests__/pages/school/transversal-context-resend.test.tsx",
     "pages/school/transversal-context/edit.tsx",
     "pages/school/transversal-context/index.tsx"
    ]
@@ -16589,6 +16727,7 @@
     "__tests__/pages/school/transversal-context-edit.test.tsx",
     "__tests__/pages/school/transversal-context-late-answer.test.tsx",
     "__tests__/pages/school/transversal-context-replace.test.tsx",
+    "__tests__/pages/school/transversal-context-resend.test.tsx",
     "pages/school/transversal-context/edit.tsx",
     "pages/school/transversal-context/index.tsx",
     "tests/e2e/context-questions/api-security.spec.ts"

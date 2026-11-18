@@ -4,8 +4,8 @@
  "note": "Course system: the Course Review session owns this area's structure and its own checklist (docs/planning/courses/inventory.md, not yet on main). This file is the redesign's list of what is on screen today.",
  "routesOnly": false,
  "readFrom": {
-  "commit": "45d07ead51e5a3eec09ca6796bd72980883bc2d6",
-  "date": "2026-11-17T19:02:40-03:00"
+  "commit": "0a7ad8795b419990468bad9197d27dd375a392a3",
+  "date": "2026-11-18T14:19:15-03:00"
  },
  "screens": [
   {
@@ -1073,7 +1073,7 @@
      "components/layout/Sidebar.tsx:156",
      "lib/notifications/catalog.ts:296",
      "pages/api/assignments/collaborative-submit.ts:126",
-     "pages/community/workspace.tsx:268",
+     "pages/community/workspace.tsx:273",
      "pages/community/workspace/assignments/[id]/discussion.tsx:150",
      "pages/community/workspace/assignments/[id]/discussion.tsx:279",
      "pages/community/workspace/assignments/[id]/discussion.tsx:289",

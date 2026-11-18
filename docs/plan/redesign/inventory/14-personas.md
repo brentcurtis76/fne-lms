@@ -1,7 +1,7 @@
 # Personas (users, schools, networks, roles, profile)
 
 Area `14-personas`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `45d07ead5` (2026-11-17).
+Read from commit `0a7ad8795` (2026-11-18).
 
 7 screen files, 33 API files, 24 pieces.
 
@@ -14,7 +14,7 @@ Read from commit `45d07ead5` (2026-11-17).
 | `/admin/school-users` | `pages/admin/school-users.tsx` | 821 | Usuarios del Colegio |  |
 | `/admin/schools` | `pages/admin/schools.tsx` | 1544 | Personas › Escuelas |  |
 | `/admin/tractor-signups` | `pages/admin/tractor-signups.tsx` | 776 | Personas › Registros |  |
-| `/admin/user-management` | `pages/admin/user-management.tsx` | 1088 | Personas › Usuarios |  |
+| `/admin/user-management` | `pages/admin/user-management.tsx` | 1028 | Personas › Usuarios |  |
 | `/profile` | `pages/profile.tsx` | 816 | Mi Perfil |  |
 
 ## /admin/network-management
@@ -1094,21 +1094,21 @@ File `pages/admin/tractor-signups.tsx` · 776 lines · frame: MainLayout · getS
 
 ## /admin/user-management
 
-File `pages/admin/user-management.tsx` · 1088 lines · frame: MainLayout
+File `pages/admin/user-management.tsx` · 1028 lines · frame: MainLayout
 
 ### Who reaches it
 
 - Menu: Personas › «Usuarios» → `/admin/user-management` — admin only; the group: admin only (`Sidebar.tsx` l.404)
 - Middleware: the /admin rule. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page:
-  - l.339 `router.push → /login  (when !session?.user)`
-  - l.354 `userRole = await getUserPrimaryRole(session.user.id)`
-  - l.355 `adminRole = metadataHasRole(userData?.user?.user_metadata, 'admin') \|\| userRole === 'admin'`
-  - l.358 `router.push → /dashboard  (when !adminRole)`
-  - l.736 `router.push → /login`
-  - l.801 `Solo administradores pueden acceder a la gestión de usuarios.`
+  - l.321 `router.push → /login  (when !session?.user)`
+  - l.336 `userRole = await getUserPrimaryRole(session.user.id)`
+  - l.337 `adminRole = metadataHasRole(userData?.user?.user_metadata, 'admin') \|\| userRole === 'admin'`
+  - l.340 `router.push → /dashboard  (when !adminRole)`
+  - l.676 `router.push → /login`
+  - l.741 `Solo administradores pueden acceder a la gestión de usuarios.`
 - Linked from: `components/layout/Sidebar.tsx:406`, `components/notifications/ModernNotificationCenter.tsx:316`, `components/notifications/NotificationDropdown.tsx:145`, `pages/admin/qa/index.tsx:875`, `pages/admin/qa/index.tsx:876`, `pages/admin/qa/index.tsx:893`, `pages/admin/qa/index.tsx:894`, `pages/admin/school-users.tsx:55`, `pages/api/qa/seed-codebase-index.ts:18`, `pages/notifications.tsx:274`
-- Tests: browser tests that CI runs: `tests/e2e/auth-lifecycle.spec.ts`.
+- Tests: browser tests that CI runs: `tests/e2e/auth-lifecycle.spec.ts`; unit tests of the page: `__tests__/pages/admin/user-management.expense-access.test.tsx`.
 - QA scenarios that name this address: admin 2, community_manager 1, consultor 1, equipo_directivo 1, lider_comunidad 1, lider_generacion 1, supervisor_de_red 1.
 
 | Role | Sees it in the menu | Middleware |
@@ -1158,154 +1158,145 @@ File `pages/admin/user-management.tsx` · 1088 lines · frame: MainLayout
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «Acceso Denegado» | h3 | `!isAdmin` | UserManagement · l.800 |
-| «Crear Nuevo Usuario» | h3 | `showAddForm` | UserManagement · l.884 |
-| «Confirmar Eliminación» | h3 | `showDeleteModal && userToDelete` | UserManagement · l.1019 |
+| «Acceso Denegado» | h3 | `!isAdmin` | UserManagement · l.740 |
+| «Crear Nuevo Usuario» | h3 | `showAddForm` | UserManagement · l.824 |
+| «Confirmar Eliminación» | h3 | `showDeleteModal && userToDelete` | UserManagement · l.959 |
 
 **Buttons** (7)
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «Anterior» | `{() => handlePageChange(currentPage - 1)}` |  | `{currentPage === 1 \|\| loading}` |  | UserManagement · l.860 |
-| «Siguiente» | `{() => handlePageChange(currentPage + 1)}` |  | `{currentPage >= totalPages \|\| loading}` |  | UserManagement · l.868 |
-| «[icon X]» | `{() => setShowAddForm(false)}` | `showAddForm` |  |  | UserManagement · l.885 |
-| «Cancelar» | `{() => setShowAddForm(false)}` | `showAddForm` |  |  | UserManagement · l.948 |
-| «Creando... / Crear Usuario» (submits the form) |  | `showAddForm` | `{isCreating}` |  | UserManagement · l.955 |
-| «Cancelar» | `{() => { setShowDeleteModal(false); setUserToDelete(null); }}` | `showDeleteModal && userToDelete` |  |  | UserManagement · l.1036 |
-| «Eliminar Usuario» | `{handleConfirmDelete}` | `showDeleteModal && userToDelete` |  |  | UserManagement · l.1045 |
+| «Anterior» | `{() => handlePageChange(currentPage - 1)}` |  | `{currentPage === 1 \|\| loading}` |  | UserManagement · l.800 |
+| «Siguiente» | `{() => handlePageChange(currentPage + 1)}` |  | `{currentPage >= totalPages \|\| loading}` |  | UserManagement · l.808 |
+| «[icon X]» | `{() => setShowAddForm(false)}` | `showAddForm` |  |  | UserManagement · l.825 |
+| «Cancelar» | `{() => setShowAddForm(false)}` | `showAddForm` |  |  | UserManagement · l.888 |
+| «Creando... / Crear Usuario» (submits the form) |  | `showAddForm` | `{isCreating}` |  | UserManagement · l.895 |
+| «Cancelar» | `{() => { setShowDeleteModal(false); setUserToDelete(null); }}` | `showDeleteModal && userToDelete` |  |  | UserManagement · l.976 |
+| «Eliminar Usuario» | `{handleConfirmDelete}` | `showDeleteModal && userToDelete` |  |  | UserManagement · l.985 |
 
 **Fields** (4)
 
 | Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
 |---|---|---|---|---|---|---|
-| «Email *» | email | «usuario@ejemplo.com» · required |  | `showAddForm` |  | UserManagement · l.898 |
-| «Contraseña *» | password | «{PASSWORD_POLICY_SUMMARY}» · required · `minLength={PASSWORD_POLICY.minLength}` |  | `showAddForm` |  | UserManagement · l.911 |
-| «Nombre» | text | «Nombre» |  | `showAddForm` |  | UserManagement · l.926 |
-| «Apellido» | text | «Apellido» |  | `showAddForm` |  | UserManagement · l.938 |
+| «Email *» | email | «usuario@ejemplo.com» · required |  | `showAddForm` |  | UserManagement · l.838 |
+| «Contraseña *» | password | «{PASSWORD_POLICY_SUMMARY}» · required · `minLength={PASSWORD_POLICY.minLength}` |  | `showAddForm` |  | UserManagement · l.851 |
+| «Nombre» | text | «Nombre» |  | `showAddForm` |  | UserManagement · l.866 |
+| «Apellido» | text | «Apellido» |  | `showAddForm` |  | UserManagement · l.878 |
 
 **Forms** (1)
 
 | On submit | Shown when | Where |
 |---|---|---|
-| `{handleAddUser}` | `showAddForm` | UserManagement · l.892 |
+| `{handleAddUser}` | `showAddForm` | UserManagement · l.832 |
 
 **Pop-ups** (7)
 
 | Name or title | How | Opens when | Texts passed to it | Where |
 |---|---|---|---|---|
-| «Crear Nuevo Usuario» | written in this file | `showAddForm` |  | UserManagement · l.881 |
-| `RoleAssignmentModal` | component | `{showRoleModal}` |  | UserManagement · l.980 |
-| `ConsultantAssignmentModal` | component | `{showConsultantModal}` |  | UserManagement · l.993 |
-| «Confirmar Eliminación» | written in this file | `showDeleteModal && userToDelete` |  | UserManagement · l.1012 |
-| `PasswordResetModal` | component | `{showPasswordResetModal}` |  | UserManagement · l.1058 |
-| `BulkUserImportModal` | component | `{showBulkImportModal}` |  | UserManagement · l.1069 |
-| `UserEditModal` | component | `{showEditModal}` |  | UserManagement · l.1079 |
+| «Crear Nuevo Usuario» | written in this file | `showAddForm` |  | UserManagement · l.821 |
+| `RoleAssignmentModal` | component | `{showRoleModal}` |  | UserManagement · l.920 |
+| `ConsultantAssignmentModal` | component | `{showConsultantModal}` |  | UserManagement · l.933 |
+| «Confirmar Eliminación» | written in this file | `showDeleteModal && userToDelete` |  | UserManagement · l.952 |
+| `PasswordResetModal` | component | `{showPasswordResetModal}` |  | UserManagement · l.998 |
+| `BulkUserImportModal` | component | `{showBulkImportModal}` |  | UserManagement · l.1009 |
+| `UserEditModal` | component | `{showEditModal}` |  | UserManagement · l.1019 |
 
-**Toasts** (16)
+**Toasts** (13)
 
 | Kind | Text | When | Where |
 |---|---|---|---|
-| error | «No se pudo cargar el acceso a reportes de gastos» | `expenseAccessError` | UserManagement · l.191 |
-| error | «Error al cargar usuarios» |  | UserManagement · l.223 |
-| success | «Usuario aprobado correctamente» |  | handleApproveUser · l.269 |
-| error | «Error al aprobar usuario:» |  | handleApproveUser · l.274 |
-| success | «Usuario rechazado» |  | handleRejectUser · l.325 |
-| error | «Error al rechazar usuario:» |  | handleRejectUser · l.330 |
-| success | «Rol actualizado a {newRole}» |  | handleRoleChange · l.476 |
-| error | «Error al actualizar rol: {error.message}» |  | handleRoleChange · l.488 |
-| success | «Acceso a reportes de gastos habilitado / Acceso a reportes de gastos deshabilitado» |  | handleToggleExpenseAccess · l.528 |
-| error | «No se pudo actualizar el acceso a reportes de gastos» |  | handleToggleExpenseAccess · l.533 |
-| success | «Usuario eliminado correctamente» |  | handleConfirmDelete · l.589 |
-| error | «Error al eliminar usuario: {error.message}» |  | handleConfirmDelete · l.606 |
-| error | «Email y contraseña son obligatorios» | `!newUserEmail.trim() \|\| !newUserPassword.trim()` | handleAddUser · l.625 |
-| error | «{passwordError}» | `passwordError` | handleAddUser · l.643 |
-| success | «Usuario creado correctamente. El usuario deberá cambiar su contraseña en el primer inicio de sesión.» | `result.success && result.user` | handleAddUser · l.696 |
-| error | «Error al crear usuario: {errorMessage}» |  | handleAddUser · l.717 |
+| error | «Error al cargar usuarios» |  | UserManagement · l.205 |
+| success | «Usuario aprobado correctamente» |  | handleApproveUser · l.251 |
+| error | «Error al aprobar usuario:» |  | handleApproveUser · l.256 |
+| success | «Usuario rechazado» |  | handleRejectUser · l.307 |
+| error | «Error al rechazar usuario:» |  | handleRejectUser · l.312 |
+| success | «Rol actualizado a {newRole}» |  | handleRoleChange · l.458 |
+| error | «Error al actualizar rol: {error.message}» |  | handleRoleChange · l.470 |
+| success | «Usuario eliminado correctamente» |  | handleConfirmDelete · l.529 |
+| error | «Error al eliminar usuario: {error.message}» |  | handleConfirmDelete · l.546 |
+| error | «Email y contraseña son obligatorios» | `!newUserEmail.trim() \|\| !newUserPassword.trim()` | handleAddUser · l.565 |
+| error | «{passwordError}» | `passwordError` | handleAddUser · l.583 |
+| success | «Usuario creado correctamente. El usuario deberá cambiar su contraseña en el primer inicio de sesión.» | `result.success && result.user` | handleAddUser · l.636 |
+| error | «Error al crear usuario: {errorMessage}» |  | handleAddUser · l.657 |
 
 **Messages set on the page** (15)
 
 | Text | Set by | When | Where |
 |---|---|---|---|
-| «Failed to fetch users» | `throw (shown by whoever catches it)` | `!response.ok` | UserManagement · l.177 |
-| «No authentication token available» | `throw (shown by whoever catches it)` | `!session?.access_token` | handleApproveUser · l.247 |
-| «Failed to approve user» | `throw (shown by whoever catches it)` | `!response.ok` | handleApproveUser · l.266 |
-| «No authentication token available» | `throw (shown by whoever catches it)` | `!session?.access_token` | handleRejectUser · l.303 |
-| «Failed to reject user» | `throw (shown by whoever catches it)` | `!response.ok` | handleRejectUser · l.322 |
-| «No authentication token available» | `throw (shown by whoever catches it)` | `!session?.access_token` | handleRoleChange · l.441 |
-| «Invalid response from server: {responseText.substring(0, 1…}...» | `throw (shown by whoever catches it)` |  | handleRoleChange · l.464 |
-| «Server error: {response.status}» | `throw (shown by whoever catches it)` | `!response.ok` | handleRoleChange · l.468 |
-| «No authentication token available» | `throw (shown by whoever catches it)` | `!session?.access_token` | handleConfirmDelete · l.554 |
-| «Invalid response from server: {responseText.substring(0, 1…}...» | `throw (shown by whoever catches it)` |  | handleConfirmDelete · l.576 |
-| «Server error: {response.status}» | `throw (shown by whoever catches it)` | `!response.ok` | handleConfirmDelete · l.580 |
-| «No active session» | `throw (shown by whoever catches it)` | `!session` | handleAddUser · l.660 |
-| «Failed to create user» | `throw (shown by whoever catches it)` | `!response.ok` | handleAddUser · l.682 |
-| «No session found» | `throw (shown by whoever catches it)` | `!session` | handlePasswordReset · l.742 |
-| «Failed to reset password» | `throw (shown by whoever catches it)` | `!response.ok` | handlePasswordReset · l.759 |
+| «Failed to fetch users» | `throw (shown by whoever catches it)` | `!response.ok` | UserManagement · l.175 |
+| «No authentication token available» | `throw (shown by whoever catches it)` | `!session?.access_token` | handleApproveUser · l.229 |
+| «Failed to approve user» | `throw (shown by whoever catches it)` | `!response.ok` | handleApproveUser · l.248 |
+| «No authentication token available» | `throw (shown by whoever catches it)` | `!session?.access_token` | handleRejectUser · l.285 |
+| «Failed to reject user» | `throw (shown by whoever catches it)` | `!response.ok` | handleRejectUser · l.304 |
+| «No authentication token available» | `throw (shown by whoever catches it)` | `!session?.access_token` | handleRoleChange · l.423 |
+| «Invalid response from server: {responseText.substring(0, 1…}...» | `throw (shown by whoever catches it)` |  | handleRoleChange · l.446 |
+| «Server error: {response.status}» | `throw (shown by whoever catches it)` | `!response.ok` | handleRoleChange · l.450 |
+| «No authentication token available» | `throw (shown by whoever catches it)` | `!session?.access_token` | handleConfirmDelete · l.494 |
+| «Invalid response from server: {responseText.substring(0, 1…}...» | `throw (shown by whoever catches it)` |  | handleConfirmDelete · l.516 |
+| «Server error: {response.status}» | `throw (shown by whoever catches it)` | `!response.ok` | handleConfirmDelete · l.520 |
+| «No active session» | `throw (shown by whoever catches it)` | `!session` | handleAddUser · l.600 |
+| «Failed to create user» | `throw (shown by whoever catches it)` | `!response.ok` | handleAddUser · l.622 |
+| «No session found» | `throw (shown by whoever catches it)` | `!session` | handlePasswordReset · l.682 |
+| «Failed to reset password» | `throw (shown by whoever catches it)` | `!response.ok` | handlePasswordReset · l.699 |
 
 **Moves to another page from code** (3)
 
 | Goes to | How | When | Where |
 |---|---|---|---|
-| `/login` | `router.push` | `!session?.user` | checkAdminAndFetchUsers · l.339 |
-| `/dashboard` | `router.push` | `!adminRole` | checkAdminAndFetchUsers · l.358 |
-| `/login` | `router.push` |  | handleLogout · l.736 |
+| `/login` | `router.push` | `!session?.user` | checkAdminAndFetchUsers · l.321 |
+| `/dashboard` | `router.push` | `!adminRole` | checkAdminAndFetchUsers · l.340 |
+| `/login` | `router.push` |  | handleLogout · l.676 |
 
 **Access checks in the code** (2)
 
 | Line of code | Where |
 |---|---|
-| `userRole = await getUserPrimaryRole(session.user.id)` | checkAdminAndFetchUsers · l.354 |
-| `adminRole = metadataHasRole(userData?.user?.user_metadata, 'admin') \|\| userRole === 'admin'` | checkAdminAndFetchUsers · l.355 |
+| `userRole = await getUserPrimaryRole(session.user.id)` | checkAdminAndFetchUsers · l.336 |
+| `adminRole = metadataHasRole(userData?.user?.user_metadata, 'admin') \|\| userRole === 'admin'` | checkAdminAndFetchUsers · l.337 |
 
 **Pieces placed here, with the texts and settings handed to them** (4)
 
 | Piece | Texts and settings | Shown when | Hook | Where |
 |---|---|---|---|---|
-| `MainLayout` | pageTitle: Gestión de Usuarios | `loading` |  | UserManagement · l.767 |
-| `MainLayout` | pageTitle: Acceso Denegado | `!isAdmin` |  | UserManagement · l.787 |
-| `MainLayout` |  |  |  | UserManagement · l.810 |
-| `UnifiedUserManagement` |  |  |  | UserManagement · l.819 |
-
-**Texts kept in lists and helpers in the code (labels, options, status names)** (1)
-
-| Name | Texts | Where |
-|---|---|---|
-| `note` | «Acceso habilitado desde panel de administración / Acceso deshabilitado desde panel de administración» | handleToggleExpenseAccess · l.504 |
+| `MainLayout` | pageTitle: Gestión de Usuarios | `loading` |  | UserManagement · l.707 |
+| `MainLayout` | pageTitle: Acceso Denegado | `!isAdmin` |  | UserManagement · l.727 |
+| `MainLayout` |  |  |  | UserManagement · l.750 |
+| `UnifiedUserManagement` |  |  |  | UserManagement · l.759 |
 
 **Other texts written in the code (safety net: not tied to an element by the script)** (4)
 
 | Text | Where |
 |---|---|
-| «Sin nombre» | UserManagement · l.79 |
-| «Bearer {session.access_token}» | UserManagement · l.255 |
-| «Sin escuela» | UserManagement · l.295 |
-| «Este email ya está registrado en el sistema» | UserManagement · l.712 |
+| «Sin nombre» | UserManagement · l.78 |
+| «Bearer {session.access_token}» | UserManagement · l.237 |
+| «Sin escuela» | UserManagement · l.277 |
+| «Este email ya está registrado en el sistema» | UserManagement · l.652 |
 
 **Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (2)
 
 | Kind | What | Where |
 |---|---|---|
-| storage | `localStorage: rememberMe` | handleLogout · l.734 |
-| storage | `sessionStorage: sessionOnly` | handleLogout · l.735 |
+| storage | `localStorage: rememberMe` | handleLogout · l.674 |
+| storage | `sessionStorage: sessionOnly` | handleLogout · l.675 |
 
 **Values shown from data** (1)
 
-- `{userToDelete.email}` — UserManagement · l.1028, when `showDeleteModal && userToDelete`
+- `{userToDelete.email}` — UserManagement · l.968, when `showDeleteModal && userToDelete`
 
 **Other texts on screen** (10)
 
-- «Cargando usuarios...» — UserManagement · l.778, when `loading`
-- «Solo administradores pueden acceder a la gestión de usuarios.» — UserManagement · l.801, when `!isAdmin`
-- «No hay usuarios para mostrar / Mostrando {pageStart}-{pageEnd} de {totalUsers} usuarios» — UserManagement · l.856
-- «Página {currentPage} de {totalPages}» — UserManagement · l.867
-- «Email *» (label) — UserManagement · l.895, when `showAddForm`
-- «Contraseña *» (label) — UserManagement · l.908, when `showAddForm`
-- «Nombre» (label) — UserManagement · l.923, when `showAddForm`
-- «Apellido» (label) — UserManagement · l.935, when `showAddForm`
-- «¿Estás seguro de que quieres eliminar al usuario» — UserManagement · l.1027, when `showDeleteModal && userToDelete`
-- «Esta acción no se puede deshacer.» — UserManagement · l.1031, when `showDeleteModal && userToDelete`
+- «Cargando usuarios...» — UserManagement · l.718, when `loading`
+- «Solo administradores pueden acceder a la gestión de usuarios.» — UserManagement · l.741, when `!isAdmin`
+- «No hay usuarios para mostrar / Mostrando {pageStart}-{pageEnd} de {totalUsers} usuarios» — UserManagement · l.796
+- «Página {currentPage} de {totalPages}» — UserManagement · l.807
+- «Email *» (label) — UserManagement · l.835, when `showAddForm`
+- «Contraseña *» (label) — UserManagement · l.848, when `showAddForm`
+- «Nombre» (label) — UserManagement · l.863, when `showAddForm`
+- «Apellido» (label) — UserManagement · l.875, when `showAddForm`
+- «¿Estás seguro de que quieres eliminar al usuario» — UserManagement · l.967, when `showDeleteModal && userToDelete`
+- «Esta acción no se puede deshacer.» — UserManagement · l.971, when `showDeleteModal && userToDelete`
 
-**Reads and writes the database directly:** `table:expense_report_access` (select, upsert), `table:profiles` (select)
+**Reads and writes the database directly:** `table:profiles` (select)
 
 ### Pieces it uses (each is listed once, under "Pieces" below)
 
@@ -1330,20 +1321,20 @@ File `pages/admin/user-management.tsx` · 1088 lines · frame: MainLayout
 
 | Address | Method | Called from |
 |---|---|---|
-| `/api/admin/approve-user` | POST | `pages/admin/user-management.tsx:251`, `pages/admin/user-management.tsx:307` |
+| `/api/admin/approve-user` | POST | `pages/admin/user-management.tsx:233`, `pages/admin/user-management.tsx:289` |
 | `/api/admin/assign-role` | POST | `utils/roleUtils.ts:810` |
 | `/api/admin/bulk-create-users` | POST | `components/admin/BulkUserImportModal.tsx:181` |
 | `/api/admin/consultant-assignment-users` | GET | `components/ConsultantAssignmentModal.tsx:100` |
 | `/api/admin/consultant-assignments` | ? | `components/ConsultantAssignmentModal.tsx:586` |
-| `/api/admin/create-user` | POST | `pages/admin/user-management.tsx:664` |
-| `/api/admin/delete-user` | POST | `pages/admin/user-management.tsx:558` |
+| `/api/admin/create-user` | POST | `pages/admin/user-management.tsx:604` |
+| `/api/admin/delete-user` | POST | `pages/admin/user-management.tsx:498` |
 | `/api/admin/remove-role` | POST | `utils/roleUtils.ts:858` |
-| `/api/admin/reset-password` | POST | `pages/admin/user-management.tsx:745` |
+| `/api/admin/reset-password` | POST | `pages/admin/user-management.tsx:685` |
 | `/api/admin/update-qa-tester-status` | POST | `components/admin/UserEditModal.tsx:116` |
-| `/api/admin/update-role` | POST | `pages/admin/user-management.tsx:445` |
+| `/api/admin/update-role` | POST | `pages/admin/user-management.tsx:427` |
 | `/api/admin/update-user` | POST | `components/admin/UserEditModal.tsx:72` |
 | `/api/admin/user-roles` | GET | `components/RoleAssignmentModal.tsx:143` |
-| `/api/admin/users` | GET | `pages/admin/user-management.tsx:175` |
+| `/api/admin/users` | GET | `pages/admin/user-management.tsx:173` |
 
 ## /profile
 

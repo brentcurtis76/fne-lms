@@ -1,7 +1,7 @@
 # Sesiones y consultorías (sessions, approvals, video meetings)
 
 Area `06-sesiones`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `45d07ead5` (2026-11-17).
+Read from commit `0a7ad8795` (2026-11-18).
 
 11 screen files, 34 API files, 31 pieces.
 
@@ -1346,7 +1346,7 @@ File `pages/consultor/sessions/[id].tsx` · 1539 lines · frame: MainLayout
   - l.283 `router.push → /login`
   - l.621 `canEdit = isFacilitator \|\| userRole === 'admin'`
   - l.626 `isReadOnly = session.status === 'completada' \|\| session.status === 'cancelada'`
-- Linked from: `components/dashboard/unified/UpcomingSessionsCard.tsx:77`, `components/workspace/WorkspaceSessionsTab.tsx:235`, `components/workspace/WorkspaceSessionsTab.tsx:238`, `lib/notifications/catalog.ts:195`, `pages/consultor/sessions/index.tsx:319`, `pages/consultor/sessions/reports.tsx:817`, `pages/consultor/sessions/reports.tsx:821`
+- Linked from: `components/dashboard/unified/UpcomingSessionsCard.tsx:77`, `components/workspace/WorkspaceSessionsTab.tsx:264`, `components/workspace/WorkspaceSessionsTab.tsx:268`, `lib/notifications/catalog.ts:195`, `pages/consultor/sessions/index.tsx:319`, `pages/consultor/sessions/reports.tsx:817`, `pages/consultor/sessions/reports.tsx:821`
 - Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/notification-catalog-links.spec.ts`, `tests/e2e/session-reminders.spec.ts`; unit tests of the page: `__tests__/pages/consultor/sessions/detail.test.tsx`.
 - QA scenarios that name this address: lider_comunidad 1.
 

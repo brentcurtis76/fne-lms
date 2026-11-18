@@ -1,7 +1,7 @@
 # Licitaciones (processes, templates, proposals)
 
 Area `10-licitaciones`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `45d07ead5` (2026-11-17).
+Read from commit `0a7ad8795` (2026-11-18).
 
 11 screen files, 42 API files, 29 pieces.
 
@@ -849,7 +849,7 @@ File `pages/licitaciones/[id].tsx` · 964 lines · frame: MainLayout
   - l.209 `router.push → /login  (when !user)`
   - l.221 `router.push → /dashboard  (when !adminAccess && !encargadoAccess)`
   - l.231 `router.push → /login`
-- Linked from: `middleware.ts:345`, `pages/contracts.tsx:862`, `pages/contracts.tsx:863`, `pages/licitaciones/[id]/evaluacion.tsx:280`, `pages/licitaciones/[id]/evaluacion.tsx:624`, `pages/licitaciones/[id]/evaluacion.tsx:667`, `pages/licitaciones/importar.tsx:197`, `pages/licitaciones/index.tsx:427`, `pages/licitaciones/index.tsx:607`, `pages/licitaciones/index.tsx:611`, `pages/licitaciones/index.tsx:612`, `pages/licitaciones/index.tsx:614` and 1 more
+- Linked from: `middleware.ts:345`, `pages/contracts.tsx:836`, `pages/contracts.tsx:837`, `pages/licitaciones/[id]/evaluacion.tsx:280`, `pages/licitaciones/[id]/evaluacion.tsx:624`, `pages/licitaciones/[id]/evaluacion.tsx:667`, `pages/licitaciones/importar.tsx:197`, `pages/licitaciones/index.tsx:427`, `pages/licitaciones/index.tsx:607`, `pages/licitaciones/index.tsx:611`, `pages/licitaciones/index.tsx:612`, `pages/licitaciones/index.tsx:614` and 1 more
 - Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/flows/proposal-admin-visibility.spec.ts`, `tests/e2e/flows/proposal-buckets.spec.ts`, `tests/e2e/flows/proposal-config.spec.ts`, `tests/e2e/flows/proposal-versioning.spec.ts`; unit tests of the page: `__tests__/pages/licitaciones/licitacion-detail-step2.test.tsx`, `__tests__/pages/licitaciones/licitacion-detail-step6-carta.test.tsx`.
 
 | Role | Sees it in the menu | Middleware |

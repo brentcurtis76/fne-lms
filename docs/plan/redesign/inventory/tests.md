@@ -1,11 +1,11 @@
 # Screens and their tests
 
-Written by `scripts/redesign/inventory.mjs` from commit `45d07ead5`. For phase 3 (the safety net). A browser test is counted for a screen when the test file names the screen's address; that is weaker than "the test checks the screen". CI runs 30 of 71 browser test files (`scripts/ci/e2e-mandatory.mjs`).
+Written by `scripts/redesign/inventory.mjs` from commit `0a7ad8795`. For phase 3 (the safety net). A browser test is counted for a screen when the test file names the screen's address; that is weaker than "the test checks the screen". CI runs 30 of 71 browser test files (`scripts/ci/e2e-mandatory.mjs`).
 
 - 151 screens with an address.
 - 32 are named by a browser test that CI runs.
-- 51 are named only by tests CI skips, or have only unit tests.
-- 68 have no test at all.
+- 52 are named only by tests CI skips, or have only unit tests.
+- 67 have no test at all.
 
 ## No test at all
 
@@ -65,7 +65,6 @@ Written by `scripts/redesign/inventory.mjs` from commit `45d07ead5`. For phase 3
 | 15-comunicacion | `/admin/events` | `pages/admin/events.tsx` |
 | 17-horas-gastos | `/admin/consultant-earnings` | `pages/admin/consultant-earnings.tsx` |
 | 17-horas-gastos | `/admin/consultant-rates` | `pages/admin/consultant-rates.tsx` |
-| 17-horas-gastos | `/expense-reports` | `pages/expense-reports.tsx` |
 | 17-horas-gastos | `/mis-horas` | `pages/mis-horas.tsx` |
 | 18-qa | `/admin/qa/assignments` | `pages/admin/qa/assignments.tsx` |
 | 18-qa | `/admin/qa/confirm` | `pages/admin/qa/confirm.tsx` |
@@ -104,7 +103,7 @@ Written by `scripts/redesign/inventory.mjs` from commit `45d07ead5`. For phase 3
 | 07-espacio-colaborativo | `/admin/growth-communities` | — | 2 |
 | 07-espacio-colaborativo | `/user/[userId]` | `e2e/sentry-replay-disabled.spec.ts` | 1 |
 | 08-gestor-de-cambio | `/admin/assessment-builder/[templateId]/expectations` | `e2e/assessment-builder-expectations-editor.spec.ts` | 1 |
-| 08-gestor-de-cambio | `/admin/assessment-builder/[templateId]` | `e2e/assessment-frequency-validation.spec.ts` | 4 |
+| 08-gestor-de-cambio | `/admin/assessment-builder/[templateId]` | `e2e/assessment-frequency-validation.spec.ts` | 5 |
 | 08-gestor-de-cambio | `/admin/assessment-builder/create` | — | 1 |
 | 08-gestor-de-cambio | `/admin/context-questions` | `e2e/context-questions/admin-ui.spec.ts` | — |
 | 08-gestor-de-cambio | `/admin/context-questions/overview` | `e2e/context-questions/admin-ui.spec.ts` | — |
@@ -113,7 +112,7 @@ Written by `scripts/redesign/inventory.mjs` from commit `45d07ead5`. For phase 3
 | 08-gestor-de-cambio | `/docente/assessments/[instanceId]/results` | `e2e/assessment-results.spec.ts`, `e2e/proc-pilot-journey.spec.ts` | — |
 | 08-gestor-de-cambio | `/school/migration-plan` | — | 2 |
 | 08-gestor-de-cambio | `/school/transversal-context/edit` | `e2e/proc-pilot-journey.spec.ts` | 1 |
-| 08-gestor-de-cambio | `/school/transversal-context` | `e2e/proc-pilot-journey.spec.ts` | 3 |
+| 08-gestor-de-cambio | `/school/transversal-context` | `e2e/proc-pilot-journey.spec.ts` | 4 |
 | 09-vias-transformacion | `/admin/transformation/metrics` | — | 1 |
 | 09-vias-transformacion | `/community/transformation/results/[assessmentId]` | — | 1 |
 | 09-vias-transformacion | `/community/workspace/transformation/evaluate` | — | 1 |
@@ -123,10 +122,11 @@ Written by `scripts/redesign/inventory.mjs` from commit `45d07ead5`. For phase 3
 | 10-licitaciones | `/licitaciones/nueva` | — | 1 |
 | 10-licitaciones | `/propuesta/[slug]` | `e2e/flows/proposal-buckets.spec.ts`, `e2e/flows/proposal-web-view.spec.ts` | — |
 | 11-gestion | `/admin/quotes` | — | 1 |
-| 11-gestion | `/contracts` | `e2e/urgent-anonymous-boundaries.spec.ts`, `e2e/urgent-anonymous-current.spec.ts` | 1 |
+| 11-gestion | `/contracts` | `e2e/urgent-anonymous-boundaries.spec.ts`, `e2e/urgent-anonymous-current.spec.ts` | 2 |
 | 14-personas | `/admin/school-users` | — | 1 |
 | 15-comunicacion | `/admin/news` | `e2e/urgent-anonymous-boundaries.spec.ts`, `e2e/urgent-anonymous-current.spec.ts` | — |
 | 16-notificaciones | `/notificaciones/baja` | `e2e/notification-unsubscribe.spec.ts` | — |
+| 17-horas-gastos | `/expense-reports` | — | 2 |
 | 18-qa | `/admin/qa/import` | `qa/auth-redirects.spec.ts`, `qa/qa-system.spec.ts` | — |
 | 18-qa | `/admin/qa` | `qa/auth-redirects.spec.ts`, `qa/qa-system.spec.ts` | — |
 | 18-qa | `/admin/qa/runs` | `qa/qa-system.spec.ts` | — |

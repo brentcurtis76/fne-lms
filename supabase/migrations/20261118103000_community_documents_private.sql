@@ -237,7 +237,9 @@ CREATE POLICY "community_documents_members_insert" ON storage.objects
 -- -----------------------------------------------------------------------------
 -- e. public.increment_document_counter: the current body plus "only active
 --    documents are counted". A hidden document answers as an unknown one:
---    nothing counted, nothing logged, nothing disclosed. Signature, language,
+--    nothing counted, nothing logged, nothing disclosed. The UPDATE itself
+--    carries the active condition and the log line follows only a changed
+--    row, so a hide committing in between moves nothing (send-back 1). Signature, language,
 --    SECURITY DEFINER, search_path and grants unchanged.
 -- -----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.increment_document_counter(document_uuid uuid, counter_type text, user_uuid uuid DEFAULT NULL::uuid)
@@ -271,11 +273,17 @@ BEGIN
   IF counter_type = 'view' THEN
     UPDATE community_documents
     SET view_count = view_count + 1, updated_at = NOW()
-    WHERE id = document_uuid;
+    WHERE id = document_uuid AND is_active IS TRUE;
   ELSE
     UPDATE community_documents
     SET download_count = download_count + 1, updated_at = NOW()
-    WHERE id = document_uuid;
+    WHERE id = document_uuid AND is_active IS TRUE;
+  END IF;
+
+  -- send-back 1: hidden between the read above and the UPDATE (a hide that
+  -- committed meanwhile): no row changed, nothing logged
+  IF NOT FOUND THEN
+    RETURN;
   END IF;
 
   IF v_actor IS NOT NULL THEN

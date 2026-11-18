@@ -22,7 +22,12 @@
 --      school -> as can_access_workspace answers today (by role school)
 --   3. resources and another store: unchanged (some of 126's assertions again)
 --   4. the counters: a hidden document is not counted (view and download, no
---      access-log line); an active one still is
+--      access-log line); an active one still is; one hidden after it was
+--      counted moves no more. Send-back 1: the counter's UPDATE itself
+--      carries the active condition and the access-log line is written only
+--      when that UPDATE changed a row. A hide committing between the
+--      function's read and its UPDATE needs two sessions racing, which one
+--      pgTAP session cannot show: the definition is read for that instead.
 --
 -- Fixtures: the store is created where missing (as in Production); the
 -- `resources` store and Production's permissive rules for it, verbatim from
@@ -34,7 +39,7 @@
 
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap;
-SELECT plan(67);
+SELECT plan(71);
 
 CREATE TEMP TABLE ids (p text PRIMARY KEY, id uuid) ON COMMIT DROP;
 GRANT SELECT ON ids TO anon, authenticated;
@@ -368,6 +373,25 @@ SELECT is(pg_temp.act('memberA', format('SELECT public.increment_document_counte
 SELECT is(pg_temp.counts(pg_temp.doc('active')), '1/1/logged', 'an active document is still counted: one view, one download, logged');
 SELECT is(pg_temp.act('memberA', format('SELECT public.increment_document_counter(%L, ''bogus'', NULL)', pg_temp.doc('hidden'))), '22023',
   'an invalid counter type is still refused first, even for a hidden document');
+
+-- send-back 1: hidden after it was counted -> nothing moves any more
+UPDATE public.community_documents SET is_active = false WHERE id = pg_temp.doc('active');
+CREATE TEMP TABLE log_before ON COMMIT DROP AS
+  SELECT count(*) AS n FROM public.document_access_log WHERE document_id = pg_temp.doc('active');
+SELECT is(pg_temp.act('memberA', format('SELECT public.increment_document_counter(%L, ''view'', NULL)', pg_temp.doc('active'))), 'rows:1',
+  'counting a document hidden after it was counted does not fail');
+SELECT is(pg_temp.counts(pg_temp.doc('active')) || '|' ||
+          ((SELECT count(*) FROM public.document_access_log WHERE document_id = pg_temp.doc('active')) - (SELECT n FROM log_before))::text,
+  '1/1/logged|0', 'a document hidden after it was counted: counters unchanged, no new access-log line');
+-- send-back 1: the definition (a race of two sessions cannot be run here)
+CREATE TEMP TABLE counter_def ON COMMIT DROP AS
+  SELECT regexp_replace(regexp_replace(pg_get_functiondef('public.increment_document_counter(uuid, text, uuid)'::regprocedure),
+                        '--[^\n]*', '', 'g'), '\s+', ' ', 'g') AS d;  -- comments out, spaces folded
+SELECT is((SELECT count(*)::int FROM counter_def,
+             regexp_matches(d, 'UPDATE community_documents SET (view|download)_count = \1_count \+ 1, updated_at = NOW\(\) WHERE id = document_uuid AND is_active IS TRUE;', 'g')),
+  2, 'both counter UPDATEs carry the active condition themselves');
+SELECT ok((SELECT position('END IF; IF NOT FOUND THEN RETURN; END IF; IF v_actor IS NOT NULL THEN INSERT INTO document_access_log' IN d) > 0 FROM counter_def),
+  'the access-log line is written only when the UPDATE changed a row');
 
 SELECT * FROM finish();
 ROLLBACK;

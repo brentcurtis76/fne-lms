@@ -475,8 +475,12 @@ test.describe.serial('FNE-ANON-01 signed-in and public journeys', () => {
     // F12d: preview and download ask the application's link route (download=1 for «Descargar»)
     const response = page.waitForResponse((r) => r.url().includes('/api/community/documents/') && r.url().includes('/link?download=1'), { timeout: 15_000 });
     await page.getByText('fneanon-doc-gcLeader', { exact: true }).first().click();
+    const downloadPromise = page.waitForEvent('download');
     await page.getByRole('button', { name: /Descargar/ }).first().click();
     expect((await response).status()).toBe(200);
+    // the file really arrives through the signed link: the bytes uploaded in test 8
+    const download = await downloadPromise;
+    expect(readFileSync((await download.path()) as string).equals(PDF.buffer)).toBe(true);
     await context.close();
   });
 

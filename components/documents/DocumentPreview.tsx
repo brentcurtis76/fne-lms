@@ -38,6 +38,23 @@ import { formatFileSize } from '../../lib/utils/file-format';
 const LINK_MAX_AGE_MS = 4 * 60 * 1000;
 const LINK_FAILED = 'No se pudo abrir el documento. Inténtalo de nuevo.';
 
+// Send-back 2: how a preview shows its file. Pictures and PDFs are fetched
+// ONCE, whole, and shown from an object address (blob:) that never expires;
+// videos stream from the signed link, renewed every four minutes.
+type PreviewKind = 'fetched' | 'video' | 'none';
+const previewKindOf = (mimeType: string): PreviewKind =>
+  mimeType.startsWith('image/') || mimeType === 'application/pdf'
+    ? 'fetched'
+    : mimeType.startsWith('video/')
+      ? 'video'
+      : 'none';
+const loadErrorOf = (mimeType: string): string =>
+  mimeType === 'application/pdf'
+    ? 'Error al cargar el PDF'
+    : mimeType.startsWith('video/')
+      ? 'Error al cargar el video'
+      : 'Error al cargar la imagen';
+
 interface DocumentPreviewProps {
   isOpen: boolean;
   onClose: () => void;
@@ -62,8 +79,14 @@ export default function DocumentPreview({
   const [imageZoom, setImageZoom] = useState(100);
   const [imageRotation, setImageRotation] = useState(0);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [linkUrl, setLinkUrl] = useState<string | null>(null);
+  // What the preview shows: the object address (picture, PDF) or the signed
+  // link (video), always tied to the document it belongs to.
+  const [source, setSource] = useState<{ documentId: string; url: string } | null>(null);
   const linkCache = useRef<{ documentId: string; url: string; at: number } | null>(null);
+  // Send-back 2: ONE guard for everything asynchronous. It changes whenever
+  // the preview opens, closes, unmounts or shows another document; every
+  // completion first checks it still holds the value it started with.
+  const generation = useRef(0);
 
   const freshLink = (documentId: string): string | null => {
     const cached = linkCache.current;
@@ -86,72 +109,127 @@ export default function DocumentPreview({
     }
   }, [document]);
 
-  // Ask for the link when the preview opens (again once the last one is four
-  // minutes old); the existing spinner shows while it is on its way.
   const documentId = document?.id;
+  const mimeType = document?.mime_type ?? '';
   const previewable = !!document && isPreviewSupported(document.mime_type);
-  useEffect(() => {
-    if (!isOpen || !documentId || !previewable) {
-      setLinkUrl(null);
-      return;
-    }
-    const fresh = freshLink(documentId);
-    if (fresh) {
-      setLinkUrl(fresh);
-      return;
-    }
-    let cancelled = false;
-    setLinkUrl(null);
-    setPreviewError(null);
-    setLoading(true);
-    requestLink(documentId)
-      .then(url => {
-        if (cancelled) return;
-        setLinkUrl(url);
-        setLoading(false);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setLoading(false);
-        setPreviewError(LINK_FAILED);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [isOpen, documentId, previewable]);
+  const kind: PreviewKind = previewable ? previewKindOf(mimeType) : 'none';
 
-  // Send-back 1: while the preview stays open, a fresh link is asked for
-  // every four minutes and swapped in, so the shown link never dies (a video
-  // still loads what it has not buffered). A failed renewal keeps the link
-  // in place; a load error then gets its own retry below. The timer stops
-  // when the preview closes or the document changes.
+  // The one retry of a video is counted per document shown.
+  const retried = useRef(false);
+  const [reloadTick, setReloadTick] = useState(0);
+
   useEffect(() => {
-    if (!isOpen || !documentId || !previewable) return;
-    let cancelled = false;
-    const timer = setInterval(() => {
-      requestLink(documentId)
+    const gen = ++generation.current;
+    const current = () => generation.current === gen;
+    retried.current = false;
+    setSource(null);
+    if (!isOpen || !documentId || !previewable) {
+      setLoading(false);
+      return () => {
+        generation.current++;
+      };
+    }
+    const id = documentId;
+    setPreviewError(null);
+
+    // Pictures and PDFs: ask for the link, fetch the whole file once, show it
+    // from an object address. If the link or the fetch fails: ONE more try
+    // with a fresh link, then the existing error panel. The object address is
+    // released when the preview closes or changes document.
+    if (kind === 'fetched') {
+      let objectUrl: string | null = null;
+      const fetchWhole = async (url: string): Promise<Blob> => {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        // The object address carries the document's own type (an image type
+        // or application/pdf), never what the store answered: an object
+        // address is of this site's origin.
+        return new Blob([await response.blob()], { type: mimeType });
+      };
+      const attempt = async (fresh: boolean): Promise<Blob> => {
+        let url: string;
+        try {
+          url = (!fresh && freshLink(id)) || (await requestLink(id));
+        } catch {
+          throw new Error(LINK_FAILED);
+        }
+        try {
+          return await fetchWhole(url);
+        } catch {
+          throw new Error(loadErrorOf(mimeType));
+        }
+      };
+      setLoading(true);
+      attempt(false)
+        .catch(() => {
+          if (!current()) throw new Error(LINK_FAILED);
+          return attempt(true);
+        })
+        .then(blob => {
+          if (!current()) return;
+          objectUrl = URL.createObjectURL(blob);
+          setSource({ documentId: id, url: objectUrl });
+          setLoading(false);
+        })
+        .catch((failure: Error) => {
+          if (!current()) return;
+          setLoading(false);
+          setPreviewError(failure.message);
+        });
+      return () => {
+        generation.current++;
+        if (objectUrl) URL.revokeObjectURL(objectUrl);
+      };
+    }
+
+    // Video: stream from the signed link; while open, a fresh link is asked
+    // for every four minutes and swapped in (a failed renewal keeps the
+    // current link; a load error then gets its retry below).
+    const fresh = freshLink(id);
+    if (fresh) {
+      setSource({ documentId: id, url: fresh });
+      setLoading(false);
+    } else {
+      setLoading(true);
+      requestLink(id)
         .then(url => {
-          if (!cancelled) setLinkUrl(url);
+          if (!current()) return;
+          setSource({ documentId: id, url });
+          setLoading(false);
+        })
+        .catch(() => {
+          if (!current()) return;
+          setLoading(false);
+          setPreviewError(LINK_FAILED);
+        });
+    }
+    const timer = setInterval(() => {
+      requestLink(id)
+        .then(url => {
+          if (current()) setSource({ documentId: id, url });
         })
         .catch(() => {});
     }, LINK_MAX_AGE_MS);
     return () => {
-      cancelled = true;
+      generation.current++;
       clearInterval(timer);
     };
-  }, [isOpen, documentId, previewable]);
+  }, [isOpen, documentId, previewable, kind, mimeType]);
 
-  // A video whose link is swapped keeps its place: before reloading the
-  // element with the new source, its position and playing state are read;
-  // once the new source's metadata arrives, the position is set back and
-  // playback resumed if it was playing.
+  const shownUrl = source && source.documentId === documentId ? source.url : null;
+
+  // A video whose link is swapped (or retried) keeps its place: before
+  // reloading the element, its position and playing state are read; once the
+  // source's metadata arrives, the position is set back and playback resumed
+  // if it was playing. A retry reloads even when the new link equals the old.
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const shownLink = useRef<string | null>(null);
+  const shownLink = useRef<{ documentId?: string; url: string | null; tick: number }>({ url: null, tick: 0 });
   useEffect(() => {
     const previous = shownLink.current;
-    shownLink.current = linkUrl;
+    shownLink.current = { documentId, url: shownUrl, tick: reloadTick };
     const video = videoRef.current;
-    if (!video || !linkUrl || !previous || previous === linkUrl) return;
+    if (kind !== 'video' || !video || !shownUrl || !previous.url || previous.documentId !== documentId) return;
+    if (previous.url === shownUrl && previous.tick === reloadTick) return;
     const position = video.currentTime;
     const playing = !video.paused && !video.ended;
     const resume = () => {
@@ -160,33 +238,33 @@ export default function DocumentPreview({
       if (playing) void video.play()?.catch(() => {});
     };
     video.addEventListener('loadedmetadata', resume);
+    const sourceElement = video.querySelector('source');
+    if (sourceElement) sourceElement.src = shownUrl;
     video.load();
-  }, [linkUrl]);
+  }, [shownUrl, reloadTick, kind, documentId]);
 
-  // On a load error of the image, the PDF frame or the video: ONE retry with
-  // a fresh link, then the existing error panel. A successful load allows a
-  // retry again later; a new document starts with one.
-  const retried = useRef(false);
-  const currentDocumentId = useRef(documentId);
-  currentDocumentId.current = documentId;
-  useEffect(() => {
-    retried.current = false;
-  }, [documentId]);
+  // A video load error: ONE retry per document shown with a fresh link that
+  // really restarts the element, then the existing error panel. A picture or
+  // PDF is already whole in memory: an error there goes to the panel.
   const handleLoadError = (message: string) => {
-    if (retried.current || !documentId) {
+    if (kind !== 'video' || retried.current || !documentId) {
       setPreviewError(message);
       return;
     }
     retried.current = true;
+    const gen = generation.current;
     const id = documentId;
     requestLink(id)
       .then(url => {
-        if (currentDocumentId.current === id) setLinkUrl(url);
+        if (generation.current !== gen) return;
+        setSource({ documentId: id, url });
+        setReloadTick(tick => tick + 1);
       })
-      .catch(() => setPreviewError(message));
+      .catch(() => {
+        if (generation.current === gen) setPreviewError(message);
+      });
   };
   const handleLoaded = () => {
-    retried.current = false;
     setLoading(false);
   };
 
@@ -194,7 +272,7 @@ export default function DocumentPreview({
 
   const fileIcon = getFileTypeIcon(document.mime_type);
   const fileColor = getFileTypeColor(document.mime_type);
-  const documentUrl = linkUrl;
+  const documentUrl = shownUrl;
   const canPreview = previewable;
 
   // Handle download
@@ -351,6 +429,7 @@ export default function DocumentPreview({
       return (
         <div className="flex-1 flex items-center justify-center bg-black">
           <video
+            key={document.id}
             ref={videoRef}
             controls
             className="max-w-full max-h-full"

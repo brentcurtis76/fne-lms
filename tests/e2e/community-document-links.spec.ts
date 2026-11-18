@@ -19,6 +19,14 @@ async function rows(sql: string, params: unknown[]) {
   try { return (await client.query(sql, params)).rows; } finally { await client.end(); }
 }
 
+// The bytes behind the object address the preview shows (read in the page).
+async function shownBytes(preview: import('@playwright/test').Locator): Promise<number[]> {
+  return preview.evaluate(async (element: HTMLImageElement | HTMLIFrameElement) => {
+    const response = await fetch(element.src.split('#')[0]);
+    return Array.from(new Uint8Array(await response.arrayBuffer()));
+  });
+}
+
 for (const role of ['gcLeader', 'consultorAssigned'] as const) {
   for (const format of ['png', 'pdf'] as const) {
     test(`${role}: upload, preview, exact download, version and reload (${format})`, async ({ browser }) => {
@@ -40,15 +48,20 @@ for (const role of ['gcLeader', 'consultorAssigned'] as const) {
       await page.getByRole('button', { name: /^Subir Documentos/ }).click();
       await expect(page.getByText(/documento\(s\) subido\(s\) exitosamente/)).toBeVisible();
       await page.reload();
+      // F12d send-back 2: the preview fetches the file ONCE through a link the
+      // application signed and shows it from an object address (blob:) that
+      // never expires. The fetch the page makes is caught and checked.
+      const signedPrefix = `${new URL(api).origin}/storage/v1/object/sign/community-documents/documents/`;
+      const fetched = page.waitForResponse(response => response.url().startsWith(signedPrefix));
       await page.getByRole('heading', { name: title, exact: true }).click();
       const preview = format === 'png' ? page.locator(`img[alt="${title}"]`) : page.locator(`iframe[title="${title}"]`);
       await expect(preview).toBeVisible();
-      const url = (await preview.getAttribute('src'))!;
-      // F12d: a new document is in the private store, shown through a link the application signed
-      expect(url).toContain(`${new URL(api).origin}/storage/v1/object/sign/community-documents/documents/`);
-      const served = await context.request.get(url.split('#')[0]);
+      // F12d: a new document is in the private store, fetched through a link the application signed
+      const served = await fetched;
       expect(served.status()).toBe(200);
       expect((await served.body()).equals(buffer)).toBe(true);
+      await expect(preview).toHaveAttribute('src', /^blob:/);
+      expect(await shownBytes(preview)).toEqual([...buffer]);
       if (format === 'png') await expect.poll(() => preview.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
       const downloadWait = page.waitForEvent('download');
       await page.getByRole('button', { name: 'Descargar', exact: true }).click();
@@ -81,12 +94,13 @@ for (const role of ['gcLeader', 'consultorAssigned'] as const) {
       expect(stored.ok()).toBe(true);
       await rows('UPDATE community_documents SET storage_path=$1, storage_bucket=NULL WHERE id=$2', [oldAddress, record.id]);
       await page.reload();
+      const legacyFetched = page.waitForResponse(response => /\/storage\/v1\/object\/sign\/resources\/documents\//.test(response.url()));
       await page.getByRole('heading', { name: title, exact: true }).click();
-      await expect(preview).toHaveAttribute('src', /\/storage\/v1\/object\/sign\/resources\/documents\//);
-      const legacyUrl = (await preview.getAttribute('src'))!;
-      const legacyServed = await context.request.get(legacyUrl.split('#')[0]);
+      const legacyServed = await legacyFetched;
       expect(legacyServed.status()).toBe(200);
       expect((await legacyServed.body()).equals(buffer)).toBe(true);
+      await expect(preview).toHaveAttribute('src', /^blob:/);
+      expect(await shownBytes(preview)).toEqual([...buffer]);
       const anonymousOld = await browser.newContext({ storageState: { cookies: [], origins: [] } });
       expect((await anonymousOld.request.get(oldAddress)).status()).toBe(200);
       await anonymousOld.close();

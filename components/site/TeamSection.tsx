@@ -43,7 +43,7 @@ export default function TeamSection() {
           <span className="l">Las personas</span> detrás del cambio
         </h2>
         <p className="rv">
-          Expertos comprometidos con la innovación educativa y el desarrollo de metodologías que potencian el
+          Un equipo experto y comprometido con la innovación educativa y el desarrollo de metodologías que potencian el
           crecimiento de cada estudiante.
         </p>
 

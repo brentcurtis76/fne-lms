@@ -40,6 +40,39 @@ export function useSiteEffects(root: RefObject<HTMLDivElement>) {
     const hasIO = 'IntersectionObserver' in window;
     const formatNumber = (value: number) => value.toLocaleString('es-CL');
 
+    // A photograph that wipes in (`.clip`) starts fully clipped, and the browser
+    // does not fetch a lazy image it considers hidden: the request used to leave
+    // only when the wipe had finished, so the wipe ran on an empty frame and the
+    // photograph popped in about a second and a half late. Two cures: the
+    // photograph is asked for while its frame is still a screen and a half away,
+    // and the wipe waits for it.
+    const fetchNow = (frame: Element) => {
+      const image = frame.querySelector('img');
+      if (image) image.loading = 'eager';
+      return image;
+    };
+    const show = (node: Element) => {
+      const image = node.classList.contains('clip') ? fetchNow(node) : null;
+      if (!image || image.complete) {
+        node.classList.add('in');
+        return;
+      }
+      const wipe = () => node.classList.add('in');
+      image.addEventListener('load', wipe, { once: true, signal });
+      image.addEventListener('error', wipe, { once: true, signal });
+    };
+    const near = hasIO
+      ? new IntersectionObserver(
+          (entries) =>
+            entries.forEach((entry) => {
+              if (!entry.isIntersecting) return;
+              near?.unobserve(entry.target);
+              fetchNow(entry.target);
+            }),
+          { rootMargin: '150% 0px' }
+        )
+      : null;
+
     const reveal = hasIO
       ? new IntersectionObserver(
           (entries) =>
@@ -48,7 +81,7 @@ export function useSiteEffects(root: RefObject<HTMLDivElement>) {
               const enough =
                 entry.intersectionRatio >= 0.14 || entry.intersectionRect.height >= window.innerHeight * 0.2;
               if (!entry.isIntersecting || !enough) return;
-              entry.target.classList.add('in');
+              show(entry.target);
               reveal?.unobserve(entry.target);
             }),
           { threshold: [0, 0.05, 0.14], rootMargin: '0px 0px -6% 0px' }
@@ -83,7 +116,8 @@ export function useSiteEffects(root: RefObject<HTMLDivElement>) {
         if (seen.has(node)) return;
         seen.add(node);
         if (reveal) reveal.observe(node);
-        else node.classList.add('in');
+        else show(node);
+        if (node.classList.contains('clip')) near?.observe(node);
       });
       el.querySelectorAll('[data-n]').forEach((node) => {
         if (seen.has(node)) return;
@@ -203,6 +237,7 @@ export function useSiteEffects(root: RefObject<HTMLDivElement>) {
       cancelAnimationFrame(cursorFrame);
       mutations?.disconnect();
       reveal?.disconnect();
+      near?.disconnect();
       counter?.disconnect();
       html.classList.remove('ne-html');
     };

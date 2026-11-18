@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { createClient } from '@supabase/supabase-js';
 import SiteLayout from '../components/site/SiteLayout';
+import PageHero from '../components/site/PageHero';
 import NewsCard from '../components/site/NewsCard';
 import { NewsArticle, PublicEvent, articleDate, excerpt, fetchNews } from '../components/site/news';
 import { formatEventDate, parseLocalDate } from '../utils/dateUtils';
@@ -115,23 +116,17 @@ export default function NewsPage() {
       title="Noticias y eventos · Fundación Nueva Educación"
       description="Mantente informado sobre las últimas actividades y eventos de la Fundación Nueva Educación"
     >
-      <section className="phero">
-        <div className="iso" aria-hidden="true">
-          <i className="mark line spin" style={{ background: '#fff' }} />
-        </div>
-        <i className="art" aria-hidden="true" style={{ ['--m' as string]: 'url(/sitio/linea-collaborative.png)' }} />
-        <div className="wrap">
-          <div className="eyebrow rv">Noticias y eventos</div>
-          <h1 className="rv">
-            <span className="l">Lo que está pasando</span> en la Nueva Educación
-          </h1>
-          <p className="lead rv">
-            Mantente informado sobre las últimas actividades, eventos y transformaciones que estamos impulsando
-            en el mundo de la educación. Historias de cambio, innovación pedagógica y el impacto de nuestros
-            programas en comunidades educativas.
-          </p>
-        </div>
-      </section>
+      <PageHero>
+        <div className="eyebrow rv">Noticias y eventos</div>
+        <h1 className="rv">
+          <span className="l">Lo que está pasando</span> en la Nueva Educación
+        </h1>
+        <p className="lead rv">
+          Mantente informado sobre las últimas actividades, eventos y transformaciones que estamos impulsando
+          en el mundo de la educación. Historias de cambio, innovación pedagógica y el impacto de nuestros
+          programas en comunidades educativas.
+        </p>
+      </PageHero>
 
       <section className="diario">
         <div className="wrap">

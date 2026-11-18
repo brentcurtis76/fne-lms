@@ -326,8 +326,6 @@ const DAY_MOMENT_HEADINGS: readonly string[] = ['Conocer', 'Observar y Preguntar
  * What the day section's still shows, and nothing it does not establish: no
  * school, place or person is named, because the frame proves none of them.
  */
-/** Line illustration behind each program card, by position. Decoration, not a fact. */
-const PROGRAM_ART: readonly string[] = ['/sitio/linea-castellier.png', '/sitio/linea-children-on-ladder.png'];
 const DAY_PHOTO_ALT = 'Una mano coloca una tarjeta sobre un muro de vidrio.';
 
 function SectionHeader({
@@ -720,11 +718,6 @@ export default function PasantiasPage({
                 style={{ ['--d' as string]: index }}
                 data-testid={`pasantias-program-${program.id}`}
               >
-                <i
-                  className="art"
-                  aria-hidden="true"
-                  style={{ ['--m' as string]: `url(${PROGRAM_ART[index] ?? PROGRAM_ART[0]})` }}
-                />
                 <h3
                   className={`m-0 text-[clamp(22px,2.6vw,28px)] font-extrabold tracking-[-.01em] ${
                     index === 0 ? 'text-white' : 'text-brand_primary'
@@ -952,7 +945,6 @@ export default function PasantiasPage({
             className="pas-cap mv mt-8 rounded-3xl bg-brand_primary p-6 text-white sm:p-10 lg:mt-12 lg:p-14"
             data-testid={`pasantias-escuelas-${inspira.id}`}
           >
-            <i className="art" aria-hidden="true" style={{ ['--m' as string]: 'url(/sitio/linea-collaborative.png)' }} />
             <div className="max-w-[760px]">
               <h3 className={`${CHAPTER_TITLE} text-white`}>{inspira.name}</h3>
               <span aria-hidden="true" className={GOLD_RULE} />
@@ -1104,7 +1096,6 @@ export default function PasantiasPage({
           aria-labelledby="equipo-title"
           data-testid="pasantias-equipo"
         >
-          <i className="art deco" aria-hidden="true" style={{ ['--m' as string]: 'url(/images/faces.png)' }} />
           <SectionHeader eyebrow="En las escuelas" title="Quién te recibe" titleId="equipo-title" />
           {/*
             One compact card per host, each with the same square portrait box:

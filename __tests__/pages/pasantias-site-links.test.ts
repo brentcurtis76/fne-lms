@@ -195,11 +195,12 @@ const INSPIRA_FLIPBOOK_IDS = ['fef3878d3c', 'fb8cf2cfb1'] as const;
  * The Directivos brochure, which stays. Pinned present, not absent — and pinned to
  * the file that carries it, for the reason in the header.
  *
- * `d87d80f309` is the iframe and is on both pages; `92bf9eb5ee` is the homepage's
- * "nueva pestaña" link and is only there.
+ * `d87d80f309` is the iframe, offered from every program sheet on /programas.
+ * The homepage offered it too, from a box under the program doors, until
+ * Brent had that box removed on 18 November 2026; its "nueva pestaña" address
+ * (`92bf9eb5ee`) had stopped existing at Heyzine by then.
  */
 const DIRECTIVOS_FLIPBOOKS: ReadonlyArray<{ path: string; ids: readonly string[] }> = [
-  { path: INDEX_PATH, ids: ['d87d80f309', '92bf9eb5ee'] },
   { path: 'pages/programas.tsx', ids: ['d87d80f309'] },
 ];
 

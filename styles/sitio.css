@@ -125,12 +125,11 @@ html.ne-html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
 .ne .phero::before{content:"";position:absolute;inset:0;z-index:-2;background:radial-gradient(120% 90% at 85% 10%,rgba(0,84,139,.75),transparent 60%),linear-gradient(180deg,var(--azul-prof),var(--noche))}
 .ne .phero .iso{position:absolute;z-index:-1;width:min(90vh,70vw);right:-14vw;top:-12vh;opacity:.16}
 .ne .phero .iso .mark{width:100%}
-.ne .phero .art{position:absolute;z-index:-1;right:var(--pad);bottom:6%;width:min(32vw,460px);aspect-ratio:1408/768;opacity:.55;background:var(--g-sol);-webkit-mask-position:100% 100%;mask-position:100% 100%}
 .ne .phero .wrap{display:grid;gap:clamp(16px,2.4vh,28px);width:100%}
 .ne .phero h1{font-size:clamp(1.7rem,4.2vw,4.4rem);letter-spacing:.045em;font-weight:900;max-width:18ch}
 .ne .phero h1 .l{font-weight:300;display:block}
 .ne .phero .lead{font-size:clamp(1.02rem,1.25vw,1.3rem);max-width:52ch;color:rgba(255,255,255,.9)}
-@media(max-width:760px){.ne .phero .art{width:86vw;opacity:.22}.ne .phero .iso{right:-40vw;width:120vw;opacity:.12}}
+@media(max-width:760px){.ne .phero .iso{right:-40vw;width:120vw;opacity:.12}}
 
 /* marquee */
 .ne .red{background:var(--gris);padding:34px 0 30px;border-bottom:1px solid rgba(0,54,91,.12)}
@@ -277,21 +276,12 @@ html.ne-html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
 .ne .door .more>div{overflow:hidden;min-width:min(420px,70vw)}
 .ne .door .more p{padding-top:14px;font-size:.98rem;color:rgba(255,255,255,.94);max-width:44ch}
 .ne .door .go{display:inline-flex;gap:.8em;margin-top:18px;font-family:var(--display);font-weight:800;font-size:.74rem;letter-spacing:.18em;text-transform:uppercase;border-bottom:1px solid #fff;padding-bottom:6px}
-.ne .mini{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
-.ne .mini>*{--g:var(--azul);position:relative;overflow:hidden;border-radius:6px;padding:26px clamp(20px,2.4vw,36px);text-decoration:none;display:flex;align-items:center;gap:20px;background:var(--g);transition:transform .5s var(--ease);color:#fff;border:0;text-align:left;cursor:pointer;font:inherit}
-.ne .mini>*:hover{transform:translateY(-4px)}
-.ne .mini .mark{width:56px;flex:none;background:var(--g-sol);transition:transform 1.2s var(--ease)}
-.ne .mini>*:hover .mark{transform:rotate(140deg)}
-.ne .mini h3{font-size:1.05rem;font-weight:900;color:#fff}
-.ne .mini p{font-size:.92rem;opacity:.92}
-.ne .mini .arr{margin-left:auto;font-family:var(--display);font-size:1.4rem}
 @media(max-width:900px){
   .ne .doors{flex-direction:column;height:auto}
   .ne .door{min-height:340px;flex:none!important}
   .ne .door .more{grid-template-rows:1fr}
   .ne .door h3{white-space:normal}
   .ne .door .art{opacity:.6}
-  .ne .mini{grid-template-columns:1fr}
 }
 
 /* pasantías teaser */
@@ -726,9 +716,6 @@ html.ne-html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
 @keyframes ne-viaje{0%{offset-distance:0%;opacity:0}2%{opacity:1}97%{opacity:1}100%{offset-distance:100%;opacity:0}}
 .ne .eco .mano{position:absolute;right:2%;bottom:-4%;font-size:clamp(2.2rem,3.2vw,3.2rem);color:var(--ocre);transform:rotate(-5deg)}
 .ne .pas-prog{position:relative;overflow:hidden;isolation:isolate}
-.ne .pas-prog .art{position:absolute;z-index:-1;right:-5%;top:-6%;width:min(62%,340px);aspect-ratio:1408/768;opacity:.2;background:#fff;-webkit-mask-position:100% 0;mask-position:100% 0;transition:transform 1.4s var(--ease),opacity .6s}
-.ne .pas-prog:nth-child(2) .art{background:var(--ocre);opacity:.28;aspect-ratio:1;width:min(40%,210px)}
-.ne .pas-prog:hover .art{transform:scale(1.1);opacity:.4}
 .ne .pas .pas-prog:hover,.ne .pas .pas-sem:hover{transform:translateY(-6px);box-shadow:0 40px 70px -44px rgba(0,36,62,.65)}
 .ne .pas [data-testid="pasantias-finde"] .mark{width:24px;flex:none;align-self:center;background:var(--azul-prof)}
 .ne .pas-mom [data-testid$="-numeral"]{transition:transform .7s cubic-bezier(.3,1.7,.5,1) calc(.15s + var(--d,0)*120ms)}
@@ -736,7 +723,6 @@ html.ne-html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
 .ne .pas-mom::after{transform-origin:0 0;transition:transform 1.3s var(--ease) calc(.4s + var(--d,0)*120ms)}
 .ne-js .ne .pas-mom:not(.in)::after{transform:scale(0)}
 .ne .pas-cap{position:relative;overflow:hidden;isolation:isolate}
-.ne .pas-cap>.art{position:absolute;z-index:-1;right:-3%;top:-10%;width:min(50%,600px);aspect-ratio:1408/768;opacity:.1;background:#fff;pointer-events:none}
 .ne .pas-esc{transition:transform .5s var(--ease),border-color .4s,background-color .4s}
 .ne .pas .pas-esc:hover{transform:translateY(-3px);border-color:var(--sol);background-color:rgba(255,255,255,.1)}
 .ne .pas-paso{position:relative}
@@ -750,10 +736,9 @@ html.ne-html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
 .ne .pas #incluye li:hover>span[aria-hidden]{transform:translateX(5px)}
 .ne .pas #calendario,.ne .pas #equipo,.ne .pas #faq{position:relative;isolation:isolate}
 .ne .pas #calendario>.art.deco{position:absolute;z-index:-1;right:var(--pad);top:clamp(40px,6vw,96px);width:min(20vw,250px);aspect-ratio:818/739;background:var(--azul);opacity:.2}
-.ne .pas #equipo>.art.deco{position:absolute;z-index:-1;right:var(--pad);top:50%;translate:0 -50%;width:min(32vw,420px);aspect-ratio:1200/896;background:var(--g-ocre);opacity:.55}
 .ne .pas #faq>.mark.deco{position:absolute;z-index:-1;right:var(--pad);top:50%;translate:0 -50%;width:min(32vw,430px);opacity:.1;background:var(--azul)}
 .ne .pas details[open]>div{animation:ne-sube .5s var(--ease) both}
-@media(max-width:1023px){.ne .pas #calendario>.art.deco,.ne .pas #equipo>.art.deco,.ne .pas #faq>.mark.deco{display:none}.ne .eco{max-width:440px}}
+@media(max-width:1023px){.ne .pas #calendario>.art.deco,.ne .pas #faq>.mark.deco{display:none}.ne .eco{max-width:440px}}
 
 @media(prefers-reduced-motion:reduce){
   .ne *,.ne *::before,.ne *::after{animation:none!important;transition:none!important}

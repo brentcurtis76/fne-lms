@@ -1,7 +1,8 @@
 /**
  * The four programs of Fundación Nueva Educación. Titles, descriptions,
- * objectives, activities and results are carried over unchanged from the
- * previous /programas page; `JOURNEY` adds only how each one is presented.
+ * objectives, activities and results come from the previous /programas page,
+ * with the foundation's wording corrections of 17 Nov 2026; `JOURNEY` adds
+ * only how each one is presented.
  */
 export interface Program {
   id: ProgramId;
@@ -36,7 +37,7 @@ export const PROGRAMS: Program[] = [
       'Programa de comunidades de crecimiento'
     ],
     results: [
-      'Calidad de vida para educadores con aulas con motor propio',
+      'Calidad de vida para educadores y educadoras con aulas con motor propio',
       'Vínculos seguros y prosociales entre pares',
       'Conexión positiva con las familias',
       'Superación de la dicotomía Convivencia/Aprendizaje',
@@ -46,20 +47,18 @@ export const PROGRAMS: Program[] = [
   {
     id: 'inspira',
     title: 'INSPIRA',
-    subtitle: 'Viaja y sumérgete en una escuela de vanguardia educativa',
+    subtitle: 'Viaja y sumérgete en escuelas de vanguardia educativa',
     duration: '2 semanas',
     description: 'INSPIRA es una experiencia diseñada para ampliar la mirada pedagógica y entregar respuestas concretas sobre cómo alcanzar paso a paso una educación de vanguardia para Chile.',
     objectives: [
-      'Visitas Pedagógicas: Jornadas en colegios de vanguardia para conocer el proyecto educativo',
-      'Estadia Pedagógica: Trabajo pedagógico en aula junto a un educador de vanguardia',
-      'Conversatorios con Expertos: Sesiones de diálogo con expertos en educación de Cataluña',
+      'Conversatorios con Expertos y Expertas: Sesiones de diálogo con especialistas en educación de Cataluña',
       'Talleres de síntesis: Síntesis de aprendizajes y recursos compartidos',
       'Plataforma de registro: Bitácora de viaje compartida con documentación del cambio'
     ],
     activities: [
-      'Jornadas de visitas a colegios de vanguardia',
-      'Trabajo pedagógico directo en aula',
-      'Diálogos con expertos educativos',
+      'Visitas Pedagógicas: Jornadas en colegios de vanguardia para conocer el proyecto educativo',
+      'Estadía Pedagógica: Trabajo pedagógico en aula junto a educadores y educadoras de vanguardia',
+      'Diálogos con especialistas en educación',
       'Síntesis de aprendizajes y desafíos',
       'Registro multimedia del viaje'
     ]
@@ -71,7 +70,7 @@ export const PROGRAMS: Program[] = [
     duration: '40-80 horas',
     description: 'Programa diseñado para establecimientos educacionales que desean conocer y discernir el inicio de un largo y profundo proceso de transformación de su cultura educativa.',
     objectives: [
-      'Asesorar y formar al director y su equipo en liderazgo del cambio',
+      'Asesorar y formar al director o directora y su equipo en liderazgo del cambio',
       'Acompañamiento al equipo de gestión para el proceso cultural',
       'Favorecer la emergencia de un sentido de urgencia compartido',
       'Visualizar un horizonte de transformación compartido',
@@ -96,7 +95,7 @@ export const PROGRAMS: Program[] = [
     title: 'EVOLUCIONA',
     subtitle: 'Hacia una transformación profunda de la cultura educativa',
     duration: '5 años',
-    description: 'Programa de evolución progresiva, estimado en 5 años de duración. Se deberá considerar el tamaño de la comunidad educativa, la velocidad de implementación y la claridad política del centro para avanzar.',
+    description: 'Programa de evolución progresiva, estimado en 5 años de duración. Se deberá considerar el tamaño de la comunidad educativa, la velocidad de implementación y la claridad de propósito del centro para avanzar.',
     objectives: [
       'Transformar la mirada pedagógica y generar un alto sentido de urgencia respecto de la imperiosa necesidad de una educación nueva',
       'Visualizar y ambicionar juntos un nuevo horizonte pedagógico',
@@ -111,11 +110,11 @@ export const PROGRAMS: Program[] = [
     ],
     activities: [
       'Asesoría directiva para diseñar y liderar el cambio',
-      'Visitas de asesores internacionales en terreno',
+      'Visitas de asesores y asesoras internacionales en terreno',
       'Asesoría técnica para la implementación de prácticas',
       'Plataforma de formación asincrónica, individual y en equipos',
-      'Formación de líderes de base',
-      'Formación de Comunidades de Crecimiento',
+      'Formación y acompañamiento de líderes de base',
+      'Formación y acompañamiento de Comunidades de Crecimiento',
       'Implementación de Hub de Transformación'
     ],
     results: [
@@ -137,9 +136,15 @@ export interface JourneyStep {
   id: ProgramId;
   /** Display name in sentence case (the data keeps the original capitals). */
   name: string;
-  /** The two families the previous page grouped the programs into. */
-  stage: 'Despegue' | 'Cambio cultural';
-  /** Short kicker shown beside the stage. */
+  /**
+   * What this step is in the journey, one word or phrase per step so the four
+   * read as a sequence: prepare, take off, change the classroom, change the
+   * whole school. (The previous page had two families, "Despegue" and "Cambio
+   * cultural", which repeated each label and hid that Evoluciona includes the
+   * classroom.)
+   */
+  stage: string;
+  /** Short fact shown beside the stage. */
   detail: string;
   /** One-paragraph summary for the homepage doors. */
   summary: string;
@@ -153,7 +158,7 @@ export const JOURNEY: JourneyStep[] = [
   {
     id: 'inicia',
     name: 'Inicia',
-    stage: 'Despegue',
+    stage: 'Preparación',
     detail: '40 a 80 horas',
     summary:
       'Introducción a la Nueva Educación. Para establecimientos que quieren conocer y discernir el inicio de un proceso profundo de transformación de su cultura educativa.',
@@ -166,15 +171,15 @@ export const JOURNEY: JourneyStep[] = [
     stage: 'Despegue',
     detail: '2 semanas en Barcelona',
     summary:
-      'Viaja y sumérgete en una escuela de vanguardia. Una experiencia para ampliar la mirada pedagógica, con respuestas concretas para Chile.',
+      'Viaja y sumérgete en escuelas de vanguardia. Una experiencia para ampliar la mirada pedagógica, con respuestas concretas para Chile.',
     gradient: 'var(--g-coral)',
     art: '/sitio/linea-castellier.png',
   },
   {
     id: 'aula-generativa',
     name: 'Aula Generativa',
-    stage: 'Cambio cultural',
-    detail: 'En la sala de clases',
+    stage: 'Cambio en el aula',
+    detail: 'Vínculos entre pares',
     summary:
       'Un ecosistema de relaciones saludables que eleva el crecimiento y el aprendizaje de cada estudiante, fortaleciendo la calidad de los vínculos entre pares.',
     gradient: 'var(--g-verde)',
@@ -183,7 +188,7 @@ export const JOURNEY: JourneyStep[] = [
   {
     id: 'evoluciona',
     name: 'Evoluciona',
-    stage: 'Cambio cultural',
+    stage: 'Cambio en todo el colegio',
     detail: '5 años',
     summary:
       'Una transformación profunda de la cultura educativa: una ruta por las siete vías, a la medida, progresiva y basada en victorias tempranas.',

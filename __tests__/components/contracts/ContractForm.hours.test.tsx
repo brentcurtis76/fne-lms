@@ -103,16 +103,42 @@ describe('ContractForm — «Horas contratadas»', () => {
     expect(hours().value).toBe('120');
     typeInto(programmeSelect(container), 'prog-b');
     expect(hours().value).toBe('80');
-    expect(screen.getByText('Se completa con las horas del programa; puede cambiarlas antes de guardar.')).toBeInTheDocument();
+    expect(screen.getByText('Se completa con las horas del programa al elegirlo; puede cambiarlas después.')).toBeInTheDocument();
   });
 
-  it('a number the admin typed is not overwritten by choosing another programme', () => {
+  // Send-back 3 (new rule): choosing a programme always gives the field that
+  // programme's hours, whatever it held. This test replaces «a number the admin
+  // typed is not overwritten by choosing another programme» (95.5 stayed).
+  it('choose 80 h, type 90, choose 120 h: the field holds 120', () => {
+    currentClient = createFakeSupabase();
+    const { container } = renderNewAtStep2();
+    typeInto(programmeSelect(container), 'prog-b');
+    expect(hours().value).toBe('80');
+    typeInto(hours(), '90');
+    typeInto(programmeSelect(container), 'prog-a');
+    expect(hours().value).toBe('120');
+  });
+
+  it('a number typed after choosing the programme stays until the programme is changed', () => {
     currentClient = createFakeSupabase();
     const { container } = renderNewAtStep2();
     typeInto(programmeSelect(container), 'prog-a');
     typeInto(hours(), '95.5');
-    typeInto(programmeSelect(container), 'prog-b');
     expect(hours().value).toBe('95.5');
+    typeInto(programmeSelect(container), '');
+    expect(hours().value).toBe('95.5');
+  });
+
+  it('a programme without hours, or «no programme», leaves the field as it is', () => {
+    currentClient = createFakeSupabase();
+    const programas = [...PROGRAMAS, { id: 'prog-c', nombre: 'Programa Sintético C', descripcion: 'Desc C', horas_totales: null, modalidad: 'online' }];
+    const { container } = renderNewAtStep2({ programas });
+    typeInto(programmeSelect(container), 'prog-b');
+    expect(hours().value).toBe('80');
+    typeInto(programmeSelect(container), 'prog-c');
+    expect(hours().value).toBe('80');
+    typeInto(programmeSelect(container), '');
+    expect(hours().value).toBe('80');
   });
 
   it('create writes horas_contratadas as a number', async () => {
@@ -203,7 +229,7 @@ describe('ContractForm — «Horas contratadas»', () => {
     }
   });
 
-  it('an edit loads the stored value, does not replace it with the programme’s, and the update carries it', async () => {
+  it('an edit loads the stored value; another programme replaces it; a typed 45 is sent', async () => {
     currentClient = createFakeSupabase({ allocations: [] });
     const onSuccess = vi.fn();
     const { container } = render(
@@ -212,8 +238,9 @@ describe('ContractForm — «Horas contratadas»', () => {
     clickButton('Siguiente');
     await waitFor(() => expect(hours().readOnly).toBe(false));
     expect(hours().value).toBe('40');
+    // Send-back 3: changing the programme gives the field the programme's hours
     typeInto(programmeSelect(container), 'prog-b');
-    expect(hours().value).toBe('40');
+    expect(hours().value).toBe('80');
     typeInto(hours(), '45');
     clickButton('Siguiente');
     clickButton(/Actualizar Contrato/);
@@ -222,6 +249,22 @@ describe('ContractForm — «Horas contratadas»', () => {
     expect(update.payload.horas_contratadas).toBe(45);
     const allocationRead = currentClient.__reads.find((r: any) => r.table === 'contract_hour_allocations');
     expect(allocationRead.filters).toEqual({ contrato_id: 'contrato-1' });
+  });
+
+  it('an edit shows the stored 100 and saves 100 when nothing is touched', async () => {
+    currentClient = createFakeSupabase({ allocations: [] });
+    const onSuccess = vi.fn();
+    render(
+      <ContractForm programas={PROGRAMAS} clientes={[CLIENTE as any]} editingContract={editingContract({ horas_contratadas: 100 })} onSuccess={onSuccess} onCancel={vi.fn()} />,
+    );
+    clickButton('Siguiente');
+    await waitFor(() => expect(hours().readOnly).toBe(false));
+    expect(hours().value).toBe('100');
+    clickButton('Siguiente');
+    clickButton(/Actualizar Contrato/);
+    await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+    const update = currentClient.__writes.find((w: any) => w.table === 'contratos' && w.op === 'update');
+    expect(update.payload).toHaveProperty('horas_contratadas', 100);
   });
 
   it('an edit that empties the field writes null', async () => {
@@ -250,7 +293,7 @@ describe('ContractForm — «Horas contratadas»', () => {
     await screen.findByText('No se puede cambiar: el contrato ya tiene una distribución de horas.');
     expect(hours().readOnly).toBe(true);
     // Send-back 2, item 3: only the lock note shows, not the "you can change them" hint
-    expect(screen.queryByText('Se completa con las horas del programa; puede cambiarlas antes de guardar.')).toBeNull();
+    expect(screen.queryByText('Se completa con las horas del programa al elegirlo; puede cambiarlas después.')).toBeNull();
     typeInto(hours(), '99');
     expect(hours().value).toBe('40');
     clickButton('Siguiente');
@@ -272,7 +315,7 @@ describe('ContractForm — «Horas contratadas»', () => {
     clickButton('Siguiente');
     await waitFor(() => expect(hours().readOnly).toBe(false));
     expect(hours().value).toBe('');
-    expect(screen.getByText('Se completa con las horas del programa; puede cambiarlas antes de guardar.')).toBeInTheDocument();
+    expect(screen.getByText('Se completa con las horas del programa al elegirlo; puede cambiarlas después.')).toBeInTheDocument();
     clickButton('Siguiente');
     clickButton(/Actualizar Contrato/);
     await waitFor(() => expect(onSuccess).toHaveBeenCalled());
@@ -302,19 +345,18 @@ describe('ContractForm — «Horas contratadas»', () => {
     expect(update.payload.programa_id).toBe('prog-b');
   });
 
-  // Send-back 2, item 1: an EMPTY field is filled again when a programme is chosen;
-  // a number in the field is not overwritten; a locked field is never changed.
-  it('a field the admin emptied is filled again when a programme is chosen', () => {
+  // Send-back 3: every programme change gives the field that programme's hours;
+  // a locked field is never changed. (Was send-back 2's «a field the admin emptied
+  // is filled again», which pinned that a typed 90 stays on a programme change.)
+  it('type 90, clear, choose 80 h, choose 120 h: the field holds 80, then 120', () => {
     currentClient = createFakeSupabase();
     const { container } = renderNewAtStep2();
-    typeInto(programmeSelect(container), 'prog-b');
-    expect(hours().value).toBe('80');
     typeInto(hours(), '90');
-    typeInto(programmeSelect(container), 'prog-a');
-    expect(hours().value).toBe('90');
     typeInto(hours(), '');
     typeInto(programmeSelect(container), 'prog-b');
     expect(hours().value).toBe('80');
+    typeInto(programmeSelect(container), 'prog-a');
+    expect(hours().value).toBe('120');
   });
 
   it('an edit whose stored hours the admin emptied is filled when another programme is chosen', async () => {
@@ -339,6 +381,23 @@ describe('ContractForm — «Horas contratadas»', () => {
     await screen.findByText('No se puede cambiar: el contrato ya tiene una distribución de horas.');
     typeInto(programmeSelect(container), 'prog-b');
     expect(hours().value).toBe('');
+  });
+
+  it('a locked field with stored hours does not change on a programme change; the update omits the column', async () => {
+    currentClient = createFakeSupabase({ allocations: [{ id: 'alloc-1' }] });
+    const onSuccess = vi.fn();
+    const { container } = render(
+      <ContractForm programas={PROGRAMAS} clientes={[CLIENTE as any]} editingContract={editingContract({ estado: 'activo' })} onSuccess={onSuccess} onCancel={vi.fn()} />,
+    );
+    clickButton('Siguiente');
+    await screen.findByText('No se puede cambiar: el contrato ya tiene una distribución de horas.');
+    typeInto(programmeSelect(container), 'prog-b');
+    expect(hours().value).toBe('40');
+    clickButton('Siguiente');
+    clickButton(/Actualizar Contrato/);
+    await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+    const update = currentClient.__writes.find((w: any) => w.table === 'contratos' && w.op === 'update');
+    expect(update.payload).not.toHaveProperty('horas_contratadas');
   });
 
   it('when the allocation read fails, the field stays read-only and the update does not send the column', async () => {

@@ -117,6 +117,12 @@ interface ContractFormProps {
   onCancel: () => void;
 }
 
+// The programme's hours as the field's text, or null when it has none (send-back 3)
+const hoursOfProgramme = (programas: Programa[], programaId: string): string | null => {
+  const programa = programas.find(p => p.id === programaId);
+  return programa && programa.horas_totales != null ? String(programa.horas_totales) : null;
+};
+
 export default function ContractForm({ programas, clientes, editingContract, preSelectedClientId, extractedData, licitacionId, licitacionData, onSuccess, onCancel }: ContractFormProps) {
   const supabase = useSupabaseClient();
   // Form states
@@ -170,10 +176,6 @@ export default function ContractForm({ programas, clientes, editingContract, pre
     contrato_url: '',
     horas_contratadas: ''
   });
-  // The admin typed in «Horas contratadas»: the programme no longer fills it (GES-2.2)
-  const [horasEdited, setHorasEdited] = useState(false);
-  // Edit mode: the admin chose another programme during this edit (send-back 1)
-  const [programaChangedInEdit, setProgramaChangedInEdit] = useState(false);
   // Whether the edited contract already has a distribution of hours; the field is
   // locked unless the read answered 'none' (GES-2.2)
   const [hourAllocationState, setHourAllocationState] = useState<'none' | 'checking' | 'has' | 'error'>(
@@ -432,21 +434,17 @@ export default function ContractForm({ programas, clientes, editingContract, pre
     }
   }, [licitacionData, clientes, editingContract]);
 
-  // Fill «Horas contratadas» from the chosen programme, unless the admin typed in the
-  // field or an edit loaded a stored value (GES-2.2). An effect, not the select's
-  // onChange: the licitación effect sets programa_id directly. In edit mode loading
-  // the contract never fills it: only a programme the admin chooses during the edit
-  // does (send-back 1), so older contracts without hours stay empty until typed.
-  // A locked field (allocations, or the read not yet answered) is never changed;
-  // an EMPTY field is filled again by the programme's select (send-back 2).
-  const horasStored = editingContract?.horas_contratadas != null;
+  // «Horas contratadas» rule (send-back 3, no memory): choosing a programme gives the
+  // field that programme's hours, whatever it held; a programme without hours (or no
+  // programme) leaves it as it is. Loading a contract never fills it; a locked field
+  // never changes. The licitación's programme of a NEW contract counts as a choice;
+  // it is applied once the programmes are known (they arrive from the page).
+  const licitacionProgramaId = licitacionData?.programa_id;
   useEffect(() => {
-    if (horasEdited || horasStored || esManual || hourAllocationState !== 'none') return;
-    if (editingContract && !programaChangedInEdit) return;
-    const programa = programas.find(p => p.id === contractForm.programa_id);
-    const horas = programa && programa.horas_totales != null ? String(programa.horas_totales) : '';
-    setContractForm(prev => (prev.horas_contratadas === horas ? prev : { ...prev, horas_contratadas: horas }));
-  }, [contractForm.programa_id, programas, horasEdited, horasStored, esManual, editingContract, programaChangedInEdit, hourAllocationState]);
+    if (!licitacionProgramaId || editingContract) return;
+    const horas = hoursOfProgramme(programas, licitacionProgramaId);
+    if (horas !== null) setContractForm(prev => ({ ...prev, horas_contratadas: horas }));
+  }, [licitacionProgramaId, programas, editingContract]);
 
   // Whether a contract already has a distribution of hours: its total must equal
   // horas_contratadas, so the column is then not written. Used by edit mode and by
@@ -1796,16 +1794,12 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                     value={contractForm.programa_id}
                     onChange={(e) => {
                       if (licitacionId) return;
-                      if (editingContract) setProgramaChangedInEdit(true);
-                      // An empty, unlocked field is filled from the new programme; a
-                      // number in the field is kept (send-back 2)
-                      const nuevo = programas.find(p => p.id === e.target.value);
-                      const fillHoras = !horasReadOnly && contractForm.horas_contratadas === '' &&
-                        nuevo && nuevo.horas_totales != null;
+                      // The programme's hours replace the field, unless locked (send-back 3)
+                      const horas = horasReadOnly ? null : hoursOfProgramme(programas, e.target.value);
                       setContractForm({
                         ...contractForm,
                         programa_id: e.target.value,
-                        ...(fillHoras ? { horas_contratadas: String(nuevo.horas_totales) } : {})
+                        ...(horas !== null ? { horas_contratadas: horas } : {})
                       });
                     }}
                     disabled={!!licitacionId}
@@ -1841,7 +1835,6 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                   readOnly={horasReadOnly}
                   onChange={(e) => {
                     if (horasReadOnly) return;
-                    setHorasEdited(true);
                     setContractForm({ ...contractForm, horas_contratadas: e.target.value });
                   }}
                   className={`w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent ${horasReadOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
@@ -1851,7 +1844,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                   <p className="text-sm text-gray-500 mt-1">
                     {esManual
                       ? 'Horas de la bolsa de este contrato (opcional).'
-                      : 'Se completa con las horas del programa; puede cambiarlas antes de guardar.'}
+                      : 'Se completa con las horas del programa al elegirlo; puede cambiarlas después.'}
                   </p>
                 )}
                 {hourAllocationState === 'has' && (

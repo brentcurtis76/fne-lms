@@ -452,6 +452,21 @@ const CommunityWorkspacePage: React.FC = () => {
     setCurrentWorkspace(null);
   };
 
+  // A person choosing a community in the chooser: a conversation link of the
+  // previous community must not stay in the address, or a reload or Back
+  // would open that community again. The section and the rest are kept.
+  const handleCommunityChosen = (communityId: string) => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.has('thread')) {
+        params.delete('thread');
+        const search = params.toString();
+        router.replace(`${window.location.pathname}${search ? `?${search}` : ''}`, undefined, { shallow: true });
+      }
+    }
+    handleCommunityChange(communityId);
+  };
+
   const handleSectionChange = async (section: string) => {
     const newSection = section as SectionType;
     
@@ -593,7 +608,7 @@ const CommunityWorkspacePage: React.FC = () => {
             {workspaceAccess.availableCommunities.map(community => (
               <button
                 key={community.id}
-                onClick={() => handleCommunityChange(community.id)}
+                onClick={() => handleCommunityChosen(community.id)}
                 className={`w-full text-left px-4 py-3 hover:bg-gray-50 border-b border-gray-100 last:border-b-0 transition-colors duration-200 ${
                   community.id === selectedCommunityId ? 'bg-[#fbbf24]/10' : ''
                 }`}

@@ -32,9 +32,18 @@ const {
   mockHasWritePermInd: vi.fn(),
 }));
 
+const sharedTestClient = vi.hoisted(() => ({ current: null as any }));
+
 vi.mock('../../../lib/api-auth', () => ({
   getApiUser: mockGetApiUserInd,
-  createApiSupabaseClient: mockCreateApiSupabaseClientInd,
+  // N1 part 1: the routes read the stored version and the expected levels with
+  // the service client after the assignee gate; here it sees the same data as
+  // the caller's client of the test.
+  createApiSupabaseClient: async (...args: unknown[]) => {
+    sharedTestClient.current = await (mockCreateApiSupabaseClientInd as any)(...args);
+    return sharedTestClient.current;
+  },
+  createServiceRoleClient: () => sharedTestClient.current,
   sendAuthError: vi.fn((res: any, msg?: string) => {
     res.status(401).json({ error: msg || 'Authentication required' });
   }),

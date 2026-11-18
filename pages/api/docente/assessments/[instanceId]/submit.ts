@@ -1,7 +1,12 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { getApiUser, createApiSupabaseClient, sendAuthError, handleMethodNotAllowed } from '@/lib/api-auth';
+import { getApiUser, createApiSupabaseClient, createServiceRoleClient, sendAuthError, handleMethodNotAllowed } from '@/lib/api-auth';
 import { calculateAndSaveScores } from '@/lib/services/assessment-builder/scoringService';
 import { resolveCoberturaGate } from '@/lib/services/assessment-builder/coberturaGatePolicy';
+import {
+  assertInstanceAssignee,
+  loadSnapshotForInstance,
+  loadActiveIndicatorIds,
+} from '@/lib/services/assessment-builder/registroAccess';
 
 /**
  * POST /api/docente/assessments/[instanceId]/submit
@@ -29,15 +34,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const supabaseClient = await createApiSupabaseClient(req, res);
 
   try {
-    // Verify the user is assigned to this instance and can submit
-    const { data: assignee, error: assigneeError } = await supabaseClient
-      .from('assessment_instance_assignees')
-      .select('*')
-      .eq('instance_id', instanceId)
-      .eq('user_id', user.id)
-      .single();
+    // Verify the user is assigned to this instance and can submit (caller's own session)
+    const assignee = await assertInstanceAssignee(supabaseClient, instanceId, user.id);
 
-    if (assigneeError || !assignee) {
+    if (!assignee) {
       return res.status(403).json({
         error: 'No tienes permiso para enviar este registro'
       });
@@ -55,7 +55,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
-    // Get instance with snapshot (R12: also fetch transformation_year, generation_type, template_id)
+    // Get instance (R12: also fetch transformation_year, generation_type)
     const { data: instance, error: instanceError } = await supabaseClient
       .from('assessment_instances')
       .select(`
@@ -63,16 +63,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         status,
         transformation_year,
         generation_type,
-        template_snapshot_id,
-        assessment_template_snapshots:template_snapshot_id (
-          template_id,
-          snapshot_data
-        )
+        template_snapshot_id
       `)
       .eq('id', instanceId)
       .single();
 
     if (instanceError || !instance) {
+      return res.status(404).json({ error: 'Registro no encontrado' });
+    }
+
+    // N1: the stored version (template_id, snapshot_data) and the expected
+    // levels are read with the service client, only after the gate above.
+    // A failed read of the stored version answers as the joined read did (404).
+    const serviceClient = createServiceRoleClient();
+    const { snapshot, error: snapshotError } = await loadSnapshotForInstance(serviceClient, instance);
+    if (snapshotError) {
+      console.error('Error fetching instance snapshot:', snapshotError);
       return res.status(404).json({ error: 'Registro no encontrado' });
     }
 
@@ -101,7 +107,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
 
     // R12: Fetch year expectations to determine active indicators for this instance
-    const snapshot = instance.assessment_template_snapshots as any;
     const snapshotData = snapshot?.snapshot_data;
 
     // Dual-path: use objectives hierarchy if present, fall back to flat modules
@@ -121,28 +126,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
-    let activeIndicatorIds: Set<string> | null = null;
+    const { ids: activeIndicatorIds, error: expError } = await loadActiveIndicatorIds(serviceClient, {
+      templateId,
+      transformationYear,
+      generationType,
+    });
 
-    if (templateId && transformationYear) {
-      const yearKey = `year_${transformationYear}_expected`;
-      const { data: expData, error: expError } = await supabaseClient
-        .from('assessment_year_expectations')
-        .select('indicator_id, ' + yearKey)
-        .eq('template_id', templateId)
-        .eq('generation_type', generationType);
-
-      if (!expError && expData && expData.length > 0) {
-        activeIndicatorIds = new Set<string>();
-        for (const row of expData) {
-          const r = row as any;
-          const expectedValue = r[yearKey];
-          if (expectedValue !== null && expectedValue !== undefined) {
-            activeIndicatorIds.add(r.indicator_id);
-          }
-        }
-      }
-      // If error or no data: leave activeIndicatorIds null (validate all indicators — backward compat)
+    // N1: a failed read of the expected levels refuses the send; nothing is changed.
+    if (expError) {
+      console.error('Error fetching year expectations:', expError);
+      return res.status(500).json({ error: 'No se pudo verificar los indicadores del registro. Inténtalo de nuevo.' });
     }
+    // No data: activeIndicatorIds stays null (legacy validation — backward compat)
 
     const missingIndicators: string[] = [];
 

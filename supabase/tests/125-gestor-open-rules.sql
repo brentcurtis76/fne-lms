@@ -150,13 +150,13 @@ SELECT tests.authenticate_as('gc117_docente');
 SELECT is(pg_temp.gc19_counts(), ARRAY[1,1,1,1], 'GC-19 docente: reads snapshot, expectation, context question, sub-question');
 RESET ROLE;
 SELECT tests.authenticate_as('gc117_docente_unrel');
-SELECT is(pg_temp.gc19_counts(), ARRAY[1,1,1,1], 'GC-19 docente of school 2: reads the four fixture rows');
+SELECT is(pg_temp.gc19_counts(), ARRAY[0,0,0,0], 'GC-19 docente of school 2 (no registro of this instrument): reads none of the four fixture rows (N1)');
 RESET ROLE;
 SELECT tests.authenticate_as('gc117_dir1');
 SELECT is(pg_temp.gc19_counts(), ARRAY[1,1,1,1], 'GC-19 directivo school 1: reads the four fixture rows');
 RESET ROLE;
 SELECT tests.authenticate_as('gc117_dir2');
-SELECT is(pg_temp.gc19_counts(), ARRAY[1,1,1,1], 'GC-19 directivo school 2: reads the four fixture rows');
+SELECT is(pg_temp.gc19_counts(), ARRAY[0,0,0,0], 'GC-19 directivo school 2 (instrument not delivered to it): reads none of the four fixture rows (N1)');
 RESET ROLE;
 SELECT tests.authenticate_as('gc117_cons');
 SELECT is(pg_temp.gc19_counts(), ARRAY[1,1,1,1], 'GC-19 consultor: reads the four fixture rows');
@@ -196,7 +196,7 @@ WITH d AS (DELETE FROM public.assessment_objectives
            WHERE id = '11700000-0000-4000-8000-0000000000a3' RETURNING 1)
 SELECT is((SELECT count(*)::int FROM d), 0, 'GC-17 docente: DELETE of a proceso changes 0 rows');
 SELECT is((SELECT count(*)::int FROM public.assessment_objectives WHERE id = '11700000-0000-4000-8000-0000000000a1'),
-  0, 'GC-17 docente: does not read the proceso (0 rows)');
+  1, 'GC-17 docente (assignee of a registro of this instrument): reads the proceso (N1)');
 RESET ROLE;
 
 SELECT tests.authenticate_as('gc117_dir1');
@@ -211,7 +211,7 @@ WITH d AS (DELETE FROM public.assessment_objectives
            WHERE id = '11700000-0000-4000-8000-0000000000a3' RETURNING 1)
 SELECT is((SELECT count(*)::int FROM d), 0, 'GC-17 directivo: DELETE of a proceso changes 0 rows');
 SELECT is((SELECT count(*)::int FROM public.assessment_objectives WHERE id = '11700000-0000-4000-8000-0000000000a1'),
-  0, 'GC-17 directivo: does not read the proceso (0 rows)');
+  1, 'GC-17 directivo of school 1 (instrument delivered to it): reads the proceso (N1)');
 RESET ROLE;
 
 SELECT tests.authenticate_as('gc117_cons');
@@ -486,12 +486,15 @@ SELECT is(
   'assessment_objectives keeps its four rules (plus the forced-password guard), all for authenticated'
 );
 SELECT ok(
-  (SELECT qual LIKE '%user_roles%' AND qual LIKE '%admin%' AND qual LIKE '%consultor%' AND qual LIKE '%is_active%'
+  (SELECT qual LIKE '%template_id IN ( SELECT auth_readable_template_ids()%'
      FROM pg_policies WHERE schemaname = 'public' AND tablename = 'assessment_objectives'
       AND policyname = 'assessment_objectives_select_authenticated'),
-  'assessment_objectives select rule now requires an active admin or consultor role (no longer USING true)');
+  'assessment_objectives select rule admits only the people who work with the instrument (auth_readable_template_ids, N1; no longer USING true)');
 SELECT is(
-  (SELECT array_agg(tablename || '.' || policyname || ':' || array_to_string(roles, ',') || ':' || qual ORDER BY tablename)
+  (SELECT array_agg(tablename || '.' || policyname || ':' || array_to_string(roles, ',') || ':' ||
+                    CASE WHEN qual LIKE '%IN ( SELECT auth_readable_template_level_ids()%' THEN 'levels'
+                         WHEN qual LIKE '%IN ( SELECT auth_readable_template_ids()%' THEN 'structure'
+                         ELSE qual END ORDER BY tablename)
      FROM pg_policies
     WHERE schemaname = 'public'
       AND (tablename, policyname) IN (
@@ -499,11 +502,11 @@ SELECT is(
         ('assessment_year_expectations', 'assessment_year_expectations_select'),
         ('assessment_context_questions', 'assessment_context_questions_select'),
         ('assessment_sub_questions', 'assessment_sub_questions_select'))),
-  ARRAY['assessment_context_questions.assessment_context_questions_select:authenticated:true',
-        'assessment_sub_questions.assessment_sub_questions_select:authenticated:true',
-        'assessment_template_snapshots.assessment_template_snapshots_select:authenticated:true',
-        'assessment_year_expectations.assessment_year_expectations_select:authenticated:true'],
-  'the four GC-19 select rules now apply to authenticated only, USING still true'
+  ARRAY['assessment_context_questions.assessment_context_questions_select:authenticated:structure',
+        'assessment_sub_questions.assessment_sub_questions_select:authenticated:structure',
+        'assessment_template_snapshots.assessment_template_snapshots_select:authenticated:levels',
+        'assessment_year_expectations.assessment_year_expectations_select:authenticated:levels'],
+  'the four GC-19 select rules apply to authenticated only and admit only the people who work with the instrument (N1)'
 );
 SELECT is(
   (SELECT count(*)::int FROM pg_policies

@@ -4,8 +4,8 @@
  "note": "Redesigned separately and live since 12 Nov 2026. Listed so that every file under pages/ has a place.",
  "routesOnly": false,
  "readFrom": {
-  "commit": "0a7ad8795b419990468bad9197d27dd375a392a3",
-  "date": "2026-11-18T14:19:15-03:00"
+  "commit": "d701100d014e948bec5766fb68836675e13355b6",
+  "date": "2026-11-18T15:21:06-03:00"
  },
  "screens": [
   {
@@ -1442,8 +1442,9 @@
     "linkedFrom": [
      "components/Footer.tsx:93",
      "components/layout/FooterNuevo.tsx:17",
+     "components/panel/PanelClasico.tsx:273",
      "components/panel/PanelClasico.tsx:274",
-     "components/panel/PanelClasico.tsx:275",
+     "components/panel/PanelNuevo.tsx:290",
      "components/site/Novedades.tsx:35",
      "components/site/SiteLayout.tsx:174",
      "components/site/SiteLayout.tsx:25",
@@ -1842,8 +1843,10 @@
      "components/NewsSlider.tsx:194",
      "components/NewsSlider.tsx:213",
      "components/NewsSlider.tsx:214",
-     "components/panel/PanelClasico.tsx:295",
-     "components/panel/PanelClasico.tsx:297",
+     "components/panel/PanelClasico.tsx:294",
+     "components/panel/PanelClasico.tsx:296",
+     "components/panel/PanelNuevo.tsx:309",
+     "components/panel/PanelNuevo.tsx:311",
      "components/site/NewsCard.tsx:15",
      "components/site/NewsCard.tsx:17",
      "lib/look.ts:108",

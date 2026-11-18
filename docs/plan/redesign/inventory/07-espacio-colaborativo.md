@@ -1,9 +1,9 @@
 # Espacio Colaborativo y comunidades
 
 Area `07-espacio-colaborativo`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `0a7ad8795` (2026-11-18).
+Read from commit `d701100d0` (2026-11-18).
 
-4 screen files, 18 API files, 68 pieces.
+4 screen files, 18 API files, 73 pieces.
 
 ## Screens
 
@@ -486,7 +486,7 @@ File `pages/community/workspace.tsx` · 2995 lines · frame: MainLayout
   - l.341 `location.href → /login  (when !(!authLoading && user) && !authLoading && !user)`
   - l.870 `router.push → /dashboard  (when error)`
   - l.2752 `No tienes permisos para ver los mensajes de esta comunidad.`
-- Linked from: `components/layout/Sidebar.tsx:1286`, `components/layout/Sidebar.tsx:221`, `components/layout/Sidebar.tsx:227`, `components/layout/Sidebar.tsx:232`, `components/panel/PanelClasico.tsx:206`, `components/panel/PanelClasico.tsx:207`, `lib/auth/forced-password-change.ts:175`, `lib/notifications/catalog.ts:170`, `lib/notifications/catalog.ts:325`, `lib/notifications/catalog.ts:331`, `lib/notifications/catalog.ts:336`, `middleware.ts:247` and 16 more
+- Linked from: `components/layout/Sidebar.tsx:1286`, `components/layout/Sidebar.tsx:221`, `components/layout/Sidebar.tsx:227`, `components/layout/Sidebar.tsx:232`, `components/panel/CommunityCardNuevo.tsx:125`, `components/panel/PanelClasico.tsx:205`, `components/panel/PanelClasico.tsx:206`, `lib/auth/forced-password-change.ts:175`, `lib/notifications/catalog.ts:170`, `lib/notifications/catalog.ts:325`, `lib/notifications/catalog.ts:331`, `lib/notifications/catalog.ts:336` and 17 more
 - Tests: browser tests that CI runs: `tests/e2e/auth-lifecycle.spec.ts`, `tests/e2e/community-document-links.spec.ts`, `tests/e2e/meeting-create-and-access.spec.ts`; browser tests CI skips: `tests/e2e/meeting-agreements-tasks.spec.ts`, `tests/e2e/meeting-finalize-email-outcome.spec.ts`, `tests/e2e/messaging-notifications.spec.ts`, `tests/e2e/notification-catalog-links.spec.ts`, `tests/e2e/panel-pin.spec.ts`, `tests/e2e/urgent-anonymous-boundaries.spec.ts`, `tests/e2e/urgent-anonymous-current.spec.ts`; unit tests of the page: `__tests__/pages/community/workspace.documents.test.tsx`, `__tests__/pages/community/workspace.mention-scope.test.tsx`, `__tests__/pages/community/workspace.messages.test.tsx`, `components/__tests__/GroupAssignmentsContent.test.skip.tsx`, `components/__tests__/GroupAssignmentsContent.test.tsx`.
 - QA scenarios that name this address: admin 7, consultor 2, lider_comunidad 5.
 
@@ -806,6 +806,8 @@ File `pages/community/workspace.tsx` · 2995 lines · frame: MainLayout
 
 - `components/common/ConfirmModal.tsx`
 - `components/community/WorkspaceSettingsModal.tsx`
+- `components/community/WorkspaceSettingsNuevo.tsx`
+- `components/community/useWorkspaceSettings.ts`
 - `components/documents/DocumentFilters.tsx`
 - `components/documents/DocumentGrid.tsx`
 - `components/documents/DocumentPreview.tsx`
@@ -841,6 +843,9 @@ File `pages/community/workspace.tsx` · 2995 lines · frame: MainLayout
 - `components/tutorials/HelpDrawer.tsx`
 - `components/tutorials/VimeoEmbed.tsx`
 - `components/ui/dialog.tsx`
+- `components/ui/kit/Button.tsx`
+- `components/ui/kit/Dialog.tsx`
+- `components/ui/kit/Field.tsx`
 - `components/workspace/WorkspaceSessionsTab.tsx`
 - `components/workspace/WorkspaceTabNavigation.tsx`
 - `lib/colorAlpha.ts`
@@ -905,8 +910,8 @@ File `pages/user/[userId].tsx` · 392 lines · frame: MainLayout
   - l.132 `roles = await getUserRoles(supabase, targetUserId)`
   - l.189 `router.push → /login`
   - l.227 `El perfil que buscas no existe o no tienes permisos para verlo.`
-- Linked from: `components/community/MemberProfileModal.tsx:163`, `components/community/MemberProfileModal.tsx:164`, `middleware.ts:358`, `pages/community/workspace.tsx:689`, `pages/community/workspace.tsx:691`
-- Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/sentry-replay-disabled.spec.ts`; unit tests of the page: `__tests__/pages/user-profile-view.test.tsx`.
+- Linked from: `components/community/MemberProfileModal.tsx:166`, `components/community/MemberProfileModal.tsx:167`, `components/community/MemberProfileNuevo.tsx:45`, `middleware.ts:358`, `pages/community/workspace.tsx:689`, `pages/community/workspace.tsx:691`
+- Tests: browser tests that CI runs: `tests/e2e/look-panel.spec.ts`; browser tests CI skips: `tests/e2e/sentry-replay-disabled.spec.ts`; unit tests of the page: `__tests__/pages/user-profile-view.test.tsx`.
 
 | Role | Sees it in the menu | Middleware |
 |---|---|---|
@@ -1079,58 +1084,115 @@ Used by: `/community/workspace`
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «Configuración de la Comunidad» | h3 |  | WorkspaceSettingsModal · l.128 |
+| «Configuración de la Comunidad» | h3 |  | WorkspaceSettingsModal · l.49 |
 
 **Buttons** (4)
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «[icon X]» | `{onClose}` |  | `{isLoading}` |  | WorkspaceSettingsModal · l.131 |
-| «[icon X]» | `{handleRemoveImage}` | `imagePreview` |  |  | WorkspaceSettingsModal · l.175 |
-| «Cancelar» | `{onClose}` |  | `{isLoading}` |  | WorkspaceSettingsModal · l.217 |
-| «Guardando... / Guardar cambios» | `{handleSave}` |  | `{isLoading \|\| (!customName.trim() && !imageFile && !imageUrl)}` |  | WorkspaceSettingsModal · l.224 |
+| «[icon X]» | `{onClose}` |  | `{isLoading}` |  | WorkspaceSettingsModal · l.52 |
+| «[icon X]» | `{handleRemoveImage}` | `imagePreview` |  |  | WorkspaceSettingsModal · l.96 |
+| «Cancelar» | `{onClose}` |  | `{isLoading}` |  | WorkspaceSettingsModal · l.138 |
+| «Guardando... / Guardar cambios» | `{handleSave}` |  | `{saveDisabled}` |  | WorkspaceSettingsModal · l.145 |
 
 **Fields** (2)
 
 | Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
 |---|---|---|---|---|---|---|
-| «Nombre de la Comunidad» | text | «Ingresa un nombre personalizado» · `maxLength={100}` |  |  |  | WorkspaceSettingsModal · l.146 |
-| «Subir imagen» | file | accepts `image/jpeg,image/jpg,image/png,image/webp` |  | hidden by its class (`hidden`); another control opens it or it is for screen readers | `id=community-image-upload (id used by code)` | WorkspaceSettingsModal · l.192 |
+| «Nombre de la Comunidad» | text | «Ingresa un nombre personalizado» · `maxLength={100}` |  |  |  | WorkspaceSettingsModal · l.67 |
+| «Subir imagen» | file | accepts `image/jpeg,image/jpg,image/png,image/webp` |  | hidden by its class (`hidden`); another control opens it or it is for screen readers | `id=community-image-upload (id used by code)` | WorkspaceSettingsModal · l.113 |
 
 **Embedded media** (1)
 
 | What | Shown when | Hook | Where |
 |---|---|---|---|
-| img · alt Vista previa · {imagePreview} | `imagePreview` |  | WorkspaceSettingsModal · l.170 |
+| img · alt Vista previa · {imagePreview} | `imagePreview` |  | WorkspaceSettingsModal · l.91 |
 
-**Pop-ups** (1)
+**Pop-ups** (2)
 
 | Name or title | How | Opens when | Texts passed to it | Where |
 |---|---|---|---|---|
-| «Configuración de la Comunidad» | written in this file |  |  | WorkspaceSettingsModal · l.125 |
-
-**Toasts** (4)
-
-| Kind | Text | When | Where |
-|---|---|---|---|
-| error | «La imagen debe ser menor a 5MB» | `file.size > 5 * 1024 * 1024` | handleImageSelect · l.42 |
-| error | «Solo se permiten imágenes (JPEG, PNG, WebP)» | `!allowedTypes.includes(file.type)` | handleImageSelect · l.49 |
-| success | «Configuración actualizada exitosamente» |  | handleSave · l.99 |
-| error | «Error al guardar la configuración» |  | handleSave · l.107 |
+| `WorkspaceSettingsNuevo` | component | `{isOpen}` |  | WorkspaceSettingsModal · l.41 |
+| «Configuración de la Comunidad» | written in this file |  |  | WorkspaceSettingsModal · l.46 |
 
 **Draws nothing when** (1)
 
 | Condition | Where |
 |---|---|
-| `!isOpen` | WorkspaceSettingsModal · l.122 |
+| `!isOpen` | WorkspaceSettingsModal · l.43 |
 
 **Other texts on screen** (5)
 
-- «Nombre de la Comunidad» (label) — WorkspaceSettingsModal · l.143
-- «Cualquier miembro puede cambiar el nombre del grupo» — WorkspaceSettingsModal · l.155
-- «Imagen de la Comunidad» (label) — WorkspaceSettingsModal · l.161
-- «Subir imagen» (label) — WorkspaceSettingsModal · l.200
-- «Máx. 5MB (JPEG, PNG, WebP)» — WorkspaceSettingsModal · l.208
+- «Nombre de la Comunidad» (label) — WorkspaceSettingsModal · l.64
+- «Cualquier miembro puede cambiar el nombre del grupo» — WorkspaceSettingsModal · l.76
+- «Imagen de la Comunidad» (label) — WorkspaceSettingsModal · l.82
+- «Subir imagen» (label) — WorkspaceSettingsModal · l.121
+- «Máx. 5MB (JPEG, PNG, WebP)» — WorkspaceSettingsModal · l.129
+
+### components/community/WorkspaceSettingsNuevo.tsx
+
+Used by: `/community/workspace`
+
+**Buttons** (4)
+
+| Text | Does | Shown when | Disabled when | Hook | Where |
+|---|---|---|---|---|---|
+| «Cancelar» | `{onClose}` |  | `{isLoading}` | `testid=workspace-settings-cancel` | WorkspaceSettingsNuevo · l.46 |
+| «Guardando... / Guardar cambios» | `{handleSave}` |  | `{saveDisabled}` | `testid=workspace-settings-save` | WorkspaceSettingsNuevo · l.49 |
+| «[icon X]» · tooltip «Quitar imagen» · aria «Quitar imagen» | `{handleRemoveImage}` | `imagePreview` |  | `testid=workspace-settings-remove-image` | WorkspaceSettingsNuevo · l.74 |
+| «Subir imagen» | `{() => fileInputRef.current?.click()}` |  |  | `testid=workspace-settings-upload` | WorkspaceSettingsNuevo · l.99 |
+
+**Fields** (2)
+
+| Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
+|---|---|---|---|---|---|---|
+| «Ingresa un nombre personalizado» | text | «Ingresa un nombre personalizado» · `maxLength={100}` |  |  | `testid=workspace-settings-name` | WorkspaceSettingsNuevo · l.56 |
+|  | file | accepts `image/jpeg,image/jpg,image/png,image/webp` |  | hidden by its class (`hidden`); another control opens it or it is for screen readers | `id=community-image-upload` | WorkspaceSettingsNuevo · l.91 |
+
+**Embedded media** (1)
+
+| What | Shown when | Hook | Where |
+|---|---|---|---|
+| img · alt Vista previa · {imagePreview} | `imagePreview` |  | WorkspaceSettingsNuevo · l.73 |
+
+**Pop-ups** (1)
+
+| Name or title | How | Opens when | Texts passed to it | Where |
+|---|---|---|---|---|
+| `Dialog` | component | `{isOpen}` | eyebrow: Mi Comunidad de Crecimiento · title: Configuración de la Comunidad | WorkspaceSettingsNuevo · l.37 |
+
+**Pieces placed here, with the texts and settings handed to them** (4)
+
+| Piece | Texts and settings | Shown when | Hook | Where |
+|---|---|---|---|---|
+| `Field` | label: Nombre de la Comunidad · help: Cualquier miembro puede cambiar el nombre del grupo |  |  | WorkspaceSettingsNuevo · l.55 |
+| `X` | aria-hidden: true | `imagePreview` |  | WorkspaceSettingsNuevo · l.82 |
+| `Camera` | aria-hidden: true | `!(imagePreview)` |  | WorkspaceSettingsNuevo · l.87 |
+| `Upload` | aria-hidden: true |  |  | WorkspaceSettingsNuevo · l.100 |
+
+**Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (1)
+
+| Kind | What | Where |
+|---|---|---|
+| role | `role=group` | WorkspaceSettingsNuevo · l.66 |
+
+**Other texts on screen** (2)
+
+- «Imagen de la Comunidad» — WorkspaceSettingsNuevo · l.68
+- «Máx. 5MB (JPEG, PNG, WebP)» — WorkspaceSettingsNuevo · l.104
+
+### components/community/useWorkspaceSettings.ts
+
+Used by: `/community/workspace`
+
+**Toasts** (4)
+
+| Kind | Text | When | Where |
+|---|---|---|---|
+| error | «La imagen debe ser menor a 5MB» | `file.size > 5 * 1024 * 1024` | handleImageSelect · l.45 |
+| error | «Solo se permiten imágenes (JPEG, PNG, WebP)» | `!allowedTypes.includes(file.type)` | handleImageSelect · l.52 |
+| success | «Configuración actualizada exitosamente» |  | handleSave · l.102 |
+| error | «Error al guardar la configuración» |  | handleSave · l.110 |
 
 ### components/documents/DocumentFilters.tsx
 
@@ -3286,6 +3348,105 @@ Used by: `/community/workspace`
 **Other texts on screen** (1)
 
 - «Close» — l.47, hidden by its class (`sr-only`); another control opens it or it is for screen readers
+
+### components/ui/kit/Button.tsx
+
+Used by: `/community/workspace`
+
+**Buttons** (1)
+
+| Text | Does | Shown when | Disabled when | Hook | Where |
+|---|---|---|---|---|---|
+| «{content}» | `{(event) => { if (loading) { // Not clickable while it works; also keeps a submi…}` |  |  |  | l.159 |
+
+**Links** (3)
+
+| Text | Goes to | Shown when | Hook | Where |
+|---|---|---|---|---|
+| «{content}» |  | `typeof rest.href === 'string' && inert` |  | l.131 |
+| «{content}» | `{href}` | `typeof rest.href === 'string' && href.startsWith('/')` |  | l.145 |
+| «{content}» | `{href}` | `typeof rest.href === 'string'` |  | l.151 |
+
+**Pieces placed here, with the texts and settings handed to them** (1)
+
+| Piece | Texts and settings | Shown when | Hook | Where |
+|---|---|---|---|---|
+| `SpinnerMark` |  | `loading` |  | l.120 |
+
+### components/ui/kit/Dialog.tsx
+
+Used by: `/community/workspace`
+
+**Pieces placed here, with the texts and settings handed to them** (2)
+
+| Piece | Texts and settings | Shown when | Hook | Where |
+|---|---|---|---|---|
+| `RadixDialog.Close` | aria-label: Cerrar | `dismissable` | `testid={testId ? '${testId}-close' : undefined}` | Dialog · l.193 |
+| `X` | aria-hidden: true | `dismissable` |  | Dialog · l.204 |
+
+**Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (5)
+
+| Kind | What | Where |
+|---|---|---|
+| lookup | `querySelectorAll({FOCUSABLE})` | firstFocusable · l.75 |
+| mark | `testid={testId}` | Dialog · l.130 |
+| focus | `candidate.focus()` | Dialog · l.151 |
+| focus | `box.focus()` | Dialog · l.154 |
+| focus | `target.focus()` | Dialog · l.160 |
+
+**Values shown from data** (5)
+
+- `{eyebrow}` — Dialog · l.179, when `eyebrow`
+- `{title}` — Dialog · l.180
+- `{description}` — Dialog · l.189, when `description`
+- `{children}` — Dialog · l.208
+- `{footer}` — Dialog · l.218, when `footer`
+
+### components/ui/kit/Field.tsx
+
+Used by: `/community/workspace`
+
+**Fields** (4)
+
+| Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
+|---|---|---|---|---|---|---|
+|  | {type} |  |  |  |  | l.229 |
+|  | textarea |  |  |  |  | l.237 |
+|  | select |  |  |  |  | l.248 |
+|  | {type} |  |  |  |  | l.268 |
+
+**Pieces placed here, with the texts and settings handed to them** (3)
+
+| Piece | Texts and settings | Shown when | Hook | Where |
+|---|---|---|---|---|
+| `AlertCircle` | aria-hidden: true | `error` |  | Field · l.133 |
+| `ChevronDown` | aria-hidden: true | hidden by its class (`hidden`); another control opens it or it is for screen readers |  | l.251 |
+| `Search` | aria-hidden: true |  |  | l.264 |
+
+**Texts kept in lists and helpers in the code (labels, options, status names)** (1)
+
+| Name | Texts | Where |
+|---|---|---|
+| `AT_LEAST_ONE` | «Marca al menos una opción.» | l.181 |
+
+**Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (3)
+
+| Kind | What | Where |
+|---|---|---|
+| lookup | `querySelectorAll(input[type="checkbox"])` | boxes · l.194 |
+| listener | `group.addEventListener('change')` | useAtLeastOneTicked · l.203 |
+| listener | `form.addEventListener('reset')` | useAtLeastOneTicked · l.204 |
+
+**Values shown from data** (3)
+
+- `{help}` — Field · l.127, when `help`
+- `{children}` — Field · l.157, when `group`
+- `{children}` — Field · l.170
+
+**Other texts on screen** (2)
+
+- «{label} {mark}» (label) — Field · l.152, when `group`
+- «{label} {mark}» (label) — Field · l.166
 
 ### components/workspace/WorkspaceSessionsTab.tsx
 

@@ -4,8 +4,8 @@
  "note": "Course system: see the note on 03-aprendizaje.",
  "routesOnly": false,
  "readFrom": {
-  "commit": "0a7ad8795b419990468bad9197d27dd375a392a3",
-  "date": "2026-11-18T14:19:15-03:00"
+  "commit": "d701100d014e948bec5766fb68836675e13355b6",
+  "date": "2026-11-18T15:21:06-03:00"
  },
  "screens": [
   {
@@ -13508,49 +13508,49 @@
    "usedBy": [
     "/admin/upcoming-courses"
    ],
-   "lines": 280,
+   "lines": 267,
    "rows": [
     {
      "kind": "hook",
-     "line": 43,
+     "line": 44,
      "in": "UpcomingCourseCard",
      "text": "window.addEventListener('resize')",
      "type": "listener"
     },
     {
      "kind": "gate",
-     "line": 49,
+     "line": 50,
      "in": "UpcomingCourseCard",
      "text": "!isMobile || !isExpanded"
     },
     {
      "kind": "hook",
-     "line": 57,
+     "line": 58,
      "in": "UpcomingCourseCard",
      "text": "document.addEventListener('mousedown')",
      "type": "listener"
     },
     {
      "kind": "gate",
-     "line": 63,
+     "line": 64,
      "in": "UpcomingCourseCard",
      "text": "isMobile"
     },
     {
      "kind": "gate",
-     "line": 71,
+     "line": 72,
      "in": "UpcomingCourseCard",
      "text": "isMobile"
     },
     {
      "kind": "gate",
-     "line": 80,
+     "line": 81,
      "in": "UpcomingCourseCard",
      "text": "!isMobile"
     },
     {
      "kind": "clickable",
-     "line": 132,
+     "line": 119,
      "in": "UpcomingCourseCard",
      "text": "Próximamente [{course.title} [{course.instructor.full_name}]] [{course.title} [{course.instructor.full_name}] [{course.…",
      "tag": "motion.div",
@@ -13559,20 +13559,20 @@
     },
     {
      "kind": "media",
-     "line": 152,
+     "line": 139,
      "in": "UpcomingCourseCard",
      "when": "course.thumbnail_url",
      "text": "img · alt {course.title} · {course.thumbnail_url}"
     },
     {
      "kind": "text",
-     "line": 174,
+     "line": 161,
      "in": "UpcomingCourseCard",
      "text": "Próximamente"
     },
     {
      "kind": "heading",
-     "line": 181,
+     "line": 168,
      "in": "UpcomingCourseCard",
      "when": "!isExpanded",
      "text": "{course.title}",
@@ -13580,14 +13580,14 @@
     },
     {
      "kind": "value",
-     "line": 189,
+     "line": 176,
      "in": "UpcomingCourseCard",
      "when": "!isExpanded && course.instructor",
      "text": "{course.instructor.full_name}"
     },
     {
      "kind": "heading",
-     "line": 210,
+     "line": 197,
      "in": "UpcomingCourseCard",
      "when": "isExpanded",
      "text": "{course.title}",
@@ -13595,42 +13595,42 @@
     },
     {
      "kind": "value",
-     "line": 220,
+     "line": 207,
      "in": "UpcomingCourseCard",
      "when": "isExpanded && course.instructor",
      "text": "{course.instructor.full_name}"
     },
     {
      "kind": "value",
-     "line": 228,
+     "line": 215,
      "in": "UpcomingCourseCard",
      "when": "isExpanded && course.description",
      "text": "{course.description}"
     },
     {
      "kind": "text",
-     "line": 237,
+     "line": 224,
      "in": "UpcomingCourseCard",
      "when": "isExpanded && formattedDate",
      "text": "Disponible en {formattedDate}"
     },
     {
      "kind": "text",
-     "line": 245,
+     "line": 232,
      "in": "UpcomingCourseCard",
      "when": "isExpanded && !(formattedDate)",
      "text": "Fecha por confirmar"
     },
     {
      "kind": "value",
-     "line": 260,
+     "line": 247,
      "in": "UpcomingCourseCard",
      "when": "!isExpanded && formattedDate",
      "text": "{formattedDate}"
     },
     {
      "kind": "text",
-     "line": 268,
+     "line": 255,
      "in": "UpcomingCourseCard",
      "when": "!isExpanded && !(formattedDate)",
      "text": "Fecha por confirmar"
@@ -14944,7 +14944,10 @@
     "/mi-aprendizaje"
    ],
    "referencedIn": [
+    "__tests__/helpers/panelFakes.tsx",
     "__tests__/pages/dashboard.clasico.test.tsx",
+    "__tests__/pages/dashboard.nuevo.test.tsx",
+    "__tests__/pages/dashboard.samePanel.test.tsx",
     "hooks/usePanel.ts",
     "pages/mi-aprendizaje.tsx",
     "tests/e2e/learning-path-governance.spec.ts",
@@ -15117,7 +15120,10 @@
    ],
    "referencedIn": [
     "__tests__/api/upcoming-courses/metadata-authority.test.ts",
+    "__tests__/helpers/panelFakes.tsx",
     "__tests__/pages/dashboard.clasico.test.tsx",
+    "__tests__/pages/dashboard.nuevo.test.tsx",
+    "__tests__/pages/dashboard.samePanel.test.tsx",
     "hooks/usePanel.ts",
     "pages/admin/upcoming-courses/index.tsx",
     "tests/e2e/meeting-finalize-email-outcome.spec.ts",

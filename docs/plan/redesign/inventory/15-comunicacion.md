@@ -1,7 +1,7 @@
 # Comunicación (news and events)
 
 Area `15-comunicacion`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `0a7ad8795` (2026-11-18).
+Read from commit `d701100d0` (2026-11-18).
 
 2 screen files, 4 API files, 6 pieces.
 
@@ -505,6 +505,6 @@ Used by: `/admin/news`
 |---|---|---|---|---|
 | `/api/admin/news` | `pages/api/admin/news.ts` | DELETE, GET, POST, PUT | `/admin/news` | `pages/admin/news.tsx` |
 | `/api/news/[slug]` | `pages/api/news/[slug].ts` | GET | **no screen** |  |
-| `/api/news` | `pages/api/news/index.ts` | GET | `/`, `/dashboard`, `/noticias`, `/noticias/[slug]` | `__tests__/pages/dashboard.clasico.test.tsx`, `components/site/news.ts`, `hooks/usePanel.ts`, `tests/e2e/meeting-finalize-email-outcome.spec.ts`, `tests/e2e/panel-pin.spec.ts` |
+| `/api/news` | `pages/api/news/index.ts` | GET | `/`, `/dashboard`, `/noticias`, `/noticias/[slug]` | `__tests__/helpers/panelFakes.tsx`, `__tests__/pages/dashboard.clasico.test.tsx`, `__tests__/pages/dashboard.nuevo.test.tsx`, `__tests__/pages/dashboard.samePanel.test.tsx`, `components/site/news.ts` +3 |
 | `/api/public/events` | `pages/api/public/events.ts` | GET | `/noticias` | `pages/noticias.tsx` |
 

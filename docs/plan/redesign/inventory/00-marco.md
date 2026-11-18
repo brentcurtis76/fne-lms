@@ -1,7 +1,7 @@
 # Marco (the frame around every screen)
 
 Area `00-marco`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `0a7ad8795` (2026-11-18).
+Read from commit `d701100d0` (2026-11-18).
 
 The app shell, the menu, the top bar, the bell, the footer and the feedback button. Its pieces are listed here once and not repeated under each screen.
 
@@ -535,21 +535,21 @@ Used by: `(the frame)`
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «Política de Privacidad» | `{() => setShowPrivacyPolicy(true)}` |  |  |  | FooterNuevo · l.38 |
-| «Términos de Uso» | `{() => setShowTermsOfUse(true)}` |  |  |  | FooterNuevo · l.41 |
+| «Política de Privacidad» | `{() => setShowPrivacyPolicy(true)}` |  |  |  | FooterNuevo · l.45 |
+| «Términos de Uso» | `{() => setShowTermsOfUse(true)}` |  |  |  | FooterNuevo · l.48 |
 
 **Links** (1)
 
 | Text | Goes to | Shown when | Hook | Where |
 |---|---|---|---|---|
-| «{link.label}» | `{link.href}` | `each FOOTER_NUEVO_LINKS` |  | FooterNuevo · l.34 |
+| «{link.label}» | `{link.href}` | `each FOOTER_NUEVO_LINKS` |  | FooterNuevo · l.41 |
 
 **Pop-ups** (2)
 
 | Name or title | How | Opens when | Texts passed to it | Where |
 |---|---|---|---|---|
-| `PrivacyPolicyModal` | component | `{showPrivacyPolicy}` |  | FooterNuevo · l.48 |
-| `TermsOfUseModal` | component | `{showTermsOfUse}` |  | FooterNuevo · l.49 |
+| `PrivacyPolicyModal` | component | `{showPrivacyPolicy}` |  | FooterNuevo · l.55 |
+| `TermsOfUseModal` | component | `{showTermsOfUse}` |  | FooterNuevo · l.56 |
 
 **Texts kept in lists and helpers in the code (labels, options, status names)** (1)
 
@@ -561,12 +561,12 @@ Used by: `(the frame)`
 
 | Kind | What | Where |
 |---|---|---|
-| mark | `testid=footer-nuevo` | FooterNuevo · l.31 |
+| mark | `testid=footer-nuevo` | FooterNuevo · l.38 |
 
 **Other texts on screen** (2)
 
-- «ATE certificada por RPA Mineduc» — FooterNuevo · l.44
-- «Santiago, Chile» — FooterNuevo · l.45
+- «ATE certificada por RPA Mineduc» — FooterNuevo · l.51
+- «Santiago, Chile» — FooterNuevo · l.52
 
 ### components/layout/MainLayout.tsx
 

@@ -41,11 +41,13 @@ interface Contrato {
   numero_contrato: string;
   fecha_contrato: string;
   cliente_id: string;
-  programa_id: string;
+  programa_id: string | null;
   precio_total_uf: number;
   tipo_moneda?: 'UF' | 'CLP';
+  es_manual?: boolean | null;
+  descripcion_manual?: string | null;
   clientes: Cliente;
-  programas: Programa;
+  programas: Programa | null;
 }
 
 interface CuotaForm {
@@ -541,7 +543,7 @@ export default function AnnexForm({ clientes, editingAnnex, onSuccess, onCancel 
                   }`}
                 >
                   <div className="font-semibold text-brand_primary">{contrato.numero_contrato}</div>
-                  <div className="text-sm text-gray-600">{contrato.programas.nombre}</div>
+                  <div className="text-sm text-gray-600">{contrato.programas?.nombre || contrato.descripcion_manual || 'Contrato manual'}</div>
                   <div className="text-sm text-gray-500">
                     Fecha: {(() => {
                       const parts = contrato.fecha_contrato.split('T')[0].split('-');

@@ -6,7 +6,7 @@
 -- The entry points of the community workspace (middleware gate, list of
 -- communities, ensure-workspace, member list, mention search) run with the
 -- caller's session, which cannot read consultant_assignments (admins only).
--- This adds ONE read-only helper about the caller:
+-- This adds ONE read-only helper about the caller and ONE additional read rule:
 --
 --   public.auth_consultor_assigned_school_ids() RETURNS SETOF integer
 --     the distinct school_id of the caller's consultant_assignments rows that
@@ -16,7 +16,16 @@
 --     otherwise. Rows naming only a generation, community or person (no
 --     school_id) do not count, as in public.auth_is_assigned_consultor.
 --
--- Additive: no table, row, rule, existing function or grant is changed.
+--   rule "consultants_read_assigned_school_workspaces" on community_workspaces
+--     (send-back 1, 18 Nov 2026): a permissive SELECT rule for authenticated —
+--     the workspace's own row (name, picture, settings) is readable by a
+--     consultor currently assigned to the school of the workspace's community,
+--     whatever school their role row names. It sits next to the role-school
+--     rule "consultants_read_school_workspaces", which stays as it is. What a
+--     consultor reads inside a workspace (posts, documents, messages,
+--     meetings) is not changed here.
+--
+-- Additive: no table, row, existing rule, existing function or grant is changed.
 -- =============================================================================
 
 CREATE FUNCTION public.auth_consultor_assigned_school_ids()
@@ -51,3 +60,8 @@ REVOKE ALL ON FUNCTION public.auth_consultor_assigned_school_ids() FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.auth_consultor_assigned_school_ids() FROM anon;
 GRANT EXECUTE ON FUNCTION public.auth_consultor_assigned_school_ids() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.auth_consultor_assigned_school_ids() TO service_role;
+
+CREATE POLICY "consultants_read_assigned_school_workspaces" ON public.community_workspaces FOR SELECT TO authenticated
+  USING (EXISTS (SELECT 1 FROM public.growth_communities gc
+                  WHERE gc.id = community_workspaces.community_id
+                    AND gc.school_id IN (SELECT public.auth_consultor_assigned_school_ids())));

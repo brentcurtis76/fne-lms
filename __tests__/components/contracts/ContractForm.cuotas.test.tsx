@@ -201,6 +201,37 @@ describe('ContractForm — «Calcular Automático»', () => {
     expect(screen.getByRole('button', { name: /Guardar Contrato/ })).toBeDisabled();
   });
 
+  // Send-back 2, item 4: the form says why a schedule with a zero cuota cannot be saved.
+  it('1 CLP in three cuotas after «Calcular Automático»: the message names cuota 1', () => {
+    currentClient = createFakeSupabase();
+    const { container } = render(
+      <ContractForm programas={PROGRAMAS} clientes={[]} onSuccess={vi.fn()} onCancel={vi.fn()} />,
+    );
+    goToCuotas(container, 1, 'CLP');
+    clickButton(/Agregar Cuota/);
+    clickButton(/Agregar Cuota/);
+    clickButton('Calcular Automático');
+    fillCuotaDates(container);
+
+    expect(amounts(container)).toEqual(['0', '0', '1']);
+    expect(screen.getByText('La cuota 1 necesita un monto mayor que cero.')).toBeInTheDocument();
+    expect(screen.queryByText(/La cuota 2 necesita/)).toBeNull();
+    expect(screen.getByRole('button', { name: /Guardar Contrato/ })).toBeDisabled();
+  });
+
+  it('a schedule whose cuotas are all above zero shows no zero-cuota message', () => {
+    currentClient = createFakeSupabase();
+    const { container } = render(
+      <ContractForm programas={PROGRAMAS} clientes={[]} onSuccess={vi.fn()} onCancel={vi.fn()} />,
+    );
+    goToCuotas(container, 100);
+    clickButton(/Agregar Cuota/);
+    clickButton(/Agregar Cuota/);
+    clickButton('Calcular Automático');
+    fillCuotaDates(container);
+    expect(screen.queryByText(/necesita un monto mayor que cero/)).toBeNull();
+  });
+
   it('after «Calcular Automático» on 100 UF in three, the save writes exactly 33.33, 33.33, 33.34', async () => {
     currentClient = createFakeSupabase({ clienteByRut: null });
     const onSuccess = vi.fn();

@@ -1146,6 +1146,8 @@ export default function ContractForm({ programas, clientes, editingContract, pre
     : badPrecisionCuota
       ? precisionMessage({ cuota: badPrecisionCuota.numero_cuota })
       : null;
+  // A cuota whose amount is not above zero cannot be saved: say which (send-back 2)
+  const zeroAmountCuota = cuotas.find(c => !(c.monto > 0));
 
   // Validation
   const isStepValid = () => {
@@ -2018,6 +2020,14 @@ export default function ContractForm({ programas, clientes, editingContract, pre
             {amountPrecisionError && (
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                 <p className="text-yellow-800 text-sm">{amountPrecisionError}</p>
+              </div>
+            )}
+
+            {zeroAmountCuota && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <p className="text-yellow-800 text-sm">
+                  La cuota {zeroAmountCuota.numero_cuota} necesita un monto mayor que cero.
+                </p>
               </div>
             )}
           </div>

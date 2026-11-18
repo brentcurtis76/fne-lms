@@ -8,8 +8,10 @@ import { formatFileSize } from '../lib/utils/file-format';
 import { getUserWorkspaceAccess } from './workspaceUtils';
 import { fetchProfileCards, cardName } from '../lib/profile-cards';
 
-// Storage bucket configuration
-const STORAGE_BUCKET = process.env.NEXT_PUBLIC_STORAGE_BUCKET || 'resources';
+// F12d (EC-S3): a community's documents are stored in the private store
+// `community-documents`, whatever NEXT_PUBLIC_STORAGE_BUCKET says, and are
+// opened only through links signed by /api/community/documents/<id>/link.
+const DOCUMENTS_BUCKET = 'community-documents';
 import {
   CommunityDocument,
   DocumentWithDetails,
@@ -264,7 +266,7 @@ export async function uploadDocument(
 
       // Upload file to Supabase Storage
       const { data: uploadResult, error: uploadError } = await supabase.storage
-        .from(STORAGE_BUCKET)
+        .from(DOCUMENTS_BUCKET)
         .upload(storagePath, file);
 
       if (uploadError) throw uploadError;
@@ -283,6 +285,7 @@ export async function uploadDocument(
           file_size: file.size,
           mime_type: file.type,
           storage_path: storagePath,
+          storage_bucket: DOCUMENTS_BUCKET,
           uploaded_by: userId,
         })
         .select()
@@ -295,6 +298,7 @@ export async function uploadDocument(
         document_id: documentData.id,
         version_number: 1,
         storage_path: storagePath,
+        storage_bucket: DOCUMENTS_BUCKET,
         file_size: file.size,
         mime_type: file.type,
         uploaded_by: userId,
@@ -459,6 +463,58 @@ export async function incrementDocumentCounter(
     console.error('Error incrementing document counter:', error);
     throw error;
   }
+}
+
+// =============================================================================
+// DOCUMENT LINKS (F12d)
+// =============================================================================
+
+/** Why no link came: no session in the browser, or anything else. */
+export class DocumentLinkError extends Error {
+  reason: 'session' | 'failed';
+  constructor(reason: 'session' | 'failed') {
+    super(reason === 'session' ? 'No session' : 'Document link failed');
+    this.name = 'DocumentLinkError';
+    this.reason = reason;
+  }
+}
+
+/**
+ * A five-minute signed link to a community document's file (or one of its
+ * versions), from /api/community/documents/<id>/link. Throws
+ * DocumentLinkError: 'session' when there is no session (the route is not
+ * asked), 'failed' for any refusal or failure. The link is never logged.
+ */
+export async function getDocumentLink(
+  documentId: string,
+  options: { download?: boolean; versionId?: string } = {}
+): Promise<string> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session?.access_token) throw new DocumentLinkError('session');
+
+  const query = new URLSearchParams();
+  if (options.download) query.set('download', '1');
+  if (options.versionId) query.set('version', options.versionId);
+  const address =
+    `/api/community/documents/${encodeURIComponent(documentId)}/link` + (query.toString() ? `?${query}` : '');
+
+  let response: Response;
+  try {
+    response = await fetch(address, {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+      credentials: 'same-origin',
+    });
+  } catch (error) {
+    console.error('Error requesting document link:', error instanceof Error ? error.name : 'unknown');
+    throw new DocumentLinkError('failed');
+  }
+  if (response.status === 401) throw new DocumentLinkError('session');
+  if (!response.ok) throw new DocumentLinkError('failed');
+  const body = await response.json().catch(() => null);
+  if (typeof body?.url !== 'string' || !body.url) throw new DocumentLinkError('failed');
+  return body.url;
 }
 
 // =============================================================================

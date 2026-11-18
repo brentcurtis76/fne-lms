@@ -23,7 +23,6 @@ import DocumentUploadModal from '../../components/documents/DocumentUploadModal'
 import DocumentGrid from '../../components/documents/DocumentGrid';
 import FolderNavigation from '../../components/documents/FolderNavigation';
 import DocumentPreview from '../../components/documents/DocumentPreview';
-import { resolveCommunityDocumentUrl } from '../../lib/storage/community-document-url';
 import DocumentFilters from '../../components/documents/DocumentFilters';
 import MessageFilters from '../../components/messaging/MessageFilters';
 import MessageComposer from '../../components/messaging/MessageComposer';
@@ -64,6 +63,7 @@ import {
   uploadDocument,
   createFolder,
   incrementDocumentCounter,
+  getDocumentLink,
   getFolderBreadcrumb,
   extractUniqueTags,
   renameDocument,
@@ -1648,67 +1648,39 @@ const DocumentsTabContent: React.FC<DocumentsTabContentProps> = ({ workspace, wo
         handleDocumentClick(document);
         break;
         
-      case 'download':
-        if (document.storage_path) {
-          const documentUrl = resolveCommunityDocumentUrl(document.storage_path);
-          if (!documentUrl) {
-            toast.error('El enlace del documento no es válido');
-            return;
-          }
-          try {
-            // Track download
-            await incrementDocumentCounter(document.id, 'download', user.id);
+      case 'download': {
+        // F12d (EC-S3): only through a five-minute link the application signs
+        // (/api/community/documents/<id>/link?download=1); no address is ever
+        // opened without a session (N147).
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (!session?.access_token) {
+          toast.error('Tu sesión expiró. Vuelve a iniciar sesión para descargar el documento.');
+          return;
+        }
+        try {
+          toast.loading('Preparando descarga...', { id: 'download' });
 
-            // Get session for authentication
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!session?.access_token) {
-              // Fallback to direct URL if no session
-              window.open(documentUrl, '_blank');
-              return;
-            }
+          // Track download
+          await incrementDocumentCounter(document.id, 'download', user.id);
 
-            toast.loading('Preparando descarga...', { id: 'download' });
-
-            // Use the download API that streams the file directly
-            const downloadUrl = `/api/storage/download?url=${encodeURIComponent(documentUrl)}&filename=${encodeURIComponent(document.file_name)}`;
-
-            const response = await fetch(downloadUrl, {
-              headers: {
-                'Authorization': `Bearer ${session.access_token}`
-              }
-            });
-
-            if (!response.ok) {
-              console.error('Download failed:', response.status);
-              toast.dismiss('download');
-              window.open(documentUrl, '_blank');
-              return;
-            }
-
-            // Get the blob and create download link
-            const blob = await response.blob();
-            const blobUrl = window.URL.createObjectURL(blob);
-
-            const link = window.document.createElement('a');
-            link.href = blobUrl;
-            link.download = document.file_name;
-            window.document.body.appendChild(link);
-            link.click();
-            window.document.body.removeChild(link);
-
-            // Clean up the blob URL
-            window.URL.revokeObjectURL(blobUrl);
-
-            toast.dismiss('download');
-            toast.success('Descarga completada');
-          } catch (error) {
-            console.error('Download error:', error);
-            toast.dismiss('download');
-            // Fallback to direct URL
-            window.open(documentUrl, '_blank');
+          const downloadUrl = await getDocumentLink(document.id, { download: true });
+          toast.dismiss('download');
+          // The store answers this link with "save this file": the page stays.
+          window.location.assign(downloadUrl);
+          toast.success('Descarga completada');
+        } catch (error) {
+          toast.dismiss('download');
+          if ((error as { reason?: string } | null)?.reason === 'session') {
+            toast.error('Tu sesión expiró. Vuelve a iniciar sesión para descargar el documento.');
+          } else {
+            console.error('Download error:', error instanceof Error ? error.name : 'unknown');
+            toast.error('No se pudo abrir el documento. Inténtalo de nuevo.');
           }
         }
         break;
+      }
         
       case 'edit':
         setRenameTitle(document.title);

@@ -3,7 +3,7 @@
 // =============================================================================
 // Professional document preview with support for images, PDFs, and file info
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   X,
   Download,
@@ -28,9 +28,15 @@ import {
   getFileTypeIcon,
   getFileTypeColor,
   formatRelativeTime,
+  getDocumentLink,
 } from '../../utils/documentUtils';
 import { formatFileSize } from '../../lib/utils/file-format';
-import { resolveCommunityDocumentUrl } from '../../lib/storage/community-document-url';
+
+// F12d (EC-S3): the file is shown and opened only through a five-minute link
+// signed by /api/community/documents/<id>/link; a link is reused for at most
+// four minutes, then asked for again.
+const LINK_MAX_AGE_MS = 4 * 60 * 1000;
+const LINK_FAILED = 'No se pudo abrir el documento. Inténtalo de nuevo.';
 
 interface DocumentPreviewProps {
   isOpen: boolean;
@@ -56,6 +62,18 @@ export default function DocumentPreview({
   const [imageZoom, setImageZoom] = useState(100);
   const [imageRotation, setImageRotation] = useState(0);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [linkUrl, setLinkUrl] = useState<string | null>(null);
+  const linkCache = useRef<{ documentId: string; url: string; at: number } | null>(null);
+
+  const freshLink = (documentId: string): string | null => {
+    const cached = linkCache.current;
+    return cached && cached.documentId === documentId && Date.now() - cached.at < LINK_MAX_AGE_MS ? cached.url : null;
+  };
+  const requestLink = async (documentId: string): Promise<string> => {
+    const url = await getDocumentLink(documentId);
+    linkCache.current = { documentId, url, at: Date.now() };
+    return url;
+  };
 
   // Reset state when document changes
   useEffect(() => {
@@ -68,22 +86,66 @@ export default function DocumentPreview({
     }
   }, [document]);
 
+  // Ask for the link when the preview opens (again once the last one is four
+  // minutes old); the existing spinner shows while it is on its way.
+  const documentId = document?.id;
+  const previewable = !!document && isPreviewSupported(document.mime_type);
+  useEffect(() => {
+    if (!isOpen || !documentId || !previewable) {
+      setLinkUrl(null);
+      return;
+    }
+    const fresh = freshLink(documentId);
+    if (fresh) {
+      setLinkUrl(fresh);
+      return;
+    }
+    let cancelled = false;
+    setLinkUrl(null);
+    setPreviewError(null);
+    setLoading(true);
+    requestLink(documentId)
+      .then(url => {
+        if (cancelled) return;
+        setLinkUrl(url);
+        setLoading(false);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setLoading(false);
+        setPreviewError(LINK_FAILED);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, documentId, previewable]);
+
   if (!isOpen || !document) return null;
 
   const fileIcon = getFileTypeIcon(document.mime_type);
   const fileColor = getFileTypeColor(document.mime_type);
-  const documentUrl = resolveCommunityDocumentUrl(document.storage_path);
-  const canPreview = !!documentUrl && isPreviewSupported(document.mime_type);
+  const documentUrl = linkUrl;
+  const canPreview = previewable;
 
   // Handle download
   const handleDownload = () => {
     onDownload(document);
   };
 
-  // Handle external link open
-  const handleExternalOpen = () => {
-    if (documentUrl) {
-      window.open(documentUrl, '_blank');
+  // Handle external link open: the tab is reserved during the click (a
+  // browser blocks one opened only after the wait), then sent to the link.
+  const handleExternalOpen = async () => {
+    const tab = window.open('', '_blank');
+    if (!tab) {
+      setPreviewError(LINK_FAILED);
+      return;
+    }
+    tab.opener = null;
+    try {
+      tab.location.href = freshLink(document.id) ?? (await requestLink(document.id));
+    } catch {
+      tab.close();
+      setPreviewError(LINK_FAILED);
     }
   };
 
@@ -139,6 +201,8 @@ export default function DocumentPreview({
         </div>
       );
     }
+
+    if (!documentUrl) return null;
 
     // Image preview
     if (document.mime_type.startsWith('image/')) {

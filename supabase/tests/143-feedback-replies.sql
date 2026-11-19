@@ -153,6 +153,7 @@ SELECT policies_are('public', 'feedback_activity', ARRAY[
   'Users can view activity for their feedback',
   'feedback_activity_admin_all',
   'feedback_activity_user_view_own',
+  'feedback_activity_system_lines_by_admins',
   'forced_password_change_guard'],
   'feedback_activity keeps exactly its four rules and the restrictive forced-password-change guard');
 SELECT ok(

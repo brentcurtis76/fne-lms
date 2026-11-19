@@ -5,16 +5,14 @@
 -- What the person who reported a problem may WRITE on Soporte.
 --
 --   A. On public.feedback_activity only an admin, or the system's own trigger,
---      should write a SYSTEM line (is_system_message true). NOT BUILT in this
---      build: the restrictive rule for it makes 143-feedback-replies.sql test 6
---      (policies_are, "keeps exactly its four rules ...") fail, a stop condition
---      of the brief. The reporter's forged system line is therefore pinned as
---      a TODO below (it still succeeds); everything else of item A is pinned.
+--      writes a SYSTEM line (is_system_message true); everybody else's rows are
+--      ordinary comments.
 --   B. On public.platform_feedback a reporter creates their ticket and reads it;
 --      changing or deleting a ticket is for admins.
 --
 --   0. catalog: how the state-change line is written (who runs the insert,
---      does it pass row level security), and the rules this build adds
+--      does it pass row level security), the rules this build adds, and the
+--      exact rule list of both tables after this build
 --   1. item A: system lines and ordinary comments per role; the trigger's line
 --   2. item B: role x operation on platform_feedback (admin, reporter, another
 --      signed-in person, visitor x read, add, change, delete)
@@ -29,7 +27,7 @@
 
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap;
-SELECT plan(59);
+SELECT plan(62);
 
 CREATE TEMP TABLE ids (p text PRIMARY KEY, id uuid) ON COMMIT DROP;
 GRANT SELECT ON ids TO anon, authenticated;
@@ -99,8 +97,8 @@ CREATE OR REPLACE FUNCTION pg_temp.line(id text, k text, author text, msg text, 
 $$ LANGUAGE sql;
 
 -- Rows on ticket k, counted as postgres (no rules). The reporter's forged system line
--- (id ...a1, item A, not built) is left out of the count, so the counts hold whether
--- or not that line was refused.
+-- (id ...a1, refused) is left out of the count, so a regression shows in the two forged-line tests
+-- and not as a knock-on count elsewhere.
 CREATE OR REPLACE FUNCTION pg_temp.rows_on(k text) RETURNS int AS $$
   SELECT count(*)::int FROM public.feedback_activity
    WHERE feedback_id = pg_temp.ticket(k)::uuid AND id <> '14400000-0000-4000-8000-0000000000a1';
@@ -154,6 +152,26 @@ SELECT is((SELECT permissive || '/' || cmd || '/' || roles::text FROM pg_policie
 SELECT is((SELECT permissive || '/' || cmd || '/' || roles::text FROM pg_policies
             WHERE schemaname = 'public' AND tablename = 'platform_feedback' AND policyname = 'platform_feedback_delete_by_admins'),
   'RESTRICTIVE/DELETE/{authenticated}', 'catalog: platform_feedback_delete_by_admins is a restrictive DELETE rule for signed-in people');
+SELECT is((SELECT permissive || '/' || cmd || '/' || roles::text || '/' || coalesce(with_check, '') FROM pg_policies
+            WHERE schemaname = 'public' AND tablename = 'feedback_activity' AND policyname = 'feedback_activity_system_lines_by_admins'),
+  'RESTRICTIVE/INSERT/{authenticated}/((is_system_message IS NOT TRUE) OR auth_is_admin())',
+  'catalog: feedback_activity_system_lines_by_admins is a restrictive INSERT rule for signed-in people');
+-- Every rule of the two tables after this build, so the next change to them is seen.
+SELECT policies_are('public', 'platform_feedback', ARRAY[
+  'forced_password_change_guard',
+  'platform_feedback_admin_all',
+  'platform_feedback_change_by_admins',
+  'platform_feedback_delete_by_admins',
+  'platform_feedback_user_own'],
+  'catalog: platform_feedback has exactly its five rules');
+SELECT policies_are('public', 'feedback_activity', ARRAY[
+  'Users can add comments to their feedback',
+  'Users can view activity for their feedback',
+  'feedback_activity_admin_all',
+  'feedback_activity_system_lines_by_admins',
+  'feedback_activity_user_view_own',
+  'forced_password_change_guard'],
+  'catalog: feedback_activity has exactly its six rules');
 -- The two rules that were already there are unchanged.
 SELECT is((SELECT permissive || '/' || cmd || '/' || coalesce(qual, '') || '/' || coalesce(with_check, '') FROM pg_policies
             WHERE schemaname = 'public' AND tablename = 'platform_feedback' AND policyname = 'platform_feedback_user_own'),
@@ -165,9 +183,7 @@ SELECT is((SELECT permissive || '/' || cmd || '/' || coalesce(qual, '') || '/' |
 -- ---------------------------------------------------------------------------
 -- (1) Item A: system lines
 -- ---------------------------------------------------------------------------
--- The failing line: R writes a SYSTEM line on their own ticket. Item A was stopped
--- (see the header), so these two lines are TODO: they fail today and do not fail the file.
-SELECT todo('F15e item A not built: a reporter can still write a system line (143 test 6 pins the rule list)', 2);
+-- The failing line before this build: R writes a SYSTEM line on their own ticket.
 SELECT is(pg_temp.act('r', pg_temp.line('14400000-0000-4000-8000-0000000000a1', 'T', 'r', 'Estado cambiado de new a resolved', true)), '42501',
   'reporter: cannot add a system line on their own ticket');
 SELECT is((SELECT count(*)::int FROM public.feedback_activity WHERE id = '14400000-0000-4000-8000-0000000000a1'), 0,

@@ -126,6 +126,59 @@ describe('CreatePostModal retry (EC-V7)', () => {
     expect(onSubmit.mock.calls[1][1]).not.toBe(onSubmit.mock.calls[0][1]);
   });
 
+  // Send-back 1: the composition id stands for one exact selection of files.
+  const removeButtonOf = (name: string) =>
+    screen.getByText(name).closest('div.flex')!.querySelector('button') as HTMLButtonElement;
+
+  it('(a) a failed publish, then the file is removed and another picked: a DIFFERENT id', async () => {
+    const onSubmit = vi.fn().mockRejectedValue(publishError(UPLOAD_FAILED));
+    const { container } = render(<Harness onSubmit={onSubmit} />);
+    attach(container, new File(['x'], 'acta.pdf', { type: 'application/pdf' }));
+    publish();
+    await screen.findByRole('alert');
+
+    fireEvent.click(removeButtonOf('acta.pdf'));
+    attach(container, new File(['y'], 'otra-acta.pdf', { type: 'application/pdf' }));
+    publish();
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(2));
+
+    expect(onSubmit.mock.calls[1][0].media.map((f: File) => f.name)).toEqual(['otra-acta.pdf']);
+    expect(onSubmit.mock.calls[1][1]).toMatch(/^[0-9a-f-]{36}$/);
+    expect(onSubmit.mock.calls[1][1]).not.toBe(onSubmit.mock.calls[0][1]);
+  });
+
+  it('(b) a failed publish, then only the text is edited: the SAME id', async () => {
+    const onSubmit = vi.fn().mockRejectedValue(publishError(UPLOAD_FAILED));
+    const { container } = render(<Harness onSubmit={onSubmit} />);
+    attach(container, new File(['x'], 'acta.pdf', { type: 'application/pdf' }));
+    publish();
+    await screen.findByRole('alert');
+
+    editorState.text = 'Acta de la reunión, corregida';
+    publish();
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(2));
+
+    expect(onSubmit.mock.calls[1][0].content.text).toBe('Acta de la reunión, corregida');
+    expect(onSubmit.mock.calls[1][1]).toBe(onSubmit.mock.calls[0][1]);
+  });
+
+  it('(c) a failed publish with two files, then the second is removed: a DIFFERENT id', async () => {
+    const onSubmit = vi.fn().mockRejectedValue(publishError(UPLOAD_FAILED));
+    const { container } = render(<Harness onSubmit={onSubmit} />);
+    attach(container, new File(['x'], 'acta-1.pdf', { type: 'application/pdf' }));
+    attach(container, new File(['y'], 'acta-2.pdf', { type: 'application/pdf' }));
+    publish();
+    await screen.findByRole('alert');
+    expect(onSubmit.mock.calls[0][0].media.map((f: File) => f.name)).toEqual(['acta-1.pdf', 'acta-2.pdf']);
+
+    fireEvent.click(removeButtonOf('acta-2.pdf'));
+    publish();
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(2));
+
+    expect(onSubmit.mock.calls[1][0].media.map((f: File) => f.name)).toEqual(['acta-1.pdf']);
+    expect(onSubmit.mock.calls[1][1]).not.toBe(onSubmit.mock.calls[0][1]);
+  });
+
   it('a successful publish clears the id: the next composition gets a new one', async () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined);
     render(<Harness onSubmit={onSubmit} />);

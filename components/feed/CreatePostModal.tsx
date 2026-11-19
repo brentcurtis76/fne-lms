@@ -36,7 +36,11 @@ export default function CreatePostModal({
   const [linkUrl, setLinkUrl] = useState('');
   const [fileInputType, setFileInputType] = useState<'image' | 'document'>('image');
   const fileInputRef = useRef<HTMLInputElement>(null);
-  // EC-V7: one id per composition; cleared on success and on close.
+  // EC-V7: one id per composition; cleared on success and on close. The id
+  // stands for one exact selection of files: any change to the selection
+  // (add, remove, replace, reorder) clears it, so the next «Publicar» makes a
+  // new one and never reuses a file an earlier try left in the store under the
+  // old id (send-back 1). A change of the text or the mentions keeps it.
   const pendingPostIdRef = useRef<string | null>(null);
   const [publishError, setPublishError] = useState<string | null>(null);
   // The editor (and its mention search) is built once; the ref keeps the
@@ -215,6 +219,7 @@ export default function CreatePostModal({
     console.log('Selected files:', files);
     console.log('File input type:', fileInputType);
     
+    if (files.length > 0) pendingPostIdRef.current = null;
     setSelectedFiles(prev => [...prev, ...files]);
     
     // Set post type based on the file type selected
@@ -226,6 +231,7 @@ export default function CreatePostModal({
   };
 
   const removeFile = (index: number) => {
+    pendingPostIdRef.current = null;
     setSelectedFiles(prev => prev.filter((_, i) => i !== index));
     if (selectedFiles.length === 1) {
       setPostType('text');

@@ -1,4 +1,5 @@
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
+import Link from 'next/link';
 import React, { useState, useRef, useCallback } from 'react';
 import { X, Upload, Camera, AlertCircle, Lightbulb, MessageSquare, CheckCircle } from 'lucide-react';
 
@@ -334,6 +335,17 @@ export default function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
             </div>
 
             <div className="flex gap-3 p-4 border-t bg-gray-50">
+              <Link
+                href="/profile/reportes"
+                data-testid="feedback-my-reports-link"
+                onClick={() => {
+                  reset();
+                  onClose();
+                }}
+                className="self-center text-sm text-gray-500 underline"
+              >
+                Ver mis reportes
+              </Link>
               <button
                 onClick={() => {
                   reset();

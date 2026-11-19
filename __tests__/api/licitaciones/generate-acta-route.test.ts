@@ -123,3 +123,33 @@ describe('generate-acta — amounts in the tender\'s currency (LIC-B2)', () => {
     expect(await storedXml()).toContain('$15.000.000');
   });
 });
+
+describe('generate-acta — a programme without active criteria (LIC-B5)', () => {
+  it('answers 422 with the bases route\'s sentence, and nothing is generated or stored', async () => {
+    h.db.tables.programa_evaluacion_criterios = [];
+    const r = await call();
+    expect(r.status).toBe(422);
+    expect(r.json.error).toBe(
+      'El programa no tiene criterios de evaluación activos. Configúrelos en /admin/licitaciones/criterios antes de generar las Bases.'
+    );
+    expect(h.db.uploads).toHaveLength(0);
+    expect(h.db.client.lastUpload).toBeNull();
+    expect(h.db.writes).toEqual([]);
+  });
+
+  it('an inactive criterion counts as none', async () => {
+    h.db.tables.programa_evaluacion_criterios[0].is_active = false;
+    const r = await call();
+    expect(r.status).toBe(422);
+    expect(h.db.uploads).toHaveLength(0);
+  });
+
+  it('a failed criteria query is a server error, not "no criteria"', async () => {
+    h.db.failSelect.programa_evaluacion_criterios = 'synthetic failure';
+    const r = await call();
+    expect(r.status).toBe(500);
+    expect(r.json.error).toBe('Error al generar el Acta de Reunion');
+    expect(h.db.uploads).toHaveLength(0);
+    expect(h.db.writes).toEqual([]);
+  });
+});

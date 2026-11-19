@@ -446,7 +446,12 @@ export default function EvaluacionPage() {
     return Object.keys(errors).length === 0;
   };
 
+  // LIC-B5: no Acta for a programme without active evaluation criteria
+  const hasCriterios = criterios.length > 0;
+
   const canGenerateActa = (): boolean => {
+    if (!hasCriterios) return false;
+
     // At least 3 members with nombres filled
     const filled = committee.filter(m => m.nombre.trim());
     if (filled.length < 3) return false;
@@ -466,8 +471,9 @@ export default function EvaluacionPage() {
   // Save evaluation
   // ============================================================
 
-  const handleSave = async () => {
-    if (!id || typeof id !== 'string') return;
+  // Returns true only when the evaluation was saved (LIC-B5: «Generar Acta» stops otherwise)
+  const handleSave = async (): Promise<boolean> => {
+    if (!id || typeof id !== 'string') return false;
 
     setSaving(true);
     try {
@@ -521,12 +527,14 @@ export default function EvaluacionPage() {
       const json = await res.json();
       if (!res.ok) {
         toast.error(json.error || 'Error al guardar evaluacion');
-        return;
+        return false;
       }
 
       toast.success('Evaluacion guardada exitosamente');
+      return true;
     } catch {
       toast.error('Error al guardar evaluacion');
+      return false;
     } finally {
       setSaving(false);
     }
@@ -546,8 +554,9 @@ export default function EvaluacionPage() {
 
     setGeneratingActa(true);
     try {
-      // Auto-save first
-      await handleSave();
+      // Auto-save first; a failed save stops here (its error is already shown)
+      const saved = await handleSave();
+      if (!saved) return;
 
       const res = await fetch(`/api/licitaciones/${id}/generate-acta`);
       const json = await res.json();
@@ -1024,7 +1033,8 @@ export default function EvaluacionPage() {
                     </span>
                   </button>
 
-                  {/* Generate Acta */}
+                  {/* Generate Acta — not offered without active criteria (LIC-B5) */}
+                  {hasCriterios && (
                   <button
                     onClick={handleGenerateActa}
                     disabled={generatingActa || !canGenerateActa()}
@@ -1040,7 +1050,16 @@ export default function EvaluacionPage() {
                       {generatingActa ? 'Generando...' : 'Generar Acta de Reunion'}
                     </span>
                   </button>
+                  )}
                 </div>
+
+                {!hasCriterios && (
+                  <p className="mt-3 text-sm text-gray-700 flex items-center gap-1">
+                    <AlertTriangle size={14} className="flex-shrink-0" />
+                    El programa no tiene criterios de evaluación activos: no se puede generar el Acta.
+                    Configúrelos en /admin/licitaciones/criterios.
+                  </p>
+                )}
 
                 {actaUrl && (
                   <div className="mt-3 text-sm text-green-700 flex items-center gap-1">

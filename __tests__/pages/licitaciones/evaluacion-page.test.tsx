@@ -6,7 +6,7 @@
  * Synthetic data only.
  */
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { h } = vi.hoisted(() => ({
@@ -92,5 +92,51 @@ describe('evaluation screen — the amount field names the tender\'s currency (L
     const input = screen.getByLabelText('Monto propuesto (CLP)') as HTMLInputElement;
     expect(input.getAttribute('step')).toBe('1');
     expect(input.getAttribute('placeholder')).toBe('15000000');
+  });
+});
+
+describe('evaluation screen — «Generar Acta» (LIC-B5)', () => {
+  const ready = (overrides: Record<string, unknown> = {}) => evaluation({
+    committee: [
+      { nombre: 'Persona Inventada Uno', rut: null, cargo: null, orden: 1 },
+      { nombre: 'Persona Inventada Dos', rut: null, cargo: null, orden: 2 },
+      { nombre: 'Persona Inventada Tres', rut: null, cargo: null, orden: 3 },
+    ],
+    scores: [{ ate_id: 'ate-a', criterio_id: 'crit-1', puntaje: 80, comentario: null }],
+    ates: [{ id: 'ate-a', nombre_ate: 'ATE Inventada A', monto_propuesto: 450 }],
+    ...overrides,
+  });
+
+  it('is offered when the programme has criteria and the evaluation is complete', async () => {
+    h.evalData = ready();
+    await renderPage();
+    await waitFor(() => expect(screen.getByRole('button', { name: /Generar Acta/ })).toBeEnabled());
+    expect(screen.queryByText(/no tiene criterios de evaluación activos/)).not.toBeInTheDocument();
+  });
+
+  it('without active criteria: a short notice, and no «Generar Acta»', async () => {
+    h.evalData = ready({ criterios: [], scores: [] });
+    await renderPage();
+    expect(await screen.findByText(/no tiene criterios de evaluación activos/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Generar Acta/ })).not.toBeInTheDocument();
+  });
+
+  it('a failed save stops «Generar Acta»: no Acta is asked for and the error is shown', async () => {
+    const { toast } = await import('react-hot-toast');
+    h.evalData = ready();
+    const base = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation(async (url: string, opts?: { method?: string }) => {
+      if (url === '/api/licitaciones/lic-1/evaluacion' && opts?.method === 'POST') {
+        return { ok: false, json: async () => ({ error: 'Fallo inventado al guardar' }) };
+      }
+      return base(url, opts);
+    });
+    await renderPage();
+    const button = await screen.findByRole('button', { name: /Generar Acta/ });
+    await waitFor(() => expect(button).toBeEnabled());
+    fireEvent.click(button);
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Fallo inventado al guardar'));
+    await waitFor(() => expect(screen.getByRole('button', { name: /Generar Acta/ })).toBeEnabled());
+    expect(fetchMock.mock.calls.some(([u]) => String(u).includes('generate-acta'))).toBe(false);
   });
 });

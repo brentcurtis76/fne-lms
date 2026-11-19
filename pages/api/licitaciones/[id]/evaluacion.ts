@@ -58,7 +58,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Fetch licitacion
     const { data: licitacion, error: licitError } = await serviceClient
       .from('licitaciones')
-      .select('id, school_id, estado, programa_id, peso_evaluacion_tecnica, peso_evaluacion_economica')
+      .select('id, school_id, estado, programa_id, peso_evaluacion_tecnica, peso_evaluacion_economica, fecha_evaluacion')
       .eq('id', licitacionId)
       .single();
 
@@ -109,6 +109,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         criterios: criteriosRes.data || [],
         licitacion_peso_tecnico: licitacion.peso_evaluacion_tecnica,
         licitacion_peso_economico: licitacion.peso_evaluacion_economica,
+        fecha_evaluacion: licitacion.fecha_evaluacion ?? null,
       });
     }
 
@@ -126,7 +127,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return sendAuthError(res, `Datos invalidos: ${errors}`, 400);
     }
 
-    const { committee, hora_inicio, hora_fin, scores, montos } = parseResult.data;
+    const { committee, hora_inicio, hora_fin, fecha_evaluacion, scores, montos } = parseResult.data;
 
     // Save committee — map Zod output to CommitteeMember[]
     const committeeMapped = committee.map(c => ({
@@ -137,11 +138,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }));
     await saveCommittee(serviceClient, licitacionId, committeeMapped);
 
-    // Update licitacion with evaluation hours
-    if (hora_inicio || hora_fin) {
+    // Update licitacion with the evaluation date and hours (LIC-B3: the date is printed on the Acta)
+    if (hora_inicio || hora_fin || fecha_evaluacion) {
       const updateFields: Record<string, string> = {};
       if (hora_inicio) updateFields.hora_inicio_evaluacion = hora_inicio;
       if (hora_fin) updateFields.hora_fin_evaluacion = hora_fin;
+      if (fecha_evaluacion) updateFields.fecha_evaluacion = fecha_evaluacion;
       await serviceClient
         .from('licitaciones')
         .update(updateFields)

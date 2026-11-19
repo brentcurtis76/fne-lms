@@ -18,6 +18,7 @@ import {
 import { getUserRoles } from '@/utils/roleUtils';
 import { uuidSchema } from '@/lib/validation/schemas';
 import { generateActaDocument } from '@/lib/actaGenerator';
+import { todayInChile } from '@/lib/uf-service';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   logApiRequest(req, 'licitaciones-generate-acta');
@@ -142,7 +143,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       orden: Number(c.orden),
     }));
 
-    const today = new Date().toISOString().split('T')[0];
+    // LIC-B3: the date the commission stored; without one, the day in Chile (not the UTC day)
+    const fechaEvaluacion: string = licitacion.fecha_evaluacion || todayInChile(new Date());
 
     const docBuffer = await generateActaDocument({
       licitacion: {
@@ -151,7 +153,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         peso_evaluacion_tecnica: licitacion.peso_evaluacion_tecnica,
         peso_evaluacion_economica: licitacion.peso_evaluacion_economica,
       },
-      fechaEvaluacion: today,
+      fechaEvaluacion,
       horaInicio: licitacion.hora_inicio_evaluacion || '09:00',
       horaFin: licitacion.hora_fin_evaluacion || '12:00',
       committee: committee.map(m => ({

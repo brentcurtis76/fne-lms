@@ -28,6 +28,7 @@ import {
   calculateWeightedScores,
   rankATEs,
 } from '@/lib/evaluacionService';
+import { todayInChile } from '@/lib/uf-service';
 
 // ============================================================
 // SHARED STYLES
@@ -191,9 +192,8 @@ export default function EvaluacionPage() {
   // Meeting metadata
   const [horaInicio, setHoraInicio] = useState('');
   const [horaFin, setHoraFin] = useState('');
-  const [fechaEvaluacion, setFechaEvaluacion] = useState(
-    new Date().toISOString().split('T')[0]
-  );
+  // LIC-B3: the default is the day in Chile; a stored date replaces it once loaded
+  const [fechaEvaluacion, setFechaEvaluacion] = useState(() => todayInChile(new Date()));
 
   // Scores state: ateId -> AteScore
   const [scores, setScores] = useState<Record<string, AteScore>>({});
@@ -326,6 +326,7 @@ export default function EvaluacionPage() {
           // Set evaluation hours from licitacion
           if (lic.hora_inicio_evaluacion) setHoraInicio(lic.hora_inicio_evaluacion);
           if (lic.hora_fin_evaluacion) setHoraFin(lic.hora_fin_evaluacion);
+          if (evalData.fecha_evaluacion) setFechaEvaluacion(String(evalData.fecha_evaluacion));
 
           // Populate scores from DB
           const dbScores = evalData.scores || [];

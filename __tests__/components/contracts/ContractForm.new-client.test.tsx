@@ -381,3 +381,63 @@ describe('ContractForm — a blank field is blank when read and when written', (
   });
 });
 
+
+/**
+ * F21b send-back 4: the missing client fields are filled BEFORE the contract row
+ * is inserted, so what reads the client at insertion (the representative's
+ * snapshot trigger) sees them; a fill that fails never stops the save and is
+ * told after the contract is saved.
+ */
+describe('ContractForm — the client is completed before the contract is saved', () => {
+  const SIN_REPRESENTANTE = {
+    id: 'cliente-1',
+    nombre_legal: 'Colegio Existente SpA',
+    nombre_fantasia: 'Colegio Existente',
+    rut: '76.123.456-0',
+    direccion: 'Calle Existente 1',
+    comuna: 'Comuna Existente',
+    ciudad: 'Ciudad Existente',
+    nombre_representante: '',
+    school_id: null,
+  };
+  const NOT_FILLED = 'El contrato se guardó, pero no se pudo completar el representante legal en la ficha del cliente. Corríjalo en Clientes.';
+
+  const fillAndSave = async (button: RegExp, options: Record<string, unknown> = {}) => {
+    currentClient = createFakeSupabase(options as any);
+    const onSuccess = vi.fn();
+    const { container } = render(
+      <ContractForm programas={PROGRAMAS} clientes={[SIN_REPRESENTANTE as any]} onSuccess={onSuccess} onCancel={vi.fn()} />,
+    );
+    typeInto(container.querySelector('select') as Element, 'cliente-1');
+    typeInto(screen.getByPlaceholderText('Nombre del representante'), 'Ana Pérez');
+    clickButton('Siguiente');
+    fillContractStep(container, { programaId: 'prog-a', total: 100 });
+    clickButton('Siguiente');
+    fillCuotaDates(container);
+    typeInto(container.querySelector('[data-testid="cuota-amount-input"]') as Element, '100');
+    clickButton(button);
+    await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+    return currentClient.__writes.map((w: any) => `${w.op}:${w.table}`);
+  };
+
+  it.each([[/Guardar Contrato/], [/Guardar Borrador/]])('«Ana Pérez» typed: the client update comes before the contract insert (%s)', async (button) => {
+    const order = await fillAndSave(button);
+    expect(order.indexOf('update:clientes')).toBeGreaterThanOrEqual(0);
+    expect(order.indexOf('insert:contratos')).toBeGreaterThan(order.indexOf('update:clientes'));
+    const update = currentClient.__writes.find((w: any) => w.table === 'clientes');
+    expect(update.payload).toEqual({ nombre_representante: 'Ana Pérez' });
+  });
+
+  it.each([[/Guardar Contrato/], [/Guardar Borrador/]])('a fill that fails: the contract is still inserted and the sentence comes after it (%s)', async (button) => {
+    const writesWhenTold: string[][] = [];
+    vi.mocked(toast.error).mockImplementation(((message: string) => {
+      if (message === NOT_FILLED) writesWhenTold.push(currentClient.__writes.map((w: any) => `${w.op}:${w.table}`));
+      return '';
+    }) as any);
+    const order = await fillAndSave(button, { clienteUpdateNoRows: true });
+    expect(order).toContain('insert:contratos');
+    expect(writesWhenTold).toHaveLength(1);
+    expect(writesWhenTold[0]).toContain('insert:contratos');
+    vi.mocked(toast.error).mockReset();
+  });
+});

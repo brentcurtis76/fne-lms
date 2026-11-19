@@ -919,6 +919,15 @@ export default function ContractForm({ programas, clientes, editingContract, pre
         }
       }
       
+      // The client's missing fields are filled BEFORE the contract row is written, so
+      // whatever reads the client at insertion (the representative's snapshot trigger)
+      // sees them (send-back 4). A fill never stops the save: what could not be written
+      // is told after the contract is saved. If the contract write then fails, the
+      // client keeps the filled fields: they are true data about the client.
+      const draftNotWritten = clienteId && clientReadOnly && clienteId === selectedClienteId
+        ? await fillMissingClientFields(clienteId)
+        : [];
+
       // Prepare contract data (allow incomplete data for draft)
       const contractData: any = {
         numero_contrato: contractForm.numero_contrato,
@@ -1029,12 +1038,6 @@ export default function ContractForm({ programas, clientes, editingContract, pre
         );
       }
       
-      // An existing client: the required fields it lacked, typed here; the draft is
-      // already saved, so a field not written is only reported (send-back 2, 3)
-      const draftNotWritten = clienteId && clientReadOnly && clienteId === selectedClienteId
-        ? await fillMissingClientFields(clienteId)
-        : [];
-
       toast.success('✅ Contrato guardado como borrador. Puede continuar editándolo más tarde desde la lista de contratos.');
       tellFieldsNotWritten(draftNotWritten);
       onSuccess(contractId);
@@ -1250,6 +1253,15 @@ export default function ContractForm({ programas, clientes, editingContract, pre
         }
 
 
+        // The client's missing fields are filled BEFORE the contract row is written, so
+        // whatever reads the client at insertion (the representative's snapshot trigger)
+        // sees them (send-back 4). A fill never stops the save: what could not be written
+        // is told after the contract is saved. If the contract write then fails, the
+        // client keeps the filled fields: they are true data about the client.
+        const fullSaveNotWritten = selectedClienteId && clientReadOnly
+          ? await fillMissingClientFields(selectedClienteId)
+          : [];
+
         // Save contract (ensure empty date strings become null)
         const newContratoPayload: Record<string, unknown> = {
           numero_contrato: contractForm.numero_contrato,
@@ -1303,11 +1315,8 @@ export default function ContractForm({ programas, clientes, editingContract, pre
 
         if (cuotasError) throw cuotasError;
 
-        // An existing client: the required fields it lacked, typed here; the contract
-        // is already saved, so a field not written is only reported (send-back 2, 3)
-        if (selectedClienteId && clientReadOnly) {
-          tellFieldsNotWritten(await fillMissingClientFields(selectedClienteId));
-        }
+        // Told only now that the contract is saved (send-back 3, 4)
+        tellFieldsNotWritten(fullSaveNotWritten);
 
         // Phase 5: pass the new contrato ID to parent
         onSuccess(newContrato?.id);

@@ -335,3 +335,53 @@ describe('ContractForm — «Guardar Borrador»', () => {
     expect(screen.queryByText(/Error al guardar/)).toBeNull();
   });
 });
+
+/**
+ * F21b (GES-3.8, first half): «Guardar Borrador» is offered only for a new
+ * contract or one whose state is 'borrador'. Before the fix it was shown when
+ * editing an active contract too, and the draft path wrote estado 'borrador'
+ * over it.
+ */
+describe('ContractForm — where «Guardar Borrador» is offered', () => {
+  const editingWith = (estado: string) => ({
+    id: 'contrato-1',
+    numero_contrato: 'FNE-2026-11-654',
+    fecha_contrato: '2026-01-15',
+    fecha_fin: '2026-12-15',
+    cliente_id: 'cliente-1',
+    programa_id: 'prog-a',
+    precio_total_uf: 100,
+    tipo_moneda: 'UF',
+    es_manual: false,
+    estado,
+    horas_contratadas: null,
+    clientes: CLIENTE,
+    cuotas: [{ id: 'cuota-a', numero_cuota: 1, fecha_vencimiento: '2099-06-30', monto_uf: 100 }],
+  });
+
+  it.each(['activo', 'pendiente'])('editing a contract in state %s: only «Actualizar Contrato»', (estado) => {
+    currentClient = createFakeSupabase();
+    render(<ContractForm programas={PROGRAMAS} clientes={[CLIENTE as any]} editingContract={editingWith(estado)} onSuccess={vi.fn()} onCancel={vi.fn()} />);
+    clickButton('Siguiente');
+    clickButton('Siguiente');
+    expect(screen.queryByRole('button', { name: /Guardar Borrador/ })).toBeNull();
+    expect(screen.getByRole('button', { name: /Actualizar Contrato/ })).toBeInTheDocument();
+  });
+
+  it('editing a draft: «Guardar Borrador» is offered, as before', () => {
+    currentClient = createFakeSupabase();
+    render(<ContractForm programas={PROGRAMAS} clientes={[CLIENTE as any]} editingContract={editingWith('borrador')} onSuccess={vi.fn()} onCancel={vi.fn()} />);
+    clickButton('Siguiente');
+    clickButton('Siguiente');
+    expect(screen.getByRole('button', { name: /Guardar Borrador/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Actualizar Contrato/ })).toBeInTheDocument();
+  });
+
+  it('a new contract: «Guardar Borrador» is offered, as before', () => {
+    currentClient = createFakeSupabase();
+    const { container } = render(<ContractForm programas={PROGRAMAS} clientes={[]} onSuccess={vi.fn()} onCancel={vi.fn()} />);
+    toStep3(container, true);
+    expect(screen.getByRole('button', { name: /Guardar Borrador/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Guardar Contrato/ })).toBeInTheDocument();
+  });
+});

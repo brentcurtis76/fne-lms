@@ -724,8 +724,13 @@ export default function ContractForm({ programas, clientes, editingContract, pre
     };
   };
 
+  // «Guardar Borrador» only for a new contract or a draft: it writes estado
+  // 'borrador', which would take any other contract out of its state (GES-3.8)
+  const canSaveAsDraft = !editingContract || editingContract.estado === 'borrador';
+
   // Save contract as draft
   const handleSaveAsDraft = async () => {
+    if (!canSaveAsDraft) return;
     try {
       setSavingAsDraft(true);
       
@@ -2185,7 +2190,8 @@ export default function ContractForm({ programas, clientes, editingContract, pre
               </button>
             ) : (
               <div className="flex space-x-3">
-                {/* Save as Draft button */}
+                {/* Save as Draft button: a new contract or a draft only (GES-3.8) */}
+                {canSaveAsDraft && (
                 <button
                   type="button"
                   onClick={handleSaveAsDraft}
@@ -2205,6 +2211,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                     </>
                   )}
                 </button>
+                )}
                 {/* Only show PDF generation for standard contracts */}
                 {!esManual && (
                   <button

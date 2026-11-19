@@ -14,6 +14,7 @@ import {
   TextRun,
   AlignmentType,
 } from 'docx';
+import { formatMonto } from './licitaciones/formato';
 
 // ============================================================
 // Input Types
@@ -23,7 +24,10 @@ export interface CartaDocumentData {
   licitacion: {
     nombre_licitacion: string;
     condiciones_pago?: string | null;
+    /** The awarded amount, in the tender's currency (tipo_moneda) despite the name. */
     monto_adjudicado_uf?: number | null;
+    /** The tender's currency: 'UF' or 'CLP' (licitaciones.tipo_moneda). */
+    tipo_moneda?: string | null;
     fecha_oferta_ganadora?: string | null;
     contacto_coordinacion_nombre?: string | null;
     contacto_coordinacion_email?: string | null;
@@ -83,7 +87,7 @@ export async function generateCartaDocument(data: CartaDocumentData): Promise<Bu
 
   const ciudad = school.ciudad || '[ciudad]';
   const monto = licitacion.monto_adjudicado_uf
-    ? `${licitacion.monto_adjudicado_uf} UF`
+    ? formatMonto(licitacion.monto_adjudicado_uf, licitacion.tipo_moneda, '[monto por confirmar]')
     : '[monto por confirmar]';
   const condiciones = licitacion.condiciones_pago || '[condiciones de pago por definir]';
   const coordinadorNombre = licitacion.contacto_coordinacion_nombre || '[nombre coordinador]';

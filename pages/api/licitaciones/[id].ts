@@ -14,6 +14,7 @@ import { getUserRoles } from '@/utils/roleUtils';
 import { UpdateTimelineSchema } from '@/types/licitaciones';
 import { getLicitacionDetail, updateTimelineDates } from '@/lib/licitacionService';
 import { uuidSchema } from '@/lib/validation/schemas';
+import { CAMPOS_SIEMPRE_EDITABLES, MENSAJE_ADJUDICADA, puedeEditarDatos } from '@/lib/licitaciones/estados';
 
 /**
  * The client fields a non-admin may see: exactly what the detail page prints
@@ -190,6 +191,20 @@ async function handlePatch(req: NextApiRequest, res: NextApiResponse, licitacion
     } else {
       // Admin: user-scoped client so RLS enforces access
       writeClient = await createApiSupabaseClient(req, res);
+
+      // Once awarded, the tender's own data stays as it is; notes and the
+      // publication image stay editable (the timeline branch is above).
+      const cambiaDatos = Object.keys(updatePayload).some(k => !CAMPOS_SIEMPRE_EDITABLES.includes(k));
+      if (cambiaDatos) {
+        const { data: actual } = await writeClient
+          .from('licitaciones')
+          .select('estado')
+          .eq('id', licitacionId)
+          .single();
+        if (actual && !puedeEditarDatos((actual as { estado?: string }).estado)) {
+          return sendAuthError(res, MENSAJE_ADJUDICADA, 409);
+        }
+      }
     }
 
     const { data: updated, error: updateError } = await writeClient

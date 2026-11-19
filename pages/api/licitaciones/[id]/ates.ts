@@ -15,6 +15,7 @@ import { getUserRoles } from '@/utils/roleUtils';
 import { uuidSchema } from '@/lib/validation/schemas';
 import { CreateAteSchema, UpdateAteSchema } from '@/types/licitaciones';
 import { validateRut } from '@/utils/rutValidation';
+import { MENSAJE_EVALUACION_INICIADA, puedeModificarAtes, puedeSubirPropuesta } from '@/lib/licitaciones/estados';
 
 // File uploads need bodyParser disabled
 // We handle this per-method inside the handler
@@ -103,6 +104,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       return sendApiResponse(res, { ates: ates || [] });
+    }
+
+    // Once the evaluation has begun, providers and proposals stay as they are
+    // (a proposal replaced after scoring would change the file the commission scored).
+    const permitido = req.method === 'PATCH'
+      ? puedeSubirPropuesta(licitacion.estado)
+      : puedeModificarAtes(licitacion.estado);
+    if (!permitido) {
+      return sendAuthError(res, MENSAJE_EVALUACION_INICIADA, 409);
     }
 
     // ============================================================

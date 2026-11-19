@@ -9,6 +9,7 @@ import {
 } from '@/lib/api-auth';
 import { getUserRoles } from '@/utils/roleUtils';
 import { uuidSchema } from '@/lib/validation/schemas';
+import { MENSAJE_CERRADA, puedeEliminarDocumento } from '@/lib/licitaciones/estados';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   logApiRequest(req, 'licitaciones-documentos');
@@ -67,6 +68,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (req.method === 'DELETE') {
       if (!isAdmin) {
         return sendAuthError(res, 'Solo administradores pueden eliminar documentos', 403);
+      }
+
+      if (!puedeEliminarDocumento(licitacion.estado)) {
+        return sendAuthError(res, MENSAJE_CERRADA, 409);
       }
 
       const { doc_id } = req.query;

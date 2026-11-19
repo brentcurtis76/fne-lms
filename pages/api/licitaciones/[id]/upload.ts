@@ -13,6 +13,7 @@ import {
 } from '@/lib/api-auth';
 import { getUserRoles } from '@/utils/roleUtils';
 import { uuidSchema } from '@/lib/validation/schemas';
+import { motivoRechazoSubida, puedeSubirDocumento } from '@/lib/licitaciones/estados';
 
 export const config = {
   api: {
@@ -148,6 +149,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return sendAuthError(res, `Tipo de documento invalido: ${tipo}`, 400);
     }
 
+    // What the tender's state still accepts. Only a closed tender can be a
+    // historical record, so the record is looked up only when it matters.
+    if (!puedeSubirDocumento(licitacion.estado, tipo, false)) {
+      const esHistorica = licitacion.estado === 'cerrada'
+        && await esLicitacionHistorica(serviceClient, licitacionId);
+      const motivo = motivoRechazoSubida(licitacion.estado, tipo, esHistorica);
+      if (motivo) {
+        return sendAuthError(res, motivo, 409);
+      }
+    }
+
     const nombreField = Array.isArray(fields.nombre) ? fields.nombre[0] : fields.nombre;
     const rawNombre = nombreField || rawFileName;
     const nombre = rawNombre.replace(/[<>]/g, '').substring(0, 255);
@@ -209,4 +221,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const message = err instanceof Error ? err.message : 'Error inesperado';
     return sendAuthError(res, 'Error inesperado al subir documento', 500, message);
   }
+}
+
+/**
+ * A historical record: a closed tender with no committee, no provider with a
+ * proposal and no score — the same test the detail page uses to show the
+ * archive view (pages/licitaciones/[id].tsx, data of /api/licitaciones/[id]/evaluacion).
+ * Any read error counts as "not historical" (the upload is then refused).
+ */
+async function esLicitacionHistorica(
+  serviceClient: ReturnType<typeof createServiceRoleClient>,
+  licitacionId: string
+): Promise<boolean> {
+  const [comisionRes, atesRes, evaluacionesRes] = await Promise.all([
+    serviceClient.from('licitacion_comision').select('id').eq('licitacion_id', licitacionId).limit(1),
+    serviceClient
+      .from('licitacion_ates')
+      .select('id')
+      .eq('licitacion_id', licitacionId)
+      .not('propuesta_url', 'is', null)
+      .limit(1),
+    serviceClient.from('licitacion_evaluaciones').select('id').eq('licitacion_id', licitacionId).limit(1),
+  ]);
+  return [comisionRes, atesRes, evaluacionesRes].every(
+    r => !r.error && Array.isArray(r.data) && r.data.length === 0
+  );
 }

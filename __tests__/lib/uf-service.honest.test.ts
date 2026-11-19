@@ -4,7 +4,7 @@
  *
  * - "Today" is the calendar day in America/Santiago (todayInChile).
  * - A source's answer is `live` only when its number is finite and between
- *   10,000 and 1,000,000 AND its own date is today in Chile; otherwise it is
+ *   30,000 and 80,000 (send-back 3; was 10,000 and 1,000,000) AND its own date is today in Chile; otherwise it is
  *   ignored (neither cached, nor stored, nor used) and the next source is asked.
  * - The stored last value is used only when its number passes, its date is a
  *   real calendar date and not after today in Chile.
@@ -256,7 +256,9 @@ describe('the stored last value', () => {
     ['an impossible date (2026-02-30)', { fecha: '2026-02-30', valor: 40111.11 }],
     ['a date after today in Chile', { fecha: '2026-11-19', valor: 40111.11 }],
     ['an absurd number (1e308)', { fecha: YESTERDAY, valor: 1e308 }],
-    ['a number below 10,000 (9,999)', { fecha: YESTERDAY, valor: 9999 }],
+    ['a number below 30,000 (29,999.99)', { fecha: YESTERDAY, valor: 29999.99 }],
+    ['a number above 80,000 (80,000.01)', { fecha: YESTERDAY, valor: 80000.01 }],
+    ['a misread number (391,844)', { fecha: YESTERDAY, valor: 391844 }],
   ])('%s → rejected, the fixed value is used', async (_label, stored) => {
     // 22:30 in Chile on the 18th (already the 19th in UTC): the 19th is still the future.
     vi.setSystemTime(new Date('2026-11-19T01:30:00Z'));
@@ -371,19 +373,19 @@ describe('send-back 2: each source\'s number is read as written and checked befo
     expect(await UFService.getUFForDate('2026-11-10')).toEqual({ fecha: '2026-11-10', valor: 39184.4, source: 'live' });
   });
 
-  it('mindicador: today\'s valor 9999.6 → ignored (not rounded into range), the next source is asked, nothing cached or stored', async () => {
+  it('mindicador: today\'s valor 29999.6 → ignored (not rounded into range), the next source is asked, nothing cached or stored', async () => {
     const storage = fakeStorage();
     asBrowser(storage);
-    serve({ mindicador: () => mindicadorAnswer(TODAY, 9999.6), cmf: () => cmfAnswer(TODAY, '39.184,40') });
+    serve({ mindicador: () => mindicadorAnswer(TODAY, 29999.6), cmf: () => cmfAnswer(TODAY, '39.184,40') });
     expect(await UFService.getCurrentUF()).toEqual({ fecha: TODAY, valor: 39184.4, source: 'live' });
     expect(callsTo('cmf')).toBe(1);
     expect(JSON.parse(storage.data.get(KEY)!)).toEqual({ fecha: TODAY, valor: 39184.4 });
   });
 
-  it('mindicador: today\'s valor 9999.6 with no other source → the fixed value, nothing stored, not cached', async () => {
+  it('mindicador: today\'s valor 29999.6 with no other source → the fixed value, nothing stored, not cached', async () => {
     const storage = fakeStorage();
     asBrowser(storage);
-    serve({ mindicador: () => mindicadorAnswer(TODAY, 9999.6) });
+    serve({ mindicador: () => mindicadorAnswer(TODAY, 29999.6) });
     expect(await UFService.getCurrentUF()).toEqual({ fecha: '2025-05-29', valor: 39184, source: 'fixed' });
     expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(storage.setItem).not.toHaveBeenCalled();
@@ -396,5 +398,70 @@ describe('send-back 2: each source\'s number is read as written and checked befo
     asBrowser(fakeStorage());
     serve({ mindicador: () => mindicadorAnswer(TODAY, 39184.4) });
     expect(await UFService.getCurrentUF()).toEqual({ fecha: TODAY, valor: 39184, source: 'live' });
+  });
+});
+
+describe('send-back 3: a UF value is usable only between 30,000 and 80,000', () => {
+  const answerOf: Record<Source, (fecha: string, valor: unknown) => unknown> = {
+    route: routeAnswer,
+    mindicador: mindicadorAnswer,
+    cmf: cmfAnswer,
+  };
+
+  it("cmf: today's Valor '39184.4' (an English decimal point, read the Chilean way as 391,844) → refused, the fixed value, nothing stored", async () => {
+    const storage = fakeStorage();
+    asBrowser(storage);
+    serve({ cmf: () => cmfAnswer(TODAY, '39184.4') });
+    expect(await UFService.getCurrentUF()).toEqual({ fecha: '2025-05-29', valor: 39184, source: 'fixed' });
+    expect(storage.setItem).not.toHaveBeenCalled();
+  });
+
+  // Each source in its own shape: the route and mindicador a JSON number, CMF Chilean text.
+  const refused: Array<[Source, string, unknown]> = [
+    ['route', '391844', 391844],
+    ['mindicador', '391844', 391844],
+    ['cmf', "'391844'", '391844'],
+    ['route', '29999.99', 29999.99],
+    ['mindicador', '29999.99', 29999.99],
+    ['cmf', "'29.999,99'", '29.999,99'],
+    ['route', '80000.01', 80000.01],
+    ['mindicador', '80000.01', 80000.01],
+    ['cmf', "'80.000,01'", '80.000,01'],
+  ];
+
+  it.each(refused)('%s: today\'s valor %s → refused, the fixed value, nothing stored', async (source, _label, valor) => {
+    const storage = fakeStorage();
+    asBrowser(storage);
+    serve({ [source]: () => answerOf[source](TODAY, valor) });
+    expect(await UFService.getCurrentUF()).toEqual({ fecha: '2025-05-29', valor: 39184, source: 'fixed' });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(storage.setItem).not.toHaveBeenCalled();
+  });
+
+  // mindicador's value is rounded after it is checked: 39184.4 → 39184.
+  const accepted: Array<[Source, string, unknown, number]> = [
+    ['route', '30000', 30000, 30000],
+    ['mindicador', '30000', 30000, 30000],
+    ['cmf', "'30.000'", '30.000', 30000],
+    ['route', '80000', 80000, 80000],
+    ['mindicador', '80000', 80000, 80000],
+    ['cmf', "'80.000'", '80.000', 80000],
+    ['route', '39184.4', 39184.4, 39184.4],
+    ['mindicador', '39184.4', 39184.4, 39184],
+    ['cmf', "'39.184,4'", '39.184,4', 39184.4],
+  ];
+
+  it.each(accepted)('%s: today\'s valor %s → live and stored', async (source, _label, valor, expected) => {
+    const storage = fakeStorage();
+    asBrowser(storage);
+    serve({ [source]: () => answerOf[source](TODAY, valor) });
+    expect(await UFService.getCurrentUF()).toEqual({ fecha: TODAY, valor: expected, source: 'live' });
+    expect(JSON.parse(storage.data.get(KEY)!)).toEqual({ fecha: TODAY, valor: expected });
+  });
+
+  it('the fixed reference value (39184) lies inside the range', async () => {
+    asBrowser(fakeStorage({ [KEY]: JSON.stringify({ fecha: YESTERDAY, valor: 39184 }) }));
+    serve({});
+    expect(await UFService.getCurrentUF()).toEqual({ fecha: YESTERDAY, valor: 39184, source: 'last-known' });
   });
 });

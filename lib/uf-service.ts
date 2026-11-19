@@ -37,11 +37,21 @@ const LAST_LIVE_KEY = 'genera.uf.lastLive';
 const NOT_LIVE_MEMORY_MS = 60_000;
 
 /**
- * A usable UF number: finite and between 10,000 and 1,000,000 CLP. Anything
- * else (0, a negative, a text, NaN, 5, 5,000,000) is not a UF value.
+ * The accepted range of a UF value, in CLP (F15d send-back 3). A UF is worth
+ * about 39,000 to 40,000 pesos in 2026 and grows a few percent a year, so this
+ * range is narrow enough that a number misread by a factor of ten or a
+ * thousand (e.g. «39184.4» read the Chilean way as 391,844) can never fall
+ * inside it; raise UF_MAX_CLP when the UF approaches it.
+ */
+const UF_MIN_CLP = 30_000;
+const UF_MAX_CLP = 80_000;
+
+/**
+ * A usable UF number: finite and between UF_MIN_CLP and UF_MAX_CLP. Anything
+ * else (0, a negative, a text, NaN, 5, 391,844, 5,000,000) is not a UF value.
  */
 function isUsableUFNumber(n: unknown): n is number {
-  return typeof n === 'number' && Number.isFinite(n) && n >= 10_000 && n <= 1_000_000;
+  return typeof n === 'number' && Number.isFinite(n) && n >= UF_MIN_CLP && n <= UF_MAX_CLP;
 }
 
 /**

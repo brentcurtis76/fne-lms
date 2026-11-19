@@ -141,6 +141,33 @@ describe('/api/uf-value', () => {
     });
   });
 
+  describe("send-back 2: the requested day is matched as a number, and only that row's value is returned", () => {
+    // Invented values. Noon in Chile on 2 November: the 2nd's row is asked for.
+    const row = (day: string, value: string) => `<tr><td>${day}</td><td>${value}</td></tr>`;
+    const page = (...rows: string[]) => `<html><body><h2>Noviembre</h2><table>\n${rows.join('\n')}\n</table></body></html>`;
+    const SECOND = new Date('2026-11-02T15:00:00Z');
+
+    it.each([
+      ["'2'", '2'],
+      ["'02'", '02'],
+      ["' 2 ' (spaces in the cell)", ' 2 '],
+    ])('on the 2nd, a row whose day reads %s → success with 40123.45 (the found row, unrounded as before)', async (_label, day) => {
+      vi.setSystemTime(SECOND);
+      fetchMock.mockResolvedValue(textResponse(page(row('1', '40.100,00'), row(day, '40.123,45'), row('3', '40.150,00'))));
+      const res = await call();
+      expect(res._getJSONData()).toEqual({ success: true, valor: 40123.45, fecha: '2026-11-02' });
+      expect(res.getHeader('Cache-Control')).toBe('public, s-maxage=600');
+    });
+
+    it('on the 2nd, a page that has 12, 20 and 22 but not 2 → success false, no value', async () => {
+      vi.setSystemTime(SECOND);
+      fetchMock.mockResolvedValue(textResponse(page(row('12', '40.112,00'), row('20', '40.120,00'), row('22', '40.122,00'))));
+      const res = await call();
+      expect(res._getJSONData()).toEqual({ success: false, error: 'No se pudo obtener la UF de hoy' });
+      expect(res.getHeader('Cache-Control')).toBeUndefined();
+    });
+  });
+
   it('a method other than GET is still refused with 405', async () => {
     const res = await call('POST');
     expect(res._getStatusCode()).toBe(405);

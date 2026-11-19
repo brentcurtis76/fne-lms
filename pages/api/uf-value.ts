@@ -106,11 +106,16 @@ function extractUFFromSII(html: string, month: string, day: number): number | nu
     const tableContent = html.substring(tableStart, tableStart + tableEndMatch.index!);
     
     // Look for current day's UF value
-    // Format: <td>DD</td><td>XX.XXX,XX</td>
-    const dayStr = String(day).padStart(2, '0');
-    const dayRegex = new RegExp(`<td[^>]*>${dayStr}</td>\\s*<td[^>]*>([\\d.,]+)</td>`, 'i');
-    const dayMatch = tableContent.match(dayRegex);
-    
+    // Format: <td>DD</td><td>XX.XXX,XX</td>. The day cell is matched as a
+    // NUMBER: its trimmed text, read as an integer, equals the day (so «2»,
+    // «02» and « 2 » are day 2; «12», «20» and «22» are not). The value cell
+    // is a look-ahead, so every cell is tried as a day cell, as before.
+    const rowRegex = /<td[^>]*>([^<]*)<\/td>(?=\s*<td[^>]*>([\d.,]+)<\/td>)/gi;
+    const dayMatch = Array.from(tableContent.matchAll(rowRegex)).find((m) => {
+      const cell = m[1].trim();
+      return /^\d+$/.test(cell) && parseInt(cell, 10) === day;
+    });
+
     if (!dayMatch) {
       // The requested day's row is missing: no value (never a neighbouring day's).
       console.log('Today\'s value not found');
@@ -118,7 +123,7 @@ function extractUFFromSII(html: string, month: string, day: number): number | nu
     }
     
     // Parse the UF value (format: "39.184,40")
-    const ufString = dayMatch[1];
+    const ufString = dayMatch[2];
     const ufValue = parseChileanNumber(ufString);
     
     console.log(`Found UF value for day ${day}: ${ufString} -> ${ufValue}`);

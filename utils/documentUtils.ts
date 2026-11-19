@@ -255,12 +255,12 @@ export interface DocumentUploadResult {
 }
 
 /**
- * F18e send-back 1: the identity a file keeps across tries, so that a retry
- * after an unknown outcome reaches the same stored object and the same record.
+ * F18e send-backs 1 and 3: the document id a file keeps across tries, so that a
+ * retry after an unknown outcome reaches the same record. The stored file is
+ * never reused: every try stores a new file at a fresh path.
  */
 export interface DocumentUploadIdentity {
   documentId?: string;
-  storagePath?: string;
 }
 
 /** documents/<workspace>/<root|folder-<id>>/<timestamp>-<sanitized name> */
@@ -272,22 +272,6 @@ export function buildDocumentStoragePath(
 ): string {
   const folderPath = folderId ? `folder-${folderId}` : 'root';
   return `documents/${workspaceId}/${folderPath}/${timestamp}-${sanitizeFileName(fileName)}`;
-}
-
-/**
- * The storage client answers an existing object (upsert off) with a
- * StorageApiError { message, status, statusCode }
- * (@supabase/storage-js src/lib/errors.ts:14-23, src/lib/fetch.ts:31-37);
- * the store's duplicate answer is statusCode '409', «The resource already exists».
- */
-function isStoreDuplicate(error: unknown): boolean {
-  if (!error || typeof error !== 'object') return false;
-  const e = error as { status?: unknown; statusCode?: unknown; message?: unknown };
-  return (
-    e.status === 409 ||
-    String(e.statusCode ?? '') === '409' ||
-    (typeof e.message === 'string' && /already exists/i.test(e.message))
-  );
 }
 
 /** PostgREST answers a unique violation with code 23505. */
@@ -342,19 +326,17 @@ export async function uploadDocument(
       continue;
     }
 
-    // Storage path: the caller's stable one, or a new one as before
-    const storagePath =
-      identity?.storagePath ??
-      buildDocumentStoragePath(workspaceId, uploadData.folder_id, file.name, Date.now());
+    // A fresh path on every try; an object already at it (another upload of the
+    // same name at the same moment) is a failure of this file, never reused.
+    const storagePath = buildDocumentStoragePath(workspaceId, uploadData.folder_id, file.name, Date.now());
     const documentId = identity?.documentId;
 
-    // Upload file to Supabase Storage; an object already at this path is the
-    // one an earlier try of the same file stored (the path is unique to it).
+    // Upload file to Supabase Storage
     try {
       const { error: uploadError } = await supabase.storage
         .from(DOCUMENTS_BUCKET)
         .upload(storagePath, file);
-      if (uploadError && !isStoreDuplicate(uploadError)) throw uploadError;
+      if (uploadError) throw uploadError;
     } catch (error) {
       console.error('Error uploading document file:', error);
       result.failed.push({ fileName: file.name, message: UPLOAD_FAILED_MESSAGE });

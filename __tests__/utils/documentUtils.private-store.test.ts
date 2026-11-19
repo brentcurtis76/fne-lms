@@ -136,6 +136,7 @@ describe('uploadDocument stores new documents in the private store', () => {
 // F18e (EC-D7, EC-D8): each file of an upload succeeds or fails for itself.
 const RECORD_FAILED = 'El archivo se subió, pero el documento no se pudo guardar. Inténtalo de nuevo.';
 const VERSION_WARNING = 'El documento se guardó, pero no su historial de versiones.';
+const UPLOAD_FAILED = 'No se pudo subir el archivo. Inténtalo de nuevo.';
 const named = (name: string, type = 'application/pdf') => new File([new Uint8Array([37, 80, 68, 70])], name, { type });
 
 describe('uploadDocument: each file reports for itself (F18e)', () => {
@@ -216,23 +217,30 @@ describe('uploadDocument: each file reports for itself (F18e)', () => {
   });
 });
 
-// F18e send-back 1: a document keeps its identity (id and storage path) across tries.
-describe('uploadDocument: a retry with the same identity never makes a second document (F18e send-back 1)', () => {
+// F18e send-back 1, revised by send-back 3: the document id alone makes a retry
+// safe; every try stores a NEW file at a fresh path; a stored object is never reused.
+describe('uploadDocument: a retry with the same id never makes a second document (F18e send-backs 1 and 3)', () => {
   const ID = 'd1111111-1111-4111-8111-111111111111';
-  const PATH = `documents/${WS}/root/1795000000000-acta.pdf`;
-  const identity = [{ documentId: ID, storagePath: PATH }];
+  const FIRST_PATH = `documents/${WS}/root/1795000000000-acta.pdf`;
+  const identity = [{ documentId: ID }];
   const LOST = { data: null, error: { message: 'TypeError: Failed to fetch', details: '', hint: '', code: '' } };
   const DUPLICATE = { data: null, error: { message: 'duplicate key value violates unique constraint "community_documents_pkey"', code: '23505', details: '', hint: '' } };
   const saved = (extra: Record<string, unknown> = {}) => ({
-    id: ID, workspace_id: WS, uploaded_by: USER, file_name: 'Acta.pdf', storage_path: PATH, is_active: true, ...extra,
+    id: ID, workspace_id: WS, uploaded_by: USER, file_name: 'Acta.pdf', storage_path: FIRST_PATH, is_active: true, ...extra,
   });
+  let clock = 1795000000000;
 
   beforeEach(() => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     vi.spyOn(console, 'warn').mockImplementation(() => {});
+    clock = 1795000000000;
+    vi.spyOn(Date, 'now').mockImplementation(() => clock);
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
-  it('the record is saved but its answer is lost; the retry gets 409 from the store and 23505 from the insert → ONE document uploaded, no second record', async () => {
+  it('the record is saved but its answer is lost; the retry with the same id stores at a NEW path, the insert answers 23505 → ONE document uploaded, one record', async () => {
     const data = { files: [named('Acta.pdf')], title: 'Acta', tags: [] } as any;
     state.documentInsertAnswers = [LOST];
     const first = await documentUtils.uploadDocument(WS, data, USER, identity);
@@ -243,24 +251,41 @@ describe('uploadDocument: a retry with the same identity never makes a second do
     state.storedDocument = saved();
     state.storedVersions = [];
     state.documentInsertAnswers = [DUPLICATE];
+    clock += 4000;
     const second = await documentUtils.uploadDocument(WS, data, USER, identity);
     expect(second.failed).toEqual([]);
     expect(second.uploaded).toHaveLength(1);
     expect(second.uploaded[0].id).toBe(ID);
 
     const uploads = state.storage.filter((s) => s.op === 'upload').map((s) => s.path);
-    expect(uploads).toEqual([PATH, PATH]);
+    expect(uploads).toHaveLength(2);
+    expect(uploads[0]).toBe(FIRST_PATH);
+    expect(uploads[1]).not.toBe(uploads[0]);
+    expect(uploads[1]).toMatch(new RegExp(`^documents/${WS}/root/\\d+-acta\\.pdf$`));
+    // both inserts carry the same id: the database holds one record (the second answered 23505)
     const records = state.calls.filter((c) => c.table === 'community_documents' && c.op === 'insert');
     expect(records).toHaveLength(2);
-    expect(records.every((c) => (c.arg as any).id === ID && (c.arg as any).storage_path === PATH)).toBe(true);
-    // no version existed: it is written once, on the retry
+    expect(records.every((c) => (c.arg as any).id === ID)).toBe(true);
+    // no version existed: it is written once, on the retry, for the record's own file
     const versions = state.calls.filter((c) => c.table === 'document_versions' && c.op === 'insert');
     expect(versions).toHaveLength(1);
-    expect(versions[0].arg).toMatchObject({ document_id: ID, version_number: 1, storage_path: PATH });
+    expect(versions[0].arg).toMatchObject({ document_id: ID, version_number: 1, storage_path: FIRST_PATH });
+  });
+
+  it('two calls with different ids and the same path: the second upload answers "already exists" → that file failed, and NO record is written for it', async () => {
+    const data = () => ({ files: [named('Acta.pdf')], title: 'Acta', tags: [] }) as any;
+    const a = await documentUtils.uploadDocument(WS, data(), USER, [{ documentId: 'a0000000-0000-4000-8000-000000000001' }]);
+    expect(a.uploaded).toHaveLength(1);
+    const b = await documentUtils.uploadDocument(WS, data(), '22222222-2222-4222-8222-222222222222', [{ documentId: 'b0000000-0000-4000-8000-000000000002' }]);
+    const uploads = state.storage.filter((s) => s.op === 'upload').map((s) => s.path);
+    expect(uploads).toEqual([FIRST_PATH, FIRST_PATH]);
+    expect(b.uploaded).toEqual([]);
+    expect(b.failed).toEqual([{ fileName: 'Acta.pdf', message: UPLOAD_FAILED }]);
+    const records = state.calls.filter((c) => c.table === 'community_documents' && c.op === 'insert');
+    expect(records.map((c) => (c.arg as any).id)).toEqual(['a0000000-0000-4000-8000-000000000001']);
   });
 
   it('a 23505 whose record already has its version: uploaded, and no second version row', async () => {
-    state.storedObjects.add(PATH);
     state.storedDocument = saved();
     state.storedVersions = [{ id: 'v-1' }];
     state.documentInsertAnswers = [DUPLICATE];
@@ -282,10 +307,10 @@ describe('uploadDocument: a retry with the same identity never makes a second do
     expect(state.calls.some((c) => c.table === 'document_versions')).toBe(false);
   });
 
-  it('an identity given: the record is inserted WITH that id and the file stored at that path', async () => {
+  it('an id given: the record is inserted WITH that id, the file stored at a fresh path', async () => {
     const result = await documentUtils.uploadDocument(WS, { files: [named('Acta.pdf')], title: 'Acta', tags: [] } as any, USER, identity);
     expect(result.uploaded.map((d) => d.id)).toEqual([ID]);
-    expect(state.storage.find((s) => s.op === 'upload')!.path).toBe(PATH);
+    expect(state.storage.find((s) => s.op === 'upload')!.path).toBe(FIRST_PATH);
     expect((state.calls.find((c) => c.table === 'community_documents')!.arg as any).id).toBe(ID);
   });
 
@@ -295,7 +320,7 @@ describe('uploadDocument: a retry with the same identity never makes a second do
   });
 
   it('buildDocumentStoragePath keeps the shape documents/<ws>/<root|folder-id>/<ts>-<name>', () => {
-    expect(documentUtils.buildDocumentStoragePath(WS, null, 'Acta.pdf', 1795000000000)).toBe(PATH);
+    expect(documentUtils.buildDocumentStoragePath(WS, null, 'Acta.pdf', 1795000000000)).toBe(FIRST_PATH);
     expect(documentUtils.buildDocumentStoragePath(WS, 'f1', 'Acta.pdf', 1795000000000)).toBe(`documents/${WS}/folder-f1/1795000000000-acta.pdf`);
   });
 });

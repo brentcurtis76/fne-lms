@@ -17,7 +17,6 @@ import {
   createFolder,
   getFileTypeConfig,
   DocumentUploadResult,
-  buildDocumentStoragePath,
   DOCUMENT_TITLE_MAX,
   UPLOAD_FAILED_MESSAGE,
 } from '../../utils/documentUtils';
@@ -88,18 +87,14 @@ export default function DocumentUploadModal({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // F18e send-back 1: the identity each file keeps across tries (a document id
-  // and the timestamp of its storage path, fixed when the file is added), so a
-  // retry after an unknown outcome reaches the same object and record.
-  const identitiesRef = useRef(new WeakMap<File, { documentId?: string; timestamp: number }>());
-  const lastTimestampRef = useRef(0);
+  // F18e send-backs 1 and 3: the document id each file keeps across tries
+  // (made when the file is added), so a retry after an unknown outcome reaches
+  // the same record. The path is not kept: every try stores a new file.
+  const identitiesRef = useRef(new WeakMap<File, { documentId?: string }>());
   const identityFor = (file: File) => {
     let identity = identitiesRef.current.get(file);
     if (!identity) {
-      const timestamp = Math.max(Date.now(), lastTimestampRef.current + 1);
-      lastTimestampRef.current = timestamp;
-      const documentId = newDocumentId();
-      identity = { documentId, timestamp };
+      identity = { documentId: newDocumentId() };
       identitiesRef.current.set(file, identity);
     }
     return identity;
@@ -297,10 +292,7 @@ export default function DocumentUploadModal({
       try {
         const identity = identityFor(file);
         result = await uploadDocument(workspaceId, { ...formData, files: [file] }, userId, [
-          {
-            documentId: identity.documentId,
-            storagePath: buildDocumentStoragePath(workspaceId, formData.folder_id, file.name, identity.timestamp),
-          },
+          { documentId: identity.documentId },
         ]);
       } catch (error) {
         console.error('Error uploading documents:', error);

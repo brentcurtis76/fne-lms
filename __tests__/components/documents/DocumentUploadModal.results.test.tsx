@@ -147,7 +147,7 @@ describe('DocumentUploadModal: each file reports for itself (F18e)', () => {
   });
 
   // ---- send-back 1 ----
-  it('each file keeps a stable identity across tries: the retry of file 2 sends the same document id and storage path', async () => {
+  it('each file keeps a stable document id across tries (and no path): the retry of file 2 sends the same id', async () => {
     h.uploadDocument = vi.fn(async (_ws: string, data: { files: File[] }) => {
       const f = data.files[0];
       return f.name === 'Dos.pdf'
@@ -165,7 +165,8 @@ describe('DocumentUploadModal: each file reports for itself (F18e)', () => {
     expect(uno.documentId).toMatch(/^[0-9a-f-]{36}$/);
     expect(dos.documentId).toMatch(/^[0-9a-f-]{36}$/);
     expect(uno.documentId).not.toBe(dos.documentId);
-    expect(dos.storagePath).toMatch(/^documents\/ws-A\/root\/\d+-dos\.pdf$/);
+    // send-back 3: only the id is kept; every try builds a fresh path in uploadDocument
+    expect(Object.keys(dos)).toEqual(['documentId']);
 
     h.uploadDocument.mockClear();
     await new Promise((r) => setTimeout(r, 5));

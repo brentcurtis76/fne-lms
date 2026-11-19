@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "ca9dad512fc0b65bf1db627e23a6d84edd80dd28",
-  "date": "2026-11-19T14:41:10-03:00"
+  "commit": "6f507a060b6706a92713ad8f8668b6386970cec7",
+  "date": "2026-11-19T20:11:06-03:00"
  },
  "screens": [
   {
@@ -4620,6 +4620,7 @@
     "/admin/sessions/create"
    ],
    "referencedIn": [
+    "__tests__/pages/admin/sessions/create-earliest-date.test.tsx",
     "__tests__/pages/admin/sessions/create-timezone.test.tsx",
     "__tests__/pages/admin/sessions/create-zoom-managed.test.tsx",
     "__tests__/pages/admin/sessions/create.clasico.test.tsx",

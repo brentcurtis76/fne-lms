@@ -11,6 +11,22 @@ export const SESSION_TIMEZONE = 'America/Santiago';
 export const CONSULTANT_TIMEZONE = 'Europe/Madrid';
 
 /**
+ * Today's calendar date in Chile (America/Santiago) at the given instant, as "YYYY-MM-DD".
+ * Read from the time zone's own rules, never by adding hours to UTC, so it is right on the days
+ * summer time starts and ends and whatever the time zone of the machine it runs on.
+ */
+export function todayInChile(now: Date): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: SESSION_TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(now);
+  const part = (type: string) => parts.find((p) => p.type === type)?.value ?? '';
+  return `${part('year')}-${part('month')}-${part('day')}`;
+}
+
+/**
  * Build a timezone-aware Date from session_date + time string.
  * The returned TZDate is pinned to America/Santiago.
  *

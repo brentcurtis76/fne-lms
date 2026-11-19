@@ -1,7 +1,7 @@
 # Sesiones y consultorías (sessions, approvals, video meetings)
 
 Area `06-sesiones`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `ca9dad512` (2026-11-19).
+Read from commit `6f507a060` (2026-11-19).
 
 11 screen files, 34 API files, 37 pieces.
 
@@ -365,7 +365,7 @@ File `pages/admin/sessions/[id].tsx` · 1224 lines · frame: MainLayout
   - l.250 `router.push → /dashboard  (when !isAdminUser)`
   - l.255 `router.push → /login`
   - l.413 `router.push → /login`
-- Linked from: `hooks/useSessionCreate.ts:579`, `hooks/useSessionCreate.ts:697`, `pages/admin/sessions/index.tsx:314`
+- Linked from: `hooks/useSessionCreate.ts:585`, `hooks/useSessionCreate.ts:703`, `pages/admin/sessions/index.tsx:314`
 - Tests: no browser test that CI runs.
 
 | Role | Sees it in the menu | Middleware |
@@ -808,7 +808,7 @@ File `pages/admin/sessions/create.tsx` · 48 lines · frame: MainLayout
 - Middleware: the /admin rule. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page: no access check found by the script.
 - Linked from: `pages/admin/sessions/index.tsx:564`
-- Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/reservation.spec.ts`; unit tests of the page: `__tests__/pages/admin/sessions/create-timezone.test.tsx`, `__tests__/pages/admin/sessions/create-zoom-managed.test.tsx`, `__tests__/pages/admin/sessions/create.clasico.test.tsx`.
+- Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/reservation.spec.ts`; unit tests of the page: `__tests__/pages/admin/sessions/create-earliest-date.test.tsx`, `__tests__/pages/admin/sessions/create-timezone.test.tsx`, `__tests__/pages/admin/sessions/create-zoom-managed.test.tsx`, `__tests__/pages/admin/sessions/create.clasico.test.tsx`.
 - QA scenarios that name this address: consultor 1, lider_comunidad 1, director 1, supervisor 1, docente 1.
 
 | Role | Sees it in the menu | Middleware |
@@ -884,9 +884,9 @@ File `pages/admin/sessions/create.tsx` · 48 lines · frame: MainLayout
 |---|---|---|
 | `/api/admin/consultants` | GET | `hooks/useSessionCreate.ts:226` |
 | `/api/hour-types` | GET | `hooks/useSessionCreate.ts:266` |
-| `/api/sessions` | POST | `hooks/useSessionCreate.ts:553`, `hooks/useSessionCreate.ts:644` |
-| `/api/sessions/[id]/approve` | POST | `hooks/useSessionCreate.ts:683` |
-| `/api/sessions/bulk-approve` | POST | `hooks/useSessionCreate.ts:662` |
+| `/api/sessions` | POST | `hooks/useSessionCreate.ts:559`, `hooks/useSessionCreate.ts:650` |
+| `/api/sessions/[id]/approve` | POST | `hooks/useSessionCreate.ts:689` |
+| `/api/sessions/bulk-approve` | POST | `hooks/useSessionCreate.ts:668` |
 
 ## /admin/sessions
 
@@ -902,7 +902,7 @@ File `pages/admin/sessions/index.tsx` · 1175 lines · frame: MainLayout
   - l.172 `router.push → /dashboard  (when !isAdminUser)`
   - l.177 `router.push → /login`
   - l.403 `router.push → /login`
-- Linked from: `components/layout/Sidebar.tsx:494`, `hooks/useSessionCreate.ts:576`, `hooks/useSessionCreate.ts:677`
+- Linked from: `components/layout/Sidebar.tsx:494`, `hooks/useSessionCreate.ts:582`, `hooks/useSessionCreate.ts:683`
 - Tests: no browser test that CI runs.
 - QA scenarios that name this address: admin 5, consultor 4, lider_comunidad 6, director 1, supervisor 1, docente 1.
 
@@ -3178,7 +3178,7 @@ Used by: `/admin/sessions/create`
 
 | Question | When | Where |
 |---|---|---|
-| «{scheduleConfirmText(sessionCount)}» |  | handleScheduleSession · l.599 |
+| «{scheduleConfirmText(sessionCount)}» |  | handleScheduleSession · l.605 |
 
 **Toasts** (26)
 
@@ -3189,36 +3189,36 @@ Used by: `/admin/sessions/create`
 | error | «{errorMsg}» | `!session?.access_token` | fetchConsultants · l.221 |
 | error | «{errorMsg}» | `!response.ok` | fetchConsultants · l.236 |
 | error | «{errorMsg}» |  | fetchConsultants · l.248 |
-| error | «Este consultor ya está asignado» | `facilitators.find((f) => f.user_id === consultantId)` | handleAddFacilitator · l.371 |
-| success | «Facilitador agregado» |  | handleAddFacilitator · l.383 |
-| error | «Debe seleccionar un colegio» | `formData.school_id <= 0` | validateForm · l.429 |
-| error | «Debe seleccionar una comunidad de crecimiento» | `!formData.growth_community_id` | validateForm · l.434 |
-| error | «Debe ingresar un título» | `!formData.title.trim()` | validateForm · l.439 |
-| error | «Debe seleccionar una fecha» | `!formData.session_date` | validateForm · l.444 |
-| error | «Debe ingresar hora de inicio y término» | `!formData.start_time \|\| !formData.end_time` | validateForm · l.449 |
-| error | «La hora de término debe ser posterior a la hora de inicio» | `endHour * 60 + endMin <= startHour * 60 + startMin` | validateForm · l.456 |
-| error | «Debe ingresar un enlace de reunión para modalidad online o híbrida» | `(formData.modality === 'online' \|\| formData.modality === 'hibrida') && !formData.is_zoom_managed && !formData.meeting_link` | validateForm · l.468 |
-| error | «Debe ingresar una ubicación para modalidad presencial o híbrida» | `(formData.modality === 'presencial' \|\| formData.modality === 'hibrida') && !formData.location` | validateForm · l.476 |
-| error | «Debe asignar al menos un facilitador a la sesión» | `facilitators.length === 0` | validateForm · l.482 |
-| error | «Debe haber exactamente un facilitador principal» | `leadCount !== 1` | validateForm · l.489 |
-| error | «Debe ingresar al menos 2 fechas personalizadas» | `isRecurring && recurrenceFrequency === 'custom' && validDates.length < 2` | validateForm · l.498 |
-| error | «El número de sesiones debe estar entre 2 y 52» | `isRecurring && !(recurrenceFrequency === 'custom') && (recurrenceCount < 2 \|\| recurrenceCount > 52)` | validateForm · l.503 |
-| error | «Error de autenticación» | `!session?.access_token` | handleSaveDraft · l.521 |
-| success | «{sessionCount} sesiones guardadas como borrador / Sesión guardada como borrador» |  | handleSaveDraft · l.569 |
-| error | «Error al guardar borrador» |  | handleSaveDraft · l.583 |
-| error | «Error de autenticación» | `!session?.access_token` | handleScheduleSession · l.611 |
-| success | «{sessionCount} sesiones programadas exitosamente» | `isRecurring && createResult.data.recurrence_group_id` | handleScheduleSession · l.676 |
-| success | «Sesión programada exitosamente» | `!(isRecurring && createResult.data.recurrence_group_id)` | handleScheduleSession · l.696 |
-| error | «Error al programar sesión» |  | handleScheduleSession · l.701 |
+| error | «Este consultor ya está asignado» | `facilitators.find((f) => f.user_id === consultantId)` | handleAddFacilitator · l.377 |
+| success | «Facilitador agregado» |  | handleAddFacilitator · l.389 |
+| error | «Debe seleccionar un colegio» | `formData.school_id <= 0` | validateForm · l.435 |
+| error | «Debe seleccionar una comunidad de crecimiento» | `!formData.growth_community_id` | validateForm · l.440 |
+| error | «Debe ingresar un título» | `!formData.title.trim()` | validateForm · l.445 |
+| error | «Debe seleccionar una fecha» | `!formData.session_date` | validateForm · l.450 |
+| error | «Debe ingresar hora de inicio y término» | `!formData.start_time \|\| !formData.end_time` | validateForm · l.455 |
+| error | «La hora de término debe ser posterior a la hora de inicio» | `endHour * 60 + endMin <= startHour * 60 + startMin` | validateForm · l.462 |
+| error | «Debe ingresar un enlace de reunión para modalidad online o híbrida» | `(formData.modality === 'online' \|\| formData.modality === 'hibrida') && !formData.is_zoom_managed && !formData.meeting_link` | validateForm · l.474 |
+| error | «Debe ingresar una ubicación para modalidad presencial o híbrida» | `(formData.modality === 'presencial' \|\| formData.modality === 'hibrida') && !formData.location` | validateForm · l.482 |
+| error | «Debe asignar al menos un facilitador a la sesión» | `facilitators.length === 0` | validateForm · l.488 |
+| error | «Debe haber exactamente un facilitador principal» | `leadCount !== 1` | validateForm · l.495 |
+| error | «Debe ingresar al menos 2 fechas personalizadas» | `isRecurring && recurrenceFrequency === 'custom' && validDates.length < 2` | validateForm · l.504 |
+| error | «El número de sesiones debe estar entre 2 y 52» | `isRecurring && !(recurrenceFrequency === 'custom') && (recurrenceCount < 2 \|\| recurrenceCount > 52)` | validateForm · l.509 |
+| error | «Error de autenticación» | `!session?.access_token` | handleSaveDraft · l.527 |
+| success | «{sessionCount} sesiones guardadas como borrador / Sesión guardada como borrador» |  | handleSaveDraft · l.575 |
+| error | «Error al guardar borrador» |  | handleSaveDraft · l.589 |
+| error | «Error de autenticación» | `!session?.access_token` | handleScheduleSession · l.617 |
+| success | «{sessionCount} sesiones programadas exitosamente» | `isRecurring && createResult.data.recurrence_group_id` | handleScheduleSession · l.682 |
+| success | «Sesión programada exitosamente» | `!(isRecurring && createResult.data.recurrence_group_id)` | handleScheduleSession · l.702 |
+| error | «Error al programar sesión» |  | handleScheduleSession · l.707 |
 
 **Messages set on the page** (4)
 
 | Text | Set by | When | Where |
 |---|---|---|---|
-| «Error al crear sesión» | `throw (shown by whoever catches it)` | `!response.ok` | handleSaveDraft · l.564 |
-| «Error al crear sesión» | `throw (shown by whoever catches it)` | `!createResponse.ok` | handleScheduleSession · l.655 |
-| «Error al aprobar sesiones» | `throw (shown by whoever catches it)` | `isRecurring && createResult.data.recurrence_group_id && !approveResponse.ok` | handleScheduleSession · l.673 |
-| «Error al aprobar sesión» | `throw (shown by whoever catches it)` | `!(isRecurring && createResult.data.recurrence_group_id) && !approveResponse.ok` | handleScheduleSession · l.693 |
+| «Error al crear sesión» | `throw (shown by whoever catches it)` | `!response.ok` | handleSaveDraft · l.570 |
+| «Error al crear sesión» | `throw (shown by whoever catches it)` | `!createResponse.ok` | handleScheduleSession · l.661 |
+| «Error al aprobar sesiones» | `throw (shown by whoever catches it)` | `isRecurring && createResult.data.recurrence_group_id && !approveResponse.ok` | handleScheduleSession · l.679 |
+| «Error al aprobar sesión» | `throw (shown by whoever catches it)` | `!(isRecurring && createResult.data.recurrence_group_id) && !approveResponse.ok` | handleScheduleSession · l.699 |
 
 **Moves to another page from code** (8)
 
@@ -3227,11 +3227,11 @@ Used by: `/admin/sessions/create`
 | `/login` | `router.push` | `!session?.user` | initializeAuth · l.159 |
 | `/dashboard` | `router.push` | `!isAdminUser` | initializeAuth · l.169 |
 | `/login` | `router.push` |  | initializeAuth · l.174 |
-| `/admin/sessions` | `router.push` | `isRecurring` | handleSaveDraft · l.576 |
-| `/admin/sessions/[*]` | `router.push` | `!(isRecurring)` | handleSaveDraft · l.579 |
-| `/admin/sessions` | `router.push` | `isRecurring && createResult.data.recurrence_group_id` | handleScheduleSession · l.677 |
-| `/admin/sessions/[*]` | `router.push` | `!(isRecurring && createResult.data.recurrence_group_id)` | handleScheduleSession · l.697 |
-| `/login` | `router.push` |  | handleLogout · l.709 |
+| `/admin/sessions` | `router.push` | `isRecurring` | handleSaveDraft · l.582 |
+| `/admin/sessions/[*]` | `router.push` | `!(isRecurring)` | handleSaveDraft · l.585 |
+| `/admin/sessions` | `router.push` | `isRecurring && createResult.data.recurrence_group_id` | handleScheduleSession · l.683 |
+| `/admin/sessions/[*]` | `router.push` | `!(isRecurring && createResult.data.recurrence_group_id)` | handleScheduleSession · l.703 |
+| `/login` | `router.push` |  | handleLogout · l.715 |
 
 **Access checks in the code** (1)
 
@@ -3251,10 +3251,10 @@ Used by: `/admin/sessions/create`
 | Text | Where |
 |---|---|
 | «Bearer {session.access_token}» | useSessionCreate · l.228 |
-| «¿Está seguro de que desea programar estas {sessionCount} sesiones? Se notificará a los participantes.» | useSessionCreate · l.592 |
-| «¿Está seguro de que desea programar esta sesión? Se notificará a los participantes.» | useSessionCreate · l.593 |
-| «Externo» | useSessionCreate · l.797 |
-| «Interno» | useSessionCreate · l.798 |
+| «¿Está seguro de que desea programar estas {sessionCount} sesiones? Se notificará a los participantes.» | useSessionCreate · l.598 |
+| «¿Está seguro de que desea programar esta sesión? Se notificará a los participantes.» | useSessionCreate · l.599 |
+| «Externo» | useSessionCreate · l.804 |
+| «Interno» | useSessionCreate · l.805 |
 
 **Reads and writes the database directly:** `rpc:get_bucket_summary`, `table:contratos` (select), `table:growth_communities` (select), `table:schools` (select)
 
@@ -3669,14 +3669,14 @@ Used by: `/admin/sessions/create`, `/consultor/sessions/[id]`, `/consultor/sessi
 
 | Text | Set by | When | Where |
 |---|---|---|---|
-| «Invalid session date format: {sessionDate}» | `throw (shown by whoever catches it)` | `!/^\d{4}-\d{2}-\d{2}$/.test(sessionDate)` | getSessionDateTime · l.23 |
-| «Invalid time format: {timeString}» | `throw (shown by whoever catches it)` | `!/^\d{2}:\d{2}(:\d{2})?$/.test(timeString)` | getSessionDateTime · l.26 |
+| «Invalid session date format: {sessionDate}» | `throw (shown by whoever catches it)` | `!/^\d{4}-\d{2}-\d{2}$/.test(sessionDate)` | getSessionDateTime · l.39 |
+| «Invalid time format: {timeString}» | `throw (shown by whoever catches it)` | `!/^\d{2}:\d{2}(:\d{2})?$/.test(timeString)` | getSessionDateTime · l.42 |
 
 **Other texts written in the code (safety net: not tied to an element by the script)** (1)
 
 | Text | Where |
 |---|---|
-| «{hours}:{minutes} (hora España)» | formatSessionTimeForConsultant · l.72 |
+| «{hours}:{minutes} (hora España)» | formatSessionTimeForConsultant · l.88 |
 
 ### lib/utils/session-ui-helpers.tsx
 
@@ -3752,7 +3752,7 @@ Used by: `/admin/bulk-tag-sessions`, `/admin/consultant-assignments`, `/admin/se
 | `/api/sessions/[id]/facilitators` | `pages/api/sessions/[id]/facilitators.ts` | PUT | `/admin/sessions/[id]` | `__tests__/api/sessions/facilitators.test.ts`, `pages/admin/sessions/[id].tsx` |
 | `/api/sessions/[id]/finalize` | `pages/api/sessions/[id]/finalize.ts` | POST | `/consultor/sessions/[id]` | `__tests__/api/sessions/finalize.test.ts`, `__tests__/api/sessions/session-notification-recipients.test.ts`, `__tests__/pages/consultor/sessions/detail.clasico.test.tsx`, `hooks/useSessionDetail.ts` |
 | `/api/sessions/[id]/ical` | `pages/api/sessions/[id]/ical.ts` | GET | `/admin/sessions/[id]`, `/consultor/sessions/[id]` | `__tests__/api/sessions/cached-roles-never-authorize.test.ts`, `__tests__/api/sessions/ical-attendee-disclosure.test.ts`, `__tests__/api/sessions/ical-sequence.test.ts`, `__tests__/api/sessions/session-ical-export.test.ts`, `components/sessions/SessionDetailClasico.tsx` +3 |
-| `/api/sessions/[id]` | `pages/api/sessions/[id]/index.ts` | GET, PUT | `/admin/sessions/[id]`, `/consultor/sessions/[id]` | `__tests__/api/reports/qa-tenant-exclusion-contract.test.ts`, `__tests__/api/sessions/cached-roles-never-authorize.test.ts`, `__tests__/api/sessions/ical-scope-union.test.ts`, `__tests__/api/sessions/reschedule-hours-sync.test.ts`, `__tests__/api/sessions/role-revocation-fail-closed.test.ts` +26 |
+| `/api/sessions/[id]` | `pages/api/sessions/[id]/index.ts` | GET, PUT | `/admin/sessions/[id]`, `/consultor/sessions/[id]` | `__tests__/api/reports/qa-tenant-exclusion-contract.test.ts`, `__tests__/api/sessions/cached-roles-never-authorize.test.ts`, `__tests__/api/sessions/ical-scope-union.test.ts`, `__tests__/api/sessions/reschedule-hours-sync.test.ts`, `__tests__/api/sessions/role-revocation-fail-closed.test.ts` +27 |
 | `/api/sessions/[id]/materials` | `pages/api/sessions/[id]/materials.ts` | GET, POST | `/consultor/sessions/[id]` | `__tests__/api/sessions/materials.test.ts`, `__tests__/pages/consultor/sessions/detail.clasico.test.tsx`, `hooks/useSessionDetail.ts`, `tests/e2e/session-disclosure.spec.ts` |
 | `/api/sessions/[id]/materials/[mid]` | `pages/api/sessions/[id]/materials/[mid].ts` | DELETE | `/consultor/sessions/[id]` | `__tests__/api/sessions/materials-detail.test.ts`, `__tests__/pages/consultor/sessions/detail.clasico.test.tsx`, `hooks/useSessionDetail.ts` |
 | `/api/sessions/[id]/reports` | `pages/api/sessions/[id]/reports.ts` | GET, POST | `/consultor/sessions/[id]` | `__tests__/api/sessions/reports.test.ts`, `__tests__/pages/consultor/sessions/detail.clasico.test.tsx`, `hooks/useSessionDetail.ts`, `tests/e2e/session-disclosure.spec.ts` |
@@ -3762,7 +3762,7 @@ Used by: `/admin/bulk-tag-sessions`, `/admin/consultant-assignments`, `/admin/se
 | `/api/sessions/edit-requests/[eid]` | `pages/api/sessions/edit-requests/[eid].ts` | GET, PUT | `/admin/sessions/approvals` | `__tests__/api/sessions/edit-requests-detail.test.ts`, `__tests__/api/sessions/reschedule-hours-sync.test.ts`, `__tests__/api/sessions/session-lifecycle-notifications.test.ts`, `__tests__/api/sessions/session-notifications.test.ts`, `__tests__/api/sessions/session-reschedule-zoom-sync.test.ts` +3 |
 | `/api/sessions/edit-requests` | `pages/api/sessions/edit-requests/index.ts` | GET | `/admin/sessions/approvals` | `pages/admin/sessions/approvals.tsx` |
 | `/api/sessions/ical` | `pages/api/sessions/ical.ts` | GET | `/admin/sessions`, `/consultor/sessions` | `__tests__/api/sessions/cached-roles-never-authorize.test.ts`, `__tests__/api/sessions/ical-attendee-disclosure.test.ts`, `__tests__/api/sessions/ical-scope-union.test.ts`, `__tests__/api/sessions/ical-sequence.test.ts`, `__tests__/api/sessions/session-ical-export.test.ts` +4 |
-| `/api/sessions` | `pages/api/sessions/index.ts` | GET, POST | `/admin/sessions`, `/admin/sessions/create`, `/community/workspace`, `/consultor/sessions` | `__tests__/api/sessions/role-revocation-fail-closed.test.ts`, `__tests__/api/sessions/session-create-facilitators.test.ts`, `__tests__/api/sessions/session-detail-disclosure.test.ts`, `__tests__/api/sessions/session-managed-intent-create.test.ts`, `__tests__/api/sessions/session-operator-creation.test.ts` +17 |
+| `/api/sessions` | `pages/api/sessions/index.ts` | GET, POST | `/admin/sessions`, `/admin/sessions/create`, `/community/workspace`, `/consultor/sessions` | `__tests__/api/sessions/role-revocation-fail-closed.test.ts`, `__tests__/api/sessions/session-create-facilitators.test.ts`, `__tests__/api/sessions/session-custom-dates-chile.test.ts`, `__tests__/api/sessions/session-detail-disclosure.test.ts`, `__tests__/api/sessions/session-managed-intent-create.test.ts` +18 |
 | `/api/sessions/reports/analytics` | `pages/api/sessions/reports/analytics.ts` | GET | `/consultor/sessions/reports` | `__tests__/api/sessions/session-reports-analytics.test.ts`, `pages/consultor/sessions/reports.tsx` |
 | `/api/sessions/series/[groupId]` | `pages/api/sessions/series/[groupId].ts` | GET | `/admin/sessions/[id]` | `__tests__/api/sessions/session-series.test.ts`, `pages/admin/sessions/[id].tsx` |
 | `/api/sessions/series/[groupId]/cancel` | `pages/api/sessions/series/[groupId]/cancel.ts` | POST | `/admin/sessions/[id]` | `__tests__/api/sessions/session-cancel-zoom-delete.test.ts`, `__tests__/api/sessions/session-lifecycle-notifications.test.ts`, `__tests__/api/sessions/session-series.test.ts`, `pages/admin/sessions/[id].tsx` |

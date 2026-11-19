@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "ca9dad512fc0b65bf1db627e23a6d84edd80dd28",
-  "date": "2026-11-19T14:41:10-03:00"
+  "commit": "6f507a060b6706a92713ad8f8668b6386970cec7",
+  "date": "2026-11-19T20:11:06-03:00"
  },
  "screens": [
   {
@@ -1212,8 +1212,8 @@
      }
     ],
     "linkedFrom": [
-     "hooks/useSessionCreate.ts:579",
-     "hooks/useSessionCreate.ts:697",
+     "hooks/useSessionCreate.ts:585",
+     "hooks/useSessionCreate.ts:703",
      "pages/admin/sessions/index.tsx:314"
     ],
     "qaScenarios": {},
@@ -3142,6 +3142,7 @@
       "tests/e2e/reservation.spec.ts"
      ],
      "unit": [
+      "__tests__/pages/admin/sessions/create-earliest-date.test.tsx",
       "__tests__/pages/admin/sessions/create-timezone.test.tsx",
       "__tests__/pages/admin/sessions/create-zoom-managed.test.tsx",
       "__tests__/pages/admin/sessions/create.clasico.test.tsx"
@@ -3217,8 +3218,8 @@
       "POST"
      ],
      "from": [
-      "hooks/useSessionCreate.ts:553",
-      "hooks/useSessionCreate.ts:644"
+      "hooks/useSessionCreate.ts:559",
+      "hooks/useSessionCreate.ts:650"
      ]
     },
     {
@@ -3228,7 +3229,7 @@
       "POST"
      ],
      "from": [
-      "hooks/useSessionCreate.ts:683"
+      "hooks/useSessionCreate.ts:689"
      ]
     },
     {
@@ -3238,7 +3239,7 @@
       "POST"
      ],
      "from": [
-      "hooks/useSessionCreate.ts:662"
+      "hooks/useSessionCreate.ts:668"
      ]
     }
    ]
@@ -3329,8 +3330,8 @@
     ],
     "linkedFrom": [
      "components/layout/Sidebar.tsx:494",
-     "hooks/useSessionCreate.ts:576",
-     "hooks/useSessionCreate.ts:677"
+     "hooks/useSessionCreate.ts:582",
+     "hooks/useSessionCreate.ts:683"
     ],
     "qaScenarios": {
      "admin": [
@@ -11950,7 +11951,7 @@
    "usedBy": [
     "/admin/sessions/create"
    ],
-   "lines": 898,
+   "lines": 905,
    "rows": [
     {
      "kind": "nav",
@@ -12040,7 +12041,7 @@
     },
     {
      "kind": "toast",
-     "line": 371,
+     "line": 377,
      "in": "handleAddFacilitator",
      "when": "facilitators.find((f) => f.user_id === consultantId)",
      "text": "Este consultor ya está asignado",
@@ -12048,14 +12049,14 @@
     },
     {
      "kind": "toast",
-     "line": 383,
+     "line": 389,
      "in": "handleAddFacilitator",
      "text": "Facilitador agregado",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 429,
+     "line": 435,
      "in": "validateForm",
      "when": "formData.school_id <= 0",
      "text": "Debe seleccionar un colegio",
@@ -12063,7 +12064,7 @@
     },
     {
      "kind": "toast",
-     "line": 434,
+     "line": 440,
      "in": "validateForm",
      "when": "!formData.growth_community_id",
      "text": "Debe seleccionar una comunidad de crecimiento",
@@ -12071,7 +12072,7 @@
     },
     {
      "kind": "toast",
-     "line": 439,
+     "line": 445,
      "in": "validateForm",
      "when": "!formData.title.trim()",
      "text": "Debe ingresar un título",
@@ -12079,7 +12080,7 @@
     },
     {
      "kind": "toast",
-     "line": 444,
+     "line": 450,
      "in": "validateForm",
      "when": "!formData.session_date",
      "text": "Debe seleccionar una fecha",
@@ -12087,7 +12088,7 @@
     },
     {
      "kind": "toast",
-     "line": 449,
+     "line": 455,
      "in": "validateForm",
      "when": "!formData.start_time || !formData.end_time",
      "text": "Debe ingresar hora de inicio y término",
@@ -12095,7 +12096,7 @@
     },
     {
      "kind": "toast",
-     "line": 456,
+     "line": 462,
      "in": "validateForm",
      "when": "endHour * 60 + endMin <= startHour * 60 + startMin",
      "text": "La hora de término debe ser posterior a la hora de inicio",
@@ -12103,7 +12104,7 @@
     },
     {
      "kind": "toast",
-     "line": 468,
+     "line": 474,
      "in": "validateForm",
      "when": "(formData.modality === 'online' || formData.modality === 'hibrida') && !formData.is_zoom_managed && !formData.meeting_link",
      "text": "Debe ingresar un enlace de reunión para modalidad online o híbrida",
@@ -12111,7 +12112,7 @@
     },
     {
      "kind": "toast",
-     "line": 476,
+     "line": 482,
      "in": "validateForm",
      "when": "(formData.modality === 'presencial' || formData.modality === 'hibrida') && !formData.location",
      "text": "Debe ingresar una ubicación para modalidad presencial o híbrida",
@@ -12119,7 +12120,7 @@
     },
     {
      "kind": "toast",
-     "line": 482,
+     "line": 488,
      "in": "validateForm",
      "when": "facilitators.length === 0",
      "text": "Debe asignar al menos un facilitador a la sesión",
@@ -12127,7 +12128,7 @@
     },
     {
      "kind": "toast",
-     "line": 489,
+     "line": 495,
      "in": "validateForm",
      "when": "leadCount !== 1",
      "text": "Debe haber exactamente un facilitador principal",
@@ -12135,7 +12136,7 @@
     },
     {
      "kind": "toast",
-     "line": 498,
+     "line": 504,
      "in": "validateForm",
      "when": "isRecurring && recurrenceFrequency === 'custom' && validDates.length < 2",
      "text": "Debe ingresar al menos 2 fechas personalizadas",
@@ -12143,7 +12144,7 @@
     },
     {
      "kind": "toast",
-     "line": 503,
+     "line": 509,
      "in": "validateForm",
      "when": "isRecurring && !(recurrenceFrequency === 'custom') && (recurrenceCount < 2 || recurrenceCount > 52)",
      "text": "El número de sesiones debe estar entre 2 y 52",
@@ -12151,7 +12152,7 @@
     },
     {
      "kind": "toast",
-     "line": 521,
+     "line": 527,
      "in": "handleSaveDraft",
      "when": "!session?.access_token",
      "text": "Error de autenticación",
@@ -12159,7 +12160,7 @@
     },
     {
      "kind": "message",
-     "line": 564,
+     "line": 570,
      "in": "handleSaveDraft",
      "when": "!response.ok",
      "text": "Error al crear sesión",
@@ -12167,14 +12168,14 @@
     },
     {
      "kind": "toast",
-     "line": 569,
+     "line": 575,
      "in": "handleSaveDraft",
      "text": "{sessionCount} sesiones guardadas como borrador / Sesión guardada como borrador",
      "variant": "success"
     },
     {
      "kind": "nav",
-     "line": 576,
+     "line": 582,
      "in": "handleSaveDraft",
      "when": "isRecurring",
      "text": "/admin/sessions",
@@ -12182,7 +12183,7 @@
     },
     {
      "kind": "nav",
-     "line": 579,
+     "line": 585,
      "in": "handleSaveDraft",
      "when": "!(isRecurring)",
      "text": "/admin/sessions/[*]",
@@ -12190,20 +12191,20 @@
     },
     {
      "kind": "toast",
-     "line": 583,
+     "line": 589,
      "in": "handleSaveDraft",
      "text": "Error al guardar borrador",
      "variant": "error"
     },
     {
      "kind": "confirm",
-     "line": 599,
+     "line": 605,
      "in": "handleScheduleSession",
      "text": "{scheduleConfirmText(sessionCount)}"
     },
     {
      "kind": "toast",
-     "line": 611,
+     "line": 617,
      "in": "handleScheduleSession",
      "when": "!session?.access_token",
      "text": "Error de autenticación",
@@ -12211,7 +12212,7 @@
     },
     {
      "kind": "message",
-     "line": 655,
+     "line": 661,
      "in": "handleScheduleSession",
      "when": "!createResponse.ok",
      "text": "Error al crear sesión",
@@ -12219,7 +12220,7 @@
     },
     {
      "kind": "message",
-     "line": 673,
+     "line": 679,
      "in": "handleScheduleSession",
      "when": "isRecurring && createResult.data.recurrence_group_id && !approveResponse.ok",
      "text": "Error al aprobar sesiones",
@@ -12227,7 +12228,7 @@
     },
     {
      "kind": "toast",
-     "line": 676,
+     "line": 682,
      "in": "handleScheduleSession",
      "when": "isRecurring && createResult.data.recurrence_group_id",
      "text": "{sessionCount} sesiones programadas exitosamente",
@@ -12235,7 +12236,7 @@
     },
     {
      "kind": "nav",
-     "line": 677,
+     "line": 683,
      "in": "handleScheduleSession",
      "when": "isRecurring && createResult.data.recurrence_group_id",
      "text": "/admin/sessions",
@@ -12243,7 +12244,7 @@
     },
     {
      "kind": "message",
-     "line": 693,
+     "line": 699,
      "in": "handleScheduleSession",
      "when": "!(isRecurring && createResult.data.recurrence_group_id) && !approveResponse.ok",
      "text": "Error al aprobar sesión",
@@ -12251,7 +12252,7 @@
     },
     {
      "kind": "toast",
-     "line": 696,
+     "line": 702,
      "in": "handleScheduleSession",
      "when": "!(isRecurring && createResult.data.recurrence_group_id)",
      "text": "Sesión programada exitosamente",
@@ -12259,7 +12260,7 @@
     },
     {
      "kind": "nav",
-     "line": 697,
+     "line": 703,
      "in": "handleScheduleSession",
      "when": "!(isRecurring && createResult.data.recurrence_group_id)",
      "text": "/admin/sessions/[*]",
@@ -12267,14 +12268,14 @@
     },
     {
      "kind": "toast",
-     "line": 701,
+     "line": 707,
      "in": "handleScheduleSession",
      "text": "Error al programar sesión",
      "variant": "error"
     },
     {
      "kind": "nav",
-     "line": 709,
+     "line": 715,
      "in": "handleLogout",
      "text": "/login",
      "via": "router.push"
@@ -12287,25 +12288,25 @@
     },
     {
      "kind": "string",
-     "line": 592,
+     "line": 598,
      "in": "useSessionCreate",
      "text": "¿Está seguro de que desea programar estas {sessionCount} sesiones? Se notificará a los participantes."
     },
     {
      "kind": "string",
-     "line": 593,
+     "line": 599,
      "in": "useSessionCreate",
      "text": "¿Está seguro de que desea programar esta sesión? Se notificará a los participantes."
     },
     {
      "kind": "string",
-     "line": 797,
+     "line": 804,
      "in": "useSessionCreate",
      "text": "Externo"
     },
     {
      "kind": "string",
-     "line": 798,
+     "line": 805,
      "in": "useSessionCreate",
      "text": "Interno"
     }
@@ -13638,11 +13639,11 @@
     "/consultor/sessions/[id]",
     "/consultor/sessions"
    ],
-   "lines": 106,
+   "lines": 122,
    "rows": [
     {
      "kind": "message",
-     "line": 23,
+     "line": 39,
      "in": "getSessionDateTime",
      "when": "!/^\\d{4}-\\d{2}-\\d{2}$/.test(sessionDate)",
      "text": "Invalid session date format: {sessionDate}",
@@ -13650,7 +13651,7 @@
     },
     {
      "kind": "message",
-     "line": 26,
+     "line": 42,
      "in": "getSessionDateTime",
      "when": "!/^\\d{2}:\\d{2}(:\\d{2})?$/.test(timeString)",
      "text": "Invalid time format: {timeString}",
@@ -13658,7 +13659,7 @@
     },
     {
      "kind": "string",
-     "line": 72,
+     "line": 88,
      "in": "formatSessionTimeForConsultant",
      "text": "{hours}:{minutes} (hora España)"
     }
@@ -14267,6 +14268,7 @@
     "__tests__/api/sessions/role-revocation-fail-closed.test.ts",
     "__tests__/api/sessions/session-concurrency.test.ts",
     "__tests__/api/sessions/session-create-facilitators.test.ts",
+    "__tests__/api/sessions/session-custom-dates-chile.test.ts",
     "__tests__/api/sessions/session-detail-disclosure.test.ts",
     "__tests__/api/sessions/session-lifecycle-notifications.test.ts",
     "__tests__/api/sessions/session-managed-intent-create.test.ts",
@@ -14509,6 +14511,7 @@
    "referencedIn": [
     "__tests__/api/sessions/role-revocation-fail-closed.test.ts",
     "__tests__/api/sessions/session-create-facilitators.test.ts",
+    "__tests__/api/sessions/session-custom-dates-chile.test.ts",
     "__tests__/api/sessions/session-detail-disclosure.test.ts",
     "__tests__/api/sessions/session-managed-intent-create.test.ts",
     "__tests__/api/sessions/session-operator-creation.test.ts",

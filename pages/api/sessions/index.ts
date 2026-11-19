@@ -20,6 +20,7 @@ import {
 } from '../../../lib/types/consultor-sessions.types';
 import { generateRecurrenceDates, buildRRule } from '../../../lib/utils/recurrence';
 import { validateFacilitatorIntegrity } from '../../../lib/utils/facilitator-validation';
+import { todayInChile } from '../../../lib/utils/session-timezone';
 import { checkZoomRolloutPolicy } from '../../../lib/zoom/provisioning-intent';
 import {
   isOperatorTenant,
@@ -181,8 +182,8 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse) {
         if (!pattern.dates || pattern.dates.length < 2 || pattern.dates.length > 52) {
           return sendAuthError(res, 'Las fechas personalizadas deben tener entre 2 y 52 elementos', 400);
         }
-        // Validate all dates are in the future
-        const today = new Date().toISOString().split('T')[0];
+        // Validate all dates are in the future: not before today's date in Chile
+        const today = todayInChile(new Date());
         const futureDates = pattern.dates.filter(d => d >= today);
         if (futureDates.length !== pattern.dates.length) {
           return sendAuthError(res, 'Todas las fechas deben ser futuras', 400);

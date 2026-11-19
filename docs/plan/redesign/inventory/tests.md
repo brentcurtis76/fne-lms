@@ -1,6 +1,6 @@
 # Screens and their tests
 
-Written by `scripts/redesign/inventory.mjs` from commit `ca9dad512`. For phase 3 (the safety net). A browser test is counted for a screen when the test file names the screen's address; that is weaker than "the test checks the screen". CI runs 31 of 72 browser test files (`scripts/ci/e2e-mandatory.mjs`).
+Written by `scripts/redesign/inventory.mjs` from commit `6f507a060`. For phase 3 (the safety net). A browser test is counted for a screen when the test file names the screen's address; that is weaker than "the test checks the screen". CI runs 31 of 72 browser test files (`scripts/ci/e2e-mandatory.mjs`).
 
 - 152 screens with an address.
 - 35 are named by a browser test that CI runs.
@@ -91,7 +91,7 @@ Written by `scripts/redesign/inventory.mjs` from commit `ca9dad512`. For phase 3
 | 05-tareas | `/assignments/[id]` | `e2e/assessment-frequency-validation.spec.ts`, `e2e/due-reminders.spec.ts` | — |
 | 05-tareas | `/quiz-reviews` | `e2e/urgent-anonymous-boundaries.spec.ts`, `e2e/urgent-anonymous-current.spec.ts` | — |
 | 05-tareas | `/quiz-reviews/[id]` | `e2e/urgent-anonymous-boundaries.spec.ts`, `e2e/urgent-anonymous-current.spec.ts` | — |
-| 06-sesiones | `/admin/sessions/create` | `e2e/reservation.spec.ts` | 3 |
+| 06-sesiones | `/admin/sessions/create` | `e2e/reservation.spec.ts` | 4 |
 | 06-sesiones | `/consultor/sessions/[id]` | `e2e/notification-catalog-links.spec.ts`, `e2e/session-reminders.spec.ts` | 2 |
 | 06-sesiones | `/consultor/sessions` | — | 2 |
 | 06-sesiones | `/meet/diag` | — | 4 |

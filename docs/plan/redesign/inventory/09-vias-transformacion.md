@@ -1,7 +1,7 @@
 # Vías de Transformación (to be deleted)
 
 Area `09-vias-transformacion`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `ca9dad512` (2026-11-19).
+Read from commit `6f507a060` (2026-11-19).
 
 Brent, 13 Nov 2026: Vías de Transformación is going to be deleted from the platform. Its screens are listed with their address and who reaches them, and nothing else. Which files go is confirmed with him on the leftover list.
 

@@ -236,4 +236,31 @@ describe('DocumentUploadModal: each file reports for itself (F18e)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  // ---- send-back 2 ----
+  it('without crypto.randomUUID a file still gets an id of UUID form, the same on two tries', async () => {
+    const own = Object.getOwnPropertyDescriptor(globalThis.crypto, 'randomUUID');
+    Object.defineProperty(globalThis.crypto, 'randomUUID', { value: undefined, configurable: true, writable: true });
+    try {
+      expect(typeof (globalThis.crypto as any).randomUUID).toBe('undefined');
+      h.uploadDocument = vi.fn(async (_ws: string, data: { files: File[] }) => ({
+        uploaded: [], failed: [{ fileName: data.files[0].name, message: STORE_FAILED }], warnings: [],
+      }));
+      const { container } = open();
+      choose(container, [pdf('Uno.pdf')]);
+      setTitle('Acta');
+      fireEvent.click(screen.getByRole('button', { name: /^Subir Documentos/ }));
+      await waitFor(() => expect(h.uploadDocument).toHaveBeenCalledTimes(1));
+      await waitFor(() => expect(screen.getAllByTestId('upload-result')).toHaveLength(1));
+      fireEvent.click(screen.getByRole('button', { name: /^Subir Documentos/ }));
+      await waitFor(() => expect(h.uploadDocument).toHaveBeenCalledTimes(2));
+      const first = (h.uploadDocument.mock.calls[0][3] as any[])[0];
+      const second = (h.uploadDocument.mock.calls[1][3] as any[])[0];
+      expect(first.documentId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+      expect(second).toEqual(first);
+    } finally {
+      if (own) Object.defineProperty(globalThis.crypto, 'randomUUID', own);
+      else delete (globalThis.crypto as any).randomUUID;
+    }
+  });
 });

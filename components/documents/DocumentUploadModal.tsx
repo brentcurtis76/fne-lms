@@ -22,6 +22,22 @@ import {
   UPLOAD_FAILED_MESSAGE,
 } from '../../utils/documentUtils';
 import { formatFileSize } from '../../lib/utils/file-format';
+import { v4 as uuidv4 } from 'uuid';
+
+// F18e send-back 2: a file always gets a valid document id. crypto.randomUUID
+// first; otherwise uuid's v4 from crypto.getRandomValues (the options object
+// makes uuid skip its own randomUUID shortcut); only when neither exists is no
+// id sent (that file then behaves as before).
+function newDocumentId(): string | undefined {
+  try {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return crypto.randomUUID();
+    }
+    return uuidv4({});
+  } catch {
+    return undefined;
+  }
+}
 
 // F18e (EC-D7, EC-D8): the outcome of one file in the last upload.
 interface FileUploadOutcome {
@@ -82,8 +98,7 @@ export default function DocumentUploadModal({
     if (!identity) {
       const timestamp = Math.max(Date.now(), lastTimestampRef.current + 1);
       lastTimestampRef.current = timestamp;
-      const documentId =
-        typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : undefined;
+      const documentId = newDocumentId();
       identity = { documentId, timestamp };
       identitiesRef.current.set(file, identity);
     }

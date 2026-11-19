@@ -125,12 +125,12 @@ describe('generate-acta — amounts in the tender\'s currency (LIC-B2)', () => {
 });
 
 describe('generate-acta — a programme without active criteria (LIC-B5)', () => {
-  it('answers 422 with the bases route\'s sentence, and nothing is generated or stored', async () => {
+  it('answers 422 with the Acta\'s own sentence, and nothing is generated or stored', async () => {
     h.db.tables.programa_evaluacion_criterios = [];
     const r = await call();
     expect(r.status).toBe(422);
     expect(r.json.error).toBe(
-      'El programa no tiene criterios de evaluación activos. Configúrelos en /admin/licitaciones/criterios antes de generar las Bases.'
+      'El programa no tiene criterios de evaluación activos. Configúrelos en /admin/licitaciones/criterios antes de generar el Acta.'
     );
     expect(h.db.uploads).toHaveLength(0);
     expect(h.db.client.lastUpload).toBeNull();

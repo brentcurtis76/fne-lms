@@ -92,11 +92,36 @@ describe('evaluation route — the evaluation date (LIC-B3)', () => {
     expect(tender().fecha_evaluacion).toBe('2026-11-06');
   });
 
-  it('saves without a date and leaves the stored one as it was', async () => {
+  it('a request that does not send the date leaves the stored one as it was', async () => {
+    tender().fecha_evaluacion = '2026-11-04';
+    const r = await post({});
+    expect(r.status).toBe(200);
+    expect(tender().fecha_evaluacion).toBe('2026-11-04');
+  });
+
+  // Send-back 1 (b): an empty value means "no date" and is stored as null
+  it('an empty date «» is stored as null', async () => {
+    tender().fecha_evaluacion = '2026-11-04';
+    const r = await post({ fecha_evaluacion: '' });
+    expect(r.status).toBe(200);
+    expect(tender().fecha_evaluacion).toBeNull();
+  });
+
+  it('a null date (the screen\'s empty field) is stored as null', async () => {
     tender().fecha_evaluacion = '2026-11-04';
     const r = await post({ fecha_evaluacion: null });
     expect(r.status).toBe(200);
-    expect(tender().fecha_evaluacion).toBe('2026-11-04');
+    expect(tender().fecha_evaluacion).toBeNull();
+  });
+
+  it.each(['2026-02-31', '2026-13-01', '2026-11-5', 'mañana'])('refuses the date «%s» with 400 before anything is written', async (fecha) => {
+    h.db.tables.licitacion_comision = [{ id: 'm-old', licitacion_id: LIC, nombre: 'Persona Previa', orden: 1 }];
+    const r = await post({ fecha_evaluacion: fecha });
+    expect(r.status).toBe(400);
+    expect(r.json.error).toMatch(/fecha de evaluación/i);
+    expect(h.db.writes).toEqual([]);
+    expect(h.db.tables.licitacion_comision).toEqual([{ id: 'm-old', licitacion_id: LIC, nombre: 'Persona Previa', orden: 1 }]);
+    expect(tender().fecha_evaluacion).toBeNull();
   });
 
   it('GET returns the stored date so the screen can show it again', async () => {
@@ -197,5 +222,53 @@ describe('evaluation route — an amount for another tender\'s provider (N46)', 
     expect(tender().ganador_ate_id).toBeNull();
     expect(tender().fecha_evaluacion).toBeNull();
     expect(ate(ATE_FOREIGN).es_ganador).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Send-back 1 (a): a cleared amount stays cleared
+// ---------------------------------------------------------------------------
+describe('evaluation route — a cleared amount stays cleared (send-back 1)', () => {
+  it('after a save with B only, A\'s stored amount is empty and GET returns none for A', async () => {
+    await saveBoth();
+    expect(ate(ATE_A).monto_propuesto).toBe(400);
+    const r = await post({ scores: [score(ATE_A, 80), score(ATE_B, 60)], montos: [{ ate_id: ATE_B, monto_propuesto: 500 }] });
+    expect(r.status).toBe(200);
+    expect(ate(ATE_A).monto_propuesto).toBeNull();
+    expect(ate(ATE_B).monto_propuesto).toBe(500);
+    const g = await get();
+    const a = g.json.data.ates.find((x: any) => x.id === ATE_A);
+    expect(a.monto_propuesto).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Send-back 1 (c): every write of the save is checked
+// ---------------------------------------------------------------------------
+const INCOMPLETE = 'No se pudo guardar la evaluación completa. Vuelva a guardar antes de generar el Acta.';
+
+describe('evaluation route — every write of the save is checked (send-back 1)', () => {
+  const cases: Array<[string, (w: any) => boolean]> = [
+    ['the date and hours', w => w.table === 'licitaciones' && w.op === 'update' && 'fecha_evaluacion' in (w.values ?? {})],
+    ['the technical scores', w => w.table === 'licitacion_evaluaciones' && w.op === 'upsert'],
+    ['the unmarking', w => w.table === 'licitacion_ates' && w.op === 'update' && w.values?.es_ganador === false && !('puntaje_total' in w.values)],
+    ['the clearing', w => w.table === 'licitacion_ates' && w.op === 'update' && w.values?.puntaje_total === null],
+    ['the new calculated scores', w => w.table === 'licitacion_ates' && w.op === 'update' && typeof w.values?.puntaje_total === 'number'],
+    ['the tender\'s winner', w => w.table === 'licitaciones' && w.op === 'update' && 'ganador_ate_id' in (w.values ?? {})],
+  ];
+
+  it.each(cases)('a failure of %s → 500 with the sentence, and no later write', async (_name, match) => {
+    h.db.failWrite.match = match;
+    const r = await post({
+      fecha_evaluacion: '2026-11-05', hora_inicio: '10:00',
+      scores: [score(ATE_A, 80), score(ATE_B, 60)],
+      montos: [{ ate_id: ATE_A, monto_propuesto: 400 }],
+    });
+    expect(r.status).toBe(500);
+    expect(r.json.error).toBe(INCOMPLETE);
+    const failedAt = h.db.writes.findIndex((w: any) => w.failed);
+    expect(failedAt).toBeGreaterThanOrEqual(0);
+    expect(h.db.writes.slice(failedAt + 1)).toEqual([]);
+    expect(h.db.writes.some((w: any) => w.table === 'licitacion_historial')).toBe(false);
   });
 });

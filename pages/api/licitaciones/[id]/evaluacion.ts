@@ -26,6 +26,17 @@ import {
   rankATEs,
 } from '@/lib/evaluacionService';
 
+/** Send-back 1 (c): the answer when any write of a save fails. */
+const INCOMPLETE_SAVE = 'No se pudo guardar la evaluación completa. Vuelva a guardar antes de generar el Acta.';
+
+/** A real calendar date written YYYY-MM-DD (2026-02-31 is not one). */
+function isCalendarDate(text: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return false;
+  const [y, m, d] = text.split('-').map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d));
+  return date.getUTCFullYear() === y && date.getUTCMonth() === m - 1 && date.getUTCDate() === d;
+}
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   logApiRequest(req, 'licitaciones-evaluacion');
 
@@ -122,7 +133,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return sendAuthError(res, 'Solo se puede guardar la evaluacion en estado "evaluacion_pendiente".', 422);
     }
 
-    const parseResult = SaveEvaluationSchema.safeParse(req.body);
+    // Send-back 1 (b): the evaluation date must be a real calendar date, checked before anything is
+    // written; an empty value means "no date" (stored as null); a request without the key keeps the stored one.
+    const rawBody = (req.body && typeof req.body === 'object' ? req.body : {}) as Record<string, unknown>;
+    const fechaSent = Object.prototype.hasOwnProperty.call(rawBody, 'fecha_evaluacion');
+    const rawFecha = rawBody.fecha_evaluacion;
+    if (rawFecha !== undefined && rawFecha !== null && rawFecha !== '' && (typeof rawFecha !== 'string' || !isCalendarDate(rawFecha))) {
+      return sendAuthError(res, 'La fecha de evaluación no es una fecha válida. Use una fecha real del calendario (AAAA-MM-DD).', 400);
+    }
+    const body = rawFecha === '' ? { ...rawBody, fecha_evaluacion: null } : rawBody;
+
+    const parseResult = SaveEvaluationSchema.safeParse(body);
     if (!parseResult.success) {
       const errors = parseResult.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join('; ');
       return sendAuthError(res, `Datos invalidos: ${errors}`, 400);
@@ -146,102 +167,118 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return sendAuthError(res, 'Datos invalidos: hay un monto para una ATE que no pertenece a esta licitación.', 400);
     }
 
-    // Save committee — map Zod output to CommitteeMember[]
-    const committeeMapped = committee.map(c => ({
-      nombre: c.nombre,
-      rut: c.rut ?? null,
-      cargo: c.cargo ?? null,
-      orden: c.orden,
-    }));
-    await saveCommittee(serviceClient, licitacionId, committeeMapped);
-
-    // Update licitacion with the evaluation date and hours (LIC-B3: the date is printed on the Acta)
-    if (hora_inicio || hora_fin || fecha_evaluacion) {
-      const updateFields: Record<string, string> = {};
-      if (hora_inicio) updateFields.hora_inicio_evaluacion = hora_inicio;
-      if (hora_fin) updateFields.hora_fin_evaluacion = hora_fin;
-      if (fecha_evaluacion) updateFields.fecha_evaluacion = fecha_evaluacion;
-      await serviceClient
-        .from('licitaciones')
-        .update(updateFields)
-        .eq('id', licitacionId);
-    }
-
-    // Save evaluation scores — map Zod output to EvaluationScore[]
-    if (scores.length > 0) {
-      const scoresMapped = scores.map(s => ({
-        ate_id: s.ate_id,
-        criterio_id: s.criterio_id,
-        puntaje: s.puntaje,
-        comentario: s.comentario ?? null,
+    // Send-back 1 (c): every write below is checked; the first failure answers 500 and nothing further is written.
+    try {
+      // Save committee — map Zod output to CommitteeMember[]
+      const committeeMapped = committee.map(c => ({
+        nombre: c.nombre,
+        rut: c.rut ?? null,
+        cargo: c.cargo ?? null,
+        orden: c.orden,
       }));
-      await saveEvaluationScores(serviceClient, licitacionId, scoresMapped, user.id);
-    }
+      await saveCommittee(serviceClient, licitacionId, committeeMapped);
 
-    const atesWithMontos = montos.filter(m => m.monto_propuesto > 0);
-
-    // LIC-D16: no stale winner. Every provider of the tender is unmarked first, and a provider
-    // sent without an amount loses its calculated scores; the winners are then marked from the ranking.
-    await resetCalculatedScores(serviceClient, licitacionId, atesWithMontos.map(m => m.ate_id));
-
-    let winnerId: string | null = null;
-
-    // Calculate and save derived scores for the providers sent with an amount
-    if (atesWithMontos.length > 0) {
-      // Map ate_id → id for calculateEconomicScores
-      const atesForCalc = atesWithMontos.map(m => ({ id: m.ate_id, monto_propuesto: m.monto_propuesto }));
-      const economicScores = calculateEconomicScores(atesForCalc);
-
-      // Fetch all saved scores to compute technical totals
-      const { data: allScores } = await serviceClient
-        .from('licitacion_evaluaciones')
-        .select('ate_id, puntaje')
-        .eq('licitacion_id', licitacionId);
-
-      // Group scores by ate_id
-      const techTotals: Record<string, number> = {};
-      for (const s of (allScores || [])) {
-        techTotals[s.ate_id] = (techTotals[s.ate_id] || 0) + Number(s.puntaje);
+      // Update licitacion with the evaluation date and hours (LIC-B3: the date is printed on the Acta)
+      if (hora_inicio || hora_fin || fechaSent) {
+        const updateFields: Record<string, string | null> = {};
+        if (hora_inicio) updateFields.hora_inicio_evaluacion = hora_inicio;
+        if (hora_fin) updateFields.hora_fin_evaluacion = hora_fin;
+        if (fechaSent) updateFields.fecha_evaluacion = fecha_evaluacion || null;
+        const { error: fechaError } = await serviceClient
+          .from('licitaciones')
+          .update(updateFields)
+          .eq('id', licitacionId);
+        if (fechaError) {
+          throw new Error(`Error al guardar fecha y horas de evaluacion: ${fechaError.message}`);
+        }
       }
 
-      const calculatedAtes = atesWithMontos.map(m => {
-        const ecoScore = economicScores.find(e => e.id === m.ate_id)?.puntaje_economico || 0;
-        const techScore = techTotals[m.ate_id] || 0;
-        const weighted = calculateWeightedScores(
-          techScore,
-          ecoScore,
-          licitacion.peso_evaluacion_tecnica,
-          licitacion.peso_evaluacion_economica
-        );
-        return {
-          id: m.ate_id,
-          monto_propuesto: m.monto_propuesto,
-          puntaje_tecnico: techScore,
-          puntaje_economico: ecoScore,
-          ...weighted,
-          es_ganador: false,
-        };
-      });
+      // Save evaluation scores — map Zod output to EvaluationScore[]
+      if (scores.length > 0) {
+        const scoresMapped = scores.map(s => ({
+          ate_id: s.ate_id,
+          criterio_id: s.criterio_id,
+          puntaje: s.puntaje,
+          comentario: s.comentario ?? null,
+        }));
+        await saveEvaluationScores(serviceClient, licitacionId, scoresMapped, user.id);
+      }
 
-      // Rank ATEs
-      const ranked = rankATEs(calculatedAtes.map(a => ({ id: a.id, puntaje_total: a.puntaje_total })));
-      const finalAtes = calculatedAtes.map(a => {
-        const rank = ranked.find(r => r.id === a.id);
-        return { ...a, es_ganador: rank?.es_ganador || false };
-      });
+      const atesWithMontos = montos.filter(m => m.monto_propuesto > 0);
 
-      await saveCalculatedScores(serviceClient, licitacionId, finalAtes);
+      // LIC-D16: no stale winner. Every provider of the tender is unmarked first, and a provider
+      // sent without an amount loses its calculated scores; the winners are then marked from the ranking.
+      await resetCalculatedScores(serviceClient, licitacionId, atesWithMontos.map(m => m.ate_id));
 
-      // A tie at the top is the owner's question (F20, 19 Nov 2026): unchanged, rankATEs marks every
-      // top score and the tender's winner is the first of them in the amounts list's order.
-      winnerId = finalAtes.find(a => a.es_ganador)?.id ?? null;
+      let winnerId: string | null = null;
+
+      // Calculate and save derived scores for the providers sent with an amount
+      if (atesWithMontos.length > 0) {
+        // Map ate_id → id for calculateEconomicScores
+        const atesForCalc = atesWithMontos.map(m => ({ id: m.ate_id, monto_propuesto: m.monto_propuesto }));
+        const economicScores = calculateEconomicScores(atesForCalc);
+
+        // Fetch all saved scores to compute technical totals
+        const { data: allScores, error: allScoresError } = await serviceClient
+          .from('licitacion_evaluaciones')
+          .select('ate_id, puntaje')
+          .eq('licitacion_id', licitacionId);
+        if (allScoresError) {
+          throw new Error(`Error al leer puntajes de evaluacion: ${allScoresError.message}`);
+        }
+
+        // Group scores by ate_id
+        const techTotals: Record<string, number> = {};
+        for (const s of (allScores || [])) {
+          techTotals[s.ate_id] = (techTotals[s.ate_id] || 0) + Number(s.puntaje);
+        }
+
+        const calculatedAtes = atesWithMontos.map(m => {
+          const ecoScore = economicScores.find(e => e.id === m.ate_id)?.puntaje_economico || 0;
+          const techScore = techTotals[m.ate_id] || 0;
+          const weighted = calculateWeightedScores(
+            techScore,
+            ecoScore,
+            licitacion.peso_evaluacion_tecnica,
+            licitacion.peso_evaluacion_economica
+          );
+          return {
+            id: m.ate_id,
+            monto_propuesto: m.monto_propuesto,
+            puntaje_tecnico: techScore,
+            puntaje_economico: ecoScore,
+            ...weighted,
+            es_ganador: false,
+          };
+        });
+
+        // Rank ATEs
+        const ranked = rankATEs(calculatedAtes.map(a => ({ id: a.id, puntaje_total: a.puntaje_total })));
+        const finalAtes = calculatedAtes.map(a => {
+          const rank = ranked.find(r => r.id === a.id);
+          return { ...a, es_ganador: rank?.es_ganador || false };
+        });
+
+        await saveCalculatedScores(serviceClient, licitacionId, finalAtes);
+
+        // A tie at the top is the owner's question (F20, 19 Nov 2026): unchanged, rankATEs marks every
+        // top score and the tender's winner is the first of them in the amounts list's order.
+        winnerId = finalAtes.find(a => a.es_ganador)?.id ?? null;
+      }
+
+      // Update ganador_ate_id on licitacion: the winner, or empty when nobody has an amount
+      const { error: winnerError } = await serviceClient
+        .from('licitaciones')
+        .update({ ganador_ate_id: winnerId })
+        .eq('id', licitacionId);
+      if (winnerError) {
+        throw new Error(`Error al guardar el ganador de la licitacion: ${winnerError.message}`);
+      }
+    } catch (writeErr) {
+      const detail = writeErr instanceof Error ? writeErr.message : 'Error inesperado';
+      // sendAuthError logs the status, the sentence and this detail
+      return sendAuthError(res, INCOMPLETE_SAVE, 500, detail);
     }
-
-    // Update ganador_ate_id on licitacion: the winner, or empty when nobody has an amount
-    await serviceClient
-      .from('licitaciones')
-      .update({ ganador_ate_id: winnerId })
-      .eq('id', licitacionId);
 
     // Log historial
     await serviceClient.from('licitacion_historial').insert({

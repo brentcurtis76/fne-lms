@@ -116,7 +116,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (!criteriosData || criteriosData.length === 0) {
       return sendAuthError(
         res,
-        'El programa no tiene criterios de evaluación activos. Configúrelos en /admin/licitaciones/criterios antes de generar las Bases.',
+        'El programa no tiene criterios de evaluación activos. Configúrelos en /admin/licitaciones/criterios antes de generar el Acta.',
         422
       );
     }

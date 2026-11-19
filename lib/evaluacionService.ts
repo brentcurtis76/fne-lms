@@ -137,7 +137,8 @@ export async function saveEvaluationScores(
  * Clears what a previous save left on licitacion_ates before the new scores
  * are written (LIC-D16): every provider of the tender is unmarked as winner,
  * and every provider not in `keepIds` (sent without an amount) loses its
- * calculated score columns. Technical scores in licitacion_evaluaciones are
+ * stored amount and its calculated score columns (send-back 1: a cleared
+ * amount stays cleared). Technical scores in licitacion_evaluaciones are
  * not touched.
  */
 export async function resetCalculatedScores(
@@ -157,6 +158,7 @@ export async function resetCalculatedScores(
   let clear = supabase
     .from('licitacion_ates')
     .update({
+      monto_propuesto: null,
       puntaje_tecnico: null,
       puntaje_economico: null,
       puntaje_tecnico_ponderado: null,

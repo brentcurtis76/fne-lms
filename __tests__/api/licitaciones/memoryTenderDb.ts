@@ -4,11 +4,12 @@
  * and understands the few query shapes those routes use: select / eq /
  * not(col,'is',null) / not(col,'in','(a,b)') / order / single, update, upsert,
  * delete and insert. Every write is recorded, so a test can say "nothing was
- * written". A table can be told to fail its next reads. Synthetic data only.
+ * written". A table can be told to fail its next reads, and a chosen write can
+ * be told to fail. Synthetic data only.
  */
 
 export type Row = Record<string, any>;
-export type Write = { table: string; op: 'update' | 'upsert' | 'delete' | 'insert'; values?: unknown; filters: string[] };
+export type Write = { table: string; op: 'update' | 'upsert' | 'delete' | 'insert'; values?: any; filters: string[]; failed?: boolean };
 
 type Filter = (row: Row) => boolean;
 
@@ -16,6 +17,16 @@ export function createMemoryTenderDb() {
   const tables: Record<string, Row[]> = {};
   const writes: Write[] = [];
   const failSelect: Record<string, string> = {};
+  /** When set, the first write it matches fails (the write is still recorded, with failed: true). */
+  const failWrite: { match: ((w: Write) => boolean) | null } = { match: null };
+  const failed = (w: Write) => {
+    if (failWrite.match && failWrite.match(w)) {
+      failWrite.match = null;
+      w.failed = true;
+      return true;
+    }
+    return false;
+  };
   const uploads: string[] = [];
   let nextId = 1;
 
@@ -44,18 +55,24 @@ export function createMemoryTenderDb() {
         return { data: out, error: null };
       }
       if (op === 'update') {
-        writes.push({ table, op, values, filters: filterText });
+        const w: Write = { table, op, values, filters: filterText };
+        writes.push(w);
+        if (failed(w)) return { data: null, error: { message: 'synthetic write failure' } };
         const hit = matching();
         for (const r of hit) Object.assign(r, values);
         return { data: hit.map(r => ({ ...r })), error: null };
       }
       if (op === 'delete') {
-        writes.push({ table, op, filters: filterText });
+        const w: Write = { table, op, filters: filterText };
+        writes.push(w);
+        if (failed(w)) return { data: null, error: { message: 'synthetic write failure' } };
         tables[table] = rows(table).filter(r => !filters.every(f => f(r)));
         return { data: null, error: null };
       }
       if (op === 'insert' || op === 'upsert') {
-        writes.push({ table, op, values, filters: filterText });
+        const w: Write = { table, op, values, filters: filterText };
+        writes.push(w);
+        if (failed(w)) return { data: null, error: { message: 'synthetic write failure' } };
         const list = Array.isArray(values) ? values : [values];
         const inserted = list.map(v => {
           if (op === 'upsert' && conflictKeys.length > 0) {
@@ -132,5 +149,5 @@ export function createMemoryTenderDb() {
     lastUpload: null as Buffer | null,
   };
 
-  return { client, tables, rows, writes, failSelect, uploads };
+  return { client, tables, rows, writes, failSelect, failWrite, uploads };
 }

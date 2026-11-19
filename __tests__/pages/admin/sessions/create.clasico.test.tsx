@@ -1308,3 +1308,325 @@ describe("today's create-session form (pinned before SA)", () => {
 });
 
 digestsFileHolds(78);
+
+// ── Release SX: the three approved behaviour changes, as plain behaviour tests (not digests). ──
+//
+// The pin above cannot see them: a select's value and a checkbox's later ticks are DOM properties,
+// not attributes. These read the properties, the toasts and the request bodies from the fakes' log.
+
+describe('SX: the three approved behaviour changes of the form', () => {
+  type Entry = Record<string, any>;
+  const entries = () => (mocks.log as unknown[]).filter((e): e is Entry => Boolean(e) && typeof e === 'object');
+  const sessionPosts = () =>
+    entries()
+      .filter((e) => e.fetch === '/api/sessions' && e.method === 'POST')
+      .map((e) => JSON.parse(e.body as string));
+  const toastErrors = () => entries().filter((e) => 'toast.error' in e).map((e) => e['toast.error']);
+  const confirmsAsked = () => entries().filter((e) => 'confirm' in e);
+  const communityValue = () => (field('growth_community_id') as HTMLSelectElement).value;
+  const communityOptions = () =>
+    Array.from((field('growth_community_id') as HTMLSelectElement).options).map((o) => o.value);
+  const isLead = (name: string) => (leadBox(name) as HTMLInputElement | null)?.checked;
+  const leads = (body: any) => (body.facilitators as any[]).filter((f) => f.is_lead).map((f) => f.user_id);
+
+  /** Title, date and place: everything the checks insist on besides school, community and consultants. */
+  async function fillTitleDatePlace() {
+    await change(field('title'), 'Taller Inventado de Prueba');
+    await change(field('session_date'), '2026-12-01');
+    await change(field('location'), 'Sala Inventada 1');
+  }
+
+  describe('a school change clears the chosen community', () => {
+    it('N1a. school 7 with com-7b, then school 9: «Guardar borrador» is refused with the community message, nothing sent', async () => {
+      await draw(admin());
+      await school('7');
+      await community('com-7b');
+      await fillTitleDatePlace();
+      await addConsultant('u-c1');
+      await school('9');
+      await addConsultant('u-c1');
+      mocks.log = [];
+      await click(draftButton());
+      expect(toastErrors()).toEqual(['Debe seleccionar una comunidad de crecimiento']);
+      expect(sessionPosts()).toEqual([]);
+    });
+
+    it('N1b. the same through «Programar sesión»: refused with the community message, no question asked', async () => {
+      await draw(admin({ confirm: false }));
+      await school('7');
+      await community('com-7b');
+      await fillTitleDatePlace();
+      await addConsultant('u-c1');
+      await school('9');
+      await addConsultant('u-c1');
+      mocks.log = [];
+      await click(scheduleButton());
+      expect(toastErrors()).toEqual(['Debe seleccionar una comunidad de crecimiento']);
+      expect(confirmsAsked()).toEqual([]);
+      expect(sessionPosts()).toEqual([]);
+    });
+
+    it("N2. after the change, the new school's community is sent with the new school", async () => {
+      await draw(admin());
+      await school('7');
+      await community('com-7b');
+      await fillTitleDatePlace();
+      await addConsultant('u-c1');
+      await school('9');
+      await addConsultant('u-c1');
+      await community('com-9a');
+      mocks.log = [];
+      await click(draftButton());
+      expect(toastErrors()).toEqual([]);
+      const posts = sessionPosts();
+      expect(posts).toHaveLength(1);
+      expect(posts[0].school_id).toBe(9);
+      expect(posts[0].growth_community_id).toBe('com-9a');
+    });
+
+    it('N3. school 7 with com-7b, school 9, school 7 again: no community chosen, and a submit asks for one', async () => {
+      await draw(admin());
+      await school('7');
+      await community('com-7b');
+      await school('9');
+      await school('7');
+      expect(communityValue()).toBe('');
+      await fillTitleDatePlace();
+      await addConsultant('u-c1');
+      mocks.log = [];
+      await click(draftButton());
+      expect(toastErrors()).toEqual(['Debe seleccionar una comunidad de crecimiento']);
+      expect(sessionPosts()).toEqual([]);
+    });
+
+    it('N4. school 7 with com-7a, «Seleccione un colegio», school 7 again: no community chosen, and a submit asks for one', async () => {
+      await draw(admin());
+      await school('7');
+      await community('com-7a');
+      await school('0');
+      await school('7');
+      expect(communityValue()).toBe('');
+      await fillTitleDatePlace();
+      await addConsultant('u-c1');
+      mocks.log = [];
+      await click(draftButton());
+      expect(toastErrors()).toEqual(['Debe seleccionar una comunidad de crecimiento']);
+      expect(sessionPosts()).toEqual([]);
+    });
+
+    it("N5. the new school's communities still loading: the community is cleared at once; the old list stays as today", async () => {
+      await draw(admin({ tables: { growth_communities: [{ data: COMMUNITIES[7], error: null }, 'pending'] } }));
+      await school('7');
+      await community('com-7b');
+      await school('9');
+      expect(communityValue()).toBe('');
+      // The list while the new school's read is pending is not part of the change (it stays as today).
+      expect(communityOptions()).toEqual(['', 'com-7a', 'com-7b']);
+      await fillTitleDatePlace();
+      await addConsultant('u-c1');
+      mocks.log = [];
+      await click(draftButton());
+      expect(toastErrors()).toEqual(['Debe seleccionar una comunidad de crecimiento']);
+      expect(sessionPosts()).toEqual([]);
+    });
+
+    it('N6. the same school chosen again keeps the community (the browser sends no change for an equal value)', async () => {
+      await draw(admin());
+      await school('7');
+      await community('com-7b');
+      await school('7');
+      expect(communityValue()).toBe('com-7b');
+      await fillTitleDatePlace();
+      await addConsultant('u-c1');
+      mocks.log = [];
+      await click(draftButton());
+      expect(toastErrors()).toEqual([]);
+      expect(sessionPosts().map((p) => p.growth_community_id)).toEqual(['com-7b']);
+    });
+
+    it('N7. the rest of a school change stays: the three reads in order, facilitators emptied, contract reset, hour type kept', async () => {
+      await draw(admin());
+      await school('7');
+      await community('com-7b');
+      await addConsultant('u-c1');
+      await change($('#hour-type-select'), 'taller');
+      await change($('#contrato-select'), 'ctr-7');
+      mocks.log = [];
+      await school('9');
+      const begun = (mocks.log as unknown[])
+        .map((e: any) => {
+          if (e === 'auth.getSession') return 'auth.getSession';
+          if (e && typeof e === 'object' && 'supabase.from' in e) return `from ${e['supabase.from']}`;
+          if (e && typeof e === 'object' && 'fetch' in e) return `fetch ${e.fetch}`;
+          return null;
+        })
+        .filter(Boolean);
+      expect(begun.slice(0, 4)).toEqual([
+        'from growth_communities',
+        'auth.getSession',
+        'from contratos',
+        'fetch /api/admin/consultants?school_id=9',
+      ]);
+      expect(removeButton('Ana Inventada')).toBeNull();
+      expect(($('#contrato-select') as HTMLSelectElement).value).toBe('');
+      expect(($('#hour-type-select') as HTMLSelectElement).value).toBe('taller');
+    });
+  });
+
+  describe("one lead consultant: today's rule, unchanged (lead's decision B)", () => {
+    async function schoolWithCommunity() {
+      await draw(admin());
+      await school('7');
+      await community('com-7a');
+      await fillTitleDatePlace();
+    }
+
+    it('N8. two consultants, the lead removed: the other is not made lead, a third added is not lead, and the save is refused', async () => {
+      await schoolWithCommunity();
+      await addConsultant('u-c1');
+      await addConsultant('u-c2');
+      expect(isLead('Ana Inventada')).toBe(true);
+      expect(isLead('Bruno Ficticio')).toBe(false);
+      await click(removeButton('Ana Inventada'));
+      expect(isLead('Bruno Ficticio')).toBe(false);
+      await addConsultant('u-c3');
+      expect(isLead('Carla Supuesta')).toBe(false);
+      mocks.log = [];
+      await click(draftButton());
+      expect(toastErrors()).toEqual(['Debe haber exactamente un facilitador principal']);
+      expect(sessionPosts()).toEqual([]);
+    });
+
+    it('N9. three consultants, the middle one ticked as lead and removed: nobody is lead and the save is refused', async () => {
+      await schoolWithCommunity();
+      await addConsultant('u-c1');
+      await addConsultant('u-c2');
+      await addConsultant('u-c3');
+      await click(leadBox('Bruno Ficticio'));
+      expect([isLead('Ana Inventada'), isLead('Bruno Ficticio'), isLead('Carla Supuesta')]).toEqual([false, true, false]);
+      await click(removeButton('Bruno Ficticio'));
+      expect([isLead('Ana Inventada'), isLead('Carla Supuesta')]).toEqual([false, false]);
+      mocks.log = [];
+      await click(draftButton());
+      expect(toastErrors()).toEqual(['Debe haber exactamente un facilitador principal']);
+      expect(sessionPosts()).toEqual([]);
+    });
+
+    it('N10. three consultants, a non-lead removed: the lead stays the only lead; the role toggle leaves is_lead alone', async () => {
+      await schoolWithCommunity();
+      await addConsultant('u-c1');
+      await addConsultant('u-c2');
+      await addConsultant('u-c3');
+      await click(removeButton('Carla Supuesta'));
+      await click(roleButton('Bruno Ficticio'));
+      expect([isLead('Ana Inventada'), isLead('Bruno Ficticio')]).toEqual([true, false]);
+      mocks.log = [];
+      await click(draftButton());
+      expect(toastErrors()).toEqual([]);
+      const [body] = sessionPosts();
+      expect(body.facilitators).toEqual([
+        { user_id: 'u-c1', facilitator_role: 'consultor_externo', is_lead: true },
+        { user_id: 'u-c2', facilitator_role: 'equipo_interno', is_lead: false },
+      ]);
+    });
+
+    it('N11. the only consultant removed: the list is empty and the save asks for a facilitator', async () => {
+      await schoolWithCommunity();
+      await addConsultant('u-c1');
+      await click(removeButton('Ana Inventada'));
+      expect(removeButton('Ana Inventada')).toBeNull();
+      mocks.log = [];
+      await click(draftButton());
+      expect(toastErrors()).toEqual(['Debe asignar al menos un facilitador a la sesión']);
+      expect(sessionPosts()).toEqual([]);
+    });
+
+    it("N12. all removed, one added: it is lead; its own box keeps it lead; ticking another moves the lead (exactly one)", async () => {
+      await schoolWithCommunity();
+      await addConsultant('u-c1');
+      await addConsultant('u-c2');
+      await click(removeButton('Ana Inventada'));
+      await click(removeButton('Bruno Ficticio'));
+      await addConsultant('u-c3');
+      expect(isLead('Carla Supuesta')).toBe(true);
+      await click(leadBox('Carla Supuesta'));
+      expect(isLead('Carla Supuesta')).toBe(true);
+      await addConsultant('u-c1');
+      expect([isLead('Carla Supuesta'), isLead('Ana Inventada')]).toEqual([true, false]);
+      await click(leadBox('Ana Inventada'));
+      expect([isLead('Carla Supuesta'), isLead('Ana Inventada')]).toEqual([false, true]);
+      mocks.log = [];
+      await click(draftButton());
+      expect(toastErrors()).toEqual([]);
+      const [body] = sessionPosts();
+      expect(leads(body)).toEqual(['u-c1']);
+    });
+  });
+
+  describe('the earliest date offered is today in Chile (process zone UTC)', () => {
+    /** The `min` of the main date field and of both custom-date rows, drawn at an instant. */
+    async function earliestAt(instant: string) {
+      vi.setSystemTime(new Date(instant));
+      await draw(admin());
+      await click(radioOf('Serie recurrente'));
+      await frequency('custom');
+      await click(buttonStarting('Agregar fecha'));
+      const rows = customDateInputs();
+      expect(rows).toHaveLength(2);
+      return [field('session_date'), ...rows].map((input) => input?.getAttribute('min'));
+    }
+
+    it.each([
+      // N14: summer, 22:30 in Chile, already the 20th in UTC.
+      ['N14', '2026-11-20T01:30:00Z', '2026-11-19'],
+      // N15: the last minute of the day in Chile, and midnight.
+      ['N15', '2026-11-20T02:59:00Z', '2026-11-19'],
+      ['N15', '2026-11-20T03:00:00Z', '2026-11-20'],
+      // N16: 20:59 and 21:00 in Chile (the UTC date turns at 21:00 in summer).
+      ['N16', '2026-11-19T23:59:00Z', '2026-11-19'],
+      ['N16', '2026-11-20T00:00:00Z', '2026-11-19'],
+      // N17: winter (UTC-4).
+      ['N17', '2027-07-15T00:30:00Z', '2027-07-14'],
+      ['N17', '2027-07-15T03:59:00Z', '2027-07-14'],
+      ['N17', '2027-07-15T04:00:00Z', '2027-07-15'],
+      // N18: summer time starts (00:00 becomes 01:00 on Sunday 6 Sep 2026) ...
+      ['N18', '2026-09-06T03:59:00Z', '2026-09-05'],
+      ['N18', '2026-09-06T04:00:00Z', '2026-09-06'],
+      // ... and ends (00:00 becomes 23:00 on the night of Saturday 3 Apr 2027).
+      ['N18', '2027-04-04T02:59:00Z', '2027-04-03'],
+      ['N18', '2027-04-04T03:30:00Z', '2027-04-03'],
+      ['N18', '2027-04-04T04:00:00Z', '2027-04-04'],
+    ])('%s. at %s the main field and both custom rows offer %s first', async (_case, instant, expected) => {
+      expect(await earliestAt(instant)).toEqual([expected, expected, expected]);
+    });
+
+    it('N19. the page left open across midnight in Chile: the next render offers the new day', async () => {
+      expect(await earliestAt('2026-11-20T02:58:00Z')).toEqual(['2026-11-19', '2026-11-19', '2026-11-19']);
+      vi.setSystemTime(new Date('2026-11-20T03:01:00Z'));
+      await change(field('title'), 'Otra');
+      const mins = [field('session_date'), ...customDateInputs()].map((input) => input?.getAttribute('min'));
+      expect(mins).toEqual(['2026-11-20', '2026-11-20', '2026-11-20']);
+    });
+
+    it('N20. a typed date goes to the save as typed', async () => {
+      await draw(admin());
+      await school('7');
+      await community('com-7a');
+      await change(field('title'), 'Taller Inventado de Prueba');
+      await change(field('session_date'), '2026-11-18');
+      await addConsultant('u-c1');
+      await change(field('location'), 'Sala Inventada 1');
+      await click(radioOf('Serie recurrente'));
+      await frequency('custom');
+      await change(customDateInputs()[0], '2026-11-18');
+      await click(buttonStarting('Agregar fecha'));
+      await change(customDateInputs()[1], '2026-11-25');
+      mocks.log = [];
+      await click(draftButton());
+      expect(toastErrors()).toEqual([]);
+      const [body] = sessionPosts();
+      expect(body.session_date).toBe('2026-11-18');
+      expect(body.recurrence.dates).toEqual(['2026-11-18', '2026-11-25']);
+    });
+  });
+});

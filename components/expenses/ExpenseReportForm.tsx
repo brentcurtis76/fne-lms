@@ -333,59 +333,45 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
       const totalAmount = calculateTotal();
 
       if (editingReport) {
-        // UPDATE MODE
-        const { error: reportError } = await supabase
-          .from('expense_reports')
-          .update({
+        // UPDATE MODE (GES-3.26): one database function, called with the
+        // person's own session, saves the report's fields, changes the listed
+        // items by id, adds the new ones, removes ONLY the items this form
+        // removed (never one added meanwhile, e.g. by the Telegram assistant)
+        // and writes the total from the stored items — all or nothing.
+        const keptIds = new Set(expenseItems.map(item => item.id).filter(Boolean));
+        const removedIds: string[] = (editingReport.expense_items || [])
+          .map((item: any) => item.id)
+          .filter((id: string | undefined) => id && !keptIds.has(id));
+
+        const { error: saveError } = await supabase.rpc('save_expense_report', {
+          p_report_id: editingReport.id,
+          p_report: {
             report_name: reportForm.report_name,
             description: reportForm.description || null,
             start_date: reportForm.start_date,
-            end_date: reportForm.end_date,
-            total_amount: totalAmount,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', editingReport.id);
-
-        if (reportError) throw reportError;
-
-        // Delete existing items and create new ones
-        const { error: deleteError } = await supabase
-          .from('expense_items')
-          .delete()
-          .eq('report_id', editingReport.id);
-          
-        if (deleteError) throw deleteError;
-
-        // Create new items
-        const itemsData = validItems.map(item => ({
-          report_id: editingReport.id,
-          category_id: item.category_id,
-          description: item.description,
-          amount: item.amount,
-          original_amount: item.original_amount || item.amount,
-          currency: item.currency || 'CLP',
-          conversion_rate: item.conversion_rate || 1.0,
-          conversion_date: new Date().toISOString().split('T')[0],
-          expense_date: item.expense_date,
-          vendor: item.vendor || null,
-          expense_number: item.expense_number || null,
-          receipt_url: item.receipt_url || null,
-          receipt_filename: item.receipt_filename || null,
-          notes: item.notes || null
-        }));
-
-        const { error: itemsError } = await supabase
-          .from('expense_items')
-          .insert(itemsData);
-
-        if (itemsError) throw itemsError;
-
-        // Recompute the total server-side from the actual items: the Telegram
-        // bot writes to the same tables, so a client-computed total can drift.
-        const { error: totalError } = await supabase.rpc('recompute_expense_report_total', {
-          p_report_id: editingReport.id
+            end_date: reportForm.end_date
+          },
+          p_items: validItems.map(item => ({
+            ...(item.id ? { id: item.id } : {}),
+            category_id: item.category_id,
+            description: item.description,
+            amount: item.amount,
+            original_amount: item.original_amount || item.amount,
+            currency: item.currency || 'CLP',
+            conversion_rate: item.conversion_rate || 1.0,
+            // Kept by the database when amount, currency and rate did not change.
+            conversion_date: new Date().toISOString().split('T')[0],
+            expense_date: item.expense_date,
+            vendor: item.vendor || null,
+            expense_number: item.expense_number || null,
+            receipt_url: item.receipt_url || null,
+            receipt_filename: item.receipt_filename || null,
+            notes: item.notes || null
+          })),
+          p_removed: removedIds
         });
-        if (totalError) console.error('Error recomputing report total:', totalError);
+
+        if (saveError) throw saveError;
 
         toast.success('Reporte actualizado exitosamente');
         

@@ -16,6 +16,13 @@ BEGIN
  IF v_thread IS NULL THEN
   RETURN COALESCE(NEW, OLD);
  END IF;
+ -- Lock the thread row in a statement of its own first: two people writing in
+ -- one thread at the same moment wait here, and the count below (a new
+ -- statement, a new snapshot) then sees the other writer's committed message.
+ PERFORM 1 FROM public.message_threads WHERE id = v_thread FOR UPDATE;
+ IF NOT FOUND THEN
+  RETURN COALESCE(NEW, OLD);
+ END IF;
  UPDATE public.message_threads t
     SET message_count = (SELECT count(*) FROM public.community_messages m
                           WHERE m.thread_id = v_thread AND m.is_deleted = false),

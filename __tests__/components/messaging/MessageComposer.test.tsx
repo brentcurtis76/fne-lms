@@ -248,3 +248,25 @@ describe('F18f EC-M9 failed attachments stay in the box', () => {
     expect(screen.getByText('segundo.pdf')).toBeTruthy();
   });
 });
+
+describe('F18f send-back 1 (2) the file handed back is the very File kept in the box', () => {
+  it('two files named alike, the second handed back: the next send carries that second File object', async () => {
+    const first = new File(['uno'], 'acta.pdf', { type: 'application/pdf' });
+    const second = new File(['dos'], 'acta.pdf', { type: 'application/pdf' });
+    const onSendMessage = vi.fn()
+      .mockImplementationOnce(async () => [second])
+      .mockImplementationOnce(async () => undefined);
+    const { textarea, type, container } = setup({ mentionSuggestions: [], onSendMessage: onSendMessage as any });
+    fireEvent.change(container.querySelector('input[type="file"]')!, { target: { files: [first, second] } });
+    type('Dos actas');
+    fireEvent.keyDown(textarea, { key: 'Enter' });
+    await waitFor(() => expect(textarea.value).toBe(''));
+    expect(screen.getAllByText('acta.pdf')).toHaveLength(1);
+
+    fireEvent.keyDown(textarea, { key: 'Enter' });
+    await waitFor(() => expect(onSendMessage).toHaveBeenCalledTimes(2));
+    const sentAgain = (onSendMessage.mock.calls[1][0] as any).attachments as File[];
+    expect(sentAgain).toHaveLength(1);
+    expect(sentAgain[0]).toBe(second);
+  });
+});

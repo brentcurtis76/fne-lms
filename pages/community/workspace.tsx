@@ -104,6 +104,7 @@ import {
 import {
   getWorkspaceMessages,
   getWorkspaceThreads,
+  sortThreads,
   getUserMessagingPermissions,
   createThread,
   sendMessage,
@@ -2480,7 +2481,12 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
       last_message_at: data.last_message_at,
     };
     setSelectedThread(prev => (prev && prev.id === threadId ? { ...prev, ...counters } : prev));
-    setThreads(prev => prev.map(thread => (thread.id === threadId ? { ...thread, ...counters } : thread)));
+    // The list keeps the order of the filter in use (the fetch's own rule). The
+    // list loader is not called: it shows the loading skeleton over the list.
+    setThreads(prev => sortThreads(
+      prev.map(thread => (thread.id === threadId ? { ...thread, ...counters } : thread)),
+      threadFilters
+    ));
   };
 
   // Resolves with the files that could not be attached (the message itself is
@@ -2525,15 +2531,11 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
         `Mensaje enviado, pero no se adjuntó: ${names.join(', ')}. ` +
         `${names.length > 1 ? 'Adjúntalos' : 'Adjúntalo'} en un nuevo mensaje.`
       );
-      // The File objects the person chose, matched by name, in their order.
+      // The very File objects the person chose, by their position (names may repeat).
       const chosen: File[] = Array.isArray(messageData?.attachments) ? messageData.attachments : [];
-      const remaining = [...names];
-      return chosen.filter(file => {
-        const at = remaining.indexOf(file.name);
-        if (at === -1) return false;
-        remaining.splice(at, 1);
-        return true;
-      });
+      return failedAttachments
+        .map(failed => chosen[failed.index])
+        .filter((file): file is File => file instanceof File);
     } catch (error) {
       console.error('Error sending message:', error);
       toast.error('Error al enviar el mensaje');

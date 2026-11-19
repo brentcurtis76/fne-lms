@@ -265,6 +265,16 @@ SELECT is((SELECT count(*)::int FROM pg_trigger
             WHERE tgrelid = 'public.community_messages'::regclass AND tgname = 'trg_refresh_thread_counters'
               AND NOT tgisinternal AND tgfoid = to_regprocedure('public.refresh_thread_counters()')), 1,
   'EC-M4 catalog: trigger trg_refresh_thread_counters on community_messages calls it');
+-- Send-back 1 (1): two writers at the same moment. The thread row is locked in a
+-- statement of its own BEFORE the statement that counts, so the count is read
+-- after the other writer's message is committed (the overlap itself needs two
+-- real sessions and cannot be staged here; this pins the order in the source).
+SELECT ok(COALESCE((SELECT strpos(prosrc, 'PERFORM 1 FROM public.message_threads WHERE id = v_thread FOR UPDATE') > 0
+                       AND strpos(prosrc, 'PERFORM 1 FROM public.message_threads WHERE id = v_thread FOR UPDATE')
+                           < strpos(prosrc, 'UPDATE public.message_threads t')
+                       AND strpos(prosrc, 'UPDATE public.message_threads t') > 0
+                     FROM pg_proc WHERE oid = to_regprocedure('public.refresh_thread_counters()')), false),
+  'EC-M4 send-back 1: the function locks the thread row (PERFORM … FOR UPDATE) before the UPDATE that counts');
 SELECT is((SELECT count(*)::int FROM pg_trigger t JOIN pg_proc p ON p.oid = t.tgfoid
             WHERE p.proname = 'update_thread_stats' AND NOT t.tgisinternal), 0,
   'EC-M4 catalog: update_thread_stats is still used by no trigger (left alone)');

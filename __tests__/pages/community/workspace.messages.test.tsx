@@ -57,6 +57,8 @@ const h = vi.hoisted(() => ({
   filters: null as null | { onViewChange: (view: 'messages' | 'threads') => void },
   /** What a read of one message_threads row answers (null: no row). */
   threadRow: null as null | Record<string, unknown>,
+  /** More threads the list answers, listed before the workspace's own one. */
+  extraThreads: [] as any[],
 }));
 
 // ---------------------------------------------------------------------------
@@ -229,10 +231,12 @@ vi.mock('../../../utils/documentUtils', () => ({
   hideDocument: vi.fn(),
   getWorkspaceFolders: async () => [],
 }));
-vi.mock('../../../utils/messagingUtils-simple', () => ({
+vi.mock('../../../utils/messagingUtils-simple', async () => ({
+  // The list's order rule is the real one (F18f send-back 1, item 3).
+  sortThreads: (await vi.importActual<typeof import('../../../utils/messagingUtils-simple')>('../../../utils/messagingUtils-simple')).sortThreads,
   getWorkspaceThreads: async (workspaceId: string) => {
     h.threadLoads.push(workspaceId);
-    return threadsFor(workspaceId);
+    return [...h.extraThreads.filter((thread: any) => thread.workspace_id === workspaceId), ...threadsFor(workspaceId)];
   },
   getWorkspaceMessages: async (_workspaceId: string, filters: { thread_id?: string }) =>
     h.messages.filter((message) => message.thread_id === filters.thread_id),
@@ -378,6 +382,7 @@ beforeEach(() => {
   h.sendMessage = vi.fn();
   h.filters = null;
   h.threadRow = null;
+  h.extraThreads = [];
   vi.spyOn(console, 'error').mockImplementation(() => undefined);
   global.fetch = vi.fn(async () => new Response(JSON.stringify({ members: [] }), { status: 200 })) as any;
 });
@@ -744,7 +749,7 @@ describe('F18f EC-M9 a send whose attachment failed', () => {
     const second = new File(['%PDF'], 'segundo.pdf', { type: 'application/pdf' });
     h.sendMessage = vi.fn(async () => ({
       ...message('m-own', THREAD_A.id, { author_id: 'user-1' }),
-      failedAttachments: [{ name: 'segundo.pdf', reason: 'upload failed' }],
+      failedAttachments: [{ index: 1, name: 'segundo.pdf', reason: 'upload failed' }],
     }));
     const utils = render(<CommunityWorkspacePage />);
     await openThread(utils, COMMUNITY_A);
@@ -768,7 +773,7 @@ describe('F18f EC-M9 a send whose attachment failed', () => {
     const b = new File(['%PDF'], 'b.pdf', { type: 'application/pdf' });
     h.sendMessage = vi.fn(async () => ({
       ...message('m-own', THREAD_A.id, { author_id: 'user-1' }),
-      failedAttachments: [{ name: 'a.pdf', reason: 'x' }, { name: 'b.pdf', reason: 'y' }],
+      failedAttachments: [{ index: 0, name: 'a.pdf', reason: 'x' }, { index: 1, name: 'b.pdf', reason: 'y' }],
     }));
     const utils = render(<CommunityWorkspacePage />);
     await openThread(utils, COMMUNITY_A);
@@ -795,5 +800,58 @@ describe('F18f EC-M9 a send whose attachment failed', () => {
     // (The harness's meetings tab toasts its own load error; only the send's toasts matter here.)
     expect(vi.mocked(toast.error).mock.calls.filter(([text]) => String(text).startsWith('Mensaje enviado'))).toEqual([]);
     expect(handedBack).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// F18f send-back 1: (2) a failed file is the one at its position, even when
+// two chosen files share a name; (3) after the re-read of the open thread the
+// list keeps the order of the filter in use
+// ---------------------------------------------------------------------------
+
+describe('F18f send-back 1 (2) two chosen files with the same name, the second fails', () => {
+  it('hands back the second File object, not the first', async () => {
+    const first = new File(['uno'], 'acta.pdf', { type: 'application/pdf' });
+    const second = new File(['dos'], 'acta.pdf', { type: 'application/pdf' });
+    h.sendMessage = vi.fn(async () => ({
+      ...message('m-own', THREAD_A.id, { author_id: 'user-1' }),
+      failedAttachments: [{ index: 1, name: 'acta.pdf', reason: 'upload failed' }],
+    }));
+    const utils = render(<CommunityWorkspacePage />);
+    await openThread(utils, COMMUNITY_A);
+    let handedBack: File[] = [];
+    await act(async () => {
+      handedBack = (await h.composer!.onSendMessage({ content: 'Dos actas', attachments: [first, second] })) as File[];
+    });
+    expect(handedBack).toHaveLength(1);
+    expect(handedBack[0]).toBe(second);
+    expect(handedBack[0]).not.toBe(first);
+  });
+});
+
+describe('F18f send-back 1 (3) the thread list keeps the order of the filter in use', () => {
+  it('the open thread, second in a list ordered by last message, is first after a successful send', async () => {
+    h.extraThreads = [{
+      ...THREAD_A,
+      id: 'thread-A2',
+      thread_title: 'Hilo A2',
+      last_message_at: '2026-06-01T00:00:00.000Z',
+    }];
+    h.sendMessage = vi.fn(async () => ({ ...message('m-own', THREAD_A.id, { author_id: 'user-1' }), failedAttachments: [] }));
+    const utils = render(<CommunityWorkspacePage />);
+    const titles = () => utils.getAllByText(/^Hilo A2?$/).map((node) => node.textContent);
+    await utils.findByText('Hilo A2');
+    expect(titles()).toEqual(['Hilo A2', 'Hilo A']);
+    await openThread(utils, COMMUNITY_A);
+
+    h.threadRow = { id: THREAD_A.id, message_count: 1, participant_count: 1, last_message_at: '2026-11-19T10:00:00.000Z' };
+    await act(async () => {
+      await h.composer!.onSendMessage({ content: 'Mensaje m-own' });
+    });
+    await flush();
+    await act(async () => {
+      h.filters!.onViewChange('threads');
+    });
+    expect(titles()).toEqual(['Hilo A', 'Hilo A2']);
   });
 });

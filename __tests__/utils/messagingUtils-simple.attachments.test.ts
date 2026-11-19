@@ -92,7 +92,7 @@ describe('F18f EC-M9 attachments that fail are named; the message is stored once
     expect(messageInserts()).toHaveLength(1);
     expect(result.id).toBe(MESSAGE_ID);
     expect(result.failedAttachments).toEqual([
-      { name: 'segundo.pdf', reason: 'The object exceeded the maximum allowed size' },
+      { index: 1, name: 'segundo.pdf', reason: 'The object exceeded the maximum allowed size' },
     ]);
     expect(result.attachments.map((a: any) => a.file_name)).toEqual(['primero.pdf']);
     // The path of an attachment stays bound to its message: <workspace id>/<message id>/…
@@ -110,7 +110,7 @@ describe('F18f EC-M9 attachments that fail are named; the message is stored once
 
     expect(messageInserts()).toHaveLength(1);
     expect(fake.uploads.map((u) => u.name)).toEqual(['acta.pdf']);
-    expect(result.failedAttachments).toEqual([{ name: 'acta.pdf', reason: 'Message parent access denied' }]);
+    expect(result.failedAttachments).toEqual([{ index: 0, name: 'acta.pdf', reason: 'Message parent access denied' }]);
     expect(result.attachments).toEqual([]);
   });
 
@@ -128,5 +128,17 @@ describe('F18f EC-M9 attachments that fail are named; the message is stored once
     database();
     const result = await send([]);
     expect(result.failedAttachments).toEqual([]);
+  });
+
+  it('send-back 1 (2): two files with the same name, the second fails: it is named by its position', async () => {
+    database();
+    let calls = 0;
+    fake.uploadError = () => (++calls === 2 ? { message: 'upload failed' } : null);
+
+    const result = await send([file('acta.pdf'), file('acta.pdf')]);
+
+    expect(messageInserts()).toHaveLength(1);
+    expect(result.failedAttachments).toEqual([{ index: 1, name: 'acta.pdf', reason: 'upload failed' }]);
+    expect(result.attachments).toHaveLength(1);
   });
 });

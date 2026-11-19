@@ -8,7 +8,7 @@ import { generateContractFromTemplate } from '@/lib/contract-template';
 import { reconcileCuotas, attachExistingCuotaIds } from '@/lib/utils/reconcileCuotas';
 import { buildClientRow } from '@/lib/contracts/client-row';
 import { splitEvenly, sumsMatch, difference, decimalsFor, hasCurrencyPrecision, precisionMessage } from '@/lib/contracts/cuotas-math';
-import { parseEsCl } from '@/lib/money/parse-es-cl';
+import { parseEsClDetailed } from '@/lib/money/parse-es-cl';
 import { formatRut, validateRut } from '@/utils/rutValidation';
 
 interface Programa {
@@ -97,15 +97,26 @@ interface ContractFormState {
 // The value kept is read with room for any decimals, so that an amount with more
 // decimals than its currency still reaches the decimals check (precisionMessage)
 // instead of being taken as zero; the currency's own reading decides the problem.
+// In a field that takes decimals (UF), a text that could mean three decimals or
+// thousands («49.995», «1.200») is refused as ambiguous, never guessed (send-back 1);
+// in pesos it can only be thousands («15.990» → 15990).
 const LOOSE_DECIMALS = 10;
-type AmountProblem = 'precision' | 'unreadable' | null;
+type AmountProblem = 'precision' | 'unreadable' | 'ambiguous' | null;
 
 const readAmount = (text: string, currency: string): { value: number; problem: AmountProblem } => {
   if (text.trim() === '') return { value: 0, problem: null };
-  const strict = parseEsCl(text, { decimals: decimalsFor(currency) });
-  if (strict !== null) return { value: strict, problem: null };
-  const loose = parseEsCl(text, { decimals: LOOSE_DECIMALS });
-  return loose !== null ? { value: loose, problem: 'precision' } : { value: 0, problem: 'unreadable' };
+  const currencyDecimals = decimalsFor(currency);
+  const loose = parseEsClDetailed(text, { decimals: LOOSE_DECIMALS });
+  if (currencyDecimals > 0 && loose.problem === 'ambiguous') return { value: 0, problem: 'ambiguous' };
+  const strict = parseEsClDetailed(text, { decimals: currencyDecimals });
+  if (strict.value !== null) return { value: strict.value, problem: null };
+  return loose.value !== null ? { value: loose.value, problem: 'precision' } : { value: 0, problem: 'unreadable' };
+};
+
+// «Monto ambiguo»: both readings, with the person's own digits (send-back 1)
+const ambiguousMessage = (text: string): string => {
+  const typed = text.replace(/\s+/g, '').replace(/^(\$|UF)/i, '');
+  return `Monto ambiguo: escriba ${typed.replace('.', ',')} si son decimales o ${typed.replace('.', '')} si son miles.`;
 };
 
 // The text shown for an amount the form sets itself (loaded, computed, imported):
@@ -641,6 +652,17 @@ export default function ContractForm({ programas, clientes, editingContract, pre
     const updatedCuotas = [...cuotas];
     updatedCuotas[index] = { ...updatedCuotas[index], montoText: text, monto: readAmount(text, contractForm.tipo_moneda).value };
     setCuotas(updatedCuotas);
+  };
+
+  // A typed amount's reading depends on the currency («49.995» is ambiguous in UF,
+  // thousands in pesos): changing it reads every typed amount again (send-back 1)
+  const changeCurrency = (tipo_moneda: 'UF' | 'CLP') => {
+    setContractForm({
+      ...contractForm,
+      tipo_moneda,
+      precio_total_uf: readAmount(contractForm.precio_total_text, tipo_moneda).value
+    });
+    setCuotas(cuotas.map(c => ({ ...c, monto: readAmount(c.montoText, tipo_moneda).value })));
   };
 
   // Create new school
@@ -1288,14 +1310,16 @@ export default function ContractForm({ programas, clientes, editingContract, pre
   // The amounts that are checked are the amounts that are saved: a total or a cuota
   // with more decimals than its currency is refused, never rounded (send-back 1).
   // A typed amount the currency does not accept, or that is not an amount at all (N171).
-  const amountMessage = (problem: AmountProblem, target: { cuota: number } | 'total') =>
-    problem === 'unreadable' ? unreadableMessage(target) : precisionMessage(target);
+  const amountMessage = (problem: AmountProblem, target: { cuota: number } | 'total', text: string) =>
+    problem === 'ambiguous'
+      ? ambiguousMessage(text)
+      : problem === 'unreadable' ? unreadableMessage(target) : precisionMessage(target);
   const totalProblem = totalAmountProblem();
   const badPrecisionCuota = cuotas.find(c => cuotaProblem(c) !== null);
   const amountPrecisionError = totalProblem
-    ? amountMessage(totalProblem, 'total')
+    ? amountMessage(totalProblem, 'total', contractForm.precio_total_text)
     : badPrecisionCuota
-      ? amountMessage(cuotaProblem(badPrecisionCuota), { cuota: badPrecisionCuota.numero_cuota })
+      ? amountMessage(cuotaProblem(badPrecisionCuota), { cuota: badPrecisionCuota.numero_cuota }, badPrecisionCuota.montoText)
       : null;
   // A cuota whose amount is not above zero cannot be saved: say which (send-back 2)
   const zeroAmountCuota = cuotas.find(c => !(c.monto > 0) && !cuotaProblem(c));
@@ -1320,11 +1344,11 @@ export default function ContractForm({ programas, clientes, editingContract, pre
         if (esManual) {
           return contractForm.numero_contrato && contractForm.fecha_contrato && 
                  contractForm.fecha_fin && contractForm.descripcion_manual && contractForm.precio_total_uf > 0 &&
-                 totalProblem !== 'unreadable' && horasValid;
+                 totalProblem !== 'unreadable' && totalProblem !== 'ambiguous' && horasValid;
         }
         return contractForm.numero_contrato && contractForm.fecha_contrato && 
                contractForm.fecha_fin && contractForm.programa_id && contractForm.precio_total_uf > 0 &&
-               totalProblem !== 'unreadable' && horasValid;
+               totalProblem !== 'unreadable' && totalProblem !== 'ambiguous' && horasValid;
       case 'cuotas':
         return cuotas.every(c => c.fecha_vencimiento && c.monto > 0) &&
                cuotasMatchTotal && !amountPrecisionError;
@@ -2073,7 +2097,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                       name="tipo_moneda"
                       value="UF"
                       checked={contractForm.tipo_moneda === 'UF'}
-                      onChange={(e) => setContractForm({ ...contractForm, tipo_moneda: e.target.value as 'UF' | 'CLP' })}
+                      onChange={(e) => changeCurrency(e.target.value as 'UF' | 'CLP')}
                       className="mr-2"
                     />
                     UF (Unidades de Fomento)
@@ -2084,7 +2108,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                       name="tipo_moneda"
                       value="CLP"
                       checked={contractForm.tipo_moneda === 'CLP'}
-                      onChange={(e) => setContractForm({ ...contractForm, tipo_moneda: e.target.value as 'UF' | 'CLP' })}
+                      onChange={(e) => changeCurrency(e.target.value as 'UF' | 'CLP')}
                       className="mr-2"
                     />
                     Pesos Chilenos (CLP)
@@ -2111,7 +2135,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                   placeholder="0.00"
                 />
                 {totalProblem && (
-                  <p className="text-sm text-red-600 mt-1">{amountMessage(totalProblem, 'total')}</p>
+                  <p className="text-sm text-red-600 mt-1">{amountMessage(totalProblem, 'total', contractForm.precio_total_text)}</p>
                 )}
               </div>
             </div>

@@ -44,6 +44,17 @@ function isUsableUFNumber(n: unknown): n is number {
   return typeof n === 'number' && Number.isFinite(n) && n >= 10_000 && n <= 1_000_000;
 }
 
+/**
+ * A number written the Chilean way: dots are thousands separators, the comma
+ * is the decimal separator («39.184,40» → 39184.4, «39.184» → 39184). Any
+ * text with anything other than digits, dots and at most one comma, or with
+ * no digit, is NaN. Pure.
+ */
+export function parseChileanNumber(text: string): number {
+  if (typeof text !== 'string' || !/^[\d.]*(,[\d.]*)?$/.test(text) || !/\d/.test(text)) return NaN;
+  return Number(text.replace(/\./g, '').replace(',', '.'));
+}
+
 /** A real calendar date written YYYY-MM-DD (2026-02-30 is not one). */
 function isCalendarDate(text: unknown): text is string {
   if (typeof text !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(text)) return false;
@@ -331,7 +342,7 @@ class UFService {
       const latest = data.UFs[0];
       
       // Live only when the record is today's (Chile) and its number is usable.
-      return liveIfToday(latest.Fecha, parseFloat(latest.Valor.replace(',', '')), today);
+      return liveIfToday(latest.Fecha, parseChileanNumber(latest.Valor), today);
     } catch (error) {
       console.error('CMF API fetch failed:', error);
       return null;
@@ -358,7 +369,7 @@ class UFService {
       
       return {
         fecha: date,
-        valor: parseFloat(ufData.Valor.replace(',', '')),
+        valor: parseChileanNumber(ufData.Valor),
         source: 'live'
       };
     } catch (error) {
@@ -407,7 +418,10 @@ class UFService {
       
       // Its date is an instant: take the Chile calendar day of that instant.
       const instant = new Date(latest.fecha);
-      if (Number.isNaN(instant.getTime()) || typeof latest.valor !== 'number') return null;
+      if (Number.isNaN(instant.getTime())) return null;
+      // The range is checked on the source's own number; only an accepted
+      // value is then rounded, exactly as before.
+      if (!isUsableUFNumber(latest.valor)) return null;
       return liveIfToday(todayInChile(instant), Math.round(latest.valor), today);
     } catch (error) {
       console.error('Public API fetch failed:', error);

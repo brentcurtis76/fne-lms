@@ -11,6 +11,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'react-hot-toast';
 import { Save, FileText, Upload, Check, Award } from 'lucide-react';
 import { LicitacionDetail, LicitacionAte } from '@/types/licitaciones';
+import { formatMonto } from '@/lib/licitaciones/formato';
 
 interface Step6AdjudicacionProps {
   licitacion: LicitacionDetail;
@@ -282,6 +283,11 @@ export default function Step6Adjudicacion({
 
   if (!isEditable) {
     const winner = ates.find(a => a.es_ganador) || ates.find(a => a.id === licitacion.ganador_ate_id);
+    // The awarded amount, in the tender's currency; before an award is saved,
+    // the provider's proposed amount (also in the tender's currency).
+    const montoResumen =
+      formatMonto(licitacion.monto_adjudicado_uf, licitacion.tipo_moneda) ||
+      formatMonto(winner?.monto_propuesto, licitacion.tipo_moneda);
     return (
       <div className="space-y-4">
         <div className="flex items-center gap-2 bg-green-50 rounded-lg px-4 py-3 text-sm text-green-800">
@@ -292,9 +298,9 @@ export default function Step6Adjudicacion({
           <div className="bg-gray-50 rounded-lg p-4">
             <p className="text-xs text-gray-500 mb-1">ATE Ganador</p>
             <p className="font-semibold text-gray-900">{winner.nombre_ate}</p>
-            {winner.monto_propuesto && (
+            {montoResumen && (
               <p className="text-sm text-gray-600 mt-1">
-                Monto: ${Number(winner.monto_propuesto).toLocaleString('es-CL')} CLP
+                Monto: {montoResumen}
               </p>
             )}
           </div>
@@ -383,7 +389,7 @@ export default function Step6Adjudicacion({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label htmlFor="monto-uf" className="block text-xs font-medium text-gray-600 mb-1">
-              Monto adjudicado (UF)
+              {licitacion.tipo_moneda ? `Monto adjudicado (${licitacion.tipo_moneda})` : 'Monto adjudicado'}
             </label>
             <input
               id="monto-uf"

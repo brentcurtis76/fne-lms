@@ -141,3 +141,34 @@ describe('Step 6 — a Carta made for earlier values asks for a new one (LIC-D2)
     expect(screen.queryByText(ASK)).not.toBeInTheDocument();
   });
 });
+
+describe('Step 6 — the award form in the tender\'s currency (LIC-B2, LIC-B8)', () => {
+  it('a UF tender: the label says UF and the summary shows the awarded amount', async () => {
+    render(<Step6Adjudicacion licitacion={lic()} isAdmin onRefresh={vi.fn()} />);
+    expect(await screen.findByLabelText('Monto adjudicado (UF)')).toBeInTheDocument();
+  });
+
+  it('a CLP tender: the label says CLP', async () => {
+    render(<Step6Adjudicacion licitacion={lic({ tipo_moneda: 'CLP' })} isAdmin onRefresh={vi.fn()} />);
+    expect(await screen.findByLabelText('Monto adjudicado (CLP)')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Monto adjudicado (UF)')).not.toBeInTheDocument();
+  });
+
+  it('the summary of a UF tender shows the award, not the provider\'s evaluation amount in pesos', async () => {
+    fetchMock.mockImplementation(async () => ({
+      ok: true, json: async () => ({ data: { ates: [{ ...ATE_A, es_ganador: true }, ATE_B] } }),
+    }));
+    render(<Step6Adjudicacion licitacion={lic({ estado: 'contrato_pendiente', monto_adjudicado_uf: 450.5 } as never)} isAdmin onRefresh={vi.fn()} />);
+    expect(await screen.findByText('Monto: UF 450,50')).toBeInTheDocument();
+    expect(screen.queryByText(/CLP/)).not.toBeInTheDocument();
+  });
+
+  it('the summary of a CLP tender with no award saved falls back to the proposed amount, in pesos', async () => {
+    fetchMock.mockImplementation(async () => ({
+      ok: true, json: async () => ({ data: { ates: [{ ...ATE_A, es_ganador: true, monto_propuesto: 15000000 }] } }),
+    }));
+    render(<Step6Adjudicacion licitacion={lic({ estado: 'adjudicada_externo', tipo_moneda: 'CLP', monto_adjudicado_uf: null } as never)} isAdmin onRefresh={vi.fn()} />);
+    expect(await screen.findByText('Monto: $15.000.000')).toBeInTheDocument();
+    expect(screen.queryByText(/CLP/)).not.toBeInTheDocument();
+  });
+});

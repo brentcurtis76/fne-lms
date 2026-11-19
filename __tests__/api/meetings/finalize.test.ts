@@ -883,5 +883,77 @@ describe('/api/meetings/[id]/finalize', () => {
       // The bell keeps its own behaviour.
       expect(m.triggerNotification).toHaveBeenCalledWith('meeting_finalized', expect.objectContaining({ meeting_id: MEETING_ID }));
     });
+
+    // Send-back 1: the database client answers a failed read with
+    // { data: null, error } instead of throwing.
+    const readError = { message: 'read down', code: 'XX000' };
+    const failingRead: Record<string, () => any> = {
+      meeting_agreements: () => ({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            order: vi.fn().mockResolvedValue({ data: null, error: readError }),
+          }),
+        }),
+      }),
+      meeting_commitments: () => ({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockResolvedValue({ data: null, error: readError }),
+        }),
+      }),
+      meeting_work_sessions: () => ({
+        update: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            is: vi.fn().mockResolvedValue({ data: null, error: null }),
+          }),
+        }),
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockResolvedValue({ data: null, error: readError }),
+        }),
+      }),
+    };
+
+    it.each(Object.keys(failingRead))(
+      'a content read of %s returning an error: no e-mail, 200, lookup_failed',
+      async (table) => {
+        const { m, client, res, logged } = await finalizeBreaking((_m, c) => {
+          const base = c.from;
+          c.from = vi.fn((t: string) => (t === table ? failingRead[table]() : base(t)));
+        });
+        expect((client as any).__meetingUpdateFn).toHaveBeenCalledTimes(1);
+        expect(res._getStatusCode()).toBe(200);
+        expect(JSON.parse(res._getData()).data).toMatchObject({
+          ok: true, summary_email_sent: false, summary_email_error: 'lookup_failed',
+        });
+        expect(m.sendMeetingSummary).not.toHaveBeenCalled();
+        expect(logged.some((l) => l.includes('[meetings-finalize]'))).toBe(true);
+      },
+    );
+
+    it('a profile read returning an error keeps the fallback name and still sends the summary', async () => {
+      const { m, res, logged } = await finalizeBreaking((_m, c) => {
+        const base = c.from;
+        c.from = vi.fn((t: string) => {
+          if (t === 'profiles') {
+            return {
+              select: vi.fn().mockReturnValue({
+                eq: vi.fn().mockReturnValue({
+                  maybeSingle: vi.fn().mockResolvedValue({ data: null, error: readError }),
+                }),
+              }),
+            };
+          }
+          return base(t);
+        });
+      });
+      expect(res._getStatusCode()).toBe(200);
+      expect(m.sendMeetingSummary).toHaveBeenCalledTimes(1);
+      const templateData = (m.sendMeetingSummary as any).mock.calls[0][0];
+      expect(templateData.finalizerName).toBe('Facilitador');
+      expect(templateData.facilitatorName).toBe('Facilitador');
+      expect(JSON.parse(res._getData()).data).toMatchObject({
+        ok: true, summary_email_sent: true, summary_email_error: null,
+      });
+      expect(logged.some((l) => l.includes('[meetings-finalize]'))).toBe(true);
+    });
   });
 });

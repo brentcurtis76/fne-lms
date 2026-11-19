@@ -201,7 +201,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // the answer says the summary was not sent, with 'lookup_failed'.
     const prepareSummary = async () => {
       // Load related content for the email.
-      const [{ data: agreements }, { data: commitments }, { data: workSessions }, { data: finalizerProfile }, { data: facilitatorProfile }] = await Promise.all([
+      const [agreementsRead, commitmentsRead, workSessionsRead, finalizerRead, facilitatorRead] = await Promise.all([
         serviceClient
           .from('meeting_agreements')
           .select('agreement_text, agreement_doc, order_index')
@@ -226,8 +226,38 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               .select('first_name, last_name, email')
               .eq('id', meeting.facilitator_id)
               .maybeSingle()
-          : Promise.resolve({ data: null } as any),
+          : Promise.resolve({ data: null, error: null } as any),
       ]);
+
+      // Send-back 1: the client answers a failed read with { data: null,
+      // error } rather than throwing. A failed CONTENT read would send an
+      // incomplete summary that reads as sent, so it fails the preparation
+      // like a throw. A failed PROFILE read only loses a name: it keeps the
+      // fallback name and is logged.
+      const contentErrors = [
+        ['meeting_agreements', agreementsRead.error],
+        ['meeting_commitments', commitmentsRead.error],
+        ['meeting_work_sessions', workSessionsRead.error],
+      ].filter(([, err]) => err);
+      if (contentErrors.length > 0) {
+        throw new Error(
+          `content read failed: ${contentErrors.map(([table, err]: any) => `${table}: ${err?.message ?? err}`).join('; ')}`,
+        );
+      }
+      for (const [label, read] of [['finalizer', finalizerRead], ['facilitator', facilitatorRead]] as const) {
+        if (read.error) {
+          console.error('[meetings-finalize] profile read failed, using the fallback name:', {
+            meeting_id: id,
+            profile: label,
+            error: read.error?.message ?? String(read.error),
+          });
+        }
+      }
+      const agreements = agreementsRead.data;
+      const commitments = commitmentsRead.data;
+      const workSessions = workSessionsRead.data;
+      const finalizerProfile = finalizerRead.data;
+      const facilitatorProfile = facilitatorRead.data;
 
       const recipients = await getCommunityRecipients(serviceClient, id, {
         onlyAttended: audience === 'attended',

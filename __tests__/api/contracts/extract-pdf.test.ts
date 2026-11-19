@@ -140,7 +140,14 @@ describe('extract-pdf client lookup by RUT, any spelling (GES-3.11)', () => {
         };
         q.single = answer;
         q.maybeSingle = answer;
-        q.then = (resolve: (v: unknown) => unknown) => Promise.resolve({ data: [], count: 0, error: null }).then(resolve);
+        q.then = (resolve: (v: unknown) => unknown) => {
+          if (table === 'clientes') {
+            asked.push(filters.rut);
+            const list = Array.isArray(filters.rut) ? filters.rut : [filters.rut];
+            return Promise.resolve({ data: stored.filter((r) => list.includes(r.rut)), error: null }).then(resolve);
+          }
+          return Promise.resolve({ data: [], count: 0, error: null }).then(resolve);
+        };
         return q;
       },
     };
@@ -177,4 +184,19 @@ describe('extract-pdf client lookup by RUT, any spelling (GES-3.11)', () => {
     const { res } = await importWith('12.345.678-K', [STORED]);
     expect(res._getJSONData().existingClient).toEqual(STORED);
   });
+
+  // Send-back 3: two stored rows of one client — the older, then the smaller id.
+  it('two stored rows, the newer arriving first: the older is the existing client', async () => {
+    const OLDER = { id: 'cliente-viejo', rut: '761234560', nombre_legal: 'Zeta', created_at: '2026-01-01T00:00:00Z' };
+    const NEWER = { id: 'cliente-nuevo', rut: '76.123.456-0', nombre_legal: 'Alfa', created_at: '2026-02-01T00:00:00Z' };
+    const { res } = await importWith('76.123.456-0', [NEWER, OLDER]);
+    expect(res._getJSONData().existingClient).toEqual(OLDER);
+  });
+
+  it.each([[['b-id', 'a-id']], [['a-id', 'b-id']]])('equal created_at (%j): the smaller id', async (ids) => {
+    const rows = ids.map((id) => ({ id, rut: '76.123.456-0', created_at: '2026-01-01T00:00:00Z' }));
+    const { res } = await importWith('76.123.456-0', rows);
+    expect(res._getJSONData().existingClient.id).toBe('a-id');
+  });
 });
+

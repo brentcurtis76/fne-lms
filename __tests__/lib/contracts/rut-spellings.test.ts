@@ -4,7 +4,7 @@
  * the check letter in both cases when it is a K. Synthetic RUTs only.
  */
 import { describe, it, expect } from 'vitest';
-import { rutSpellings } from '../../../lib/contracts/rut-spellings';
+import { rutSpellings, oldestClient } from '../../../lib/contracts/rut-spellings';
 
 describe('rutSpellings', () => {
   it.each(['76.123.456-0', '76123456-0', '761234560', ' 76.123.456-0 '])('«%s» → formatted, without dots, bare', (rut) => {
@@ -25,3 +25,28 @@ describe('rutSpellings', () => {
     expect(rutSpellings('-')).toEqual([]);
   });
 });
+
+// Send-back 3: "the oldest row" is the same everywhere.
+describe('oldestClient', () => {
+  const A = { id: 'a-id', nombre_legal: 'Zeta', created_at: '2026-01-01T00:00:00Z' };
+  const B = { id: 'b-id', nombre_legal: 'Alfa', created_at: '2026-02-01T00:00:00Z' };
+  it('takes the earliest created_at, whatever the order given', () => {
+    expect(oldestClient([B, A])).toBe(A);
+    expect(oldestClient([A, B])).toBe(A);
+  });
+  it('equal created_at: the smaller id, every time', () => {
+    const X = { id: 'x-1', created_at: '2026-01-01T00:00:00Z' };
+    const Y = { id: 'y-2', created_at: '2026-01-01T00:00:00Z' };
+    expect(oldestClient([Y, X])).toBe(X);
+    expect(oldestClient([X, Y])).toBe(X);
+  });
+  it('a row without created_at comes after the dated ones (as NULLS LAST)', () => {
+    const N = { id: '0-first-by-id', created_at: null };
+    expect(oldestClient([N, B])).toBe(B);
+  });
+  it('none: null', () => {
+    expect(oldestClient([])).toBeNull();
+    expect(oldestClient(null)).toBeNull();
+  });
+});
+

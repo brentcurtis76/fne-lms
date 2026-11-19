@@ -277,3 +277,73 @@ describe('ContractForm — the client found by RUT whatever its stored spelling'
     expect((container.querySelector('select') as HTMLSelectElement).value).toBe('cliente-1');
   });
 });
+
+/**
+ * F21b send-back 3: two stored rows of the same client — the OLDER one is taken
+ * everywhere (earliest created_at, then the smaller id), never the one that
+ * comes first by name or by the order the rows arrive in.
+ */
+describe('ContractForm — two stored rows of one client: the older is taken', () => {
+  const OLDER = { id: 'cliente-viejo', rut: '761234560', nombre_legal: 'Zeta SpA', nombre_fantasia: 'Z', ciudad: 'X', nombre_representante: 'Y', created_at: '2026-01-01T00:00:00Z' };
+  const NEWER = { id: 'cliente-nuevo-dup', rut: '76.123.456-0', nombre_legal: 'Alfa SpA', nombre_fantasia: 'A', ciudad: 'X', nombre_representante: 'Y', created_at: '2026-02-01T00:00:00Z' };
+  const contratoClient = () => currentClient.__writes.find((w: any) => w.table === 'contratos').payload[0].cliente_id;
+
+  it('full save: the newer row arrives first, the older is used', async () => {
+    currentClient = createFakeSupabase({ clientesStored: [NEWER, OLDER] });
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const onSuccess = vi.fn();
+    const { container } = render(<ContractForm programas={PROGRAMAS} clientes={[]} onSuccess={onSuccess} onCancel={vi.fn()} />);
+    fillNewClientStep();
+    finishAndSave(container);
+    clickButton(/Guardar Contrato/);
+    await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+    expect(contratoClient()).toBe('cliente-viejo');
+  });
+
+  it('draft save: the older is used', async () => {
+    currentClient = createFakeSupabase({ clientesStored: [NEWER, OLDER] });
+    const onSuccess = vi.fn();
+    const { container } = render(<ContractForm programas={PROGRAMAS} clientes={[]} onSuccess={onSuccess} onCancel={vi.fn()} />);
+    fillNewClientStep();
+    finishAndSave(container);
+    clickButton(/Guardar Borrador/);
+    await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+    expect(contratoClient()).toBe('cliente-viejo');
+  });
+
+  it.each([
+    [['b-id', 'a-id']],
+    [['a-id', 'b-id']],
+  ])('equal created_at (ids in order %j): the smaller id, every time', async (ids) => {
+    const same = '2026-01-01T00:00:00Z';
+    currentClient = createFakeSupabase({
+      clientesStored: ids.map((id) => ({ ...OLDER, id, created_at: same })),
+    });
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const onSuccess = vi.fn();
+    const { container } = render(<ContractForm programas={PROGRAMAS} clientes={[]} onSuccess={onSuccess} onCancel={vi.fn()} />);
+    fillNewClientStep();
+    finishAndSave(container);
+    clickButton(/Guardar Contrato/);
+    await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+    expect(contratoClient()).toBe('a-id');
+  });
+
+  it('the PDF import match in the list the page holds (ordered by name): the older is selected', () => {
+    currentClient = createFakeSupabase();
+    const { container } = render(
+      <ContractForm
+        programas={PROGRAMAS}
+        clientes={[NEWER as any, OLDER as any]}
+        extractedData={{
+          contract: { numero_contrato: 'SYN-IMP-3', fecha_contrato: '2026-01-01' },
+          client: { nombre_legal: 'Colegio Importado SpA', rut: '76.123.456-0' },
+          financial: { precio_total: 100, moneda: 'UF' },
+        }}
+        onSuccess={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
+    expect((container.querySelector('select') as HTMLSelectElement).value).toBe('cliente-viejo');
+  });
+});

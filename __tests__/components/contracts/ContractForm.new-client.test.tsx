@@ -264,10 +264,8 @@ describe('ContractForm — a required field the existing client lacks', () => {
     expect(clientWrites).toHaveLength(1);
     expect(clientWrites[0].op).toBe('update');
     expect(clientWrites[0].payload).toEqual({ email_contacto_administrativo: 'facturacion@ejemplo.test' });
-    expect(clientWrites[0].filters).toEqual({
-      id: 'cliente-1',
-      or: 'email_contacto_administrativo.is.null,email_contacto_administrativo.eq.',
-    });
+    // conditional on the exact stored value the form read: null (send-back 3)
+    expect(clientWrites[0].filters).toEqual({ id: 'cliente-1', 'email_contacto_administrativo.is': null });
     expect(currentClient.__writes.find((w: any) => w.table === 'contratos').payload[0].cliente_id).toBe('cliente-1');
   });
 
@@ -312,7 +310,7 @@ describe('ContractForm — a required field the existing client lacks', () => {
     await waitFor(() => expect(onSuccess).toHaveBeenCalled());
     const clientWrites = currentClient.__writes.filter((w: any) => w.table === 'clientes');
     expect(clientWrites).toHaveLength(1);
-    expect(clientWrites[0]).toMatchObject({ op: 'update', payload: { comuna: 'Comuna Completada' }, filters: { id: 'cliente-1', or: 'comuna.is.null,comuna.eq.' } });
+    expect(clientWrites[0]).toMatchObject({ op: 'update', payload: { comuna: 'Comuna Completada' }, filters: { id: 'cliente-1', comuna: '' } });
   });
 
   it('a client that has everything: no fill line, all read-only', () => {
@@ -324,6 +322,62 @@ describe('ContractForm — a required field the existing client lacks', () => {
     fireEvent.click(screen.getByRole('checkbox', { name: /Contrato Manual/ }));
     expect(screen.queryByText(FILL_LINE)).toBeNull();
     expect(email().readOnly).toBe(true);
+  });
+});
+
+/**
+ * F21b send-back 3: "empty" is the same when the field is offered and when it is
+ * written (null, '' or only spaces); the write is conditional on the exact stored
+ * value the form read; when it changes no row, the contract is still saved and
+ * the admin is told which fields were not completed.
+ */
+describe('ContractForm — a blank field is blank when read and when written', () => {
+  const CLIENTE_ESPACIOS = {
+    id: 'cliente-1',
+    nombre_legal: 'Colegio Existente SpA',
+    nombre_fantasia: 'Colegio Existente',
+    rut: '76.123.456-0',
+    direccion: 'Calle Existente 1',
+    comuna: '   ',
+    ciudad: 'Ciudad Existente',
+    nombre_representante: 'Persona Existente',
+    school_id: null,
+  };
+  const NOT_FILLED = 'El contrato se guardó, pero no se pudo completar la comuna en la ficha del cliente. Corríjalo en Clientes.';
+
+  const saveWithComuna = async (options: Record<string, unknown>) => {
+    currentClient = createFakeSupabase(options as any);
+    const onSuccess = vi.fn();
+    const { container } = render(
+      <ContractForm programas={PROGRAMAS} clientes={[CLIENTE_ESPACIOS as any]} onSuccess={onSuccess} onCancel={vi.fn()} />,
+    );
+    typeInto(container.querySelector('select') as Element, 'cliente-1');
+    const comuna = screen.getByPlaceholderText('Comuna') as HTMLInputElement;
+    expect(comuna.readOnly).toBe(false);
+    typeInto(comuna, 'Santiago');
+    clickButton('Siguiente');
+    fillContractStep(container, { programaId: 'prog-a', total: 100 });
+    clickButton('Siguiente');
+    fillCuotaDates(container);
+    typeInto(container.querySelector('[data-testid="cuota-amount-input"]') as Element, '100');
+    clickButton(/Guardar Contrato/);
+    await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+    return currentClient.__writes;
+  };
+
+  it('a stored comuna of three spaces is editable and «Santiago» is written over exactly those spaces', async () => {
+    const writes = await saveWithComuna({});
+    const clientWrites = writes.filter((w: any) => w.table === 'clientes');
+    expect(clientWrites).toHaveLength(1);
+    expect(clientWrites[0]).toMatchObject({ op: 'update', payload: { comuna: 'Santiago' }, filters: { id: 'cliente-1', comuna: '   ' } });
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  it('another admin filled the field meanwhile: not overwritten, the contract is saved, the sentence is shown', async () => {
+    const writes = await saveWithComuna({ clienteUpdateNoRows: true });
+    expect(writes.filter((w: any) => w.table === 'contratos' && w.op === 'insert')).toHaveLength(1);
+    expect(writes.filter((w: any) => w.table === 'cuotas' && w.op === 'insert')).toHaveLength(1);
+    expect(toast.error).toHaveBeenCalledWith(NOT_FILLED);
   });
 });
 

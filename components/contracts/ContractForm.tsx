@@ -10,7 +10,7 @@ import { buildClientRow } from '@/lib/contracts/client-row';
 import { splitEvenly, sumsMatch, difference, decimalsFor, hasCurrencyPrecision, precisionMessage } from '@/lib/contracts/cuotas-math';
 import { parseEsClDetailed } from '@/lib/money/parse-es-cl';
 import { formatRut, validateRut } from '@/utils/rutValidation';
-import { rutSpellings } from '@/lib/contracts/rut-spellings';
+import { rutSpellings, oldestClient } from '@/lib/contracts/rut-spellings';
 
 interface Programa {
   id: string;
@@ -40,6 +40,7 @@ interface Cliente {
   telefono_contacto_administrativo?: string;
   email_contacto_administrativo?: string;
   school_id?: number | null; // Changed to number to match schools table
+  created_at?: string | null; // decides the oldest of duplicate rows (send-back 3)
 }
 
 interface School {
@@ -138,6 +139,19 @@ const unreadableMessage = (target: { cuota: number } | 'total'): string => {
 const RUT_INVALID_MESSAGE = 'El RUT del cliente no es válido. Revise los números y el dígito verificador.';
 // An imported contract's new client: the escritura date is asked for, never made up (GES-3.6)
 const ASK_ESCRITURA_DATE_MESSAGE = 'El PDF no indica la fecha de la escritura pública. Escríbala para crear el cliente.';
+
+// The client fields the form may complete, named for the sentence above (send-back 3)
+const CLIENT_FIELD_NAMES: Partial<Record<keyof ClienteFormState, string>> = {
+  nombre_legal: 'el nombre legal',
+  nombre_fantasia: 'el nombre de fantasía',
+  rut: 'el RUT',
+  direccion: 'la dirección',
+  comuna: 'la comuna',
+  ciudad: 'la ciudad',
+  nombre_representante: 'el representante legal',
+  nombre_contacto_administrativo: 'el nombre del contacto administrativo',
+  email_contacto_administrativo: 'el email de facturación',
+};
 
 const DUPLICATE_DRAFT_NUMBER_MESSAGE = 'Ya existe un contrato con este número. Por favor use un número diferente.';
 
@@ -344,7 +358,8 @@ export default function ContractForm({ programas, clientes, editingContract, pre
       // Check if client exists by RUT, however the stored value is written (GES-3.11)
       if (extractedData.client?.rut) {
         const spellings = rutSpellings(extractedData.client.rut);
-        const existingClient = clientes.find(c => spellings.includes(c.rut));
+        // The oldest such row, as every lookup by RUT chooses it (send-back 3)
+        const existingClient = oldestClient(clientes.filter(c => spellings.includes(c.rut)));
         if (existingClient) {
           setSelectedClienteId(existingClient.id);
           // Update form with existing client data
@@ -580,19 +595,39 @@ export default function ContractForm({ programas, clientes, editingContract, pre
     if (clientFieldReadOnly(field)) return;
     setClienteForm(prev => ({ ...prev, [field]: value }));
   };
-  // Writes the filled fields into the existing client's row, each column only
-  // where it is still empty, so a value someone stored meanwhile is never overwritten.
-  const fillMissingClientFields = async (clienteId: string) => {
+  // Writes the filled fields into the existing client's row. Each write is
+  // conditional on the EXACT stored value the form read (null, '' or spaces), so a
+  // value another admin stored meanwhile is never overwritten (send-back 3). Never
+  // throws: returns the fields that were not written (no row changed, or an error),
+  // for the sentence shown after the contract is saved.
+  const fillMissingClientFields = async (clienteId: string): Promise<Array<keyof ClienteFormState>> => {
+    const notWritten: Array<keyof ClienteFormState> = [];
     for (const field of fillableClientFields) {
       const value = (clienteForm[field] || '').trim();
       if (!value) continue;
-      const { error } = await supabase
+      const stored = storedCliente?.[field as keyof Cliente];
+      const update = supabase
         .from('clientes')
         .update({ [field]: field === 'rut' ? formatRut(value) : value })
-        .eq('id', clienteId)
-        .or(`${field}.is.null,${field}.eq.`);
-      if (error) throw error;
+        .eq('id', clienteId);
+      const conditional = stored == null ? update.is(field, null) : update.eq(field, String(stored));
+      try {
+        const { data, error } = await conditional.select('id');
+        const changed = Array.isArray(data) ? data.length > 0 : !!data;
+        if (error || !changed) notWritten.push(field);
+      } catch (fillError) {
+        console.error('Error completing client field:', fillError);
+        notWritten.push(field);
+      }
     }
+    return notWritten;
+  };
+  // «El contrato se guardó, pero no se pudo completar … en la ficha del cliente.»
+  const tellFieldsNotWritten = (fields: Array<keyof ClienteFormState>) => {
+    if (fields.length === 0) return;
+    const names = fields.map(f => CLIENT_FIELD_NAMES[f] ?? f);
+    const list = names.length === 1 ? names[0] : `${names.slice(0, -1).join(', ')} y ${names[names.length - 1]}`;
+    toast.error(`El contrato se guardó, pero no se pudo completar ${list} en la ficha del cliente. Corríjalo en Clientes.`);
   };
 
   // The client RUT is checked wherever it is written from this form: a new
@@ -852,15 +887,15 @@ export default function ContractForm({ programas, clientes, editingContract, pre
       if (!clienteId && (clienteForm.rut || clienteForm.nombre_legal)) {
         // Check if client exists
         if (clienteForm.rut) {
-          const { data: existingCliente } = await supabase
+          const { data: matchingClientes } = await supabase
             .from('clientes')
-            .select('id')
-            // however the stored RUT is written; the oldest such client (GES-3.11)
+            .select('id, created_at')
+            // however the stored RUT is written; the oldest such client (GES-3.11, send-back 3)
             .in('rut', rutSpellings(clienteForm.rut))
             .order('created_at', { ascending: true })
-            .limit(1)
-            .maybeSingle();
-            
+            .order('id', { ascending: true });
+          const existingCliente = oldestClient(matchingClientes as Array<{ id: string; created_at?: string | null }> | null);
+
           if (existingCliente) {
             clienteId = existingCliente.id;
           }
@@ -884,11 +919,6 @@ export default function ContractForm({ programas, clientes, editingContract, pre
         }
       }
       
-      // An existing client: the required fields it lacked, typed here (send-back 2)
-      if (clienteId && clientReadOnly && clienteId === selectedClienteId) {
-        await fillMissingClientFields(clienteId);
-      }
-
       // Prepare contract data (allow incomplete data for draft)
       const contractData: any = {
         numero_contrato: contractForm.numero_contrato,
@@ -999,7 +1029,14 @@ export default function ContractForm({ programas, clientes, editingContract, pre
         );
       }
       
+      // An existing client: the required fields it lacked, typed here; the draft is
+      // already saved, so a field not written is only reported (send-back 2, 3)
+      const draftNotWritten = clienteId && clientReadOnly && clienteId === selectedClienteId
+        ? await fillMissingClientFields(clienteId)
+        : [];
+
       toast.success('✅ Contrato guardado como borrador. Puede continuar editándolo más tarde desde la lista de contratos.');
+      tellFieldsNotWritten(draftNotWritten);
       onSuccess(contractId);
     } catch (error: any) {
       console.error('Error saving draft:', error);
@@ -1136,14 +1173,14 @@ export default function ContractForm({ programas, clientes, editingContract, pre
           const clientData = newClientRow();
           
           // Check if client with this RUT already exists
-          const { data: existingCliente, error: checkError } = await supabase
+          const { data: matchingClientes, error: checkError } = await supabase
             .from('clientes')
             .select('*')
-            // however the stored RUT is written; the oldest such client (GES-3.11)
+            // however the stored RUT is written; the oldest such client (GES-3.11, send-back 3)
             .in('rut', rutSpellings(clienteForm.rut))
             .order('created_at', { ascending: true })
-            .limit(1)
-            .maybeSingle();
+            .order('id', { ascending: true });
+          const existingCliente = oldestClient(matchingClientes as Cliente[] | null);
             
           if (checkError && checkError.code !== 'PGRST116') {
             // PGRST116 means no rows found, which is expected for new clients
@@ -1212,10 +1249,6 @@ export default function ContractForm({ programas, clientes, editingContract, pre
           throw new Error('Error: No se pudo determinar el ID del cliente. Por favor, seleccione o cree un cliente válido.');
         }
 
-        // An existing client: the required fields it lacked, typed here (send-back 2)
-        if (selectedClienteId && clientReadOnly) {
-          await fillMissingClientFields(selectedClienteId);
-        }
 
         // Save contract (ensure empty date strings become null)
         const newContratoPayload: Record<string, unknown> = {
@@ -1269,6 +1302,12 @@ export default function ContractForm({ programas, clientes, editingContract, pre
           .insert(cuotasData);
 
         if (cuotasError) throw cuotasError;
+
+        // An existing client: the required fields it lacked, typed here; the contract
+        // is already saved, so a field not written is only reported (send-back 2, 3)
+        if (selectedClienteId && clientReadOnly) {
+          tellFieldsNotWritten(await fillMissingClientFields(selectedClienteId));
+        }
 
         // Phase 5: pass the new contrato ID to parent
         onSuccess(newContrato?.id);

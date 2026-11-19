@@ -346,7 +346,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       proposalConfig.schoolName,
       proposalConfig.type,
       proposalConfig.programYear,
-      version
+      version,
+      propuestaId
     );
 
     // Step 8: Fetch enrichment records and build the snapshot. The snapshot is

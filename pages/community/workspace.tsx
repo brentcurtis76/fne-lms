@@ -104,6 +104,7 @@ import {
 import {
   getWorkspaceMessages,
   getWorkspaceThreads,
+  sortThreads,
   getUserMessagingPermissions,
   createThread,
   sendMessage,
@@ -1789,8 +1790,9 @@ const DocumentsTabContent: React.FC<DocumentsTabContentProps> = ({ workspace, wo
   };
 
   const handleUploadComplete = (uploadedDocuments: CommunityDocument[]) => {
+    // F18e: the window closes itself (onClose) only when no file failed, so
+    // that the failed files stay in it for another try.
     loadDocuments();
-    setShowUploadModal(false);
     toast.success(`${uploadedDocuments.length} documento(s) subido(s) exitosamente`);
   };
 
@@ -2444,6 +2446,8 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
       setSelectedThread(newThread);
       setActiveView('messages');
       setShowThreadCreationModal(false);
+      // The row was read before its first message: show the counted numbers (send-back 3).
+      void refreshThreadCounters(newThread.id);
       toast.success('Hilo de conversación creado exitosamente');
     } catch (error: any) {
       console.error('Error creating thread:', error);
@@ -2459,11 +2463,42 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
     }
   };
 
-  const handleMessageSend = async (messageData: any) => {
+  // The database recounts a thread after each message (EC-M4): after the
+  // person's own send or delete, the open thread's stored counters are read
+  // back into the page so the header and the list show them without a reload.
+  const refreshThreadCounters = async (threadId: string) => {
+    let data: { message_count: number; participant_count: number; last_message_at: string } | null = null;
+    try {
+      ({ data } = await supabase
+        .from('message_threads')
+        .select('id, message_count, participant_count, last_message_at')
+        .eq('id', threadId)
+        .maybeSingle());
+    } catch (error) {
+      console.error('Error re-reading thread counters:', error);
+    }
+    if (!data) return;
+    const counters = {
+      message_count: data.message_count,
+      participant_count: data.participant_count,
+      last_message_at: data.last_message_at,
+    };
+    setSelectedThread(prev => (prev && prev.id === threadId ? { ...prev, ...counters } : prev));
+    // The list keeps the order of the filter in use (the fetch's own rule). The
+    // list loader is not called: it shows the loading skeleton over the list.
+    setThreads(prev => sortThreads(
+      prev.map(thread => (thread.id === threadId ? { ...thread, ...counters } : thread)),
+      threadFilters
+    ));
+  };
+
+  // Resolves with the files that could not be attached (the message itself is
+  // stored), so the box keeps them to send again; with nothing when all went (EC-M9).
+  const handleMessageSend = async (messageData: any): Promise<File[] | void> => {
     if (!workspace || !user || !selectedThread) return;
 
     try {
-      const newMessage = await sendMessage(workspace.id, {
+      const { failedAttachments = [], ...newMessage } = await sendMessage(workspace.id, {
         ...messageData,
         thread_id: selectedThread.id,
         reply_to_id: replyToMessage?.id || null
@@ -2489,10 +2524,26 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
           : [...prev, messageWithReply]
       );
       setReplyToMessage(null); // Clear reply state after sending
-      toast.success('Mensaje enviado');
+      void refreshThreadCounters(selectedThread.id);
+      if (failedAttachments.length === 0) {
+        toast.success('Mensaje enviado');
+        return;
+      }
+      const names = failedAttachments.map(failed => failed.name);
+      toast.error(
+        `Mensaje enviado, pero no se adjuntó: ${names.join(', ')}. ` +
+        `${names.length > 1 ? 'Adjúntalos' : 'Adjúntalo'} en un nuevo mensaje.`
+      );
+      // The very File objects the person chose, by their position (names may repeat).
+      const chosen: File[] = Array.isArray(messageData?.attachments) ? messageData.attachments : [];
+      return failedAttachments
+        .map(failed => chosen[failed.index])
+        .filter((file): file is File => file instanceof File);
     } catch (error) {
       console.error('Error sending message:', error);
       toast.error('Error al enviar el mensaje');
+      // Rejecting keeps the text, files and reply target in the box (EC-M8).
+      throw error;
     }
   };
 
@@ -2580,11 +2631,7 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
         })
         .eq('id', messageId);
 
-      if (error) {
-        console.error('Error editing message:', error);
-        toast.error('Error al editar el mensaje');
-        return;
-      }
+      if (error) throw error;
 
       // Update local state
       setMessages(prev => prev.map(msg =>
@@ -2597,6 +2644,8 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
     } catch (error) {
       console.error('Error editing message:', error);
       toast.error('Error al editar el mensaje');
+      // Rejecting keeps the box in edit mode with the edited text (EC-M8).
+      throw error;
     }
   };
 
@@ -2733,6 +2782,7 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
 
       // Remove from local state
       setMessages(prev => prev.filter(msg => msg.id !== deleteMessageId));
+      if (selectedThread) void refreshThreadCounters(selectedThread.id);
       toast.success('Mensaje eliminado');
     } catch (error) {
       console.error('Error deleting message:', error);

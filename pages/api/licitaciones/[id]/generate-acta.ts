@@ -18,6 +18,7 @@ import {
 import { getUserRoles } from '@/utils/roleUtils';
 import { uuidSchema } from '@/lib/validation/schemas';
 import { generateActaDocument } from '@/lib/actaGenerator';
+import { todayInChile } from '@/lib/uf-service';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   logApiRequest(req, 'licitaciones-generate-acta');
@@ -101,12 +102,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Fetch criterios
-    const { data: criteriosData } = await serviceClient
+    const { data: criteriosData, error: criteriosError } = await serviceClient
       .from('programa_evaluacion_criterios')
       .select('*')
       .eq('programa_id', licitacion.programa_id)
       .eq('is_active', true)
       .order('orden', { ascending: true });
+
+    // LIC-B5: a failed query is a server error; only a successful empty answer means "no criteria"
+    if (criteriosError) {
+      return sendAuthError(res, 'Error al generar el Acta de Reunion', 500, criteriosError.message);
+    }
+    if (!criteriosData || criteriosData.length === 0) {
+      return sendAuthError(
+        res,
+        'El programa no tiene criterios de evaluación activos. Configúrelos en /admin/licitaciones/criterios antes de generar el Acta.',
+        422
+      );
+    }
 
     // Fetch scores
     const { data: scoresData } = await serviceClient
@@ -142,7 +155,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       orden: Number(c.orden),
     }));
 
-    const today = new Date().toISOString().split('T')[0];
+    // LIC-B3: the date the commission stored; without one, the day in Chile (not the UTC day)
+    const fechaEvaluacion: string = licitacion.fecha_evaluacion || todayInChile(new Date());
 
     const docBuffer = await generateActaDocument({
       licitacion: {
@@ -150,8 +164,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         numero_licitacion: licitacion.numero_licitacion,
         peso_evaluacion_tecnica: licitacion.peso_evaluacion_tecnica,
         peso_evaluacion_economica: licitacion.peso_evaluacion_economica,
+        tipo_moneda: licitacion.tipo_moneda,
       },
-      fechaEvaluacion: today,
+      fechaEvaluacion,
       horaInicio: licitacion.hora_inicio_evaluacion || '09:00',
       horaFin: licitacion.hora_fin_evaluacion || '12:00',
       committee: committee.map(m => ({

@@ -104,6 +104,66 @@ const PROTECTED_ROLE_LABELS: Record<string, string> = {
  */
 type MembersLoadState = 'idle' | 'loading' | 'success' | 'error';
 
+// EC-R6: shown when the database guard refuses a change of state of a
+// finalised meeting (42501 raised by guard_meeting_finalized_stays_final).
+const FINALIZED_STATE_LOCKED_MESSAGE = 'Esta reunión ya fue finalizada: su estado no se puede cambiar.';
+
+// EC-R11: shown when the full save finds that someone else saved the meeting
+// after this form loaded it.
+const SAVE_CONFLICT_MESSAGE =
+  'Otra persona guardó esta reunión mientras editabas. Recarga para ver sus cambios; lo que escribiste no se guardó.';
+
+// EC-R8: closing the form with unsaved changes asks first.
+const UNSAVED_CLOSE_QUESTION = 'Tienes cambios sin guardar. ¿Cerrar y descartarlos?';
+
+const emptyMeetingForm = (): MeetingDocumentationInput => ({
+  meeting_info: {
+    title: '',
+    meeting_date: '',
+    duration_minutes: 60,
+    location: '',
+    attendee_ids: [],
+    reader_ids: []
+  },
+  summary_info: {
+    summary: '',
+    summary_doc: emptyDoc(),
+    notes: '',
+    notes_doc: emptyDoc(),
+    status: 'borrador'
+  },
+  agreements: [],
+  commitments: [],
+  tasks: []
+});
+
+/**
+ * EC-R8: what a full save writes, as one comparable string: the form without
+ * the client-only item keys (client_key, and the row id a save adopts), plus
+ * how many files are chosen and how many attachments are marked for removal.
+ */
+function formSnapshot(form: MeetingDocumentationInput, selectedFileCount: number, removalCount: number): string {
+  const withoutClientKeys = <T extends { client_key?: string; id?: string }>(items: T[]) =>
+    items.map(({ client_key: _clientKey, id: _id, ...rest }) => rest);
+  return JSON.stringify({
+    meeting_info: form.meeting_info,
+    summary_info: form.summary_info,
+    agreements: withoutClientKeys(form.agreements),
+    commitments: withoutClientKeys(form.commitments),
+    tasks: withoutClientKeys(form.tasks),
+    selectedFileCount,
+    removalCount,
+  });
+}
+
+const EMPTY_FORM_SNAPSHOT = formSnapshot(emptyMeetingForm(), 0, 0);
+
+// Send-back 2: how long a full save waits for an in-flight background save,
+// and what it says when that save has not answered by then.
+const AUTOSAVE_WAIT_LIMIT_MS = 10_000;
+const AUTOSAVE_STILL_RUNNING_MESSAGE =
+  'No se pudo guardar: el guardado automático sigue en curso. Inténtalo de nuevo en unos segundos.';
+
 const MEMBERS_LOAD_ERROR_TOAST_ID = 'meeting-members-load-error';
 const MEMBERS_LOAD_ERROR_MESSAGE =
   'No se pudieron cargar los miembros de la comunidad. Intenta nuevamente.';
@@ -193,12 +253,24 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
   // Optimistic-concurrency version; DB default is 0 for freshly-inserted rows.
   // Edit mode overwrites this from the loaded meeting; create mode overwrites
   // after the first save returns the authoritative DB value.
-  const [meetingVersion, setMeetingVersion] = useState<number>(0);
+  // Send-back 1: kept in a ref, not state, so it is readable at once (a full
+  // save waiting for an in-flight background save needs the version that
+  // save returned, before React re-renders). Nothing renders from it.
+  const meetingVersionRef = useRef<number>(0);
+  const setMeetingVersion = useCallback((version: number) => {
+    meetingVersionRef.current = version;
+  }, []);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   // Status of the meeting as stored when it was loaded (edit mode); null for
   // a new meeting. «Completada» is offered in the status select only when the
   // stored meeting already is completada (it is reached through «Finalizar»).
   const [loadedStatus, setLoadedStatus] = useState<MeetingStatus | null>(null);
+  // EC-R6: when the loaded meeting carries finalized_at it was finalised once
+  // and stays final: no «Guardar borrador», the state locked at «Completada»,
+  // and every save sends completada (a meeting trapped as a draft by the old
+  // defect moves back to completada on its next save).
+  const [loadedFinalizedAt, setLoadedFinalizedAt] = useState<string | null>(null);
+  const isFinalized = !!loadedFinalizedAt;
   // Status of the meeting as it is stored right now (not the form's select,
   // which the person can change). Background saving runs only while this is
   // borrador: the autosave route accepts drafts only.
@@ -207,6 +279,12 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
   const [savedTick, setSavedTick] = useState(0);
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autosaveInFlightRef = useRef<boolean>(false);
+  // Send-back 1: the background save in flight, so a full save can wait for it.
+  const autosavePromiseRef = useRef<Promise<void> | null>(null);
+  // True only when the last background save stored its write (send-back 2):
+  // after any other outcome a waiting full save writes nothing, and says
+  // nothing of its own (the background save's handling already told).
+  const autosaveSucceededRef = useRef<boolean>(false);
   // Holds the latest startWorkSession so our open-effect can call it without
   // listing the useCallback in its deps (the useCallback is declared later).
   const startWorkSessionRef = useRef<((id: string) => Promise<void>) | null>(null);
@@ -242,6 +320,10 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
     commitments: [],
     tasks: []
   });
+
+  // EC-R8: snapshot of what was last loaded or saved (see formSnapshot); the
+  // form is "dirty" while the current form differs from it.
+  const [savedSnapshot, setSavedSnapshot] = useState<string>(EMPTY_FORM_SNAPSHOT);
 
   // Track original row IDs loaded in edit mode so we can diff on save
   const originalAgreementIdsRef = useRef<Set<string>>(new Set());
@@ -289,6 +371,13 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       if (mode === 'edit' && meetingId) {
+        // Send-back 1: the form moves to this meeting; a background save
+        // scheduled for the previous one must not fire with this one's text.
+        if (currentMeetingIdRef.current !== meetingId && autosaveTimerRef.current) {
+          clearTimeout(autosaveTimerRef.current);
+          autosaveTimerRef.current = null;
+        }
+        currentMeetingIdRef.current = meetingId;
         setCurrentMeetingId(meetingId);
         loadMeetingData();
         // startWorkSession is a stable useCallback([]) defined below — safe to
@@ -475,7 +564,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
         originalTaskIdsRef.current = new Set(loadedTasks.map(t => t.id).filter((id): id is string => !!id));
 
         // Populate form with existing data
-        setFormData({
+        const loadedForm: MeetingDocumentationInput = {
           meeting_info: {
             title: meetingDetails.title,
             meeting_date: meetingDateLocal,
@@ -494,7 +583,9 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
           agreements: loadedAgreements,
           commitments: loadedCommitments,
           tasks: loadedTasks,
-        });
+        };
+        setFormData(loadedForm);
+        setSavedSnapshot(formSnapshot(loadedForm, 0, 0));
 
         // Load existing attachments so they render alongside any new uploads
         const { data: attachments } = await supabase
@@ -508,6 +599,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
 
         setLoadedStatus(meetingDetails.status);
         storedStatusRef.current = meetingDetails.status;
+        setLoadedFinalizedAt(meetingDetails.finalized_at ?? null);
 
         // Capture the authoritative version so optimistic-concurrency
         // autosaves start from the right baseline.
@@ -606,23 +698,45 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
     if (stepBodyRef.current) stepBodyRef.current.scrollTop = 0;
   }, [currentStep]);
 
+  // Browser pass: the latest summary and notes documents. The editors'
+  // change handlers write them synchronously, so the scheduled background
+  // save (whose callback was created a render earlier) sends what is in the
+  // editor when it fires, not the content before the last keystroke.
+  const latestSummaryDocRef = useRef(formData.summary_info.summary_doc);
+  const latestNotesDocRef = useRef(formData.summary_info.notes_doc);
+  useEffect(() => {
+    latestSummaryDocRef.current = formData.summary_info.summary_doc;
+    latestNotesDocRef.current = formData.summary_info.notes_doc;
+  }, [formData.summary_info.summary_doc, formData.summary_info.notes_doc]);
+
   // Best-effort autosave — skips when we have no meetingId yet (user hasn't
   // clicked "Guardar borrador" from the create flow) or when another autosave
   // is already in flight. 409 conflicts prompt a reload.
   const runAutosave = useCallback(async () => {
     const id = currentMeetingId;
     if (!id || autosaveInFlightRef.current) return;
+    // Send-back 1: the refs hold the form's current meeting's text; if the
+    // form has moved to another meeting since this save was scheduled,
+    // send nothing.
+    if (currentMeetingIdRef.current !== id) return;
+    // Send-back 1: never alongside a full save (it writes these fields too).
+    if (saveInFlightRef.current) return;
     if (storedStatusRef.current !== MEETING_STATUS.BORRADOR) return;
     autosaveInFlightRef.current = true;
+    autosaveSucceededRef.current = false;
+    let finishAutosave!: () => void;
+    autosavePromiseRef.current = new Promise<void>((resolve) => { finishAutosave = resolve; });
     setSavingIndicator('saving');
+    const sentSummaryDoc = latestSummaryDocRef.current;
+    const sentNotesDoc = latestNotesDocRef.current;
     try {
       const res = await fetch(`/api/meetings/${id}/autosave`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          summary_doc: formData.summary_info.summary_doc ?? emptyDoc(),
-          notes_doc: formData.summary_info.notes_doc ?? emptyDoc(),
-          version: meetingVersion,
+          summary_doc: sentSummaryDoc ?? emptyDoc(),
+          notes_doc: sentNotesDoc ?? emptyDoc(),
+          version: meetingVersionRef.current,
           work_session_id: workSessionId ?? undefined,
         }),
       });
@@ -674,16 +788,26 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
         workSessionEndedRef.current = false;
         setWorkSessionId(next.work_session_id);
       }
+      // EC-R8: the summary and the notes as sent are stored now; the rest of
+      // the snapshot is unchanged (the background save writes only these two).
+      setSavedSnapshot((prev) => {
+        const parsed = JSON.parse(prev);
+        parsed.summary_info = { ...parsed.summary_info, summary_doc: sentSummaryDoc, notes_doc: sentNotesDoc };
+        return JSON.stringify(parsed);
+      });
       const stamp = next?.updated_at ? new Date(next.updated_at) : new Date();
       setLastSavedAt(stamp);
       setSavingIndicator('idle');
+      autosaveSucceededRef.current = true;
     } catch (err) {
       console.error('Autosave error:', err);
       setSavingIndicator('error');
     } finally {
       autosaveInFlightRef.current = false;
+      autosavePromiseRef.current = null;
+      finishAutosave();
     }
-  }, [currentMeetingId, formData.summary_info.summary_doc, formData.summary_info.notes_doc, meetingVersion, workSessionId]);
+  }, [currentMeetingId, workSessionId, setMeetingVersion]);
 
   const scheduleAutosave = useCallback(() => {
     if (!currentMeetingId) return;
@@ -694,8 +818,19 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
     }, AUTOSAVE_DEBOUNCE_MS);
   }, [currentMeetingId, runAutosave]);
 
-  const handleClose = () => {
+  // A date field holding a half-typed value (the browser keeps its value
+  // empty and marks it badInput) is an unsaved change too (send-back 1).
+  const isDirty =
+    meetingDateIncomplete ||
+    formSnapshot(formData, selectedFiles.length, attachmentsToDelete.length) !== savedSnapshot;
+
+  // `afterSave`: called right after a successful finalise, so nothing typed
+  // is at risk and no question is asked (EC-R8).
+  const closeForm = (afterSave: boolean) => {
     if (isSubmitting || isSavingDraft || saveInFlightRef.current) return;
+    if (!afterSave && isDirty && typeof window !== 'undefined' && !window.confirm(UNSAVED_CLOSE_QUESTION)) {
+      return;
+    }
 
     // End any open work-session before we clear it from state.
     if (currentMeetingId && workSessionId) {
@@ -736,20 +871,25 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
     setExistingAttachments([]);
     setAttachmentsToDelete([]);
     setSelectedFiles([]);
+    currentMeetingIdRef.current = meetingId ?? null;
     setCurrentMeetingId(meetingId ?? null);
     setWorkSessionId(null);
     setMeetingVersion(0);
     setLastSavedAt(null);
     setLoadedStatus(null);
+    setLoadedFinalizedAt(null);
     storedStatusRef.current = null;
     setSavingIndicator('idle');
     setWorkSessions([]);
+    setSavedSnapshot(EMPTY_FORM_SNAPSHOT);
     if (autosaveTimerRef.current) {
       clearTimeout(autosaveTimerRef.current);
       autosaveTimerRef.current = null;
     }
     onClose();
   };
+
+  const handleClose = () => closeForm(false);
 
   // "Guardar borrador" — persists the current form state with status='borrador'
   // and bypasses the summary-required validation from validateStep. On the
@@ -793,7 +933,10 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
       return { success: false };
     }
 
-    const effectiveStatus: MeetingStatus = status ?? formData.summary_info.status;
+    const formAtStart = formData;
+    const effectiveStatus: MeetingStatus = isFinalized
+      ? MEETING_STATUS.COMPLETADA
+      : status ?? formData.summary_info.status;
     const docs = deriveMeetingDocs(formData);
     // Which form item each saved row belongs to, as the form was when the save started.
     const savedKeys = {
@@ -803,6 +946,38 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
     };
     const problems: SaveProblem[] = [];
     let createdVersion: number | undefined;
+
+    // Send-back 1: the person's own background save must never read as
+    // someone else's. Cancel a pending one (the full save writes the summary
+    // and notes anyway) and wait for one in flight, then use the version it
+    // returned.
+    if (autosaveTimerRef.current) {
+      clearTimeout(autosaveTimerRef.current);
+      autosaveTimerRef.current = null;
+    }
+    const inFlightAutosave = autosavePromiseRef.current;
+    if (inFlightAutosave) {
+      // Send-back 2: wait at most AUTOSAVE_WAIT_LIMIT_MS. Without an answer
+      // the version is not trustworthy, so nothing is written.
+      let waitTimer: ReturnType<typeof setTimeout> | undefined;
+      const answered = await Promise.race([
+        inFlightAutosave.then(() => true),
+        new Promise<boolean>((resolve) => {
+          waitTimer = setTimeout(() => resolve(false), AUTOSAVE_WAIT_LIMIT_MS);
+        }),
+      ]);
+      if (waitTimer) clearTimeout(waitTimer);
+      if (!answered) {
+        setSaveProblems([{ kind: 'meeting', message: AUTOSAVE_STILL_RUNNING_MESSAGE }]);
+        toast.error(AUTOSAVE_STILL_RUNNING_MESSAGE);
+        return { success: false, meetingId: currentMeetingId ?? undefined };
+      }
+      if (!autosaveSucceededRef.current) {
+        // The background save did not store its write (a 409 of any kind or
+        // an error); its own handling has told the person what happened.
+        return { success: false, meetingId: currentMeetingId ?? undefined };
+      }
+    }
 
     let targetMeetingId = currentMeetingId;
     if (targetMeetingId) {
@@ -816,11 +991,33 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
         notes: docs.notesText,
         notes_doc: docs.notesDoc,
         status: effectiveStatus,
-      });
+      }, meetingVersionRef.current);
+      if (updateResult.conflict) {
+        // EC-R11: someone else saved since this form loaded the meeting.
+        // Nothing of this save is written (no child rows either); the form
+        // stays open with what the person typed.
+        setSaveProblems([{ kind: 'meeting', message: SAVE_CONFLICT_MESSAGE }]);
+        toast.error(SAVE_CONFLICT_MESSAGE);
+        const shouldReload =
+          typeof window !== 'undefined' && window.confirm(`${SAVE_CONFLICT_MESSAGE} ¿Recargar ahora?`);
+        if (shouldReload) {
+          await loadMeetingData();
+        }
+        return { success: false, meetingId: targetMeetingId };
+      }
       if (!updateResult.success) {
-        problems.push(describeSaveError(updateResult.error, 'meeting'));
+        const finalizedRefusal =
+          updateResult.error?.code === '42501' && String(updateResult.error?.message ?? '').startsWith('F18:');
+        problems.push(
+          finalizedRefusal
+            ? { kind: 'meeting', message: FINALIZED_STATE_LOCKED_MESSAGE }
+            : describeSaveError(updateResult.error, 'meeting')
+        );
       } else {
         storedStatusRef.current = effectiveStatus;
+        if (typeof updateResult.version === 'number') {
+          setMeetingVersion(updateResult.version);
+        }
       }
     } else {
       const row = await insertMeetingRow(supabase, {
@@ -921,6 +1118,17 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
       return { success: false, meetingId: savedMeetingId, version: createdVersion };
     }
 
+    // EC-R8: what this save wrote is now the saved state. The form as it was
+    // when the save started, with the state the form shows after it (a draft
+    // save sets the select to borrador); every chosen file was uploaded and
+    // every marked attachment removed.
+    setSavedSnapshot(
+      formSnapshot(
+        { ...formAtStart, summary_info: { ...formAtStart.summary_info, status: status ?? formAtStart.summary_info.status } },
+        0,
+        0,
+      ),
+    );
     return { success: true, meetingId: savedMeetingId, version: createdVersion };
   };
 
@@ -961,6 +1169,8 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
 
   const handleSaveDraft = async () => {
     if (isSavingDraft || isSubmitting || saveInFlightRef.current) return;
+    // EC-R6: a finalised meeting never goes back to draft.
+    if (isFinalized) return;
 
     saveInFlightRef.current = true;
     setIsSavingDraft(true);
@@ -1387,9 +1597,17 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                   )}
                 </div>
               )}
+              {/* EC-R8: the background save covers only the summary and the
+                  notes; anything else typed is unsaved until a full save. */}
+              {isDirty && (
+                <span className="text-xs text-amber-700" data-testid="meeting-unsaved-changes">
+                  · Cambios sin guardar
+                </span>
+              )}
               <button
                 onClick={handleClose}
                 disabled={isSubmitting}
+                data-testid="meeting-modal-close"
                 className="p-2 text-gray-400 hover:text-gray-600 disabled:opacity-50"
               >
                 <XIcon className="h-5 w-5" />
@@ -1633,12 +1851,14 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                     Estado de la Reunión
                   </label>
                   <select
-                    value={formData.summary_info.status}
+                    value={isFinalized ? MEETING_STATUS.COMPLETADA : formData.summary_info.status}
                     onChange={(e) => updateSummaryInfo('status', e.target.value as MeetingStatus)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
+                    disabled={isFinalized}
+                    data-testid="meeting-status-select"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent disabled:bg-gray-100 disabled:text-gray-600"
                   >
                     {Object.entries(meetingStatusLabels)
-                      .filter(([status]) => status !== MEETING_STATUS.COMPLETADA || loadedStatus === MEETING_STATUS.COMPLETADA)
+                      .filter(([status]) => status !== MEETING_STATUS.COMPLETADA || loadedStatus === MEETING_STATUS.COMPLETADA || isFinalized)
                       .map(([status, label]) => (
                         <option key={status} value={status}>{label}</option>
                       ))}
@@ -1652,6 +1872,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                   <TipTapEditor
                     initialContent={formData.summary_info.summary_doc ?? emptyDoc()}
                     onChange={(json) => {
+                      latestSummaryDocRef.current = json;
                       updateSummaryInfo('summary_doc', json);
                       scheduleAutosave();
                     }}
@@ -1671,6 +1892,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                   <TipTapEditor
                     initialContent={formData.summary_info.notes_doc ?? emptyDoc()}
                     onChange={(json) => {
+                      latestNotesDocRef.current = json;
                       updateSummaryInfo('notes_doc', json);
                       scheduleAutosave();
                     }}
@@ -2041,8 +2263,9 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
             uploadingFiles={uploadingFiles}
             selectedFileCount={selectedFiles.length}
             mode={mode}
-            meetingStatus={formData.summary_info.status}
+            meetingStatus={isFinalized ? MEETING_STATUS.COMPLETADA : formData.summary_info.status}
             meetingId={meetingId}
+            canSaveDraft={!isFinalized}
             onPrevious={handlePrevious}
             onNext={handleNext}
             onSubmit={handleSubmit}
@@ -2060,7 +2283,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
           onOpenChange={setFinalizeOpen}
           meetingId={meetingId!}
           meetingTitle={formData.meeting_info.title}
-          onFinalized={() => { onSuccess(); handleClose(); }}
+          onFinalized={() => { onSuccess(); closeForm(true); }}
         />
       )}
     </div>

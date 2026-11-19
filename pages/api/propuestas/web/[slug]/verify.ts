@@ -125,10 +125,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       updates.web_status = 'viewed';
     }
 
-    await serviceClient
+    // The update carries the status read above, so it never writes over a link
+    // retired meanwhile: «viewed» only where it is still «published» (F20g
+    // send-back 1). Rows without a status keep the old unconditional write.
+    let viewUpdate = serviceClient
       .from('propuesta_generadas')
       .update(updates)
       .eq('id', propuesta.id);
+    if (propuesta.web_status) viewUpdate = viewUpdate.eq('web_status', propuesta.web_status);
+    await viewUpdate;
 
     const resolvedSnapshot = await resolveSnapshotUrls(propuesta.snapshot_json as ProposalSnapshot);
     return res.status(200).json({

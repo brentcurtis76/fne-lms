@@ -24,6 +24,7 @@ import {
   BorderStyle,
   ShadingType,
 } from 'docx';
+import { formatMonto } from '@/lib/licitaciones/formato';
 
 // ============================================================
 // Input Types
@@ -35,6 +36,7 @@ export interface ActaDocumentData {
     numero_licitacion: string;
     peso_evaluacion_tecnica: number;
     peso_evaluacion_economica: number;
+    tipo_moneda?: string | null; // 'UF' | 'CLP': every amount is written in it (LIC-B2)
   };
   fechaEvaluacion: string;   // YYYY-MM-DD
   horaInicio: string;        // HH:MM
@@ -80,10 +82,6 @@ function formatDate(dateStr: string): string {
   const day = parseInt(parts[2], 10);
   const month = months[parseInt(parts[1], 10) - 1] || '';
   return `${day} de ${month} de ${parts[0]}`;
-}
-
-function formatMonto(monto: number): string {
-  return `$${monto.toLocaleString('es-CL')}`;
 }
 
 function heading1(text: string): Paragraph {
@@ -215,8 +213,8 @@ export async function generateActaDocument(data: ActaDocumentData): Promise<Buff
     rows: [
       new TableRow({
         children: [
-          makeHeaderCell('Evaluacion Tecnica', 50),
-          makeHeaderCell('Evaluacion Economica', 50),
+          makeHeaderCell('Evaluación Técnica', 50),
+          makeHeaderCell('Evaluación Económica', 50),
         ],
       }),
       new TableRow({
@@ -237,12 +235,12 @@ export async function generateActaDocument(data: ActaDocumentData): Promise<Buff
         width: { size: 60, type: WidthType.PERCENTAGE },
       }),
       new TableCell({
-        children: [new Paragraph({ children: [new TextRun({ text: 'Puntaje Max', bold: true, size: 20 })] })],
+        children: [new Paragraph({ children: [new TextRun({ text: 'Puntaje Máx.', bold: true, size: 20 })] })],
         shading: { type: ShadingType.SOLID, color: 'F5F5F5' },
         width: { size: 20, type: WidthType.PERCENTAGE },
       }),
       new TableCell({
-        children: [new Paragraph({ children: [new TextRun({ text: '% Tecnico', bold: true, size: 20 })] })],
+        children: [new Paragraph({ children: [new TextRun({ text: '% Técnico', bold: true, size: 20 })] })],
         shading: { type: ShadingType.SOLID, color: 'F5F5F5' },
         width: { size: 20, type: WidthType.PERCENTAGE },
       }),
@@ -310,7 +308,7 @@ export async function generateActaDocument(data: ActaDocumentData): Promise<Buff
   const subtotalRow = new TableRow({
     children: [
       new TableCell({
-        children: [new Paragraph({ children: [new TextRun({ text: 'Subtotal Tecnico', bold: true, size: 18 })] })],
+        children: [new Paragraph({ children: [new TextRun({ text: 'Subtotal Técnico', bold: true, size: 18 })] })],
         shading: { type: ShadingType.SOLID, color: 'F0F0F0' },
         width: { size: 30, type: WidthType.PERCENTAGE },
       }),
@@ -329,14 +327,14 @@ export async function generateActaDocument(data: ActaDocumentData): Promise<Buff
     children: [
       makeHeaderCell('ATE', 30),
       makeHeaderCell('Monto Propuesto', 35),
-      makeHeaderCell('Puntaje Economico', 35),
+      makeHeaderCell('Puntaje Económico', 35),
     ],
   });
   const econDataRows = sortedAtes.map(ate =>
     new TableRow({
       children: [
         makeDataCell(ate.nombre_ate, 30),
-        makeDataCell(formatMonto(ate.monto_propuesto), 35),
+        makeDataCell(formatMonto(ate.monto_propuesto, licitacion.tipo_moneda, '-'), 35),
         makeDataCell(String(ate.puntaje_economico), 35),
       ],
     })
@@ -346,7 +344,7 @@ export async function generateActaDocument(data: ActaDocumentData): Promise<Buff
   const finalHeaderRow = new TableRow({
     children: [
       makeHeaderCell('ATE', 20),
-      makeHeaderCell('Tec. Pond.', 16),
+      makeHeaderCell('Téc. Pond.', 16),
       makeHeaderCell('Eco. Pond.', 16),
       makeHeaderCell('Total', 16),
       makeHeaderCell('Rank', 16),
@@ -361,7 +359,7 @@ export async function generateActaDocument(data: ActaDocumentData): Promise<Buff
         makeDataCell(String(ate.puntaje_economico_ponderado), 16),
         makeDataCell(String(ate.puntaje_total), 16),
         makeDataCell(String(sortedAtes.indexOf(ate) + 1), 16),
-        makeDataCell(ate.es_ganador ? 'Si' : 'No', 16),
+        makeDataCell(ate.es_ganador ? 'Sí' : 'No', 16),
       ],
     })
   );
@@ -378,7 +376,7 @@ export async function generateActaDocument(data: ActaDocumentData): Promise<Buff
           // PART 1: ACTA DE REUNION
           // ========================================
           new Paragraph({
-            children: [new TextRun({ text: 'ACTA DE REUNION', bold: true, size: 40, color: '1A1A1A' })],
+            children: [new TextRun({ text: 'ACTA DE REUNIÓN', bold: true, size: 40, color: '1A1A1A' })],
             alignment: AlignmentType.CENTER,
             spacing: { before: 480, after: 240 },
           }),
@@ -386,14 +384,14 @@ export async function generateActaDocument(data: ActaDocumentData): Promise<Buff
           divider(),
 
           bodyParagraph(
-            `Objetivo: Revisar las propuestas recibidas para la licitacion de: "${licitacion.nombre_licitacion}" ` +
-            `y entregar la evaluacion del adjudicado.`
+            `Objetivo: Revisar las propuestas recibidas para la licitación de: "${licitacion.nombre_licitacion}" ` +
+            `y entregar la evaluación del adjudicado.`
           ),
 
           bodyParagraph(
-            `Con fecha ${formatDate(fechaEvaluacion)}, siendo las ${horaInicio} Hrs. se reune la comision para evaluar ` +
-            `las propuestas del proceso de Licitacion, donde se procede a la revision sistematica de todos los documentos ` +
-            `entregados por los ofertantes, las ATES ofertantes son:`
+            `Con fecha ${formatDate(fechaEvaluacion)}, siendo las ${horaInicio} Hrs. se reúne la comisión para evaluar ` +
+            `las propuestas del proceso de Licitación, donde se procede a la revisión sistemática de todos los documentos ` +
+            `entregados por los ofertantes, las ATE ofertantes son:`
           ),
 
           ...ates.map(ate => bulletItem(`${ate.nombre_ate}${ate.rut_ate ? ` — RUT: ${ate.rut_ate}` : ''}`)),
@@ -401,7 +399,7 @@ export async function generateActaDocument(data: ActaDocumentData): Promise<Buff
           new Paragraph({ text: '', spacing: { after: 120 } }),
 
           bodyParagraph(
-            `Se procede a evaluar y ponderar cada item de la pauta que se anexa, dando el siguiente puntaje de evaluacion:`
+            `Se procede a evaluar y ponderar cada ítem de la pauta que se anexa, dando el siguiente puntaje de evaluación:`
           ),
 
           new Table({
@@ -414,15 +412,15 @@ export async function generateActaDocument(data: ActaDocumentData): Promise<Buff
           winnerAte
             ? bodyParagraph(
                 `Por lo tanto, de acuerdo a los resultados obtenidos, la empresa que cumple con nuestros objetivos ` +
-                `planteados es ${winnerAte.nombre_ate}. Se acuerda confirmar a esta empresa para la ejecucion del programa.`
+                `planteados es ${winnerAte.nombre_ate}. Se acuerda confirmar a esta empresa para la ejecución del programa.`
               )
-            : bodyParagraph('El proceso de evaluacion esta pendiente de finalizacion.'),
+            : bodyParagraph('El proceso de evaluación está pendiente de finalización.'),
 
-          bodyParagraph(`Se da por finalizada a las ${horaFin} la reunion.`),
+          bodyParagraph(`Se da por finalizada a las ${horaFin} la reunión.`),
 
           divider(),
 
-          heading2('Firmas de la Comision Evaluadora'),
+          heading2('Firmas de la Comisión Evaluadora'),
           new Table({
             width: { size: 100, type: WidthType.PERCENTAGE },
             rows: signatureRows.length > 0 ? signatureRows : [
@@ -441,23 +439,23 @@ export async function generateActaDocument(data: ActaDocumentData): Promise<Buff
           // PART 2: INFORMACION ANEXA (new page)
           // ========================================
           new Paragraph({
-            children: [new TextRun({ text: 'INFORMACION ANEXA', bold: true, size: 36, color: '1A1A1A' })],
+            children: [new TextRun({ text: 'INFORMACIÓN ANEXA', bold: true, size: 36, color: '1A1A1A' })],
             alignment: AlignmentType.CENTER,
             spacing: { before: 480, after: 240 },
             pageBreakBefore: true,
           }),
 
-          heading1('CRITERIOS DE EVALUACION'),
-          heading2(`PAUTA DE EVALUACION: Licitacion "${licitacion.nombre_licitacion}"`),
+          heading1('CRITERIOS DE EVALUACIÓN'),
+          heading2(`PAUTA DE EVALUACIÓN: Licitación "${licitacion.nombre_licitacion}"`),
 
           new Paragraph({ text: '', spacing: { after: 120 } }),
 
-          bodyParagraph('Ponderacion de Evaluacion:'),
+          bodyParagraph('Ponderación de Evaluación:'),
           weightTable,
 
           new Paragraph({ text: '', spacing: { after: 240 } }),
 
-          heading2('Criterios de Evaluacion Tecnica'),
+          heading2('Criterios de Evaluación Técnica'),
           new Table({
             width: { size: 100, type: WidthType.PERCENTAGE },
             rows: [criteriaHeaderRow, ...criteriaDataRows],
@@ -473,7 +471,7 @@ export async function generateActaDocument(data: ActaDocumentData): Promise<Buff
 
           new Paragraph({ text: '', spacing: { after: 240 } }),
 
-          heading2('Evaluacion Economica'),
+          heading2('Evaluación Económica'),
           new Table({
             width: { size: 100, type: WidthType.PERCENTAGE },
             rows: [econHeaderRow, ...econDataRows],
@@ -481,7 +479,7 @@ export async function generateActaDocument(data: ActaDocumentData): Promise<Buff
 
           new Paragraph({ text: '', spacing: { after: 240 } }),
 
-          heading2('Evaluacion Final Ponderada'),
+          heading2('Evaluación Final Ponderada'),
           new Table({
             width: { size: 100, type: WidthType.PERCENTAGE },
             rows: [finalHeaderRow, ...finalDataRows],

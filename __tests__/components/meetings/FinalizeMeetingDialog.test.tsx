@@ -119,6 +119,76 @@ describe('FinalizeMeetingDialog', () => {
     expect(community.checked).toBe(false);
   });
 
+  describe('EC-R7: «Solo los asistentes» while nobody is marked as attending', () => {
+    const NOBODY = 'La asistencia aún no se registra en la plataforma.';
+
+    it('attended_count 0: the «Solo los asistentes» radio is disabled and the sentence is shown', async () => {
+      installFetch(async (url) => {
+        if (url.includes('/recipients')) return jsonResponse({ data: { count: 3, attended_count: 0 } });
+        return jsonResponse({}, 200);
+      });
+      render(<FinalizeMeetingDialog {...baseProps} onOpenChange={vi.fn()} />);
+      const root = document.body;
+      const attended = root.querySelector('input[type="radio"][value="attended"]') as HTMLInputElement;
+      const withAccess = root.querySelector('input[type="radio"][value="with_access"]') as HTMLInputElement;
+      await waitFor(() => {
+        expect(attended.disabled).toBe(true);
+      });
+      expect(within(root).getByText(NOBODY)).toBeTruthy();
+      expect(withAccess.disabled).toBe(false);
+      expect(withAccess.checked).toBe(true);
+    });
+
+    it('an answer without attended_count disables nothing', async () => {
+      installFetch(recipientsHandler(3));
+      const { container } = render(<FinalizeMeetingDialog {...baseProps} onOpenChange={vi.fn()} />);
+      const root = document.body;
+      await waitFor(() => {
+        expect(within(root).getByText('Se enviará a 3 destinatarios')).toBeTruthy();
+      });
+      const attended = root.querySelector('input[type="radio"][value="attended"]') as HTMLInputElement;
+      expect(attended.disabled).toBe(false);
+      expect(getFinalizeButton(container).disabled).toBe(false);
+      expect(within(root).queryByText(NOBODY)).toBeNull();
+    });
+
+    it('a shown count of 0 disables «Finalizar y enviar»', async () => {
+      installFetch(recipientsHandler(0));
+      const { container } = render(<FinalizeMeetingDialog {...baseProps} onOpenChange={vi.fn()} />);
+      const root = document.body;
+      await waitFor(() => {
+        expect(within(root).getByText('Se enviará a 0 destinatarios')).toBeTruthy();
+      });
+      expect(getFinalizeButton(container).disabled).toBe(true);
+    });
+
+    it('a 409 no_attendance shows the refusal and keeps the dialog open', async () => {
+      installFetch(async (url) => {
+        if (url.includes('/recipients')) return jsonResponse({ data: { count: 2 } });
+        return jsonResponse({ code: 'no_attendance', error: 'Nadie está marcado como asistente' }, 409);
+      });
+      const onOpenChange = vi.fn();
+      const onFinalized = vi.fn();
+      const { container } = render(
+        <FinalizeMeetingDialog {...baseProps} onOpenChange={onOpenChange} onFinalized={onFinalized} />,
+      );
+      await waitFor(() => {
+        expect(getFinalizeButton(container)).toBeDefined();
+      });
+      await act(async () => {
+        fireEvent.click(getFinalizeButton(container));
+      });
+      await waitFor(() => {
+        expect(toastError).toHaveBeenCalledWith(
+          'La asistencia aún no se registra en la plataforma. Elige «Las personas con acceso a la reunión».',
+        );
+      });
+      expect(toastSuccess).not.toHaveBeenCalled();
+      expect(onFinalized).not.toHaveBeenCalled();
+      expect(onOpenChange).not.toHaveBeenCalledWith(false);
+    });
+  });
+
   it('POSTs to /api/meetings/:id/finalize with { audience, facilitator_message_doc: undefined } when the editor is empty', async () => {
     const calls: Array<{ url: string; init?: any }> = [];
     // @ts-expect-error override global fetch for test
@@ -243,6 +313,13 @@ describe('FinalizeMeetingDialog', () => {
         'Reunión finalizada, pero el resumen no se envió por correo: el envío no está autorizado para esta comunidad.'],
       ['zero recipients', { recipients_count: 0, sent: 0, failed: 0, summary_email_sent: false, summary_email_error: 'no_recipients' },
         'Reunión finalizada, pero el resumen no se envió por correo: no hay destinatarios.'],
+      // N157: a total failure says its reason.
+      ['provider refused every send', { recipients_count: 3, sent: 0, failed: 3, summary_email_sent: false, summary_email_error: 'provider_failed' },
+        'Reunión finalizada, pero el servicio de correo rechazó todos los envíos: nadie recibió el resumen.'],
+      ['lookup failed after finalising', { recipients_count: 0, sent: 0, failed: 0, summary_email_sent: false, summary_email_error: 'lookup_failed' },
+        'Reunión finalizada, pero no se pudo preparar el envío del resumen: nadie lo recibió.'],
+      ['mail not configured', { recipients_count: 3, sent: 0, failed: 3, summary_email_sent: false, summary_email_error: 'mail_not_configured' },
+        'Reunión finalizada, pero no se pudo enviar el resumen por correo.'],
     ])('%s: warns instead of claiming the email was sent, closes once, never retries', async (_name, data, warning) => {
       const { posts, onOpenChange, onFinalized } = await finalize(data);
       expect(toastSuccess).not.toHaveBeenCalled();

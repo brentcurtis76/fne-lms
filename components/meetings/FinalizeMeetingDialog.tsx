@@ -22,6 +22,7 @@ type Audience = FinalizeRequestAudience;
 const CONFLICT_MESSAGES: Record<string, string> = {
   meeting_not_draft: 'La reunión ya no está en borrador',
   meeting_already_finalized: 'La reunión ya fue finalizada por otro usuario',
+  no_attendance: 'La asistencia aún no se registra en la plataforma. Elige «Las personas con acceso a la reunión».',
 };
 
 type FinalizeResult = {
@@ -46,6 +47,12 @@ function emailWarning(result: FinalizeResult): string | null {
       return 'Reunión finalizada, pero el resumen no se envió por correo: el envío no está autorizado para esta comunidad.';
     case 'no_recipients':
       return 'Reunión finalizada, pero el resumen no se envió por correo: no hay destinatarios.';
+    // N157: nothing was sent, said with its reason. 'mail_not_configured' and
+    // every unknown code keep the generic sentence below.
+    case 'provider_failed':
+      return 'Reunión finalizada, pero el servicio de correo rechazó todos los envíos: nadie recibió el resumen.';
+    case 'lookup_failed':
+      return 'Reunión finalizada, pero no se pudo preparar el envío del resumen: nadie lo recibió.';
   }
   if (sent > 0 && failed > 0) {
     return `Reunión finalizada, pero el resumen solo se envió a ${sent} de ${recipientLabel(sent + failed)}.`;
@@ -77,6 +84,11 @@ export function FinalizeMeetingDialog({
   const [audience, setAudience] = useState<Audience>('with_access');
   const [facilitatorDoc, setFacilitatorDoc] = useState<TipTapDoc>(() => emptyDoc());
   const [recipients, setRecipients] = useState<RecipientState>({ kind: 'idle' });
+  // EC-R7: how many attendees are marked 'attended', from the recipients
+  // answer. null (unknown, or an answer without the number) disables nothing;
+  // only an explicit 0 disables «Solo los asistentes».
+  const [attendedCount, setAttendedCount] = useState<number | null>(null);
+  const nobodyAttended = attendedCount === 0;
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -84,9 +96,15 @@ export function FinalizeMeetingDialog({
       setAudience('with_access');
       setFacilitatorDoc(emptyDoc());
       setRecipients({ kind: 'idle' });
+      setAttendedCount(null);
       setSubmitting(false);
     }
   }, [open]);
+
+  // A disabled choice cannot stay selected.
+  useEffect(() => {
+    if (nobodyAttended && audience === 'attended') setAudience('with_access');
+  }, [nobodyAttended, audience]);
 
   useEffect(() => {
     if (!open) return;
@@ -103,6 +121,8 @@ export function FinalizeMeetingDialog({
         const payload = await res.json();
         const count = payload?.data?.count ?? payload?.count;
         if (cancelled) return;
+        const attended = payload?.data?.attended_count ?? payload?.attended_count;
+        if (typeof attended === 'number') setAttendedCount(attended);
         if (typeof count === 'number') {
           setRecipients({ kind: 'ready', count });
         } else {
@@ -200,10 +220,15 @@ export function FinalizeMeetingDialog({
                 value="attended"
                 checked={audience === 'attended'}
                 onChange={() => setAudience('attended')}
-                disabled={submitting}
+                disabled={submitting || nobodyAttended}
                 className="mt-1"
               />
-              <span>{AUDIENCE_PICKER_LABELS.attended}</span>
+              <span>
+                {AUDIENCE_PICKER_LABELS.attended}
+                {nobodyAttended && (
+                  <span className="block text-xs text-gray-600">La asistencia aún no se registra en la plataforma.</span>
+                )}
+              </span>
             </label>
 
             <div className="text-xs text-gray-600 min-h-[1rem]" aria-live="polite">
@@ -240,7 +265,7 @@ export function FinalizeMeetingDialog({
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={submitting}
+            disabled={submitting || (recipients.kind === 'ready' && recipients.count === 0)}
             className="px-4 py-2 text-sm font-medium text-white bg-brand_accent hover:bg-brand_accent_hover rounded-md disabled:opacity-50"
           >
             {submitting ? 'Enviando…' : 'Finalizar y enviar'}

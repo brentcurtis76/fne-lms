@@ -43,6 +43,7 @@ import {
 } from '@/lib/propuestas/validation';
 import { ProposalPreview } from './ProposalPreview';
 import { buildProposalSnapshot, type ProposalSnapshot } from '@/lib/propuestas-web/snapshot';
+import { totalUf as computeTotalUf } from '@/lib/propuestas-web/pricing';
 import type { HourBucket } from '@/lib/propuestas/types/hours';
 import BucketConfigSection from './BucketConfigSection';
 
@@ -227,6 +228,11 @@ export default function ProposalConfigPanel({
   // Preview state
   const [showPreview, setShowPreview] = useState(false);
 
+  // «Retirar enlace» (LIC-E2): the version asking for confirmation, and the one
+  // being retired.
+  const [retireConfirmId, setRetireConfirmId] = useState<string | null>(null);
+  const [retiringId, setRetiringId] = useState<string | null>(null);
+
   // ============================================================
   // Load data when panel opens
   // ============================================================
@@ -310,8 +316,13 @@ export default function ProposalConfigPanel({
 
   const precioUfNum = parseFloat(precioUf) || 0;
   const fixedUfNum = parseFloat(fixedUf) || 0;
-  const totalUf =
-    precioModelo === 'per_hour' ? precioUfNum * totalHoras : fixedUfNum;
+  // The ONE price, shared with the PDF and the public page (LIC-E6).
+  const totalUf = computeTotalUf({
+    mode: precioModelo,
+    precioUf: precioUfNum,
+    totalHours: totalHoras,
+    fixedUf: precioModelo === 'fixed' ? fixedUfNum : undefined,
+  });
 
   // ============================================================
   // Preview snapshot — full-fidelity, matches handleGenerate payload
@@ -587,6 +598,35 @@ export default function ProposalConfigPanel({
       toast.success(`${label} copiado al portapapeles`);
     } catch {
       toast.error('Error al copiar');
+    }
+  };
+
+  // ============================================================
+  // Retire a version's public link (LIC-E2)
+  // ============================================================
+
+  const retireLink = async (propuestaId: string) => {
+    setRetiringId(propuestaId);
+    try {
+      const res = await fetch(`/api/licitaciones/${licitacionId}/propuestas`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ propuesta_id: propuestaId, accion: 'retirar' }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json.error || 'Error al retirar el enlace');
+        return;
+      }
+      setPropuestas(prev =>
+        prev.map(p => (p.id === propuestaId ? { ...p, web_status: 'expired' } : p))
+      );
+      setRetireConfirmId(null);
+      toast.success('Enlace retirado');
+    } catch {
+      toast.error('Sin conexión al servidor. Verifique su red e intente nuevamente.');
+    } finally {
+      setRetiringId(null);
     }
   };
 
@@ -1188,7 +1228,10 @@ export default function ProposalConfigPanel({
                           <label className="block text-xs font-medium text-gray-700 mb-1">
                             Total calculado
                           </label>
-                          <div className="border border-gray-200 rounded-lg px-3 py-2 bg-gray-50 text-sm font-medium text-gray-900">
+                          <div
+                            data-testid="proposal-total-uf"
+                            className="border border-gray-200 rounded-lg px-3 py-2 bg-gray-50 text-sm font-medium text-gray-900"
+                          >
                             {totalUf.toFixed(2)} UF
                             <span className="text-xs text-gray-400 ml-1">
                               ({precioUfNum} × {totalHoras}h)
@@ -1216,8 +1259,11 @@ export default function ProposalConfigPanel({
                           <label className="block text-xs font-medium text-gray-700 mb-1">
                             Total
                           </label>
-                          <div className="border border-gray-200 rounded-lg px-3 py-2 bg-gray-50 text-sm font-medium text-gray-900">
-                            {fixedUfNum.toFixed(2)} UF
+                          <div
+                            data-testid="proposal-total-uf"
+                            className="border border-gray-200 rounded-lg px-3 py-2 bg-gray-50 text-sm font-medium text-gray-900"
+                          >
+                            {totalUf.toFixed(2)} UF
                           </div>
                         </div>
                       </div>
@@ -1692,6 +1738,7 @@ export default function ProposalConfigPanel({
                         {propuestas.map(p => (
                           <div
                             key={p.id}
+                            data-testid={`propuesta-row-${p.id}`}
                             className={`p-3 rounded-lg border text-sm ${
                               p.estado === 'completada'
                                 ? 'border-green-200 bg-green-50'
@@ -1780,6 +1827,25 @@ export default function ProposalConfigPanel({
                                     Regenerar Código
                                   </button>
                                 )}
+                                {p.estado === 'completada' &&
+                                  p.web_slug &&
+                                  (p.web_status === 'published' || p.web_status === 'viewed') && (
+                                    <button
+                                      type="button"
+                                      data-testid={`retirar-enlace-${p.id}`}
+                                      onClick={() => setRetireConfirmId(p.id)}
+                                      disabled={retiringId === p.id}
+                                      className="flex items-center gap-1 px-2.5 py-1.5 bg-white border border-red-300 text-red-700 rounded-lg text-xs font-medium hover:bg-red-50 transition-colors disabled:opacity-50"
+                                      title="La escuela ya no podrá abrir esta versión"
+                                    >
+                                      Retirar enlace
+                                    </button>
+                                  )}
+                                {p.estado === 'completada' && p.web_slug && p.web_status === 'expired' && (
+                                  <span className="text-xs font-medium text-red-700">
+                                    Enlace retirado
+                                  </span>
+                                )}
                                 {p.estado === 'completada' && p.download_url && (
                                   <a
                                     href={p.download_url}
@@ -1793,6 +1859,33 @@ export default function ProposalConfigPanel({
                                 )}
                               </div>
                             </div>
+                            {retireConfirmId === p.id && (
+                              <div className="mt-2 flex items-center flex-wrap gap-2 rounded-lg border border-red-200 bg-white p-2">
+                                <p className="text-xs text-gray-700">
+                                  ¿Retirar el enlace de v{p.version}? La escuela ya no podrá abrir esta
+                                  versión.
+                                </p>
+                                <button
+                                  type="button"
+                                  data-testid={`retirar-enlace-confirmar-${p.id}`}
+                                  onClick={() => retireLink(p.id)}
+                                  disabled={retiringId === p.id}
+                                  className="flex items-center gap-1 px-2.5 py-1.5 bg-red-600 text-white rounded-lg text-xs font-medium hover:bg-red-700 transition-colors disabled:opacity-50"
+                                >
+                                  {retiringId === p.id && <Loader2 size={12} className="animate-spin" />}
+                                  Sí, retirar enlace
+                                </button>
+                                <button
+                                  type="button"
+                                  data-testid={`retirar-enlace-cancelar-${p.id}`}
+                                  onClick={() => setRetireConfirmId(null)}
+                                  disabled={retiringId === p.id}
+                                  className="px-2.5 py-1.5 bg-white border border-gray-300 text-gray-600 rounded-lg text-xs font-medium hover:bg-gray-50 transition-colors disabled:opacity-50"
+                                >
+                                  Cancelar
+                                </button>
+                              </div>
+                            )}
                             {p.estado === 'error' && p.error_message && (
                               <p className="text-xs text-red-600 mt-1.5">
                                 {p.error_message}

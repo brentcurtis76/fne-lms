@@ -120,6 +120,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       )
       .eq('meeting_id', id);
 
+    // EC-R7: «Solo los asistentes» while nobody is marked as having attended
+    // would reach nobody, and finalising cannot be undone, so it is refused
+    // before anything changes. A meeting that already carries finalized_at
+    // skips this and keeps answering meeting_already_finalized below.
+    if (
+      audience === 'attended' &&
+      !meeting.finalized_at &&
+      !(attendeesRich || []).some((a: any) => a.attendance_status === 'attended')
+    ) {
+      return sendMeetingError(
+        res,
+        409,
+        'no_attendance',
+        'Nadie está marcado como asistente',
+      );
+    }
+
     // `ctx.workspace` is the already-normalized outer row (array/object →
     // object), saved one level of `(meeting as any)` juggling. The nested
     // `community` join is finalize-specific so it normalizes here.
@@ -163,103 +180,160 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       );
     }
 
-    // Close any open work sessions for this meeting.
-    await serviceClient
-      .from('meeting_work_sessions')
-      .update({ ended_at: now })
-      .eq('meeting_id', id)
-      .is('ended_at', null);
-
-    // Load related content for the email.
-    const [{ data: agreements }, { data: commitments }, { data: workSessions }, { data: finalizerProfile }, { data: facilitatorProfile }] = await Promise.all([
-      serviceClient
-        .from('meeting_agreements')
-        .select('agreement_text, agreement_doc, order_index')
-        .eq('meeting_id', id)
-        .order('order_index', { ascending: true }),
-      serviceClient
-        .from('meeting_commitments')
-        .select('commitment_text, commitment_doc, due_date, assigned_to_profile:profiles!meeting_commitments_assigned_to_fkey(first_name, last_name, email)')
-        .eq('meeting_id', id),
-      serviceClient
+    // Close any open work sessions for this meeting. The meeting is final
+    // already, so a throw here is logged and must not answer "server error".
+    try {
+      await serviceClient
         .from('meeting_work_sessions')
-        .select('started_at')
-        .eq('meeting_id', id),
-      serviceClient
-        .from('profiles')
-        .select('first_name, last_name, email')
-        .eq('id', user.id)
-        .maybeSingle(),
-      meeting.facilitator_id
-        ? serviceClient
-            .from('profiles')
-            .select('first_name, last_name, email')
-            .eq('id', meeting.facilitator_id)
-            .maybeSingle()
-        : Promise.resolve({ data: null } as any),
-    ]);
-
-    const recipients = await getCommunityRecipients(serviceClient, id, {
-      onlyAttended: audience === 'attended',
-    });
-    const communitySchoolId = community?.school_id;
-    const emailAuthorization = communitySchoolId === null || communitySchoolId === undefined
-      ? await authorizeRecipientUsersEmail(serviceClient, recipients.map((recipient) => recipient.id))
-      : await authorizeSchoolEmail(serviceClient, communitySchoolId);
-
-    // Build email template data.
-    const meetingDates: Date[] = [];
-    if (meeting.meeting_date) meetingDates.push(new Date(meeting.meeting_date));
-    for (const ws of workSessions || []) {
-      if (ws.started_at) meetingDates.push(new Date(ws.started_at));
+        .update({ ended_at: now })
+        .eq('meeting_id', id)
+        .is('ended_at', null);
+    } catch (closeErr: any) {
+      console.error('[meetings-finalize] closing work sessions failed after finalizing:', {
+        meeting_id: id,
+        error: closeErr?.message || String(closeErr),
+      });
     }
 
-    const agreementsHtml = (agreements || [])
-      .map((a: any) => {
-        const text = renderRichOrPlain(a.agreement_doc, a.agreement_text, EMAIL_PARAGRAPH_TIGHT_STYLE);
-        return `<li style="margin: 0 0 8px 0;">${text}</li>`;
-      })
-      .join('');
+    // N157: every read and lookup the summary needs runs after the meeting
+    // was made final. A throw in any of them must not answer "server error"
+    // (the retry would then hit meeting_already_finalized): it is logged and
+    // the answer says the summary was not sent, with 'lookup_failed'.
+    const prepareSummary = async () => {
+      // Load related content for the email.
+      const [agreementsRead, commitmentsRead, workSessionsRead, finalizerRead, facilitatorRead] = await Promise.all([
+        serviceClient
+          .from('meeting_agreements')
+          .select('agreement_text, agreement_doc, order_index')
+          .eq('meeting_id', id)
+          .order('order_index', { ascending: true }),
+        serviceClient
+          .from('meeting_commitments')
+          .select('commitment_text, commitment_doc, due_date, assigned_to_profile:profiles!meeting_commitments_assigned_to_fkey(first_name, last_name, email)')
+          .eq('meeting_id', id),
+        serviceClient
+          .from('meeting_work_sessions')
+          .select('started_at')
+          .eq('meeting_id', id),
+        serviceClient
+          .from('profiles')
+          .select('first_name, last_name, email')
+          .eq('id', user.id)
+          .maybeSingle(),
+        meeting.facilitator_id
+          ? serviceClient
+              .from('profiles')
+              .select('first_name, last_name, email')
+              .eq('id', meeting.facilitator_id)
+              .maybeSingle()
+          : Promise.resolve({ data: null, error: null } as any),
+      ]);
 
-    const commitmentsHtml = (commitments || [])
-      .map((c: any) => {
-        const body = renderRichOrPlain(c.commitment_doc, c.commitment_text, EMAIL_PARAGRAPH_COMPACT_STYLE);
-        const assigneeName = profileName(c.assigned_to_profile, '—');
-        const dueDate = c.due_date ? formatDueDate(c.due_date) : '—';
-        return `
-          <tr>
-            <td style="padding: 8px; border-bottom: 1px solid #e5e5e5; vertical-align: top;">${body}</td>
-            <td style="padding: 8px; border-bottom: 1px solid #e5e5e5; vertical-align: top; font-family: Arial, sans-serif; font-size: 13px; color: #333333;">${escapeHtml(assigneeName)}</td>
-            <td style="padding: 8px; border-bottom: 1px solid #e5e5e5; vertical-align: top; font-family: Arial, sans-serif; font-size: 13px; color: #333333;">${dueDate}</td>
-          </tr>`;
-      })
-      .join('');
+      // Send-back 1: the client answers a failed read with { data: null,
+      // error } rather than throwing. A failed CONTENT read would send an
+      // incomplete summary that reads as sent, so it fails the preparation
+      // like a throw. A failed PROFILE read only loses a name: it keeps the
+      // fallback name and is logged.
+      const contentErrors = [
+        ['meeting_agreements', agreementsRead.error],
+        ['meeting_commitments', commitmentsRead.error],
+        ['meeting_work_sessions', workSessionsRead.error],
+      ].filter(([, err]) => err);
+      if (contentErrors.length > 0) {
+        throw new Error(
+          `content read failed: ${contentErrors.map(([table, err]: any) => `${table}: ${err?.message ?? err}`).join('; ')}`,
+        );
+      }
+      for (const [label, read] of [['finalizer', finalizerRead], ['facilitator', facilitatorRead]] as const) {
+        if (read.error) {
+          console.error('[meetings-finalize] profile read failed, using the fallback name:', {
+            meeting_id: id,
+            profile: label,
+            error: read.error?.message ?? String(read.error),
+          });
+        }
+      }
+      const agreements = agreementsRead.data;
+      const commitments = commitmentsRead.data;
+      const workSessions = workSessionsRead.data;
+      const finalizerProfile = finalizerRead.data;
+      const facilitatorProfile = facilitatorRead.data;
 
-    const templateData = {
-      title: meeting.title,
-      communityName: community?.name ?? null,
-      meetingDates,
-      facilitatorName: profileName(facilitatorProfile as any, 'Facilitador'),
-      finalizerName: profileName(finalizerProfile as any, 'Facilitador'),
-      audience,
-      attendees: (attendeesRich || []).map((a: any) => ({
-        name: profileName(a.user_profile, 'Asistente'),
-        attended: a.attendance_status === 'attended',
-        role: a.role,
-      })),
-      // Legacy plain summary/notes fallback: most autosave-written meetings
-      // have non-empty summary_doc/notes_doc and the fallback is unreachable,
-      // but agreement/commitment rows can still be authored outside the
-      // TipTap editor (seed scripts, external tools) so the fallback stays.
-      summaryHtml: renderRichOrPlain(meeting.summary_doc, meeting.summary),
-      notesHtml: renderRichOrPlain(meeting.notes_doc, meeting.notes),
-      agreementsHtml,
-      commitmentsHtml,
-      facilitatorMessageHtml: facilitator_message_doc ? docToHtml(facilitator_message_doc) : undefined,
-      // No workspace deep-link exists for a specific meeting id; omit CTA rather
-      // than link to a generic page that cannot open this meeting.
-      meetingUrl: '',
+      const recipients = await getCommunityRecipients(serviceClient, id, {
+        onlyAttended: audience === 'attended',
+      });
+      const communitySchoolId = community?.school_id;
+      const emailAuthorization = communitySchoolId === null || communitySchoolId === undefined
+        ? await authorizeRecipientUsersEmail(serviceClient, recipients.map((recipient) => recipient.id))
+        : await authorizeSchoolEmail(serviceClient, communitySchoolId);
+
+      // Build email template data.
+      const meetingDates: Date[] = [];
+      if (meeting.meeting_date) meetingDates.push(new Date(meeting.meeting_date));
+      for (const ws of workSessions || []) {
+        if (ws.started_at) meetingDates.push(new Date(ws.started_at));
+      }
+
+      const agreementsHtml = (agreements || [])
+        .map((a: any) => {
+          const text = renderRichOrPlain(a.agreement_doc, a.agreement_text, EMAIL_PARAGRAPH_TIGHT_STYLE);
+          return `<li style="margin: 0 0 8px 0;">${text}</li>`;
+        })
+        .join('');
+
+      const commitmentsHtml = (commitments || [])
+        .map((c: any) => {
+          const body = renderRichOrPlain(c.commitment_doc, c.commitment_text, EMAIL_PARAGRAPH_COMPACT_STYLE);
+          const assigneeName = profileName(c.assigned_to_profile, '—');
+          const dueDate = c.due_date ? formatDueDate(c.due_date) : '—';
+          return `
+            <tr>
+              <td style="padding: 8px; border-bottom: 1px solid #e5e5e5; vertical-align: top;">${body}</td>
+              <td style="padding: 8px; border-bottom: 1px solid #e5e5e5; vertical-align: top; font-family: Arial, sans-serif; font-size: 13px; color: #333333;">${escapeHtml(assigneeName)}</td>
+              <td style="padding: 8px; border-bottom: 1px solid #e5e5e5; vertical-align: top; font-family: Arial, sans-serif; font-size: 13px; color: #333333;">${dueDate}</td>
+            </tr>`;
+        })
+        .join('');
+
+      const templateData = {
+        title: meeting.title,
+        communityName: community?.name ?? null,
+        meetingDates,
+        facilitatorName: profileName(facilitatorProfile as any, 'Facilitador'),
+        finalizerName: profileName(finalizerProfile as any, 'Facilitador'),
+        audience,
+        attendees: (attendeesRich || []).map((a: any) => ({
+          name: profileName(a.user_profile, 'Asistente'),
+          attended: a.attendance_status === 'attended',
+          role: a.role,
+        })),
+        // Legacy plain summary/notes fallback: most autosave-written meetings
+        // have non-empty summary_doc/notes_doc and the fallback is unreachable,
+        // but agreement/commitment rows can still be authored outside the
+        // TipTap editor (seed scripts, external tools) so the fallback stays.
+        summaryHtml: renderRichOrPlain(meeting.summary_doc, meeting.summary),
+        notesHtml: renderRichOrPlain(meeting.notes_doc, meeting.notes),
+        agreementsHtml,
+        commitmentsHtml,
+        facilitatorMessageHtml: facilitator_message_doc ? docToHtml(facilitator_message_doc) : undefined,
+        // No workspace deep-link exists for a specific meeting id; omit CTA rather
+        // than link to a generic page that cannot open this meeting.
+        meetingUrl: '',
+      };
+
+      return { recipients, emailAuthorization, templateData };
     };
+
+    let prepared: Awaited<ReturnType<typeof prepareSummary>> | null = null;
+    try {
+      prepared = await prepareSummary();
+    } catch (lookupErr: any) {
+      console.error('[meetings-finalize] summary email lookup failed after finalizing:', {
+        meeting_id: id,
+        error: lookupErr?.message || String(lookupErr),
+      });
+    }
+    const recipients = prepared?.recipients ?? [];
 
     // The DB commit above is the point-of-no-return: `status='completada'`
     // + `finalized_at` + `finalize_audience` are durable. Email delivery is
@@ -272,30 +346,43 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     let sent = 0;
     let failed = 0;
     let errorsPreview: unknown[] = [];
-    try {
-      const result = await sendMeetingSummary(templateData, recipients, emailAuthorization);
-      sent = result.sent;
-      failed = result.failed;
-      errorsPreview = result.errors;
-      summaryEmailSent = failed === 0;
-      if (emailAuthorization.kind === 'suppressed_qa') {
-        summaryEmailSent = false;
-        summaryEmailError = 'suppressed_qa';
-      } else if (emailAuthorization.kind === 'refuse') {
-        summaryEmailSent = false;
-        summaryEmailError = 'tenant_scope_refused';
-      } else if (recipients.length === 0) {
-        // Nothing was sent, so the summary email must not read as delivered.
-        summaryEmailSent = false;
-        summaryEmailError = 'no_recipients';
-      }
-    } catch (emailErr: any) {
+    if (!prepared) {
       summaryEmailSent = false;
-      summaryEmailError = emailErr?.message || 'email_dispatch_failed';
-      console.error('[meetings-finalize] summary email dispatch failed:', {
-        meeting_id: id,
-        error: summaryEmailError,
-      });
+      summaryEmailError = 'lookup_failed';
+    } else {
+      const { emailAuthorization } = prepared;
+      try {
+        const result = await sendMeetingSummary(prepared.templateData, recipients, emailAuthorization);
+        sent = result.sent;
+        failed = result.failed;
+        errorsPreview = result.errors;
+        summaryEmailSent = failed === 0;
+        if (emailAuthorization.kind === 'suppressed_qa') {
+          summaryEmailSent = false;
+          summaryEmailError = 'suppressed_qa';
+        } else if (emailAuthorization.kind === 'refuse') {
+          summaryEmailSent = false;
+          summaryEmailError = 'tenant_scope_refused';
+        } else if (recipients.length === 0) {
+          // Nothing was sent, so the summary email must not read as delivered.
+          summaryEmailSent = false;
+          summaryEmailError = 'no_recipients';
+        } else if (sent === 0 && failed > 0) {
+          // N157: nothing was sent, so say why. A missing mail configuration
+          // (no key or no sender) is not a refusal by the provider.
+          const errors = Array.isArray(result.errors) ? result.errors : [];
+          const allNotConfigured =
+            errors.length > 0 && errors.every((e: any) => e?.error === 'not_configured');
+          summaryEmailError = allNotConfigured ? 'mail_not_configured' : 'provider_failed';
+        }
+      } catch (emailErr: any) {
+        summaryEmailSent = false;
+        summaryEmailError = emailErr?.message || 'email_dispatch_failed';
+        console.error('[meetings-finalize] summary email dispatch failed:', {
+          meeting_id: id,
+          error: summaryEmailError,
+        });
+      }
     }
 
     // Fire in-app notification event. Do not await in a way that blocks on failure.
@@ -315,7 +402,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       await notificationService.triggerNotification('meeting_finalized', {
         meeting_id: id,
         title: meeting.title,
-        finalizer_name: templateData.finalizerName,
+        finalizer_name: prepared?.templateData.finalizerName ?? 'Facilitador',
         audience,
         recipient_ids: bellRecipientIds,
       });

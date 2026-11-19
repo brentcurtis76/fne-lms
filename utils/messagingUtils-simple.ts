@@ -38,6 +38,52 @@ function categoryConfigFor(thread: { category?: string | null; custom_category_n
 // =============================================================================
 
 /**
+ * The order of the thread list for the filter in use: the column and the
+ * direction. The fetch hands it to the database; the page re-applies it after
+ * it changes a thread's stored counters in its own state (F18f send-back 1).
+ */
+export function threadSortRule(filters: ThreadFilters = {}) {
+  return {
+    column: filters.sort_by || 'last_message_at',
+    ascending: (filters.sort_order || 'desc') === 'asc',
+  } as const;
+}
+
+/**
+ * The list sorted by threadSortRule as the database sorts it: empty values
+ * last when ascending and first when descending (PostgreSQL's default);
+ * threads that tie keep their place.
+ */
+export function sortThreads<T extends Partial<Pick<ThreadWithDetails, 'last_message_at' | 'created_at' | 'message_count' | 'participant_count' | 'thread_title'>>>(
+  threads: T[],
+  filters: ThreadFilters = {}
+): T[] {
+  const { column, ascending } = threadSortRule(filters);
+  const valueOf = (thread: T): number | string | null => {
+    const raw = thread[column as keyof T] as unknown;
+    if (raw === null || raw === undefined) return null;
+    if (column === 'last_message_at' || column === 'created_at') {
+      const time = Date.parse(String(raw));
+      return Number.isNaN(time) ? null : time;
+    }
+    return typeof raw === 'number' ? raw : String(raw);
+  };
+  return threads
+    .map((thread, place) => ({ thread, place, value: valueOf(thread) }))
+    .sort((a, b) => {
+      if (a.value === b.value) return a.place - b.place;
+      if (a.value === null) return ascending ? 1 : -1;
+      if (b.value === null) return ascending ? -1 : 1;
+      const order = typeof a.value === 'number' && typeof b.value === 'number'
+        ? a.value - b.value
+        : String(a.value).localeCompare(String(b.value), 'es');
+      if (order === 0) return a.place - b.place;
+      return ascending ? order : -order;
+    })
+    .map(entry => entry.thread);
+}
+
+/**
  * Get threads for a workspace (simplified)
  */
 export async function getWorkspaceThreads(
@@ -70,9 +116,8 @@ export async function getWorkspaceThreads(
     }
 
     // Apply sorting
-    const sortBy = filters.sort_by || 'last_message_at';
-    const sortOrder = filters.sort_order || 'desc';
-    query = query.order(sortBy, { ascending: sortOrder === 'asc' });
+    const sortRule = threadSortRule(filters);
+    query = query.order(sortRule.column, { ascending: sortRule.ascending });
 
     const { data, error } = await query;
 
@@ -442,8 +487,10 @@ export async function createThread(
         is_locked: false,
         is_archived: false,
         last_message_at: new Date().toISOString(),
-        message_count: 1,
-        participant_count: 1
+        // Zero until the first message is stored: the database trigger counts it
+        // (a conversation whose first message fails does not read «1 mensaje»).
+        message_count: 0,
+        participant_count: 0
       });
 
     // A retry whose read missed the thread: a duplicate key on the person's own
@@ -520,14 +567,30 @@ export async function createThread(
   }
 }
 
+/** An attachment that could not be attached to a stored message, and why (EC-M9). */
+export interface FailedAttachment {
+  /** Position of the file in the attachments given to sendMessage (names may repeat). */
+  index: number;
+  name: string;
+  reason: string;
+}
+
+const failureReason = (error: unknown): string =>
+  (error as { message?: string } | null)?.message || 'Error desconocido';
+
 /**
  * Send a message (simplified)
+ *
+ * The message is stored first; its attachments follow (their paths carry the
+ * message's id). An attachment that cannot be uploaded or recorded is named in
+ * `failedAttachments` and does not make the send throw: the message row
+ * exists, and a retry would store it twice (EC-M9).
  */
 export async function sendMessage(
   workspaceId: string | null,
   messageData: MessageCompositionData,
   userId: string
-): Promise<MessageWithDetails> {
+): Promise<MessageWithDetails & { failedAttachments: FailedAttachment[] }> {
   try {
     // First get the user's profile to get their name
     const { data: userProfile } = await supabase
@@ -568,8 +631,9 @@ export async function sendMessage(
 
     // Handle attachments if provided
     let attachmentRecords: any[] = [];
+    const failedAttachments: FailedAttachment[] = [];
     if (messageData.attachments && messageData.attachments.length > 0) {
-      for (const file of messageData.attachments) {
+      for (const [index, file] of messageData.attachments.entries()) {
         try {
           // Generate unique file name
           const fileExt = file.name.split('.').pop();
@@ -585,6 +649,7 @@ export async function sendMessage(
 
           if (uploadError) {
             console.error('Error uploading file:', uploadError);
+            failedAttachments.push({ index, name: file.name, reason: failureReason(uploadError) });
             continue; // Skip this file but continue with others
           }
 
@@ -609,23 +674,24 @@ export async function sendMessage(
 
           if (!attachmentError && attachmentRecord) {
             attachmentRecords.push(attachmentRecord);
+          } else {
+            // The file stays in the store with nothing pointing to it (decided: not removed).
+            console.error('Error recording attachment:', attachmentError);
+            failedAttachments.push({
+              index,
+              name: file.name,
+              reason: attachmentError ? failureReason(attachmentError) : 'No se guardó el registro del archivo',
+            });
           }
         } catch (attachmentErr) {
           console.error('Error processing attachment:', attachmentErr);
+          failedAttachments.push({ index, name: file.name, reason: failureReason(attachmentErr) });
         }
       }
     }
 
-    // Skip user info query
-
-    // Update thread last message time
-    await supabase
-      .from('message_threads')
-      .update({ 
-        last_message_at: message.created_at,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', messageData.thread_id);
+    // The thread's counters and last-message time are kept by the database
+    // (trigger trg_refresh_thread_counters, EC-M4); the browser does not write them.
 
     // The server derives the mention and reply bells from the saved message
     if ((messageData.mentions && messageData.mentions.length > 0) || messageData.reply_to_id) {
@@ -642,7 +708,8 @@ export async function sendMessage(
       attachments: attachmentRecords,
       mentions: [],
       user_reaction: undefined,
-      is_mentioned: false
+      is_mentioned: false,
+      failedAttachments
     };
 
   } catch (error) {

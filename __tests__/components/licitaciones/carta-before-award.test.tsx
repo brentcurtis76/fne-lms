@@ -76,3 +76,16 @@ describe('Step 7 — a stuck contrato_pendiente tender is offered the Carta', ()
     expect(screen.queryByText(/firmada/)).not.toBeInTheDocument();
   });
 });
+
+describe('Step 7 — the awarded amount in the tender\'s currency (LIC-B8)', () => {
+  it('writes a UF award with two decimals and a peso award with the dollar sign', () => {
+    const { unmount } = render(
+      <Step7Contrato licitacion={lic({ estado: 'contrato_generado', tipo_moneda: 'UF', monto_adjudicado_uf: 1200.5 })} isAdmin onRefresh={vi.fn()} />
+    );
+    expect(screen.getByText('UF 1.200,50')).toBeInTheDocument();
+    unmount();
+    render(<Step7Contrato licitacion={lic({ estado: 'cerrada', tipo_moneda: 'CLP', monto_adjudicado_uf: 35000000 })} isAdmin onRefresh={vi.fn()} />);
+    expect(screen.getByText('$35.000.000')).toBeInTheDocument();
+    expect(screen.queryByText(/CLP 35/)).not.toBeInTheDocument();
+  });
+});

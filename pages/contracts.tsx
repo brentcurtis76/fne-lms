@@ -1,6 +1,6 @@
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { supabase } from '../lib/supabase';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 
 import Head from 'next/head';
@@ -135,6 +135,9 @@ export default function ContractsPage() {
     monto_minimo?: number;
     monto_maximo?: number;
   } | null>(null);
+  // LIC-D4: the tender in the address (tab=nuevo&licitacion_id) opens the form
+  // once; a later run of the session effect never reopens it.
+  const handledLicitacionIdRef = useRef<string | null>(null);
 
   // Listen for PDF import event from contract form
   useEffect(() => {
@@ -206,7 +209,13 @@ export default function ContractsPage() {
         }
 
         // Phase 5: Check if coming from a licitacion with pre-populated data
-        if (tab === 'nuevo' && licitacion_id && typeof licitacion_id === 'string') {
+        if (
+          tab === 'nuevo' &&
+          licitacion_id &&
+          typeof licitacion_id === 'string' &&
+          handledLicitacionIdRef.current !== licitacion_id
+        ) {
+          handledLicitacionIdRef.current = licitacion_id;
           setActiveTab('nuevo');
           setActiveLicitacionId(licitacion_id);
           // Fetch licitacion data to pre-populate the form
@@ -890,7 +899,7 @@ export default function ContractsPage() {
                 extractedData={extractedContractData}
                 licitacionId={activeLicitacionId || undefined}
                 licitacionData={activeLicitacionData || undefined}
-                onSuccess={async (contratoId?: string) => {
+                onSuccess={async (contratoId?: string, reuse?: { reused: true; withoutCuotas: boolean }) => {
                   // Phase 5: if created from a licitacion, call generate-contract API to link back
                   if (activeLicitacionId && contratoId) {
                     try {
@@ -906,7 +915,25 @@ export default function ContractsPage() {
                         const err = await linkRes.json();
                         toast.error(`Contrato creado pero error al vincular con licitacion: ${err.error || 'Error desconocido'}. Contacte al administrador.`);
                       } else {
-                        toast.success('Contrato generado y vinculado a la licitacion exitosamente');
+                        if (reuse?.reused) {
+                          // Send-back 1: the tender already had a contract; the form saved nothing.
+                          toast(
+                            'Esta licitación ya tenía un contrato: se abrió el contrato existente. Los cambios de este formulario no se guardaron; edite el contrato desde Gestión.' +
+                              (reuse.withoutCuotas
+                                ? ' El contrato existente no tiene cuotas registradas: revíselo antes de continuar.'
+                                : ''),
+                            { icon: '⚠️', duration: 10000 }
+                          );
+                        } else {
+                          toast.success('Contrato generado y vinculado a la licitacion exitosamente');
+                        }
+                        // LIC-D4: the address no longer says tab=nuevo&licitacion_id;
+                        // it shows the contract's own view.
+                        void router.replace(
+                          { pathname: '/contracts', query: { contrato_id: contratoId } },
+                          undefined,
+                          { shallow: true }
+                        );
                       }
                     } catch {
                       toast.error('Contrato creado pero no se pudo vincular con la licitacion. Contacte al administrador.');

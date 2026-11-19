@@ -55,6 +55,10 @@ const h = vi.hoisted(() => ({
   sendMessage: vi.fn(),
   /** The props the page last gave the filters bar (its «Hilos» / messages toggle). */
   filters: null as null | { onViewChange: (view: 'messages' | 'threads') => void },
+  /** What a read of one message_threads row answers (null: no row). */
+  threadRow: null as null | Record<string, unknown>,
+  /** More threads the list answers, listed before the workspace's own one. */
+  extraThreads: [] as any[],
 }));
 
 // ---------------------------------------------------------------------------
@@ -155,6 +159,7 @@ const PERMISSIONS = {
  *  candidate is ever read from profiles / user_roles / community_workspaces. */
 function recordingClient() {
   const empty = { data: [], error: null };
+  let table = '';
   const chain: any = {
     select: () => chain,
     eq: () => chain,
@@ -166,12 +171,14 @@ function recordingClient() {
     insert: () => chain,
     delete: () => chain,
     single: () => Promise.resolve({ data: null, error: null }),
-    maybeSingle: () => Promise.resolve({ data: null, error: null }),
+    // The stored row of a thread, when a test sets one (EC-M4 re-read after a send).
+    maybeSingle: () => Promise.resolve({ data: table === 'message_threads' ? h.threadRow : null, error: null }),
     then: (resolve: (value: unknown) => void) => resolve(empty),
   };
   return {
-    from: (table: string) => {
-      h.fromCalls.push(table);
+    from: (name: string) => {
+      h.fromCalls.push(name);
+      table = name;
       return chain;
     },
     auth: { getSession: async () => ({ data: { session: { access_token: 'synthetic-token', user: { id: 'user-1' } } } }) },
@@ -224,10 +231,12 @@ vi.mock('../../../utils/documentUtils', () => ({
   hideDocument: vi.fn(),
   getWorkspaceFolders: async () => [],
 }));
-vi.mock('../../../utils/messagingUtils-simple', () => ({
+vi.mock('../../../utils/messagingUtils-simple', async () => ({
+  // The list's order rule is the real one (F18f send-back 1, item 3).
+  sortThreads: (await vi.importActual<typeof import('../../../utils/messagingUtils-simple')>('../../../utils/messagingUtils-simple')).sortThreads,
   getWorkspaceThreads: async (workspaceId: string) => {
     h.threadLoads.push(workspaceId);
-    return threadsFor(workspaceId);
+    return [...h.extraThreads.filter((thread: any) => thread.workspace_id === workspaceId), ...threadsFor(workspaceId)];
   },
   getWorkspaceMessages: async (_workspaceId: string, filters: { thread_id?: string }) =>
     h.messages.filter((message) => message.thread_id === filters.thread_id),
@@ -372,6 +381,8 @@ beforeEach(() => {
   h.createThread = vi.fn();
   h.sendMessage = vi.fn();
   h.filters = null;
+  h.threadRow = null;
+  h.extraThreads = [];
   vi.spyOn(console, 'error').mockImplementation(() => undefined);
   global.fetch = vi.fn(async () => new Response(JSON.stringify({ members: [] }), { status: 200 })) as any;
 });
@@ -673,5 +684,234 @@ describe('a new conversation shows once in the list', () => {
 
     expect(utils.getAllByText('Planificación')).toHaveLength(1);
     expect(utils.getAllByText(THREAD_A.thread_title)).toHaveLength(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// F18f EC-M4: after the person's own send, the open thread's counters are the
+// ones the database stored (it recounts the thread), without a reload
+// ---------------------------------------------------------------------------
+
+describe('F18f EC-M4 the open thread\'s counters after a send', () => {
+  it('re-reads the thread row and shows its stored message count in the header', async () => {
+    h.sendMessage = vi.fn(async () => message('m-own', THREAD_A.id, { author_id: 'user-1' }));
+    const utils = render(<CommunityWorkspacePage />);
+    await openThread(utils, COMMUNITY_A);
+    expect(utils.getByText('0 mensaje(s)')).toBeTruthy();
+
+    h.threadRow = { id: THREAD_A.id, message_count: 3, participant_count: 2, last_message_at: '2026-11-19T10:00:00.000Z' };
+    const before = h.fromCalls.length;
+    await act(async () => {
+      await h.composer!.onSendMessage({ content: 'Mensaje m-own' });
+    });
+    await flush();
+    expect(h.fromCalls.slice(before)).toContain('message_threads');
+    expect(utils.getByText('3 mensaje(s)')).toBeTruthy();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// F18f EC-M8: when the message cannot be stored the page says so and tells the
+// message box it failed (the box keeps the text only when its call rejects)
+// ---------------------------------------------------------------------------
+
+describe('F18f EC-M8 a send whose message insert fails', () => {
+  it('shows the error toast, not «Mensaje enviado», and rejects so the box keeps the text', async () => {
+    const { toast } = await import('react-hot-toast');
+    vi.mocked(toast.error).mockClear();
+    vi.mocked(toast.success).mockClear();
+    h.sendMessage = vi.fn(async () => { throw Object.assign(new Error('insert failed'), { code: '42501' }); });
+    const utils = render(<CommunityWorkspacePage />);
+    await openThread(utils, COMMUNITY_A);
+
+    let outcome: unknown = 'resolved';
+    await act(async () => {
+      outcome = await h.composer!.onSendMessage({ content: 'Mi texto' }).then(() => 'resolved', () => 'rejected');
+    });
+    expect(outcome).toBe('rejected');
+    expect(toast.error).toHaveBeenCalledWith('Error al enviar el mensaje');
+    expect(toast.success).not.toHaveBeenCalledWith('Mensaje enviado');
+    expect(cardIds(utils)).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// F18f EC-M9: a message whose attachment failed is sent; the page names the
+// file instead of «Mensaje enviado» and hands the failed files back to the box
+// ---------------------------------------------------------------------------
+
+describe('F18f EC-M9 a send whose attachment failed', () => {
+  it('one failed file: an error toast names it, no «Mensaje enviado», and the failed File is handed back', async () => {
+    const { toast } = await import('react-hot-toast');
+    vi.mocked(toast.error).mockClear();
+    vi.mocked(toast.success).mockClear();
+    const first = new File(['%PDF'], 'primero.pdf', { type: 'application/pdf' });
+    const second = new File(['%PDF'], 'segundo.pdf', { type: 'application/pdf' });
+    h.sendMessage = vi.fn(async () => ({
+      ...message('m-own', THREAD_A.id, { author_id: 'user-1' }),
+      failedAttachments: [{ index: 1, name: 'segundo.pdf', reason: 'upload failed' }],
+    }));
+    const utils = render(<CommunityWorkspacePage />);
+    await openThread(utils, COMMUNITY_A);
+
+    let handedBack: unknown;
+    await act(async () => {
+      handedBack = await h.composer!.onSendMessage({ content: 'Con adjuntos', attachments: [first, second] });
+    });
+    expect(h.sendMessage).toHaveBeenCalledTimes(1);
+    expect(toast.error).toHaveBeenCalledWith('Mensaje enviado, pero no se adjuntó: segundo.pdf. Adjúntalo en un nuevo mensaje.');
+    expect(toast.success).not.toHaveBeenCalledWith('Mensaje enviado');
+    expect(handedBack).toEqual([second]);
+    expect((handedBack as File[])[0]).toBe(second);
+    expect(cardIds(utils)).toEqual(['m-own']);
+  });
+
+  it('two failed files: both named, «Adjúntalos»', async () => {
+    const { toast } = await import('react-hot-toast');
+    vi.mocked(toast.error).mockClear();
+    const a = new File(['%PDF'], 'a.pdf', { type: 'application/pdf' });
+    const b = new File(['%PDF'], 'b.pdf', { type: 'application/pdf' });
+    h.sendMessage = vi.fn(async () => ({
+      ...message('m-own', THREAD_A.id, { author_id: 'user-1' }),
+      failedAttachments: [{ index: 0, name: 'a.pdf', reason: 'x' }, { index: 1, name: 'b.pdf', reason: 'y' }],
+    }));
+    const utils = render(<CommunityWorkspacePage />);
+    await openThread(utils, COMMUNITY_A);
+    let handedBack: unknown;
+    await act(async () => {
+      handedBack = await h.composer!.onSendMessage({ content: 'Dos', attachments: [a, b] });
+    });
+    expect(toast.error).toHaveBeenCalledWith('Mensaje enviado, pero no se adjuntó: a.pdf, b.pdf. Adjúntalos en un nuevo mensaje.');
+    expect(handedBack).toEqual([a, b]);
+  });
+
+  it('nothing failed: «Mensaje enviado» as before, and nothing handed back', async () => {
+    const { toast } = await import('react-hot-toast');
+    vi.mocked(toast.success).mockClear();
+    vi.mocked(toast.error).mockClear();
+    h.sendMessage = vi.fn(async () => ({ ...message('m-own', THREAD_A.id, { author_id: 'user-1' }), failedAttachments: [] }));
+    const utils = render(<CommunityWorkspacePage />);
+    await openThread(utils, COMMUNITY_A);
+    let handedBack: unknown = 'x';
+    await act(async () => {
+      handedBack = await h.composer!.onSendMessage({ content: 'Bien', attachments: [new File(['%PDF'], 'ok.pdf')] });
+    });
+    expect(toast.success).toHaveBeenCalledWith('Mensaje enviado');
+    // (The harness's meetings tab toasts its own load error; only the send's toasts matter here.)
+    expect(vi.mocked(toast.error).mock.calls.filter(([text]) => String(text).startsWith('Mensaje enviado'))).toEqual([]);
+    expect(handedBack).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// F18f send-back 1: (2) a failed file is the one at its position, even when
+// two chosen files share a name; (3) after the re-read of the open thread the
+// list keeps the order of the filter in use
+// ---------------------------------------------------------------------------
+
+describe('F18f send-back 1 (2) two chosen files with the same name, the second fails', () => {
+  it('hands back the second File object, not the first', async () => {
+    const first = new File(['uno'], 'acta.pdf', { type: 'application/pdf' });
+    const second = new File(['dos'], 'acta.pdf', { type: 'application/pdf' });
+    h.sendMessage = vi.fn(async () => ({
+      ...message('m-own', THREAD_A.id, { author_id: 'user-1' }),
+      failedAttachments: [{ index: 1, name: 'acta.pdf', reason: 'upload failed' }],
+    }));
+    const utils = render(<CommunityWorkspacePage />);
+    await openThread(utils, COMMUNITY_A);
+    let handedBack: File[] = [];
+    await act(async () => {
+      handedBack = (await h.composer!.onSendMessage({ content: 'Dos actas', attachments: [first, second] })) as File[];
+    });
+    expect(handedBack).toHaveLength(1);
+    expect(handedBack[0]).toBe(second);
+    expect(handedBack[0]).not.toBe(first);
+  });
+});
+
+describe('F18f send-back 1 (3) the thread list keeps the order of the filter in use', () => {
+  it('the open thread, second in a list ordered by last message, is first after a successful send', async () => {
+    h.extraThreads = [{
+      ...THREAD_A,
+      id: 'thread-A2',
+      thread_title: 'Hilo A2',
+      last_message_at: '2026-06-01T00:00:00.000Z',
+    }];
+    h.sendMessage = vi.fn(async () => ({ ...message('m-own', THREAD_A.id, { author_id: 'user-1' }), failedAttachments: [] }));
+    const utils = render(<CommunityWorkspacePage />);
+    const titles = () => utils.getAllByText(/^Hilo A2?$/).map((node) => node.textContent);
+    await utils.findByText('Hilo A2');
+    expect(titles()).toEqual(['Hilo A2', 'Hilo A']);
+    await openThread(utils, COMMUNITY_A);
+
+    h.threadRow = { id: THREAD_A.id, message_count: 1, participant_count: 1, last_message_at: '2026-11-19T10:00:00.000Z' };
+    await act(async () => {
+      await h.composer!.onSendMessage({ content: 'Mensaje m-own' });
+    });
+    await flush();
+    await act(async () => {
+      h.filters!.onViewChange('threads');
+    });
+    expect(titles()).toEqual(['Hilo A', 'Hilo A2']);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// F18f send-back 3: a new conversation is inserted at 0 and 0; the database
+// counts its first message. After a successful creation the page re-reads the
+// row, so the list and the open thread read 1 and 1 at once; a conversation
+// whose first message failed reads 0 and 0
+// ---------------------------------------------------------------------------
+
+describe('F18f send-back 3 the counters of a new conversation', () => {
+  const DATA = { thread_title: 'Planificación', category: 'general', initial_message: 'Mi primer mensaje' };
+  const NEW_AT_ZERO = { ...THREAD_A, id: 'thread-new', thread_title: 'Planificación', message_count: 0, participant_count: 0 };
+
+  async function openModal(utils: RenderResult) {
+    await utils.findByText(THREAD_A.thread_title);
+    await act(async () => {
+      fireEvent.click(utils.getByText('Nuevo Hilo'));
+    });
+    await utils.findByTestId('thread-modal');
+  }
+
+  it('after a successful creation the open thread and the list read 1 and 1 without a reload', async () => {
+    h.createThread = vi.fn(async () => ({ ...NEW_AT_ZERO }));
+    const utils = render(<CommunityWorkspacePage />);
+    await openModal(utils);
+
+    h.threadRow = { id: 'thread-new', message_count: 1, participant_count: 1, last_message_at: '2026-11-19T10:00:00.000Z' };
+    await act(async () => {
+      await h.modal!.onCreateThread(DATA);
+    });
+    await flush();
+    expect(utils.getByText('1 mensaje(s)')).toBeTruthy();
+
+    await act(async () => {
+      h.filters!.onViewChange('threads');
+    });
+    const card = utils.getByText('Planificación').closest('div.p-4') as HTMLElement;
+    expect(card.textContent).toContain('1 mensaje(s)');
+    expect(card.textContent).toContain('1 participante(s)');
+  });
+
+  it('a conversation whose first message failed is listed (live event) at 0 and 0', async () => {
+    h.createThread = vi.fn(async () => {
+      throw Object.assign(new Error('first message failed'), { threadId: 'thread-new' });
+    });
+    const utils = render(<CommunityWorkspacePage />);
+    await openModal(utils);
+    await act(async () => {
+      await h.modal!.onCreateThread(DATA).catch(() => undefined);
+    });
+    // The thread row exists (its live event arrives); its stored counters are 0 and 0.
+    const live = h.subscriptions[h.subscriptions.length - 1];
+    await act(async () => {
+      live.callbacks.onThread?.({ ...NEW_AT_ZERO });
+    });
+    expect(utils.queryByTestId('thread-modal')).not.toBeNull();
+    const card = utils.getByText('Planificación').closest('div.p-4') as HTMLElement;
+    expect(card.textContent).toContain('0 mensaje(s)');
+    expect(card.textContent).toContain('0 participante(s)');
   });
 });

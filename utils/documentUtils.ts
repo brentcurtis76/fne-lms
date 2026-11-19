@@ -232,53 +232,130 @@ export async function getFolderBreadcrumb(folderId: string): Promise<any[]> {
 // DOCUMENT UPLOAD FUNCTIONS
 // =============================================================================
 
+// F18e (EC-D7, EC-D8): the lengths of the record's columns
+// (baseline: title varchar(200), file_name varchar(255), mime_type varchar(100)).
+export const DOCUMENT_TITLE_MAX = 200;
+export const DOCUMENT_FILE_NAME_MAX = 255;
+export const DOCUMENT_MIME_TYPE_MAX = 100;
+
+export const UPLOAD_FAILED_MESSAGE = 'No se pudo subir el archivo. Inténtalo de nuevo.';
+export const RECORD_FAILED_MESSAGE =
+  'El archivo se subió, pero el documento no se pudo guardar. Inténtalo de nuevo.';
+export const VERSION_WARNING_MESSAGE = 'El documento se guardó, pero no su historial de versiones.';
+
+export interface DocumentUploadFileOutcome {
+  fileName: string;
+  message: string;
+}
+
+export interface DocumentUploadResult {
+  uploaded: CommunityDocument[];
+  failed: DocumentUploadFileOutcome[];
+  warnings: DocumentUploadFileOutcome[];
+}
+
 /**
- * Upload a document to the repository
+ * F18e send-backs 1 and 3: the document id a file keeps across tries, so that a
+ * retry after an unknown outcome reaches the same record. The stored file is
+ * never reused: every try stores a new file at a fresh path.
+ */
+export interface DocumentUploadIdentity {
+  documentId?: string;
+}
+
+/** documents/<workspace>/<root|folder-<id>>/<timestamp>-<sanitized name> */
+export function buildDocumentStoragePath(
+  workspaceId: string,
+  folderId: string | null | undefined,
+  fileName: string,
+  timestamp: number
+): string {
+  const folderPath = folderId ? `folder-${folderId}` : 'root';
+  return `documents/${workspaceId}/${folderPath}/${timestamp}-${sanitizeFileName(fileName)}`;
+}
+
+/** PostgREST answers a unique violation with code 23505. */
+function isDuplicateKey(error: unknown): boolean {
+  return !!error && typeof error === 'object' && (error as { code?: unknown }).code === '23505';
+}
+
+/** What can be known before uploading: the lengths, the type and the size. */
+function checkFileBeforeUpload(title: string, file: File): string | null {
+  if (file.name.length > DOCUMENT_FILE_NAME_MAX) {
+    return `El nombre del archivo es demasiado largo (máximo ${DOCUMENT_FILE_NAME_MAX} caracteres). Cámbiale el nombre e inténtalo de nuevo.`;
+  }
+  if (title.length > DOCUMENT_TITLE_MAX) {
+    return `El título no puede tener más de ${DOCUMENT_TITLE_MAX} caracteres.`;
+  }
+  if (file.type.length > DOCUMENT_MIME_TYPE_MAX) {
+    return `No se reconoce el tipo del archivo (máximo ${DOCUMENT_MIME_TYPE_MAX} caracteres).`;
+  }
+  const fileTypeConfig = getFileTypeConfig(file.type);
+  if (!fileTypeConfig) {
+    return `Tipo de archivo no soportado: ${file.type}`;
+  }
+  if (file.size > fileTypeConfig.max_size) {
+    return `Archivo demasiado grande: ${file.name}. Máximo permitido: ${formatFileSize(
+      fileTypeConfig.max_size
+    )}`;
+  }
+  return null;
+}
+
+/**
+ * Upload documents to the repository. Each file succeeds or fails for itself
+ * (F18e): a failure is reported in `failed` and the next file is still tried;
+ * nothing is thrown for one file's failure. A file stored whose record could
+ * not be written stays in the store (the person may only add files there).
  */
 export async function uploadDocument(
   workspaceId: string,
   uploadData: DocumentUploadData,
-  userId: string
-): Promise<CommunityDocument[]> {
-  try {
-    const uploadedDocuments: CommunityDocument[] = [];
+  userId: string,
+  identities?: Array<DocumentUploadIdentity | undefined>
+): Promise<DocumentUploadResult> {
+  const result: DocumentUploadResult = { uploaded: [], failed: [], warnings: [] };
 
-    for (const file of uploadData.files) {
-      // Validate file type and size
-      const fileTypeConfig = getFileTypeConfig(file.type);
-      if (!fileTypeConfig) {
-        throw new Error(`Tipo de archivo no soportado: ${file.type}`);
-      }
+  for (const [index, file] of uploadData.files.entries()) {
+    const identity = identities?.[index];
+    const title = uploadData.title || file.name.split('.')[0];
 
-      if (file.size > fileTypeConfig.max_size) {
-        throw new Error(
-          `Archivo demasiado grande: ${file.name}. Máximo permitido: ${formatFileSize(
-            fileTypeConfig.max_size
-          )}`
-        );
-      }
+    const refusal = checkFileBeforeUpload(title, file);
+    if (refusal) {
+      result.failed.push({ fileName: file.name, message: refusal });
+      continue;
+    }
 
-      // Generate storage path
-      const timestamp = Date.now();
-      const sanitizedFileName = sanitizeFileName(file.name);
-      const folderPath = uploadData.folder_id ? `folder-${uploadData.folder_id}` : 'root';
-      const storagePath = `documents/${workspaceId}/${folderPath}/${timestamp}-${sanitizedFileName}`;
+    // A fresh path on every try; an object already at it (another upload of the
+    // same name at the same moment) is a failure of this file, never reused.
+    const storagePath = buildDocumentStoragePath(workspaceId, uploadData.folder_id, file.name, Date.now());
+    const documentId = identity?.documentId;
 
-      // Upload file to Supabase Storage
-      const { data: uploadResult, error: uploadError } = await supabase.storage
+    // Upload file to Supabase Storage
+    try {
+      const { error: uploadError } = await supabase.storage
         .from(DOCUMENTS_BUCKET)
         .upload(storagePath, file);
-
       if (uploadError) throw uploadError;
+    } catch (error) {
+      console.error('Error uploading document file:', error);
+      result.failed.push({ fileName: file.name, message: UPLOAD_FAILED_MESSAGE });
+      continue;
+    }
 
-      // Keep canonical object keys for documents and versions; readers resolve their URL.
-      // Create document record
-      const { data: documentData, error: documentError } = await supabase
+    // Keep canonical object keys for documents and versions; readers resolve their URL.
+    // Create document record
+    let documentData: CommunityDocument;
+    let versionAlreadyWritten = false;
+    let versionUnknown = false;
+    try {
+      const { data, error: documentError } = await supabase
         .from('community_documents')
         .insert({
+          ...(documentId ? { id: documentId } : {}),
           workspace_id: workspaceId,
           folder_id: uploadData.folder_id || null,
-          title: uploadData.title || file.name.split('.')[0],
+          title,
           description: uploadData.description || null,
           tags: uploadData.tags || [],
           file_name: file.name,
@@ -290,36 +367,78 @@ export async function uploadDocument(
         })
         .select()
         .single();
+      if (documentError && documentId && isDuplicateKey(documentError)) {
+        // The record of this id is already there (an earlier try's answer was
+        // lost): it counts only if it is this person's upload in this workspace.
+        const { data: existing, error: readError } = await supabase
+          .from('community_documents')
+          .select('*')
+          .eq('id', documentId)
+          .maybeSingle();
+        if (readError || !existing || existing.uploaded_by !== userId || existing.workspace_id !== workspaceId) {
+          throw readError ?? new Error('existing record is not this upload');
+        }
+        documentData = existing as CommunityDocument;
+        const { data: versions, error: versionsError } = await supabase
+          .from('document_versions')
+          .select('id')
+          .eq('document_id', documentId)
+          .limit(1);
+        if (versionsError) {
+          // Cannot tell whether its first version exists: do not write a second one.
+          console.error('Error reading first document version:', versionsError);
+          versionUnknown = true;
+        } else {
+          versionAlreadyWritten = Array.isArray(versions) && versions.length > 0;
+        }
+      } else {
+        if (documentError || !data) throw documentError ?? new Error('no record returned');
+        documentData = data as CommunityDocument;
+      }
+    } catch (error) {
+      console.error('Error saving document record:', error);
+      result.failed.push({ fileName: file.name, message: RECORD_FAILED_MESSAGE });
+      continue;
+    }
 
-      if (documentError) throw documentError;
+    // Create initial version record (only if none exists for a record found again)
+    if (versionUnknown) {
+      result.warnings.push({ fileName: file.name, message: VERSION_WARNING_MESSAGE });
+    } else if (!versionAlreadyWritten) {
+      try {
+        const { error: versionError } = await supabase.from('document_versions').insert({
+          document_id: documentData.id,
+          version_number: 1,
+          storage_path: documentData.storage_path || storagePath,
+          storage_bucket: DOCUMENTS_BUCKET,
+          file_size: file.size,
+          mime_type: file.type,
+          uploaded_by: userId,
+        });
+        if (versionError) throw versionError;
+      } catch (error) {
+        console.error('Error saving first document version:', error);
+        result.warnings.push({ fileName: file.name, message: VERSION_WARNING_MESSAGE });
+      }
+    }
 
-      // Create initial version record
-      await supabase.from('document_versions').insert({
-        document_id: documentData.id,
-        version_number: 1,
-        storage_path: storagePath,
-        storage_bucket: DOCUMENTS_BUCKET,
-        file_size: file.size,
-        mime_type: file.type,
-        uploaded_by: userId,
-      });
-
-      // Log upload activity
-      await supabase.from('document_access_log').insert({
+    // Log upload activity (a failure here is ignored, but logged)
+    try {
+      const { error: logError } = await supabase.from('document_access_log').insert({
         document_id: documentData.id,
         user_id: userId,
         workspace_id: workspaceId,
         action_type: 'upload',
       });
-
-      uploadedDocuments.push(documentData);
+      if (logError) console.warn('Could not log document upload:', logError);
+    } catch (error) {
+      console.warn('Could not log document upload:', error);
     }
 
-    return uploadedDocuments;
-  } catch (error) {
-    console.error('Error uploading documents:', error);
-    throw error;
+    result.uploaded.push(documentData);
   }
+
+  return result;
 }
 
 /**

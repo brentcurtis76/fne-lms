@@ -3,6 +3,8 @@ import { toast } from 'react-hot-toast';
 import { Upload, Check, AlertTriangle, Plus, FileText } from 'lucide-react';
 import { LicitacionDetail, LicitacionAte } from '@/types/licitaciones';
 import { validateRut, formatRut } from '@/utils/rutValidation';
+import { puedeModificarAtes, puedeSubirPropuesta } from '@/lib/licitaciones/estados';
+import { mensajeAtesSoloLectura } from './mensajesEstado';
 
 interface Step4PropuestasProps {
   licitacion: LicitacionDetail;
@@ -53,6 +55,10 @@ export default function Step4Propuestas({ licitacion, onAdvance, onRefresh }: St
 
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const licitacionId = licitacion.id;
+
+  // What the tender's state still allows (lib/licitaciones/estados.ts).
+  const atesEditables = puedeModificarAtes(licitacion.estado);
+  const propuestasAbiertas = puedeSubirPropuesta(licitacion.estado);
 
   const loadAtes = useCallback(async () => {
     setLoading(true);
@@ -343,7 +349,7 @@ export default function Step4Propuestas({ licitacion, onAdvance, onRefresh }: St
                     <p className="text-xs text-green-700 mt-1 italic">{ate.notas}</p>
                   )}
                 </div>
-              ) : (
+              ) : !propuestasAbiertas ? null : (
                 // No proposal — show upload form
                 <div className="space-y-3">
                   {/* Date warning check */}
@@ -438,7 +444,12 @@ export default function Step4Propuestas({ licitacion, onAdvance, onRefresh }: St
         </div>
       )}
 
-      {/* Add new ATE */}
+      {!atesEditables || !propuestasAbiertas ? (
+        <p className="text-sm text-amber-700 bg-amber-50 rounded-lg px-3 py-2">
+          {mensajeAtesSoloLectura(licitacion.estado)}
+        </p>
+      ) : (
+      /* Add new ATE */
       <div className="bg-white rounded-lg border border-dashed border-gray-300 p-4">
         <div className="flex items-center justify-between">
           <p className="text-sm text-gray-600">¿Necesita agregar una ATE que no estaba en el Paso 3?</p>
@@ -535,8 +546,10 @@ export default function Step4Propuestas({ licitacion, onAdvance, onRefresh }: St
           </div>
         )}
       </div>
+      )}
 
-      {/* Advance to Evaluacion */}
+      {/* Advance to Evaluacion — only in the state it advances from */}
+      {licitacion.estado === 'propuestas_pendientes' && (
       <div className="bg-white rounded-lg border border-gray-200 p-5">
         <h3 className="font-semibold text-gray-900 mb-3">Avanzar a Evaluación</h3>
         {canAdvance ? (
@@ -559,6 +572,7 @@ export default function Step4Propuestas({ licitacion, onAdvance, onRefresh }: St
           </p>
         )}
       </div>
+      )}
     </div>
   );
 }

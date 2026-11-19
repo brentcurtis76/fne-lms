@@ -3,6 +3,14 @@ import { toast } from 'react-hot-toast';
 import { Plus, Trash2, FileText, Download, Check, X, MessageSquare } from 'lucide-react';
 import { LicitacionDetail, LicitacionAte, LicitacionConsulta, LicitacionDocumento } from '@/types/licitaciones';
 import { validateRut, formatRut } from '@/utils/rutValidation';
+import {
+  MENSAJE_BASES_ADJUDICADA,
+  puedeAgregarConsulta,
+  puedeEliminarDocumento,
+  puedeGenerarBases,
+  puedeModificarAtes,
+} from '@/lib/licitaciones/estados';
+import { mensajeAtesSoloLectura, mensajeConsultasSoloLectura } from './mensajesEstado';
 
 interface Step3BasesProps {
   licitacion: LicitacionDetail;
@@ -80,6 +88,12 @@ export default function Step3Bases({ licitacion, isAdmin, onAdvance, onRefresh }
   const [advancing, setAdvancing] = useState(false);
 
   const licitacionId = licitacion.id;
+
+  // What the tender's state still allows (lib/licitaciones/estados.ts).
+  const atesEditables = puedeModificarAtes(licitacion.estado);
+  const consultasAbiertas = puedeAgregarConsulta(licitacion.estado);
+  const documentosEliminables = puedeEliminarDocumento(licitacion.estado);
+  const basesGenerables = puedeGenerarBases(licitacion.estado);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -406,23 +420,31 @@ export default function Step3Bases({ licitacion, isAdmin, onAdvance, onRefresh }
             Registro de ATEs
           </h3>
           {/* ID-2: toggle button for ATE form */}
-          <button
-            onClick={() => {
-              setShowAteForm(!showAteForm);
-              if (showAteForm) {
-                setEditingAteId(null);
-                setAteForm(EMPTY_ATE_FORM);
-                setAteFormErrors({});
-              }
-            }}
-            className={BTN_SECONDARY}
-          >
-            <span className="flex items-center gap-1">
-              {showAteForm ? <X size={14} /> : <Plus size={14} />}
-              {showAteForm ? 'Cerrar' : 'Agregar nueva ATE'}
-            </span>
-          </button>
+          {atesEditables && (
+            <button
+              onClick={() => {
+                setShowAteForm(!showAteForm);
+                if (showAteForm) {
+                  setEditingAteId(null);
+                  setAteForm(EMPTY_ATE_FORM);
+                  setAteFormErrors({});
+                }
+              }}
+              className={BTN_SECONDARY}
+            >
+              <span className="flex items-center gap-1">
+                {showAteForm ? <X size={14} /> : <Plus size={14} />}
+                {showAteForm ? 'Cerrar' : 'Agregar nueva ATE'}
+              </span>
+            </button>
+          )}
         </div>
+
+        {!atesEditables && (
+          <p className="text-sm text-amber-700 bg-amber-50 rounded-lg px-3 py-2 mb-4">
+            {mensajeAtesSoloLectura(licitacion.estado)}
+          </p>
+        )}
 
         {/* Add/Edit ATE Form — ID-2: collapsed by default */}
         {showAteForm && (
@@ -567,6 +589,8 @@ export default function Step3Bases({ licitacion, isAdmin, onAdvance, onRefresh }
                           <Check size={12} className="mr-1" />
                           {formatDate(ate.fecha_envio_bases)}
                         </span>
+                      ) : !atesEditables ? (
+                        <span className="text-xs text-gray-500">-</span>
                       ) : (
                         // BC-2 + AC-3: fixed colors and added aria-label
                         <button
@@ -581,13 +605,15 @@ export default function Step3Bases({ licitacion, isAdmin, onAdvance, onRefresh }
                     <td className="py-2">
                       <div className="flex items-center gap-2">
                         {/* BC-2: fixed colors */}
-                        <button
-                          onClick={() => handleEditAte(ate)}
-                          className="text-gray-700 hover:text-gray-900 text-xs"
-                        >
-                          Editar
-                        </button>
-                        {!ate.propuesta_url && (
+                        {atesEditables && (
+                          <button
+                            onClick={() => handleEditAte(ate)}
+                            className="text-gray-700 hover:text-gray-900 text-xs"
+                          >
+                            Editar
+                          </button>
+                        )}
+                        {atesEditables && !ate.propuesta_url && (
                           // AC-2: added aria-label to delete button
                           <button
                             onClick={() => handleDeleteAte(ate)}
@@ -621,16 +647,18 @@ export default function Step3Bases({ licitacion, isAdmin, onAdvance, onRefresh }
         </h3>
 
         <div className="flex flex-wrap gap-3 items-center mb-4">
-          <button
-            onClick={handleGenerateBases}
-            disabled={!isAdmin || generatingBases}
-            className={BTN_PRIMARY}
-          >
-            <span className="flex items-center gap-1">
-              <FileText size={14} />
-              {generatingBases ? 'Generando...' : 'Generar Bases (.docx)'}
-            </span>
-          </button>
+          {basesGenerables && (
+            <button
+              onClick={handleGenerateBases}
+              disabled={!isAdmin || generatingBases}
+              className={BTN_PRIMARY}
+            >
+              <span className="flex items-center gap-1">
+                <FileText size={14} />
+                {generatingBases ? 'Generando...' : 'Generar Bases (.docx)'}
+              </span>
+            </button>
+          )}
           {lastGeneratedUrl && (
             // BC-2: fixed colors for download link
             <a
@@ -645,6 +673,12 @@ export default function Step3Bases({ licitacion, isAdmin, onAdvance, onRefresh }
           )}
         </div>
 
+        {!basesGenerables && (
+          <p className="text-sm text-amber-700 bg-amber-50 rounded-lg px-3 py-2 mb-4">
+            {MENSAJE_BASES_ADJUDICADA}
+          </p>
+        )}
+
         {/* Previous bases documents */}
         {basesDocumentos.length > 0 && (
           <div>
@@ -657,7 +691,7 @@ export default function Step3Bases({ licitacion, isAdmin, onAdvance, onRefresh }
                   <span className="text-gray-400">
                     {new Date(doc.created_at).toLocaleDateString('es-CL')}
                   </span>
-                  {isAdmin && (
+                  {isAdmin && documentosEliminables && (
                     <button
                       onClick={() => handleDeleteBasesDoc(doc)}
                       disabled={deletingDocId === doc.id}
@@ -677,7 +711,7 @@ export default function Step3Bases({ licitacion, isAdmin, onAdvance, onRefresh }
           </div>
         )}
 
-        {basesDocumentos.length === 0 && (
+        {basesDocumentos.length === 0 && basesGenerables && (
           <p className="text-xs text-gray-500">
             Estado: Bases no generadas. Haga clic en &ldquo;Generar Bases&rdquo; para crear el documento Word.
           </p>
@@ -693,16 +727,24 @@ export default function Step3Bases({ licitacion, isAdmin, onAdvance, onRefresh }
             <MessageSquare size={16} className="mr-2 text-gray-600" />
             Consultas ({consultas.length})
           </h3>
-          <button
-            onClick={() => setShowConsultasForm(!showConsultasForm)}
-            className={BTN_SECONDARY}
-          >
-            <span className="flex items-center gap-1">
-              {showConsultasForm ? <X size={14} /> : <Plus size={14} />}
-              {showConsultasForm ? 'Cerrar' : 'Registrar consulta'}
-            </span>
-          </button>
+          {consultasAbiertas && (
+            <button
+              onClick={() => setShowConsultasForm(!showConsultasForm)}
+              className={BTN_SECONDARY}
+            >
+              <span className="flex items-center gap-1">
+                {showConsultasForm ? <X size={14} /> : <Plus size={14} />}
+                {showConsultasForm ? 'Cerrar' : 'Registrar consulta'}
+              </span>
+            </button>
+          )}
         </div>
+
+        {!consultasAbiertas && (
+          <p className="text-sm text-amber-700 bg-amber-50 rounded-lg px-3 py-2 mb-4">
+            {mensajeConsultasSoloLectura(licitacion.estado)}
+          </p>
+        )}
 
         {showConsultasForm && (
           <div className="border border-gray-200 rounded-lg p-4 mb-4 bg-gray-50">
@@ -813,8 +855,9 @@ export default function Step3Bases({ licitacion, isAdmin, onAdvance, onRefresh }
       </div>
 
       {/* ============================
-          Advance State Button
+          Advance State Button — only in the state it advances from
       =============================== */}
+      {licitacion.estado === 'recepcion_bases_pendiente' && (
       <div className="bg-white rounded-lg border border-gray-200 p-5">
         <h3 className="font-semibold text-gray-900 mb-3">Avanzar a Recepción de Propuestas</h3>
         {canAdvance ? (
@@ -837,6 +880,7 @@ export default function Step3Bases({ licitacion, isAdmin, onAdvance, onRefresh }
           </p>
         )}
       </div>
+      )}
     </div>
   );
 }

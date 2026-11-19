@@ -22,11 +22,18 @@ export async function verifyAccessCode(
   return bcrypt.compare(code, hash);
 }
 
+/**
+ * The public link of a proposal. `proposalId` is the proposal's own id: its
+ * first 8 characters make the link unique even when two proposals share the
+ * school (first 20 characters), the type, the year and the version (LIC-E4).
+ * Worst case 20+1+20+1+4+2+4+1+8 = 61 characters, within the 64-char column.
+ */
 export function generateSlug(
   schoolName: string,
   serviceType: string,
   year: number,
-  version: number
+  version: number,
+  proposalId: string
 ): string {
   const sanitize = (s: string) =>
     s
@@ -36,5 +43,6 @@ export function generateSlug(
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-|-$/g, '')
       .slice(0, 20);
-  return `${sanitize(schoolName)}-${sanitize(serviceType)}-${year}-v${version}`;
+  const uniquePart = proposalId.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 8);
+  return `${sanitize(schoolName)}-${sanitize(serviceType)}-${year}-v${version}-${uniquePart}`;
 }

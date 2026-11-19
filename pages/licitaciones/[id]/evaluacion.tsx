@@ -28,6 +28,7 @@ import {
   calculateWeightedScores,
   rankATEs,
 } from '@/lib/evaluacionService';
+import { todayInChile } from '@/lib/uf-service';
 
 // ============================================================
 // SHARED STYLES
@@ -191,9 +192,8 @@ export default function EvaluacionPage() {
   // Meeting metadata
   const [horaInicio, setHoraInicio] = useState('');
   const [horaFin, setHoraFin] = useState('');
-  const [fechaEvaluacion, setFechaEvaluacion] = useState(
-    new Date().toISOString().split('T')[0]
-  );
+  // LIC-B3: the default is the day in Chile; a stored date replaces it once loaded
+  const [fechaEvaluacion, setFechaEvaluacion] = useState(() => todayInChile(new Date()));
 
   // Scores state: ateId -> AteScore
   const [scores, setScores] = useState<Record<string, AteScore>>({});
@@ -326,6 +326,7 @@ export default function EvaluacionPage() {
           // Set evaluation hours from licitacion
           if (lic.hora_inicio_evaluacion) setHoraInicio(lic.hora_inicio_evaluacion);
           if (lic.hora_fin_evaluacion) setHoraFin(lic.hora_fin_evaluacion);
+          if (evalData.fecha_evaluacion) setFechaEvaluacion(String(evalData.fecha_evaluacion));
 
           // Populate scores from DB
           const dbScores = evalData.scores || [];
@@ -445,7 +446,12 @@ export default function EvaluacionPage() {
     return Object.keys(errors).length === 0;
   };
 
+  // LIC-B5: no Acta for a programme without active evaluation criteria
+  const hasCriterios = criterios.length > 0;
+
   const canGenerateActa = (): boolean => {
+    if (!hasCriterios) return false;
+
     // At least 3 members with nombres filled
     const filled = committee.filter(m => m.nombre.trim());
     if (filled.length < 3) return false;
@@ -465,8 +471,9 @@ export default function EvaluacionPage() {
   // Save evaluation
   // ============================================================
 
-  const handleSave = async () => {
-    if (!id || typeof id !== 'string') return;
+  // Returns true only when the evaluation was saved (LIC-B5: «Generar Acta» stops otherwise)
+  const handleSave = async (): Promise<boolean> => {
+    if (!id || typeof id !== 'string') return false;
 
     setSaving(true);
     try {
@@ -520,12 +527,14 @@ export default function EvaluacionPage() {
       const json = await res.json();
       if (!res.ok) {
         toast.error(json.error || 'Error al guardar evaluacion');
-        return;
+        return false;
       }
 
       toast.success('Evaluacion guardada exitosamente');
+      return true;
     } catch {
       toast.error('Error al guardar evaluacion');
+      return false;
     } finally {
       setSaving(false);
     }
@@ -545,8 +554,9 @@ export default function EvaluacionPage() {
 
     setGeneratingActa(true);
     try {
-      // Auto-save first
-      await handleSave();
+      // Auto-save first; a failed save stops here (its error is already shown)
+      const saved = await handleSave();
+      if (!saved) return;
 
       const res = await fetch(`/api/licitaciones/${id}/generate-acta`);
       const json = await res.json();
@@ -971,13 +981,13 @@ export default function EvaluacionPage() {
                             htmlFor={`monto-${ate.id}`}
                             className="block text-xs font-medium text-gray-600 mb-1"
                           >
-                            Monto propuesto (CLP)
+                            {`Monto propuesto (${licitacion.tipo_moneda})`}
                           </label>
                           <input
                             id={`monto-${ate.id}`}
                             type="number"
                             min={1}
-                            step={1000}
+                            step={licitacion.tipo_moneda === 'UF' ? 0.01 : 1}
                             value={montos[ate.id] || ''}
                             disabled={!isEditable}
                             onChange={e =>
@@ -987,7 +997,7 @@ export default function EvaluacionPage() {
                               }))
                             }
                             className={INPUT_CLASS}
-                            placeholder="15000000"
+                            placeholder={licitacion.tipo_moneda === 'UF' ? '450' : '15000000'}
                           />
                         </div>
                         <div className="w-40 bg-white rounded-lg border border-gray-200 px-3 py-2 text-center">
@@ -1023,7 +1033,8 @@ export default function EvaluacionPage() {
                     </span>
                   </button>
 
-                  {/* Generate Acta */}
+                  {/* Generate Acta — not offered without active criteria (LIC-B5) */}
+                  {hasCriterios && (
                   <button
                     onClick={handleGenerateActa}
                     disabled={generatingActa || !canGenerateActa()}
@@ -1039,7 +1050,16 @@ export default function EvaluacionPage() {
                       {generatingActa ? 'Generando...' : 'Generar Acta de Reunion'}
                     </span>
                   </button>
+                  )}
                 </div>
+
+                {!hasCriterios && (
+                  <p className="mt-3 text-sm text-gray-700 flex items-center gap-1">
+                    <AlertTriangle size={14} className="flex-shrink-0" />
+                    El programa no tiene criterios de evaluación activos: no se puede generar el Acta.
+                    Configúrelos en /admin/licitaciones/criterios.
+                  </p>
+                )}
 
                 {actaUrl && (
                   <div className="mt-3 text-sm text-green-700 flex items-center gap-1">

@@ -164,3 +164,13 @@ describe('Step 2 — two date choices in quick succession (send-back 1, S2)', ()
     expect(writeText.mock.calls[0][0]).not.toContain('9 de noviembre');
   });
 });
+
+describe('Step 1 summary — the budget in the tender\'s currency (LIC-B8)', () => {
+  it('writes the minimum and maximum amounts the Chilean way', async () => {
+    h.detail = { ...pending(), tipo_moneda: 'CLP', monto_minimo: 15000000, monto_maximo: 35000000 };
+    await renderPage();
+    expect(screen.getByText('$15.000.000')).toBeInTheDocument();
+    expect(screen.getByText('$35.000.000')).toBeInTheDocument();
+    expect(screen.queryByText('15000000 CLP')).not.toBeInTheDocument();
+  });
+});

@@ -349,7 +349,7 @@ const VALID_GENERATE_BODY = {
     horasPresenciales: 100,
     horasSincronicas: 48,
     horasAsincronicas: 40,
-    pricing: { mode: 'fixed' as const, precioUf: 888, totalHours: 188, formaPago: '3 cuotas' },
+    pricing: { mode: 'fixed' as const, precioUf: 888, totalHours: 188, formaPago: '3 cuotas', fixedUf: 888 },
     contentBlocks: [],
   },
 };
@@ -614,6 +614,37 @@ describe('POST /api/licitaciones/[id]/generate-propuesta', () => {
       expect.anything(),
       expect.objectContaining({ estado: 'completada' })
     );
+  });
+
+  it('LIC-E6: «Precio fijo» chosen with no price → 400 «Indique el precio de la propuesta», nothing stored', async () => {
+    const mockClient = setupAdmin();
+    setupGenerateHappyPath(mockClient);
+
+    const { default: handler } = await import(
+      '../../../pages/api/licitaciones/[id]/generate-propuesta'
+    );
+    // The fixture as it was before LIC-E6: fixed mode, no fixedUf.
+    const body = {
+      ...VALID_GENERATE_BODY,
+      config: {
+        ...VALID_GENERATE_BODY.config,
+        pricing: { mode: 'fixed' as const, precioUf: 888, totalHours: 188, formaPago: '3 cuotas' },
+      },
+    };
+    const req = mockReq('POST', body, { id: '123e4567-e89b-12d3-a456-426614174000' });
+    const res = mockRes();
+    await handler(req, res);
+
+    expect(mockSendAuthError).toHaveBeenCalledWith(
+      expect.anything(),
+      'Indique el precio de la propuesta',
+      400
+    );
+    expect(mockClient._chain.insert).not.toHaveBeenCalled();
+    expect(mockClient._chain.update).not.toHaveBeenCalled();
+    expect(mockUploadFile).not.toHaveBeenCalled();
+    expect(mockGenerateProposalPDFBuffer).not.toHaveBeenCalled();
+    expect(mockSendApiResponse).not.toHaveBeenCalled();
   });
 });
 

@@ -14,6 +14,14 @@ import { getUserRoles } from '@/utils/roleUtils';
 import { UpdateTimelineSchema } from '@/types/licitaciones';
 import { getLicitacionDetail, updateTimelineDates } from '@/lib/licitacionService';
 import { uuidSchema } from '@/lib/validation/schemas';
+import {
+  CAMPOS_SIEMPRE_EDITABLES,
+  MENSAJE_ADJUDICADA,
+  MENSAJE_NO_ELIMINAR,
+  puedeEditarDatos,
+  puedeEliminarLicitacion,
+} from '@/lib/licitaciones/estados';
+import { esLicitacionHistorica } from '@/lib/licitaciones/lecturas';
 
 /**
  * The client fields a non-admin may see: exactly what the detail page prints
@@ -190,6 +198,27 @@ async function handlePatch(req: NextApiRequest, res: NextApiResponse, licitacion
     } else {
       // Admin: user-scoped client so RLS enforces access
       writeClient = await createApiSupabaseClient(req, res);
+
+      // Once awarded, the tender's own data stays as it is; notes and the
+      // publication image stay editable (the timeline branch is above).
+      const cambiaDatos = Object.keys(updatePayload).some(k => !CAMPOS_SIEMPRE_EDITABLES.includes(k));
+      if (cambiaDatos) {
+        // A protected change needs a successful read of the state first.
+        const { data: actual, error: readError } = await writeClient
+          .from('licitaciones')
+          .select('estado')
+          .eq('id', licitacionId)
+          .single();
+        if (readError && (readError as { code?: string }).code !== 'PGRST116') {
+          return sendAuthError(res, 'Error al actualizar licitacion', 500, readError.message);
+        }
+        if (!actual) {
+          return sendAuthError(res, 'Licitacion no encontrada', 404);
+        }
+        if (!puedeEditarDatos((actual as { estado?: string }).estado)) {
+          return sendAuthError(res, MENSAJE_ADJUDICADA, 409);
+        }
+      }
     }
 
     const { data: updated, error: updateError } = await writeClient
@@ -229,12 +258,20 @@ async function handleDelete(req: NextApiRequest, res: NextApiResponse, licitacio
     // Verify licitacion exists
     const { data: licitacion, error: licitError } = await serviceClient
       .from('licitaciones')
-      .select('id, numero_licitacion')
+      .select('id, numero_licitacion, estado')
       .eq('id', licitacionId)
       .single();
 
     if (licitError || !licitacion) {
       return sendAuthError(res, 'Licitacion no encontrada', 404);
+    }
+
+    // An awarded tender stays; a historical record may still be deleted.
+    // Checked before anything (files, rows) is removed.
+    const esHistorica = licitacion.estado === 'cerrada'
+      && await esLicitacionHistorica(serviceClient, licitacionId);
+    if (!puedeEliminarLicitacion(licitacion.estado, esHistorica)) {
+      return sendAuthError(res, MENSAJE_NO_ELIMINAR, 409);
     }
 
     // Fetch all document storage paths before deletion

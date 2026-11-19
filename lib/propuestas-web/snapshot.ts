@@ -342,7 +342,8 @@ export function buildProposalSnapshot(input: BuildSnapshotInput): ProposalSnapsh
     horasAsincronicas: config.horasAsincronicas,
     totalHours,
     buckets: activeBuckets.length > 0 ? activeBuckets : undefined,
-    pricing: { ...config.pricing },
+    // The pricing hours are the snapshot's own total, never the client's (LIC-E6).
+    pricing: { ...config.pricing, totalHours },
     contentBlocks: interpolatedBlocks,
     documents,
     licitacion: licitacion

@@ -56,9 +56,9 @@ export default function FeedContainer({ workspaceId, userName, userAvatar }: Fee
     loadPosts(true);
   }, [workspaceId]);
 
-  const handleCreatePost = async (postData: CreatePostInput) => {
+  const handleCreatePost = async (postData: CreatePostInput, postId?: string) => {
     try {
-      await FeedService.createPost(workspaceId, postData);
+      await FeedService.createPost(workspaceId, postData, postId);
       // Refresh the feed to get the complete post data with author info, media, etc.
       loadPosts(true);
     } catch (error) {

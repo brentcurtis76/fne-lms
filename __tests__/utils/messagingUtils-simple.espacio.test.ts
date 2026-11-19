@@ -91,6 +91,10 @@ describe('EC-S4 createThread', () => {
     const inserted = opArgs(inserts[0], 'insert')?.[0] as Record<string, unknown>;
     expect(inserted.id).toMatch(/^[0-9a-f-]{36}$/);
     expect(threads.has(String(inserted.id))).toBe(true);
+    // F18f send-back 3: the thread starts at zero; the database trigger counts
+    // its first message once that message is stored.
+    expect(inserted.message_count).toBe(0);
+    expect(inserted.participant_count).toBe(0);
 
     const read = h.requests.find((r) => r.target === 'message_threads' && !has(r, 'insert') && has(r, 'select'));
     expect(read && opArgs(read, 'eq')).toEqual(['id', inserted.id]);

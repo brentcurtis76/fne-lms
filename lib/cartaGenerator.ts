@@ -14,6 +14,7 @@ import {
   TextRun,
   AlignmentType,
 } from 'docx';
+import { formatMonto } from './licitaciones/formato';
 
 // ============================================================
 // Input Types
@@ -23,7 +24,10 @@ export interface CartaDocumentData {
   licitacion: {
     nombre_licitacion: string;
     condiciones_pago?: string | null;
+    /** The awarded amount, in the tender's currency (tipo_moneda) despite the name. */
     monto_adjudicado_uf?: number | null;
+    /** The tender's currency: 'UF' or 'CLP' (licitaciones.tipo_moneda). */
+    tipo_moneda?: string | null;
     fecha_oferta_ganadora?: string | null;
     contacto_coordinacion_nombre?: string | null;
     contacto_coordinacion_email?: string | null;
@@ -83,12 +87,12 @@ export async function generateCartaDocument(data: CartaDocumentData): Promise<Bu
 
   const ciudad = school.ciudad || '[ciudad]';
   const monto = licitacion.monto_adjudicado_uf
-    ? `${licitacion.monto_adjudicado_uf} UF`
+    ? formatMonto(licitacion.monto_adjudicado_uf, licitacion.tipo_moneda, '[monto por confirmar]')
     : '[monto por confirmar]';
   const condiciones = licitacion.condiciones_pago || '[condiciones de pago por definir]';
   const coordinadorNombre = licitacion.contacto_coordinacion_nombre || '[nombre coordinador]';
   const coordinadorEmail = licitacion.contacto_coordinacion_email || '[correo coordinador]';
-  const coordinadorTelefono = licitacion.contacto_coordinacion_telefono || '[telefono coordinador]';
+  const coordinadorTelefono = licitacion.contacto_coordinacion_telefono || '[teléfono coordinador]';
   const directorNombre = school.director_nombre || '[nombre director]';
   const fechaOferta = formatDate(licitacion.fecha_oferta_ganadora);
 
@@ -120,43 +124,43 @@ export async function generateCartaDocument(data: CartaDocumentData): Promise<Bu
           blankLine(),
 
           // Salutation
-          letterParagraph('De mi consideracion:'),
+          letterParagraph('De mi consideración:'),
 
           blankLine(),
 
           // Opening
           letterParagraph(
-            `Nos es muy grato informar a ustedes, que han sido adjudicados en la licitacion por ${licitacion.nombre_licitacion.toUpperCase()}.`
+            `Nos es muy grato informar a ustedes, que han sido adjudicados en la licitación por ${licitacion.nombre_licitacion.toUpperCase()}.`
           ),
 
           blankLine(),
 
           // Offer date
           letterParagraph(
-            `De acuerdo a la ultima oferta economica presentada con fecha ${fechaOferta}:`
+            `De acuerdo a la última oferta económica presentada con fecha ${fechaOferta}:`
           ),
 
           blankLine(),
 
           // Amount and payment terms
           letterParagraph(
-            `El valor adjudicado en este proceso de licitacion asciende a ${monto}, segun el plan de pago propuesto. "${condiciones}"`
+            `El valor adjudicado en este proceso de licitación asciende a ${monto}, según el plan de pago propuesto. "${condiciones}"`
           ),
 
           blankLine(),
 
           // Coordination contact
           letterParagraph(
-            `Para las tareas propias del proyecto, el Proveedor debera coordinarse con la Direccion, ` +
-            `a traves de ${coordinadorNombre}, email: ${coordinadorEmail} y telefono: ${coordinadorTelefono}.`
+            `Para las tareas propias del proyecto, el Proveedor deberá coordinarse con la Dirección, ` +
+            `a través de ${coordinadorNombre}, email: ${coordinadorEmail} y teléfono: ${coordinadorTelefono}.`
           ),
 
           blankLine(),
 
           // Closing
           letterParagraph(
-            `Junto con felicitarle por esta adjudicacion, el ${school.name} quiere agradecer su participacion ` +
-            `y esfuerzo demostrado en este proceso, y estamos seguros que el trabajo en conjunto nos permitira ` +
+            `Junto con felicitarle por esta adjudicación, el ${school.name} quiere agradecer su participación ` +
+            `y esfuerzo demostrado en este proceso, y estamos seguros que el trabajo en conjunto nos permitirá ` +
             `alcanzar los objetivos planteados.`
           ),
 

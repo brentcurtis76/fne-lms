@@ -10,6 +10,7 @@ import {
 import { getUserRoles } from '@/utils/roleUtils';
 import { uuidSchema } from '@/lib/validation/schemas';
 import { CreateConsultaSchema } from '@/types/licitaciones';
+import { MENSAJE_CERRADA, puedeAgregarConsulta } from '@/lib/licitaciones/estados';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   logApiRequest(req, 'licitaciones-consultas');
@@ -82,6 +83,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // POST — Create a new consulta
     // ============================================================
     if (req.method === 'POST') {
+      if (!puedeAgregarConsulta(licitacion.estado)) {
+        return sendAuthError(res, MENSAJE_CERRADA, 409);
+      }
+
       const parseResult = CreateConsultaSchema.safeParse(req.body);
       if (!parseResult.success) {
         const errors = parseResult.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join('; ');

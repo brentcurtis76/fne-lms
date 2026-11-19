@@ -1,4 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
+import { todayInChile, isUsableUFNumber } from '../../lib/uf-service';
 
 interface UFResponse {
   success: boolean;
@@ -16,16 +17,17 @@ export default async function handler(
   }
 
   try {
-    // Get current year and month
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = now.getDate();
+    // Today is the calendar day in Chile (never the server's UTC day).
+    const today = todayInChile(new Date());
+    const [year, month, dayText] = today.split('-');
+    const day = parseInt(dayText, 10);
 
     // Fetch from SII UF page for current year
     const siiUrl = `https://www.sii.cl/valores_y_fechas/uf/uf${year}.htm`;
     
+    // N89: never wait on the SII for more than 5 seconds.
     const response = await fetch(siiUrl, {
+      signal: AbortSignal.timeout(5000),
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
       }
@@ -43,14 +45,16 @@ export default async function handler(
     
     const ufValue = extractUFFromSII(html, month, day);
     
-    if (ufValue) {
-      // Cache the result for 1 hour
-      res.setHeader('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
+    // N187: success only for a number inside the service's accepted range.
+    if (isUsableUFNumber(ufValue)) {
+      // Cache the result for 10 minutes, never served stale (another day's
+      // answer must not come back as today's).
+      res.setHeader('Cache-Control', 'public, s-maxage=600');
       
       return res.status(200).json({
         success: true,
         valor: ufValue,
-        fecha: now.toISOString().split('T')[0]
+        fecha: today
       });
     } else {
       throw new Error('Could not extract UF value from SII page');
@@ -59,74 +63,155 @@ export default async function handler(
   } catch (error) {
     console.error('Error fetching UF from SII:', error);
     
-    // Return fallback value
+    // N89: say honestly that today's value could not be read; give no value.
     return res.status(200).json({
       success: false,
-      valor: 39184, // Fallback to known current value
-      fecha: new Date().toISOString().split('T')[0],
-      error: 'Using fallback value - SII fetch failed'
+      error: 'No se pudo obtener la UF de hoy'
     });
   }
 }
 
-function extractUFFromSII(html: string, month: string, day: number): number | null {
+// The SII's real yearly page is about 55,000 characters; a longer text is not its page.
+const MAX_SII_PAGE_LENGTH = 500_000;
+
+/**
+ * The text without its HTML comments: every «<!-- … -->» (shortest match,
+ * across lines) is removed; an unclosed «<!--» removes everything after it.
+ * One linear scan.
+ */
+function withoutComments(html: string): string {
+  let out = '';
+  let at = 0;
+  while (at < html.length) {
+    const open = html.indexOf('<!--', at);
+    if (open < 0) {
+      out += html.slice(at);
+      break;
+    }
+    out += html.slice(at, open);
+    const close = html.indexOf('-->', open + 4);
+    if (close < 0) break;
+    at = close + 3;
+  }
+  return out;
+}
+
+export function extractUFFromSII(rawHtml: string, month: string, day: number): number | null {
   try {
-    // SII table structure: Look for table with UF values
-    // The HTML contains tables with format like:
-    // <td>01</td><td>39.184,40</td> (day 1, UF value)
-    
-    // Convert month number to month name in Spanish (SII uses month names)
+    // Send-back 2: refuse a page too large to be the SII's, before any parsing;
+    // then read the page without its HTML comments.
+    if (rawHtml.length > MAX_SII_PAGE_LENGTH) return null;
+    const html = withoutComments(rawHtml);
+
+    // N187: the SII's real yearly page holds one block per month,
+    // «<div class='meses' id='mes_noviembre'>», each with one table whose
+    // heading cell is «<th colspan='6'><h2>Noviembre</h2></th>», newest month
+    // first and after a list of options that names every month. A day is
+    // «<th width='40'><strong>18</strong></th> <td width='200'>41.357,30</td>»,
+    // three days per row. Pure: reads only (html, month, day).
+    const monthIds = [
+      'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+      'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'
+    ];
     const monthNames = [
       'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
       'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
     ];
-    
-    const monthName = monthNames[parseInt(month) - 1];
-    
-    // Look for the month section
-    const monthRegex = new RegExp(monthName + '.*?<table[^>]*>', 'is');
-    const monthMatch = html.match(monthRegex);
-    
-    if (!monthMatch) {
-      console.log('Month section not found for:', monthName);
+    const index = parseInt(month, 10) - 1;
+    if (!(index >= 0 && index < 12)) return null;
+
+    const tableContent = findMonthTable(html, monthIds[index], monthNames[index]);
+    if (tableContent === null) {
+      console.log('Month table not found for:', monthNames[index]);
       return null;
     }
-    
-    // Extract table content after the month name
-    const tableStart = monthMatch.index! + monthMatch[0].length;
-    const tableEndRegex = /<\/table>/i;
-    const tableEndMatch = html.substring(tableStart).match(tableEndRegex);
-    
-    if (!tableEndMatch) {
-      console.log('Table end not found');
+
+    // Every header or data cell of the table, in order, as its tag and its
+    // text (inner tags such as <strong> removed, trimmed).
+    const cells = Array.from(tableContent.matchAll(/<(th|td)\b[^>]*>([\s\S]*?)<\/\1\s*>/gi)).map((m) => ({
+      tag: m[1].toLowerCase(),
+      text: m[2].replace(/<[^>]*>/g, '').trim(),
+    }));
+
+    // The day cell is matched as a NUMBER: its trimmed text, read as an
+    // integer, equals the day («2» and «02» are day 2; «12», «20», «22» are
+    // not). Its value is the very next cell, which must be a data cell.
+    const at = cells.findIndex((c) => /^\d+$/.test(c.text) && parseInt(c.text, 10) === day);
+    if (at < 0 || at + 1 >= cells.length || cells[at + 1].tag !== 'td') {
+      // The requested day's row is missing: no value (never a neighbouring day's).
+      console.log('Today\'s value not found');
       return null;
     }
-    
-    const tableContent = html.substring(tableStart, tableStart + tableEndMatch.index!);
-    
-    // Look for current day's UF value
-    // Format: <td>DD</td><td>XX.XXX,XX</td>
-    const dayStr = String(day).padStart(2, '0');
-    const dayRegex = new RegExp(`<td[^>]*>${dayStr}</td>\\s*<td[^>]*>([\\d.,]+)</td>`, 'i');
-    const dayMatch = tableContent.match(dayRegex);
-    
-    if (!dayMatch) {
-      // If today's value not found, get the most recent available value
-      console.log('Today\'s value not found, getting most recent');
-      return getMostRecentUFValue(tableContent);
+
+    // The value is accepted only when written the Chilean way and nothing
+    // else: digits in groups of three separated by dots (or no dots at all),
+    // then optionally a comma and one to four decimals. An empty cell (a day
+    // not published yet, or one the month does not have) is no value.
+    const ufString = cells[at + 1].text;
+    if (!/^(\d{1,3}(\.\d{3})+|\d+)(,\d{1,4})?$/.test(ufString)) {
+      console.log(`Today's value is not a Chilean number: «${ufString.slice(0, 40)}»`);
+      return null;
     }
-    
-    // Parse the UF value (format: "39.184,40")
-    const ufString = dayMatch[1];
     const ufValue = parseChileanNumber(ufString);
-    
+
     console.log(`Found UF value for day ${day}: ${ufString} -> ${ufValue}`);
     return ufValue;
-    
+
   } catch (error) {
     console.error('Error extracting UF from HTML:', error);
     return null;
   }
+}
+
+/**
+ * The inside of the month's own table, or null. A table is the month's table
+ * only if it says so itself: its FIRST row holds a heading cell (th) whose
+ * text, tags removed and trimmed, is exactly the month's name (case and
+ * accents ignored), as the real page's «<th colspan='6'><h2>Noviembre</h2></th>».
+ * With a «mes_<month>» block, the candidate is the first table after the
+ * block's id and before the next «mes_» id; there is no fallback when the
+ * block exists. Without it, the candidate is the first table on the page that
+ * says so itself. Only a plain table is read: a candidate holding another
+ * «<table» before its first closing table tag gives null.
+ */
+function findMonthTable(html: string, monthId: string, monthName: string): string | null {
+  const fold = (text: string) => text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const wanted = fold(monthName);
+
+  // The text between a table's opening tag and its first closing table tag.
+  const tableAt = (text: string, open: RegExpMatchArray): string | null => {
+    const from = open.index! + open[0].length;
+    const close = text.slice(from).search(/<\/table\s*>/i);
+    return close < 0 ? null : text.slice(from, from + close);
+  };
+
+  const saysSoItself = (inner: string): boolean => {
+    const firstRow = inner.match(/<tr\b[^>]*>([\s\S]*?)<\/tr\s*>/i);
+    if (!firstRow) return false;
+    return Array.from(firstRow[1].matchAll(/<th\b[^>]*>([\s\S]*?)<\/th\s*>/gi))
+      .some((m) => fold(m[1].replace(/<[^>]*>/g, '').trim()) === wanted);
+  };
+
+  const readable = (inner: string | null): string | null => {
+    if (inner === null) return null;
+    if (/<table\b/i.test(inner)) return null; // not a plain table
+    return saysSoItself(inner) ? inner : null;
+  };
+
+  const block = html.match(new RegExp(`id\\s*=\\s*['"]mes_${monthId}['"][^>]*>`, 'i'));
+  if (block) {
+    const from = block.index! + block[0].length;
+    const next = html.slice(from).search(/id\s*=\s*['"]mes_/i);
+    const segment = next < 0 ? html.slice(from) : html.slice(from, from + next);
+    const open = segment.match(/<table\b[^>]*>/i);
+    return open ? readable(tableAt(segment, open)) : null;
+  }
+
+  for (const open of Array.from(html.matchAll(/<table\b[^>]*>/gi))) {
+    const inner = tableAt(html, open);
+    if (inner !== null && saysSoItself(inner)) return readable(inner);
+  }
+  return null;
 }
 
 function getMostRecentUFValue(tableContent: string): number | null {

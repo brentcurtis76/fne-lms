@@ -11,6 +11,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'react-hot-toast';
 import { Save, FileText, Upload, Check, Award } from 'lucide-react';
 import { LicitacionDetail, LicitacionAte } from '@/types/licitaciones';
+import { formatMonto } from '@/lib/licitaciones/formato';
 
 interface Step6AdjudicacionProps {
   licitacion: LicitacionDetail;
@@ -63,6 +64,9 @@ export default function Step6Adjudicacion({
   const [uploadingCarta, setUploadingCarta] = useState(false);
   const [cartaSigned, setCartaSigned] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  // Set when a save answered that the generated Carta no longer matches the
+  // award; cleared by a new generation. Covers the moment before the refresh.
+  const [cartaInvalidated, setCartaInvalidated] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const licitacionId = licitacion.id;
@@ -116,15 +120,17 @@ export default function Step6Adjudicacion({
 
     setSaving(true);
     try {
+      // What is on the screen, including what was cleared: an empty input is
+      // sent as null so the stored value is cleared too.
       const body: Record<string, unknown> = {
         ganador_ate_id: selectedAteId,
+        monto_adjudicado_uf: montoAdjudicado ? parseFloat(montoAdjudicado) : null,
+        condiciones_pago: condicionesPago || null,
+        fecha_oferta_ganadora: fechaOferta || null,
+        contacto_coordinacion_nombre: contactoNombre || null,
+        contacto_coordinacion_email: contactoEmail || null,
+        contacto_coordinacion_telefono: contactoTelefono || null,
       };
-      if (montoAdjudicado) body.monto_adjudicado_uf = parseFloat(montoAdjudicado);
-      if (condicionesPago) body.condiciones_pago = condicionesPago;
-      if (fechaOferta) body.fecha_oferta_ganadora = fechaOferta;
-      if (contactoNombre) body.contacto_coordinacion_nombre = contactoNombre;
-      if (contactoEmail) body.contacto_coordinacion_email = contactoEmail;
-      if (contactoTelefono) body.contacto_coordinacion_telefono = contactoTelefono;
 
       const res = await fetch(`/api/licitaciones/${licitacionId}/adjudicacion`, {
         method: 'POST',
@@ -139,6 +145,11 @@ export default function Step6Adjudicacion({
       }
 
       toast.success('Datos de adjudicacion guardados');
+      if (json.data?.carta_invalidada) {
+        setCartaInvalidated(true);
+        setCartaUrl(null);
+        toast.error(json.message || 'La Carta de adjudicación debe generarse de nuevo.');
+      }
       return true;
     } catch {
       toast.error('Error al guardar adjudicacion');
@@ -164,7 +175,8 @@ export default function Step6Adjudicacion({
 
     // Auto-save first to ensure ganador_ate_id is persisted. No refresh yet: the
     // parent refreshes once, after the generation has answered (see finally).
-    await saveAdjudicacion();
+    // A failed save stops here: the Carta would name the stored winner instead.
+    if (!(await saveAdjudicacion())) return;
 
     setGeneratingCarta(true);
     try {
@@ -177,6 +189,7 @@ export default function Step6Adjudicacion({
       }
 
       setCartaUrl(json.data.url);
+      setCartaInvalidated(false);
       toast.success('Carta de Adjudicacion generada exitosamente');
 
       if (json.data.url) {
@@ -237,10 +250,14 @@ export default function Step6Adjudicacion({
 
     setConfirming(true);
     try {
+      // The award goes to the provider on the screen: save it first and stop when
+      // that fails; the route refuses an id that is not the stored winner.
+      if (!(await saveAdjudicacion())) return;
+
       const res = await fetch(`/api/licitaciones/${licitacionId}/adjudicacion-confirmar`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ es_fne: esFne }),
+        body: JSON.stringify({ es_fne: esFne, ganador_ate_id: selectedAteId }),
       });
 
       const json = await res.json();
@@ -268,6 +285,11 @@ export default function Step6Adjudicacion({
 
   if (!isEditable) {
     const winner = ates.find(a => a.es_ganador) || ates.find(a => a.id === licitacion.ganador_ate_id);
+    // The awarded amount, in the tender's currency; before an award is saved,
+    // the provider's proposed amount (also in the tender's currency).
+    const montoResumen =
+      formatMonto(licitacion.monto_adjudicado_uf, licitacion.tipo_moneda) ||
+      formatMonto(winner?.monto_propuesto, licitacion.tipo_moneda);
     return (
       <div className="space-y-4">
         <div className="flex items-center gap-2 bg-green-50 rounded-lg px-4 py-3 text-sm text-green-800">
@@ -278,9 +300,9 @@ export default function Step6Adjudicacion({
           <div className="bg-gray-50 rounded-lg p-4">
             <p className="text-xs text-gray-500 mb-1">ATE Ganador</p>
             <p className="font-semibold text-gray-900">{winner.nombre_ate}</p>
-            {winner.monto_propuesto && (
+            {montoResumen && (
               <p className="text-sm text-gray-600 mt-1">
-                Monto: ${Number(winner.monto_propuesto).toLocaleString('es-CL')} CLP
+                Monto: {montoResumen}
               </p>
             )}
           </div>
@@ -305,7 +327,7 @@ export default function Step6Adjudicacion({
 
   // An award to the foundation needs the generated Carta (the contract step checks it).
   // Read from the tender as loaded, which the refresh after the generation brings.
-  const cartaReady = !!licitacion.carta_adjudicacion_url;
+  const cartaReady = !!licitacion.carta_adjudicacion_url && !cartaInvalidated;
 
   const sortedAtes = [...ates].sort(
     (a, b) => (Number(b.puntaje_total) || 0) - (Number(a.puntaje_total) || 0)
@@ -369,7 +391,7 @@ export default function Step6Adjudicacion({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label htmlFor="monto-uf" className="block text-xs font-medium text-gray-600 mb-1">
-              Monto adjudicado (UF)
+              {licitacion.tipo_moneda ? `Monto adjudicado (${licitacion.tipo_moneda})` : 'Monto adjudicado'}
             </label>
             <input
               id="monto-uf"

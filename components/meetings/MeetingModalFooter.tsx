@@ -23,6 +23,9 @@ interface MeetingModalFooterProps {
   /** The loaded meeting id — Finalizar only makes sense in edit mode with
    *  a persisted draft. */
   meetingId: string | null | undefined;
+  /** EC-R6: false for a finalised meeting, which never goes back to draft;
+   *  the «Guardar borrador» button is then not rendered. Defaults to true. */
+  canSaveDraft?: boolean;
   onPrevious: () => void;
   onNext: () => void;
   onSubmit: () => void;
@@ -46,6 +49,7 @@ export const MeetingModalFooter: React.FC<MeetingModalFooterProps> = ({
   mode,
   meetingStatus,
   meetingId,
+  canSaveDraft = true,
   onPrevious,
   onNext,
   onSubmit,
@@ -78,14 +82,16 @@ export const MeetingModalFooter: React.FC<MeetingModalFooterProps> = ({
           Cancelar
         </button>
 
-        <button
-          onClick={onSaveDraft}
-          disabled={isSubmitting || isSavingDraft}
-          className="inline-flex items-center px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors duration-200"
-          title="Guarda el estado actual como borrador sin validar el resumen"
-        >
-          {isSavingDraft ? 'Guardando…' : 'Guardar borrador'}
-        </button>
+        {canSaveDraft && (
+          <button
+            onClick={onSaveDraft}
+            disabled={isSubmitting || isSavingDraft}
+            className="inline-flex items-center px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors duration-200"
+            title="Guarda el estado actual como borrador sin validar el resumen"
+          >
+            {isSavingDraft ? 'Guardando…' : 'Guardar borrador'}
+          </button>
+        )}
 
         {currentStep < MeetingFormStep.AGREEMENTS ? (
           <button

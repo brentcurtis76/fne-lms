@@ -113,7 +113,9 @@ interface ContractFormProps {
   extractedData?: any; // Data extracted from PDF
   licitacionId?: string; // Phase 5: link from licitacion
   licitacionData?: LicitacionFormData; // Phase 5: pre-populated data from licitacion
-  onSuccess: (contratoId?: string) => void; // Phase 5: passes new contratoId
+  // Phase 5: passes new contratoId. A tender's save that reuses the tender's
+  // existing contract passes `reuse` (send-back 1 of F20d); other callers ignore it.
+  onSuccess: (contratoId?: string, reuse?: { reused: true; withoutCuotas: boolean }) => void;
   onCancel: () => void;
 }
 
@@ -920,7 +922,53 @@ export default function ContractForm({ programas, clientes, editingContract, pre
         
       } else {
         // CREATE MODE
-        
+
+        // A tender has at most one contract (LIC-D5): if one with this
+        // licitacion_id already exists, insert nothing and hand its id to the
+        // parent, which links it (the link is idempotent for the same contract).
+        // Which one: the contract the tender is already linked to; otherwise the
+        // oldest by created_at, then by id, so equal times always pick the same.
+        // The parent is told it was reused, and whether it lacks cuotas while the
+        // form holds some (send-back 1).
+        if (licitacionId) {
+          const { data: tenderContracts, error: tenderLookupError } = await supabase
+            .from('contratos')
+            .select('id, created_at')
+            .eq('licitacion_id', licitacionId)
+            .order('created_at', { ascending: true })
+            .order('id', { ascending: true });
+          if (tenderLookupError) throw tenderLookupError;
+          const found = ((tenderContracts ?? []) as Array<{ id: string; created_at: string | null }>).filter(c => !!c.id);
+          if (found.length > 0) {
+            const { data: tender, error: tenderError } = await supabase
+              .from('licitaciones')
+              .select('contrato_id')
+              .eq('id', licitacionId)
+              .maybeSingle();
+            if (tenderError) throw tenderError;
+            const byAge = [...found].sort((a, b) => {
+              const ta = a.created_at ?? '';
+              const tb = b.created_at ?? '';
+              if (ta !== tb) return ta < tb ? -1 : 1;
+              return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+            });
+            const linkedId = (tender as { contrato_id?: string | null } | null)?.contrato_id;
+            const chosen = byAge.find(c => c.id === linkedId) ?? byAge[0];
+            let withoutCuotas = false;
+            if (cuotas.length > 0) {
+              const { data: existingCuotas, error: cuotasReadError } = await supabase
+                .from('cuotas')
+                .select('id')
+                .eq('contrato_id', chosen.id)
+                .limit(1);
+              if (cuotasReadError) throw cuotasReadError;
+              withoutCuotas = !existingCuotas || existingCuotas.length === 0;
+            }
+            onSuccess(chosen.id, { reused: true, withoutCuotas });
+            return;
+          }
+        }
+
         // First, save or update client
         if (!selectedClienteId) {
           // Prepare client data with school_id if selected (defaults applied by newClientRow)

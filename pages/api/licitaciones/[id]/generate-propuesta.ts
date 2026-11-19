@@ -19,6 +19,7 @@ import { validateProposalConfig, type ValidationConfig } from '@/lib/propuestas/
 import { generateAccessCode, hashAccessCode } from '@/lib/propuestas-web/access-code';
 import { generateSlug } from '@/lib/propuestas-web/access-code';
 import { buildProposalSnapshot, type BuildSnapshotInput } from '@/lib/propuestas-web/snapshot';
+import { totalUf } from '@/lib/propuestas-web/pricing';
 
 export const config = { maxDuration: 60 };
 
@@ -125,6 +126,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const { plantilla_id, config: proposalConfig, documentos_ids } = bodyParse.data;
+
+  // A proposal without a price is not generated (LIC-E6). The total is the ONE
+  // price the panel, the PDF and the public page show, computed on the
+  // proposal's own hours (never the client's pricing.totalHours), and refused
+  // before anything is read or stored.
+  const proposalHours =
+    proposalConfig.horasPresenciales + proposalConfig.horasSincronicas + proposalConfig.horasAsincronicas;
+  if (!(totalUf({ ...proposalConfig.pricing, totalHours: proposalHours }) > 0)) {
+    return sendAuthError(res, 'Indique el precio de la propuesta', 400);
+  }
 
   // Step 1: Validate licitacion exists (fetch extra fields for snapshot)
   const { data: licitacion, error: licError } = await serviceClient
@@ -346,7 +357,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       proposalConfig.schoolName,
       proposalConfig.type,
       proposalConfig.programYear,
-      version
+      version,
+      propuestaId
     );
 
     // Step 8: Fetch enrichment records and build the snapshot. The snapshot is

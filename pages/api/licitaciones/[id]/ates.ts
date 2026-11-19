@@ -15,6 +15,8 @@ import { getUserRoles } from '@/utils/roleUtils';
 import { uuidSchema } from '@/lib/validation/schemas';
 import { CreateAteSchema, UpdateAteSchema } from '@/types/licitaciones';
 import { validateRut } from '@/utils/rutValidation';
+import { MENSAJE_EVALUACION_INICIADA, puedeModificarAtes, puedeSubirPropuesta } from '@/lib/licitaciones/estados';
+import { leerEstadoActual } from '@/lib/licitaciones/lecturas';
 
 // File uploads need bodyParser disabled
 // We handle this per-method inside the handler
@@ -103,6 +105,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       return sendApiResponse(res, { ates: ates || [] });
+    }
+
+    // Once the evaluation has begun, providers and proposals stay as they are
+    // (a proposal replaced after scoring would change the file the commission scored).
+    const permitido = req.method === 'PATCH'
+      ? puedeSubirPropuesta(licitacion.estado)
+      : puedeModificarAtes(licitacion.estado);
+    if (!permitido) {
+      return sendAuthError(res, MENSAJE_EVALUACION_INICIADA, 409);
     }
 
     // ============================================================
@@ -236,6 +247,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
       );
 
+      // The multipart body may have taken a while: the tender may have moved on
+      // to the evaluation meanwhile, so its state is read again before each write.
+      const rechazoActual = async (): Promise<{ status: number; message: string } | null> => {
+        const lectura = await leerEstadoActual(serviceClient, licitacionId);
+        if (lectura.ok === false) return { status: lectura.status, message: lectura.message };
+        return puedeSubirPropuesta(lectura.estado) ? null : { status: 409, message: MENSAJE_EVALUACION_INICIADA };
+      };
+
+      const rechazoTrasRecibir = await rechazoActual();
+      if (rechazoTrasRecibir) {
+        return sendAuthError(res, rechazoTrasRecibir.message, rechazoTrasRecibir.status);
+      }
+
       const ateIdField = Array.isArray(fields.ate_id) ? fields.ate_id[0] : fields.ate_id;
       const fechaPropuestaField = Array.isArray(fields.fecha_propuesta) ? fields.fecha_propuesta[0] : fields.fecha_propuesta;
       const notasField = Array.isArray(fields.notas) ? fields.notas[0] : fields.notas;
@@ -291,6 +315,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const uniqueId = randomUUID();
       const storagePath = `licitaciones/${licitacionId}/propuestas/${ateIdParse.data}/${uniqueId}_${safeFileName}`;
 
+      const rechazoAntesDeGuardar = await rechazoActual();
+      if (rechazoAntesDeGuardar) {
+        return sendAuthError(res, rechazoAntesDeGuardar.message, rechazoAntesDeGuardar.status);
+      }
+
       // Upload to Supabase storage
       const { error: uploadError } = await serviceClient.storage
         .from('licitaciones')
@@ -301,6 +330,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       if (uploadError) {
         return sendAuthError(res, 'Error al subir el archivo', 500, uploadError.message);
+      }
+
+      // Once more before any row is written; the file this request just stored is removed again.
+      const rechazoTrasGuardar = await rechazoActual();
+      if (rechazoTrasGuardar) {
+        await serviceClient.storage.from('licitaciones').remove([storagePath]);
+        return sendAuthError(res, rechazoTrasGuardar.message, rechazoTrasGuardar.status);
       }
 
       // Insert licitacion_documentos record

@@ -22,6 +22,7 @@ import {
 import { getUserRoles } from '@/utils/roleUtils';
 import { uuidSchema } from '@/lib/validation/schemas';
 import { LicitacionDocumento } from '@/types/licitaciones';
+import { uniquifyZipPath } from '@/lib/zipPaths';
 
 export const config = {
   api: {
@@ -129,6 +130,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     let totalBytesProcessed = 0;
     const skippedFiles: string[] = [];
+    const usedPaths = new Set<string>();
 
     for (const doc of documentos as LicitacionDocumento[]) {
       // Validate storage_path to prevent path traversal
@@ -164,8 +166,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const folder = TIPO_FOLDER[doc.tipo] || '06-otros';
       const fileName = doc.file_name || `documento-${doc.id}`;
 
-      // Add file to ZIP with folder structure
-      zip.folder(`${zipRootFolder}/${folder}`)?.file(fileName, fileBuffer);
+      // Add file to ZIP with folder structure; a name already used in the
+      // same folder gets « (2)», « (3)»… so no file overwrites another.
+      zip.file(uniquifyZipPath(`${zipRootFolder}/${folder}/${fileName}`, usedPaths), fileBuffer);
     }
 
     // Include manifest of skipped files if any

@@ -9,7 +9,10 @@
  *     duplicate (meeting_id, user_id) with 23505, as the unique keys do);
  *   - updates and deletes return only rows that exist in the store, so a write
  *     to a row that is not there reaches nothing;
- *   - plain selects return the store, filtered by `.eq()` / `.in()`.
+ *   - plain selects return the store, filtered by `.eq()` / `.in()`;
+ *   - `.eq()` filters updates too, so `.eq('version', n)` on a row whose
+ *     version moved reaches no row; `.maybeSingle()` then answers
+ *     `{ data: null, error: null }` (EC-R11).
  * Tests seed rows with `seedRows`, make one write fail with `failingWrites`,
  * and hold a write open with `holdWrites` to exercise in-flight behaviour.
  */
@@ -28,6 +31,12 @@ export const holdWrites: Record<string, Promise<void>> = {};
 /** Table store: rows per table. */
 export const tableRows: Record<string, any[]> = {};
 
+/** meeting id → rights get_my_meeting_rights answers (default: may edit and read). */
+export const meetingRights: Record<string, { can_edit?: boolean; can_read_content?: boolean }> = {};
+
+/** Send-back 3: who `auth.getUser()` answers as signed in (default: nobody). */
+export const authState: { user: { id: string } | null } = { user: null };
+
 export function seedRows(table: string, rows: any[]) {
   tableRows[table] = rows.map((row) => ({ ...row }));
 }
@@ -42,11 +51,12 @@ export function makeGate() {
 }
 
 export function resetMeetingSupabaseMock() {
-  for (const store of [capturedCalls, failingWrites, failingReads, holdWrites, tableRows] as Array<Record<string, unknown>>) {
+  for (const store of [capturedCalls, failingWrites, failingReads, holdWrites, tableRows, meetingRights] as Array<Record<string, unknown>>) {
     for (const key of Object.keys(store)) delete store[key];
   }
   fromCalls.length = 0;
   refusedWrites.clear();
+  authState.user = null;
 }
 
 let insertCounter = 0;
@@ -122,6 +132,12 @@ export function makeMeetingSupabaseClient() {
         single: vi.fn(() =>
           result().then((r) => ({ data: Array.isArray(r.data) ? r.data[0] ?? null : r.data, error: r.error })),
         ),
+        // EC-R11: like PostgREST's `.maybeSingle()`: no row is `data: null`
+        // with no error (e.g. an update whose `.eq('version', n)` matches
+        // nothing because the stored version moved).
+        maybeSingle: vi.fn(() =>
+          result().then((r) => ({ data: Array.isArray(r.data) ? r.data[0] ?? null : r.data ?? null, error: r.error })),
+        ),
         then: (resolve: any, reject?: any) => result().then(resolve, reject),
         insert: vi.fn((rows: any) => {
           record(`insert:${table}`, rows);
@@ -143,6 +159,23 @@ export function makeMeetingSupabaseClient() {
       };
       return chain;
     }),
+    // Send-back 1: get_my_meeting_rights answers from `meetingRights`; a
+    // meeting not listed there may be edited (the editor these tests play).
+    rpc: vi.fn(async (name: string, args: { p_meeting_ids?: string[] }) => {
+      record(`rpc:${name}`, args);
+      if (name !== 'get_my_meeting_rights') return { data: null, error: { code: 'PGRST202', message: `no mock for ${name}` } };
+      const data = (args.p_meeting_ids ?? []).map((id) => ({
+        meeting_id: id,
+        can_edit: meetingRights[id]?.can_edit ?? true,
+        can_delete: false,
+        can_read_content: meetingRights[id]?.can_read_content ?? true,
+      }));
+      return { data, error: null };
+    }),
+    // Send-back 3: the signed-in person, as supabase-js answers it.
+    auth: {
+      getUser: vi.fn(async () => ({ data: { user: authState.user ? { ...authState.user } : null }, error: null })),
+    },
     storage: {
       from: () => ({
         remove: vi.fn(async (paths: string[]) => {

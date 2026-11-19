@@ -43,7 +43,8 @@ const MENTION_BEING_TYPED = /(?:^|[\s(\[{«"'¿¡])@([\p{L}\p{M}\p{N}._-]*)$/u;
 interface MessageComposerProps {
   threadId: string;
   workspaceId: string | null;
-  onSendMessage: (messageData: MessageCompositionData) => Promise<void>;
+  /** Resolves with the files that were not attached (they stay in the box), or with nothing when all went. */
+  onSendMessage: (messageData: MessageCompositionData) => Promise<File[] | void>;
   replyToMessage?: MessageWithDetails;
   onCancelReply?: () => void;
   editingMessage?: MessageWithDetails;
@@ -274,22 +275,24 @@ const MessageComposer: React.FC<MessageComposerProps> = ({
     setIsSubmitting(true);
     
     try {
+      let notAttached: File[] = [];
       if (editingMessage && onSaveEdit) {
         await onSaveEdit(editingMessage.id, content.trim());
       } else {
-        await onSendMessage(messageData);
+        notAttached = (await onSendMessage(messageData)) || [];
       }
       
-      // Reset form
+      // Reset form; files that were not attached stay to be sent again (EC-M9)
       setContent('');
-      setAttachments([]);
+      setAttachments(notAttached);
       setValidation(null);
       setMentionedUsers(new Map());
       if (onCancelReply) onCancelReply();
       if (onCancelEdit) onCancelEdit();
     } catch (error) {
+      // The page has already told the person (EC-M8); everything typed and
+      // chosen stays in the box to send again.
       console.error('Error sending message:', error);
-      alert('Error al enviar el mensaje. Inténtalo de nuevo.');
     } finally {
       setIsSubmitting(false);
     }

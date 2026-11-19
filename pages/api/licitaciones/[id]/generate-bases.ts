@@ -12,6 +12,7 @@ import {
 import { getUserRoles } from '@/utils/roleUtils';
 import { uuidSchema } from '@/lib/validation/schemas';
 import { generateBasesDocument, BasesDocumentData } from '@/lib/docxGenerator';
+import { MENSAJE_BASES_ADJUDICADA, puedeGenerarBases } from '@/lib/licitaciones/estados';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   logApiRequest(req, 'licitaciones-generate-bases');
@@ -51,6 +52,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (licitError || !licitacion) {
       return sendAuthError(res, 'Licitacion no encontrada', 404);
+    }
+
+    // No new bases once the tender is awarded (lib/licitaciones/estados.ts).
+    if (!puedeGenerarBases(licitacion.estado)) {
+      return sendAuthError(res, MENSAJE_BASES_ADJUDICADA, 409);
     }
 
     // Fetch school
@@ -113,14 +119,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Fetch evaluation criteria for this program
-    const { data: criteriosData } = await serviceClient
+    const { data: criteriosData, error: criteriosError } = await serviceClient
       .from('programa_evaluacion_criterios')
       .select('*')
       .eq('programa_id', licitacion.programa_id)
       .eq('is_active', true)
       .order('orden', { ascending: true });
 
-    const criterios = (criteriosData || []).map(c => ({
+    // A failed query is a server error, not "no criteria".
+    if (criteriosError) {
+      return sendAuthError(res, 'Error al generar el documento de Bases', 500, criteriosError.message);
+    }
+
+    // Bases are not generated for a programme without active evaluation criteria
+    // (LIC-B5): they would print an empty evaluation table.
+    if (!criteriosData || criteriosData.length === 0) {
+      return sendAuthError(
+        res,
+        'El programa no tiene criterios de evaluación activos. Configúrelos en /admin/licitaciones/criterios antes de generar las Bases.',
+        422
+      );
+    }
+
+    const criterios = criteriosData.map(c => ({
       nombre_criterio: String(c.nombre_criterio),
       puntaje_maximo: Number(c.puntaje_maximo),
       descripcion: c.descripcion as string | null,

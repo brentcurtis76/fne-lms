@@ -22,6 +22,7 @@ import {
 import { getUserRoles } from '@/utils/roleUtils';
 import { uuidSchema } from '@/lib/validation/schemas';
 import { generateCartaDocument } from '@/lib/cartaGenerator';
+import { todayInChile } from '@/lib/uf-service';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   logApiRequest(req, 'licitaciones-generate-carta');
@@ -116,13 +117,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .eq('id', licitacion.cliente_id)
       .single();
 
-    const today = new Date().toISOString().split('T')[0];
+    // The date of issue is the day in Chile, not the UTC day.
+    const today = todayInChile(new Date());
 
     const docBuffer = await generateCartaDocument({
       licitacion: {
         nombre_licitacion: licitacion.nombre_licitacion,
         condiciones_pago: licitacion.condiciones_pago as string | null,
         monto_adjudicado_uf: licitacion.monto_adjudicado_uf ? Number(licitacion.monto_adjudicado_uf) : null,
+        tipo_moneda: licitacion.tipo_moneda as string | null,
         fecha_oferta_ganadora: licitacion.fecha_oferta_ganadora as string | null,
         contacto_coordinacion_nombre: licitacion.contacto_coordinacion_nombre as string | null,
         contacto_coordinacion_email: licitacion.contacto_coordinacion_email as string | null,

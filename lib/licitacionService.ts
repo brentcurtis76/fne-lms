@@ -744,13 +744,21 @@ export async function updateTimelineDates(
  * - contrato_pendiente (if FNE wins, esFne = true)
  * - adjudicada_externo (if external, esFne = false)
  * Creates historial entry.
+ * With expectedGanadorAteId (the provider on the screen), the award update is
+ * guarded by it: the tender is awarded only while that provider is still the
+ * stored winner; otherwise it throws GANADOR_NO_GUARDADO and writes nothing.
+ * Without it, as before.
  */
 export async function confirmAdjudicacion(
   supabase: SupabaseClient,
   licitacionId: string,
   esFne: boolean,
-  userId: string
+  userId: string,
+  expectedGanadorAteId?: string
 ): Promise<Licitacion> {
+  const GANADOR_NO_GUARDADO =
+    'El ganador seleccionado no está guardado. Guarde la adjudicación y vuelva a confirmar.';
+
   // 1. Fetch current licitacion
   const { data: existing, error: fetchError } = await supabase
     .from('licitaciones')
@@ -774,6 +782,10 @@ export async function confirmAdjudicacion(
     );
   }
 
+  if (expectedGanadorAteId !== undefined && existing.ganador_ate_id !== expectedGanadorAteId) {
+    throw new Error(GANADOR_NO_GUARDADO);
+  }
+
   // The contract step needs the generated Carta; an award to the foundation
   // confirmed without it would leave the tender stuck in contrato_pendiente.
   if (esFne && !existing.carta_adjudicacion_url) {
@@ -783,19 +795,62 @@ export async function confirmAdjudicacion(
   const newEstado: LicitacionEstado = esFne ? 'contrato_pendiente' : 'adjudicada_externo';
 
   // 2. Update estado and ganador_es_fne
-  const { data: updated, error: updateError } = await supabase
+  const awardUpdate = supabase
     .from('licitaciones')
     .update({
       estado: newEstado,
       ganador_es_fne: esFne,
       fecha_adjudicacion: dateToString(new Date()),
     })
-    .eq('id', licitacionId)
-    .select('*')
-    .single();
+    .eq('id', licitacionId);
 
-  if (updateError || !updated) {
-    throw new Error(`Error al confirmar adjudicacion: ${updateError?.message || 'Error desconocido'}`);
+  let updated: unknown;
+  if (expectedGanadorAteId !== undefined) {
+    // The check and the award in one statement: no row when the stored winner
+    // changed after the read above.
+    const { data: guarded, error: guardedError } = await awardUpdate
+      .eq('ganador_ate_id', expectedGanadorAteId)
+      .select('*')
+      .maybeSingle();
+    if (guardedError) {
+      throw new Error(`Error al confirmar adjudicacion: ${guardedError.message || 'Error desconocido'}`);
+    }
+    if (!guarded) {
+      throw new Error(GANADOR_NO_GUARDADO);
+    }
+    updated = guarded;
+  } else {
+    const { data: unguarded, error: updateError } = await awardUpdate
+      .select('*')
+      .single();
+
+    if (updateError || !unguarded) {
+      throw new Error(`Error al confirmar adjudicacion: ${updateError?.message || 'Error desconocido'}`);
+    }
+    updated = unguarded;
+  }
+
+  // The award is the moment of truth: the providers' flags are made to agree
+  // with the awarded winner (interleaved saves can leave two flagged). Both
+  // writes stay within this tender's providers; a failure is logged and does
+  // not undo the award.
+  const winnerId =
+    ((updated as { ganador_ate_id?: string | null }).ganador_ate_id ?? existing.ganador_ate_id) as string;
+  const { error: resetError } = await supabase
+    .from('licitacion_ates')
+    .update({ es_ganador: false })
+    .eq('licitacion_id', licitacionId)
+    .neq('id', winnerId);
+  if (resetError) {
+    console.error('[licitacionService] confirmAdjudicacion: licitacion_ates reset of es_ganador failed:', resetError.message);
+  }
+  const { error: winnerError } = await supabase
+    .from('licitacion_ates')
+    .update({ es_ganador: true })
+    .eq('licitacion_id', licitacionId)
+    .eq('id', winnerId);
+  if (winnerError) {
+    console.error('[licitacionService] confirmAdjudicacion: licitacion_ates winner es_ganador write failed:', winnerError.message);
   }
 
   // 3. Create historial entry
@@ -877,7 +932,25 @@ export async function linkContractToLicitacion(
     );
   }
 
-  // 3. Validate cliente exists and has required legal fields for contract generation
+  // The contract must exist and belong to this tender: its licitacion_id is this
+  // tender's id, or still empty (LIC-D5, N117). Read before anything is written.
+  const { data: contrato, error: contratoError } = await supabase
+    .from('contratos')
+    .select('id, licitacion_id')
+    .eq('id', contratoId)
+    .maybeSingle();
+
+  if (contratoError) {
+    throw new Error(`Error al leer el contrato: ${contratoError.message}`);
+  }
+  if (!contrato) {
+    throw new Error('El contrato indicado no existe. No se puede vincular a la licitación.');
+  }
+  if (contrato.licitacion_id && contrato.licitacion_id !== licitacionId) {
+    throw new Error('El contrato indicado pertenece a otra licitación. No se puede vincular a esta licitación.');
+  }
+
+  // 3. Validate cliente exists (no legal field is obligatory: not every contract is a SEP contract)
   let clienteId = existing.cliente_id;
 
   if (!clienteId) {
@@ -903,12 +976,12 @@ export async function linkContractToLicitacion(
 
   const { data: cliente } = await supabase
     .from('clientes')
-    .select('nombre_representante, rut_representante, fecha_escritura, nombre_notario')
+    .select('id')
     .eq('id', clienteId)
     .single();
 
-  if (!cliente?.nombre_representante || !cliente?.rut_representante || !cliente?.fecha_escritura || !cliente?.nombre_notario) {
-    throw new Error('El cliente no tiene toda la informacion legal requerida para generar el contrato (representante, RUT, escritura, notario)');
+  if (!cliente) {
+    throw new Error('El cliente de la licitación no existe. Vincule un cliente antes de generar el contrato.');
   }
 
   // 4. Update licitacion

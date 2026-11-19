@@ -39,6 +39,7 @@ const h = vi.hoisted(() => ({
   canManageCalls: [] as string[],
   docLoads: 0,
   grid: null as any,
+  uploadModal: null as any,
   renameDocument: vi.fn(),
   moveDocument: vi.fn(),
   hideDocument: vi.fn(),
@@ -164,7 +165,13 @@ vi.mock('../../../components/tutorials/HelpButton', () => ({ default: () => null
 vi.mock('../../../components/meetings/MeetingFilters', () => ({ default: () => null }));
 vi.mock('../../../components/meetings/MeetingCard', () => ({ default: () => null }));
 vi.mock('../../../components/meetings/MeetingDocumentationModal', () => ({ default: () => null }));
-vi.mock('../../../components/documents/DocumentUploadModal', () => ({ default: () => null }));
+// F18e: the upload window stub records its props and shows a marker while it is mounted.
+vi.mock('../../../components/documents/DocumentUploadModal', () => ({
+  default: (props: any) => {
+    h.uploadModal = props;
+    return <div data-testid="upload-window-stub" />;
+  },
+}));
 // The grid stub: one button per action and document, and a «select all».
 vi.mock('../../../components/documents/DocumentGrid', () => ({
   default: (props: any) => {
@@ -228,6 +235,7 @@ beforeEach(() => {
   h.canManageCalls = [];
   h.docLoads = 0;
   h.grid = null;
+  h.uploadModal = null;
   h.renameDocument = vi.fn(async () => undefined);
   h.moveDocument = vi.fn(async () => undefined);
   h.hideDocument = vi.fn(async () => undefined);
@@ -510,5 +518,35 @@ describe('F12d the documents tab downloads through the link route', () => {
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith(SESSION_EXPIRED));
     expect(open).not.toHaveBeenCalled();
     expect(assign).not.toHaveBeenCalled();
+  });
+});
+
+describe('F18e the upload window closes itself, not the page', () => {
+  it('two documents uploaded and one file failed: the page refreshes its list, notices two, and the window is still shown', async () => {
+    const utils = await ready();
+    fireEvent.click(utils.getByRole('button', { name: /Subir Documento/ }));
+    await utils.findByTestId('upload-window-stub');
+    const loadsBefore = h.docLoads;
+    await act(async () => {
+      // the window's onUploadComplete carries only the two that were saved; it does not call onClose
+      h.uploadModal.onUploadComplete([doc('n1', 'user-1'), doc('n2', 'user-1')]);
+    });
+    await waitFor(() => expect(h.docLoads).toBeGreaterThan(loadsBefore));
+    expect(toast.success).toHaveBeenCalledWith('2 documento(s) subido(s) exitosamente');
+    expect(utils.queryByTestId('upload-window-stub')).not.toBeNull();
+  });
+
+  it('nothing failed: the window closes itself through onClose and is gone', async () => {
+    const utils = await ready();
+    fireEvent.click(utils.getByRole('button', { name: /Subir Documento/ }));
+    await utils.findByTestId('upload-window-stub');
+    await act(async () => {
+      h.uploadModal.onUploadComplete([doc('n1', 'user-1')]);
+    });
+    expect(toast.success).toHaveBeenCalledWith('1 documento(s) subido(s) exitosamente');
+    await act(async () => {
+      h.uploadModal.onClose();
+    });
+    await waitFor(() => expect(utils.queryByTestId('upload-window-stub')).toBeNull());
   });
 });

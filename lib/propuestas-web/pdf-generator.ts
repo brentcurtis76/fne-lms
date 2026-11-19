@@ -7,6 +7,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { ProposalSnapshot } from './snapshot';
+import { totalUf as computeTotalUf } from './pricing';
 import { INTERNATIONAL_ADVISORS, isRetiredAdvisor } from './constants';
 import { normalizeText, significantWords } from './text-utils';
 
@@ -791,13 +792,9 @@ function buildProposalPdf(snapshot: ProposalSnapshot): jsPDF {
 
   sectionHead('Propuesta Económica');
 
-  // Calculate total without exposing per-hour rate
-  let totalUf: number;
-  if (snapshot.pricing.mode === 'per_hour') {
-    totalUf = snapshot.pricing.precioUf * snapshot.pricing.totalHours;
-  } else {
-    totalUf = snapshot.pricing.fixedUf ?? 0;
-  }
+  // Calculate total without exposing per-hour rate: the ONE price, shared with
+  // the panel and the public page (LIC-E6).
+  const totalUf = computeTotalUf(snapshot.pricing);
 
   // Total hours summary
   label('Programa');

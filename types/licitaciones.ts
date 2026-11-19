@@ -109,6 +109,7 @@ export interface Licitacion {
   contacto_coordinacion_telefono?: string | null;
   hora_inicio_evaluacion?: string | null;
   hora_fin_evaluacion?: string | null;
+  fecha_evaluacion?: string | null; // YYYY-MM-DD, typed by the commission (LIC-B3)
   fecha_oferta_ganadora?: string | null;
   contrato_id?: string | null;
   notas?: string | null;

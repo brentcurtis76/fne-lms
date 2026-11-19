@@ -2518,6 +2518,8 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
     } catch (error) {
       console.error('Error sending message:', error);
       toast.error('Error al enviar el mensaje');
+      // Rejecting keeps the text, files and reply target in the box (EC-M8).
+      throw error;
     }
   };
 
@@ -2605,11 +2607,7 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
         })
         .eq('id', messageId);
 
-      if (error) {
-        console.error('Error editing message:', error);
-        toast.error('Error al editar el mensaje');
-        return;
-      }
+      if (error) throw error;
 
       // Update local state
       setMessages(prev => prev.map(msg =>
@@ -2622,6 +2620,8 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
     } catch (error) {
       console.error('Error editing message:', error);
       toast.error('Error al editar el mensaje');
+      // Rejecting keeps the box in edit mode with the edited text (EC-M8).
+      throw error;
     }
   };
 

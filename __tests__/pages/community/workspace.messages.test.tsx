@@ -704,3 +704,28 @@ describe('F18f EC-M4 the open thread\'s counters after a send', () => {
     expect(utils.getByText('3 mensaje(s)')).toBeTruthy();
   });
 });
+
+// ---------------------------------------------------------------------------
+// F18f EC-M8: when the message cannot be stored the page says so and tells the
+// message box it failed (the box keeps the text only when its call rejects)
+// ---------------------------------------------------------------------------
+
+describe('F18f EC-M8 a send whose message insert fails', () => {
+  it('shows the error toast, not «Mensaje enviado», and rejects so the box keeps the text', async () => {
+    const { toast } = await import('react-hot-toast');
+    vi.mocked(toast.error).mockClear();
+    vi.mocked(toast.success).mockClear();
+    h.sendMessage = vi.fn(async () => { throw Object.assign(new Error('insert failed'), { code: '42501' }); });
+    const utils = render(<CommunityWorkspacePage />);
+    await openThread(utils, COMMUNITY_A);
+
+    let outcome: unknown = 'resolved';
+    await act(async () => {
+      outcome = await h.composer!.onSendMessage({ content: 'Mi texto' }).then(() => 'resolved', () => 'rejected');
+    });
+    expect(outcome).toBe('rejected');
+    expect(toast.error).toHaveBeenCalledWith('Error al enviar el mensaje');
+    expect(toast.success).not.toHaveBeenCalledWith('Mensaje enviado');
+    expect(cardIds(utils)).toEqual([]);
+  });
+});

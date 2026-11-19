@@ -170,3 +170,54 @@ describe('send-back 1 (8) a mention needs a boundary before the @', () => {
     expect(onRequestMentions).toHaveBeenLastCalledWith('equ');
   });
 });
+
+// ---------------------------------------------------------------------------
+// F18f EC-M8: a send or an edit that fails keeps everything typed and chosen;
+// the page has already told the person, so the box shows no alert of its own
+// ---------------------------------------------------------------------------
+
+describe('F18f EC-M8 a failed send or edit keeps what was typed', () => {
+  const PARENT = { id: 'msg-parent', author_name: 'Ana Uno', content: 'Mensaje al que se responde, con texto suficiente' } as any;
+
+  it('a send that fails keeps the text, the chosen file and the reply target, with no second alert', async () => {
+    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => undefined);
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const onSendMessage = vi.fn(async () => { throw new Error('insert failed'); });
+    const onCancelReply = vi.fn();
+    const { textarea, type, container } = setup({
+      mentionSuggestions: [], onSendMessage, replyToMessage: PARENT, onCancelReply,
+    });
+    const file = new File(['%PDF-1.4'], 'acta.pdf', { type: 'application/pdf' });
+    fireEvent.change(container.querySelector('input[type="file"]')!, { target: { files: [file] } });
+    type('Mi respuesta larga');
+    fireEvent.keyDown(textarea, { key: 'Enter' });
+    await waitFor(() => expect(onSendMessage).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(container.querySelector('button.absolute.bottom-3 svg.animate-spin')).toBeNull());
+
+    expect(textarea.value).toBe('Mi respuesta larga');
+    expect(screen.getByText('acta.pdf')).toBeTruthy();
+    expect(screen.getByText('Ana Uno')).toBeTruthy();
+    expect(onCancelReply).not.toHaveBeenCalled();
+    expect(alertSpy).not.toHaveBeenCalled();
+  });
+
+  it('an edit that fails stays in edit mode with the edited text', async () => {
+    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => undefined);
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const onSaveEdit = vi.fn(async () => { throw new Error('update failed'); });
+    const onCancelEdit = vi.fn();
+    const editing = { id: 'msg-own', author_name: 'Admin', content: 'Texto original' } as any;
+    const { textarea, type } = setup({ mentionSuggestions: [], editingMessage: editing, onSaveEdit, onCancelEdit });
+    expect(textarea.value).toBe('Texto original');
+    type('Texto corregido');
+    fireEvent.keyDown(textarea, { key: 'Enter' });
+    await waitFor(() => expect(onSaveEdit).toHaveBeenCalledTimes(1));
+    expect(onSaveEdit).toHaveBeenCalledWith('msg-own', 'Texto corregido');
+    await waitFor(() => expect(textarea.disabled).toBe(false));
+
+    expect(textarea.value).toBe('Texto corregido');
+    expect(screen.getByText('Editando mensaje')).toBeTruthy();
+    expect(onCancelEdit).not.toHaveBeenCalled();
+    expect(alertSpy).not.toHaveBeenCalled();
+  });
+});

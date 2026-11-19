@@ -288,8 +288,9 @@ const MessageComposer: React.FC<MessageComposerProps> = ({
       if (onCancelReply) onCancelReply();
       if (onCancelEdit) onCancelEdit();
     } catch (error) {
+      // The page has already told the person (EC-M8); everything typed and
+      // chosen stays in the box to send again.
       console.error('Error sending message:', error);
-      alert('Error al enviar el mensaje. Inténtalo de nuevo.');
     } finally {
       setIsSubmitting(false);
     }

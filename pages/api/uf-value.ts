@@ -1,4 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
+import { todayInChile } from '../../lib/uf-service';
 
 interface UFResponse {
   success: boolean;
@@ -16,11 +17,10 @@ export default async function handler(
   }
 
   try {
-    // Get current year and month
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = now.getDate();
+    // Today is the calendar day in Chile (never the server's UTC day).
+    const today = todayInChile(new Date());
+    const [year, month, dayText] = today.split('-');
+    const day = parseInt(dayText, 10);
 
     // Fetch from SII UF page for current year
     const siiUrl = `https://www.sii.cl/valores_y_fechas/uf/uf${year}.htm`;
@@ -46,13 +46,14 @@ export default async function handler(
     const ufValue = extractUFFromSII(html, month, day);
     
     if (ufValue) {
-      // Cache the result for 1 hour
-      res.setHeader('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
+      // Cache the result for 10 minutes, never served stale (another day's
+      // answer must not come back as today's).
+      res.setHeader('Cache-Control', 'public, s-maxage=600');
       
       return res.status(200).json({
         success: true,
         valor: ufValue,
-        fecha: now.toISOString().split('T')[0]
+        fecha: today
       });
     } else {
       throw new Error('Could not extract UF value from SII page');
@@ -111,9 +112,9 @@ function extractUFFromSII(html: string, month: string, day: number): number | nu
     const dayMatch = tableContent.match(dayRegex);
     
     if (!dayMatch) {
-      // If today's value not found, get the most recent available value
-      console.log('Today\'s value not found, getting most recent');
-      return getMostRecentUFValue(tableContent);
+      // The requested day's row is missing: no value (never a neighbouring day's).
+      console.log('Today\'s value not found');
+      return null;
     }
     
     // Parse the UF value (format: "39.184,40")

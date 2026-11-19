@@ -66,7 +66,8 @@ describe('/api/uf-value', () => {
     const res = await call();
     expect(res._getStatusCode()).toBe(200);
     expect(res._getJSONData()).toEqual({ success: true, valor: 40123.45, fecha: TODAY });
-    expect(res.getHeader('Cache-Control')).toBe('public, s-maxage=3600, stale-while-revalidate=86400');
+    // Send-back 1: a success is cached ten minutes, never served stale.
+    expect(res.getHeader('Cache-Control')).toBe('public, s-maxage=600');
     expect(fetchMock.mock.calls[0][0]).toBe('https://www.sii.cl/valores_y_fechas/uf/uf2026.htm');
   });
 
@@ -108,6 +109,36 @@ describe('/api/uf-value', () => {
     const init = fetchMock.mock.calls[0][1];
     expect(init.signal).toBeInstanceOf(AbortSignal);
     expect(AbortSignal.timeout).toHaveBeenCalledWith(5000);
+  });
+
+  describe("send-back 1: today is Chile's day, and only today's row is a success", () => {
+    // Invented values; the 18th's row is the one asked for at 22:30 in Chile.
+    const row = (day: string, value: string) => `<tr><td>${day}</td><td>${value}</td></tr>`;
+    const page = (...rows: string[]) => `<html><body><h2>Noviembre</h2><table>\n${rows.join('\n')}\n</table></body></html>`;
+
+    it("at 2026-11-19T01:30:00Z (22:30 on the 18th in Chile) the route asks for the 18th's row", async () => {
+      vi.setSystemTime(new Date('2026-11-19T01:30:00Z'));
+      fetchMock.mockResolvedValue(textResponse(page(row('17', '40.111,11'), row('18', '40.123,45'), row('19', '40.150,00'))));
+      const res = await call();
+      expect(res._getJSONData()).toEqual({ success: true, valor: 40123.45, fecha: '2026-11-18' });
+      expect(fetchMock.mock.calls[0][0]).toBe('https://www.sii.cl/valores_y_fechas/uf/uf2026.htm');
+    });
+
+    it('a page that has the 17th and the 19th but not the 18th → success false, no value', async () => {
+      vi.setSystemTime(new Date('2026-11-19T01:30:00Z'));
+      fetchMock.mockResolvedValue(textResponse(page(row('17', '40.111,11'), row('19', '40.150,00'))));
+      const res = await call();
+      expect(res._getJSONData()).toEqual({ success: false, error: 'No se pudo obtener la UF de hoy' });
+      expect(res.getHeader('Cache-Control')).toBeUndefined();
+    });
+
+    it("a page with the 18th → success with fecha '2026-11-18' and the header exactly «public, s-maxage=600»", async () => {
+      vi.setSystemTime(new Date('2026-11-19T01:30:00Z'));
+      fetchMock.mockResolvedValue(textResponse(page(row('18', '40.123,45'))));
+      const res = await call();
+      expect(res._getJSONData()).toEqual({ success: true, valor: 40123.45, fecha: '2026-11-18' });
+      expect(res.getHeader('Cache-Control')).toBe('public, s-maxage=600');
+    });
   });
 
   it('a method other than GET is still refused with 405', async () => {

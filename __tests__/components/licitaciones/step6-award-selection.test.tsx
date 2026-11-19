@@ -196,23 +196,22 @@ describe('Step 6 — a value cleared on the screen is saved as cleared (send-bac
   });
 });
 
-describe('Step 6 — a failed invalidation of the earlier Carta stops the flow (send-back 2)', () => {
-  const SENTENCE = 'Los datos se guardaron, pero no se pudo invalidar la Carta anterior. Vuelva a guardar antes de confirmar.';
+describe('Step 6 — the save answers that another Carta was generated meanwhile (409): the flow stops', () => {
+  const SENTENCE = 'Otra persona generó o cambió la Carta mientras guardaba. Recargue la página y revise los datos antes de continuar.';
   beforeEach(() => {
     fetchMock.mockImplementation(async (url: string) => {
       if (url.endsWith('/ates')) return { ok: true, json: async () => ({ data: { ates: [ATE_A, ATE_B] } }) };
-      if (url.endsWith('/adjudicacion')) return { ok: false, json: async () => ({ error: SENTENCE, datos_guardados: true }) };
+      if (url.endsWith('/adjudicacion')) return { ok: false, status: 409, json: async () => ({ error: SENTENCE }) };
       return { ok: true, json: async () => ({ data: { url: null } }) };
     });
   });
 
-  it('confirming: the sentence is shown, no confirmation is sent and the foundation button is withheld', async () => {
+  it('confirming: the sentence is shown and no confirmation is sent', async () => {
     render(<Step6Adjudicacion licitacion={lic()} isAdmin onRefresh={vi.fn()} />);
     await selectB();
     fireEvent.click(screen.getByRole('button', { name: /Proveedor FNE/ }));
     await waitFor(() => expect(toastMock.error).toHaveBeenCalledWith(SENTENCE));
     expect(calls().some(c => c.url.endsWith('/adjudicacion-confirmar'))).toBe(false);
-    await waitFor(() => expect(screen.getByRole('button', { name: /Proveedor FNE/ })).toBeDisabled());
   });
 
   it('«Generar Carta»: the sentence is shown and nothing is generated', async () => {

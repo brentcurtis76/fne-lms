@@ -140,9 +140,6 @@ export default function Step6Adjudicacion({
 
       const json = await res.json();
       if (!res.ok) {
-        // Saved, but the earlier Carta could not be invalidated: withhold the
-        // foundation confirmation here too (it would rely on that Carta).
-        if (json.datos_guardados) setCartaInvalidated(true);
         toast.error(json.error || 'Error al guardar adjudicacion');
         return false;
       }

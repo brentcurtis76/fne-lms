@@ -2,9 +2,11 @@
 /**
  * LIC-D2 (GENERA fixes F20c): a Carta de adjudicación generated for one winner,
  * amount, payment conditions, offer date or contacts stops counting when any of
- * those is changed and saved — the tender's pointer to it is emptied in the
- * same update (the document row stays), the answer says so and a history line
- * is written. A save that changes none of them keeps the Carta.
+ * those is changed and saved. The award data and the emptied pointer are ONE
+ * update, guarded by the pointer the route read (the document row stays):
+ * one row → saved and invalidated together; no row (another Carta meanwhile)
+ * → nothing saved, 409; a database error → nothing saved, 500. A save that
+ * changes no printed value, or a tender without a Carta, is one plain update.
  * Synthetic data only.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -12,11 +14,11 @@ import { createMocks } from 'node-mocks-http';
 
 const { h } = vi.hoisted(() => ({
   h: {
-    licitacion: {} as Record<string, unknown>,
+    stored: {} as Record<string, unknown>, // the tender row in the "database"
     updates: [] as Array<{ table: string; payload: Record<string, unknown>; eqs: unknown[][] }>,
     pointerChanged: false, // another Carta was generated after the route read the tender
+    updateFails: false, // the tender update answers a database error
     historyFails: false, // the invalidation's history insert answers an error
-    clearFails: false, // the narrow pointer update answers a database error
     inserts: [] as Array<{ table: string; payload: Record<string, unknown> }>,
     deletes: [] as string[],
   },
@@ -30,12 +32,16 @@ vi.mock('@/lib/api-auth', async () => {
       const payload = opArgs(req, 'update')?.[0] as Record<string, unknown>;
       const eqs = req.ops.filter(o => o.method === 'eq').map(o => o.args);
       h.updates.push({ table: req.target, payload, eqs });
-      // The narrow pointer update: matches a row only while the pointer is unchanged.
-      if (req.target === 'licitaciones' && 'carta_adjudicacion_url' in payload) {
-        if (h.clearFails) return { data: null, error: { message: 'base inventada caída' } };
-        return { data: h.pointerChanged ? [] : [{ id: h.licitacion.id }], error: null };
-      }
-      return { data: { ...h.licitacion, ...payload }, error: null };
+      if (req.target !== 'licitaciones') return { data: null, error: null };
+      if (h.updateFails) return { data: null, error: { message: 'base inventada caída' } };
+      // The row matches only if every eq filter holds on the stored row.
+      const current = h.pointerChanged
+        ? { ...h.stored, carta_adjudicacion_url: 'licitaciones/x/adjudicacion/carta-nueva.docx' }
+        : h.stored;
+      const matches = eqs.every(([col, val]) => current[col as string] === val);
+      if (!matches) return { data: null, error: null };
+      h.stored = { ...current, ...payload };
+      return { data: { ...h.stored }, error: null };
     }
     if (has(req, 'insert')) {
       const payload = opArgs(req, 'insert')?.[0] as Record<string, unknown>;
@@ -46,7 +52,7 @@ vi.mock('@/lib/api-auth', async () => {
       return { data: null, error: null };
     }
     if (has(req, 'delete')) { h.deletes.push(req.target); return { data: null, error: null }; }
-    if (req.target === 'licitaciones') return { data: h.licitacion, error: null };
+    if (req.target === 'licitaciones') return { data: { ...h.stored }, error: null };
     if (req.target === 'licitacion_ates') return { data: { id: 'ok' }, error: null };
     return { data: null, error: null };
   };
@@ -70,6 +76,8 @@ const LIC = '22222222-2222-4222-8222-222222222222';
 const ATE_A = '33333333-3333-4333-8333-333333333333';
 const ATE_B = '44444444-4444-4444-8444-444444444444';
 const CARTA = 'licitaciones/x/adjudicacion/carta-a.docx';
+const INVALIDATED_MSG = 'La Carta de adjudicación ya no corresponde a los datos guardados. Genérela de nuevo antes de confirmar.';
+const CONFLICT_MSG = 'Otra persona generó o cambió la Carta mientras guardaba. Recargue la página y revise los datos antes de continuar.';
 
 // What the screen sends when nothing was edited (the stored values).
 const sameBody = () => ({
@@ -82,18 +90,21 @@ const sameBody = () => ({
   contacto_coordinacion_telefono: '+56 9 0000 0000',
 });
 
+const initialRow = () => ({
+  id: LIC, school_id: 1, estado: 'adjudicacion_pendiente', carta_adjudicacion_url: CARTA,
+  ganador_ate_id: ATE_A,
+  monto_adjudicado_uf: '1200.50', // Postgres numeric arrives as text
+  condiciones_pago: '50% al inicio, 50% al cierre',
+  fecha_oferta_ganadora: '2026-11-10',
+  contacto_coordinacion_nombre: 'Persona Inventada',
+  contacto_coordinacion_email: 'coordinacion@inventado.test',
+  contacto_coordinacion_telefono: '+56 9 0000 0000',
+});
+
 beforeEach(() => {
-  h.updates = []; h.inserts = []; h.deletes = []; h.pointerChanged = false; h.historyFails = false; h.clearFails = false;
-  h.licitacion = {
-    id: LIC, school_id: 1, estado: 'adjudicacion_pendiente', carta_adjudicacion_url: CARTA,
-    ganador_ate_id: ATE_A,
-    monto_adjudicado_uf: '1200.50', // Postgres numeric arrives as text
-    condiciones_pago: '50% al inicio, 50% al cierre',
-    fecha_oferta_ganadora: '2026-11-10',
-    contacto_coordinacion_nombre: 'Persona Inventada',
-    contacto_coordinacion_email: 'coordinacion@inventado.test',
-    contacto_coordinacion_telefono: '+56 9 0000 0000',
-  };
+  h.updates = []; h.inserts = []; h.deletes = [];
+  h.pointerChanged = false; h.updateFails = false; h.historyFails = false;
+  h.stored = initialRow();
 });
 
 async function save(body: unknown) {
@@ -102,9 +113,9 @@ async function save(body: unknown) {
   return { status: res._getStatusCode(), json: res._getJSONData() };
 }
 
-const tenderUpdate = () => h.updates.find(u => u.table === 'licitaciones' && !('carta_adjudicacion_url' in u.payload))!;
-const pointerUpdates = () => h.updates.filter(u => u.table === 'licitaciones' && 'carta_adjudicacion_url' in u.payload);
+const tenderUpdates = () => h.updates.filter(u => u.table === 'licitaciones');
 const historyActions = () => h.inserts.filter(i => i.table === 'licitacion_historial').map(i => i.payload.accion);
+const atesTouched = () => h.updates.some(u => u.table === 'licitacion_ates');
 
 describe('adjudicacion — a Carta made for earlier values stops counting (LIC-D2)', () => {
   const changes: Array<[string, Record<string, unknown>]> = [
@@ -117,27 +128,30 @@ describe('adjudicacion — a Carta made for earlier values stops counting (LIC-D
     ['the coordination phone', { contacto_coordinacion_telefono: '+56 9 1111 1111' }],
   ];
 
-  it.each(changes)('a change of %s empties the Carta pointer (only while it still holds that Carta), says so and logs it', async (_name, change) => {
+  it.each(changes)('(a) a change of %s: one update, guarded by the Carta read, saves it and empties the pointer; says so and logs it', async (_name, change) => {
     const r = await save({ ...sameBody(), ...change });
     expect(r.status).toBe(200);
-    expect(tenderUpdate().payload).toMatchObject(change);
-    expect(pointerUpdates()).toEqual([
-      { table: 'licitaciones', payload: { carta_adjudicacion_url: null }, eqs: [['id', LIC], ['carta_adjudicacion_url', CARTA]] },
-    ]);
+    expect(tenderUpdates()).toHaveLength(1);
+    expect(tenderUpdates()[0].payload).toMatchObject({ ...change, carta_adjudicacion_url: null });
+    expect(tenderUpdates()[0].eqs).toEqual([['id', LIC], ['carta_adjudicacion_url', CARTA]]);
+    expect(h.stored).toMatchObject({ ...change, carta_adjudicacion_url: null });
     expect(r.json.data.carta_invalidada).toBe(true);
     expect(r.json.data.licitacion.carta_adjudicacion_url).toBeNull();
     expect(r.json.data.historial_registrado).toBe(true);
-    expect(r.json.message).toBe('La Carta de adjudicación ya no corresponde a los datos guardados. Genérela de nuevo antes de confirmar.');
-    expect(historyActions()).toContain('Carta de Adjudicacion anulada por cambio de datos');
+    expect(r.json.message).toBe(INVALIDATED_MSG);
+    expect(historyActions()).toEqual(['Datos de adjudicacion guardados', 'Carta de Adjudicacion anulada por cambio de datos']);
     // The document itself stays in the tender's documents as history.
     expect(h.deletes).toHaveLength(0);
     expect(h.updates.some(u => u.table === 'licitacion_documentos')).toBe(false);
   });
 
-  it('a save with the same values keeps the Carta', async () => {
+  it('a save with the same values is one plain update and keeps the Carta', async () => {
     const r = await save(sameBody());
     expect(r.status).toBe(200);
-    expect(pointerUpdates()).toHaveLength(0);
+    expect(tenderUpdates()).toHaveLength(1);
+    expect(tenderUpdates()[0].payload).not.toHaveProperty('carta_adjudicacion_url');
+    expect(tenderUpdates()[0].eqs).toEqual([['id', LIC]]);
+    expect(h.stored.carta_adjudicacion_url).toBe(CARTA);
     expect(r.json.data.carta_invalidada).toBe(false);
     expect(historyActions()).toEqual(['Datos de adjudicacion guardados']);
   });
@@ -145,41 +159,57 @@ describe('adjudicacion — a Carta made for earlier values stops counting (LIC-D
   it('fields left out of the request (an older client) change nothing and keep the Carta', async () => {
     const r = await save({ ganador_ate_id: ATE_A });
     expect(r.status).toBe(200);
-    expect(pointerUpdates()).toHaveLength(0);
+    expect(tenderUpdates()[0].payload).not.toHaveProperty('carta_adjudicacion_url');
+    expect(h.stored.carta_adjudicacion_url).toBe(CARTA);
     expect(r.json.data.carta_invalidada).toBe(false);
   });
 
-  it('with no Carta yet, a change clears nothing and says nothing about a Carta', async () => {
-    h.licitacion = { ...h.licitacion, carta_adjudicacion_url: null };
+  it('with no Carta yet, a change is one plain update and says nothing about a Carta', async () => {
+    h.stored = { ...initialRow(), carta_adjudicacion_url: null };
     const r = await save({ ...sameBody(), ganador_ate_id: ATE_B });
     expect(r.status).toBe(200);
-    expect(pointerUpdates()).toHaveLength(0);
+    expect(tenderUpdates()).toHaveLength(1);
+    expect(tenderUpdates()[0].payload).not.toHaveProperty('carta_adjudicacion_url');
+    expect(tenderUpdates()[0].eqs).toEqual([['id', LIC]]);
+    expect(h.stored.ganador_ate_id).toBe(ATE_B);
     expect(r.json.data.carta_invalidada).toBe(false);
     expect(historyActions()).toEqual(['Datos de adjudicacion guardados']);
   });
 
-  it('a cleared printed value is saved as cleared and counts as a change (send-back 1)', async () => {
+  it('a cleared printed value is saved as cleared and counts as a change', async () => {
     const r = await save({ ...sameBody(), condiciones_pago: null });
     expect(r.status).toBe(200);
-    expect(tenderUpdate().payload).toMatchObject({ condiciones_pago: null });
-    expect(pointerUpdates()).toHaveLength(1);
+    expect(tenderUpdates()[0].payload).toMatchObject({ condiciones_pago: null, carta_adjudicacion_url: null });
+    expect(h.stored.condiciones_pago).toBeNull();
     expect(r.json.data.carta_invalidada).toBe(true);
     const line = h.inserts.find(i => i.payload.accion === 'Carta de Adjudicacion anulada por cambio de datos')!;
     expect((line.payload.detalles as { campos_cambiados: string[] }).campos_cambiados).toEqual(['condiciones_pago']);
   });
 
-  it('a newer Carta generated after the read is left alone, and the answer does not claim an invalidation (send-back 1)', async () => {
+  it('(b) another Carta was generated since the read: nothing is saved, 409 with the sentence', async () => {
     h.pointerChanged = true;
     const r = await save({ ...sameBody(), monto_adjudicado_uf: 1300 });
-    expect(r.status).toBe(200);
-    expect(tenderUpdate().payload).toMatchObject({ monto_adjudicado_uf: 1300 });
-    expect(pointerUpdates()).toHaveLength(1); // tried, guarded by the Carta read
-    expect(r.json.data.carta_invalidada).toBe(false);
-    expect(r.json.message).toBeUndefined();
-    expect(historyActions()).toEqual(['Datos de adjudicacion guardados']);
+    expect(r.status).toBe(409);
+    expect(r.json.error).toBe(CONFLICT_MSG);
+    // The stored award data is unchanged (only the newer Carta's pointer differs).
+    const { carta_adjudicacion_url: _newer, ...rest } = h.stored;
+    const { carta_adjudicacion_url: _old, ...initialRest } = initialRow();
+    expect(rest).toEqual(initialRest);
+    expect(atesTouched()).toBe(false);
+    expect(h.inserts).toHaveLength(0);
   });
 
-  it('when the invalidation\'s history line fails, the failure is logged and the answer stays honest (send-back 1)', async () => {
+  it('(c) a database error on the guarded update: nothing is saved, 500 with the route\'s general sentence', async () => {
+    h.updateFails = true;
+    const r = await save({ ...sameBody(), ganador_ate_id: ATE_B });
+    expect(r.status).toBe(500);
+    expect(r.json.error).toBe('Error al guardar adjudicacion');
+    expect(h.stored).toEqual(initialRow());
+    expect(atesTouched()).toBe(false);
+    expect(h.inserts).toHaveLength(0);
+  });
+
+  it('when the invalidation\'s history line fails, the failure is logged and the answer stays honest', async () => {
     h.historyFails = true;
     const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const r = await save({ ...sameBody(), ganador_ate_id: ATE_B });
@@ -188,18 +218,6 @@ describe('adjudicacion — a Carta made for earlier values stops counting (LIC-D
     expect(r.json.data.historial_registrado).toBe(false);
     expect(logged).toHaveBeenCalledWith(expect.stringContaining('licitacion_historial'), 'historial inventado caído');
     expect(historyActions()).toEqual(['Datos de adjudicacion guardados']);
-    logged.mockRestore();
-  });
-
-  it('when emptying the pointer fails in the database, the answer is a failure that says the data was saved (send-back 2)', async () => {
-    h.clearFails = true;
-    const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
-    const r = await save({ ...sameBody(), monto_adjudicado_uf: 450 });
-    expect(r.status).toBe(500);
-    expect(r.json.error).toBe('Los datos se guardaron, pero no se pudo invalidar la Carta anterior. Vuelva a guardar antes de confirmar.');
-    expect(r.json.datos_guardados).toBe(true);
-    expect(tenderUpdate().payload).toMatchObject({ monto_adjudicado_uf: 450 });
-    expect(historyActions()).not.toContain('Carta de Adjudicacion anulada por cambio de datos');
     logged.mockRestore();
   });
 });

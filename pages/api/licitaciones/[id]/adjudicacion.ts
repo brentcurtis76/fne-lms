@@ -32,8 +32,8 @@ const CARTA_TEXT_FIELDS = [
 const CARTA_INVALIDADA_MSG =
   'La Carta de adjudicación ya no corresponde a los datos guardados. Genérela de nuevo antes de confirmar.';
 
-const CARTA_NO_INVALIDADA_MSG =
-  'Los datos se guardaron, pero no se pudo invalidar la Carta anterior. Vuelva a guardar antes de confirmar.';
+const CARTA_CONFLICTO_MSG =
+  'Otra persona generó o cambió la Carta mientras guardaba. Recargue la página y revise los datos antes de continuar.';
 
 const isEmpty = (v: unknown) => v === null || v === undefined || v === '';
 
@@ -153,38 +153,39 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (field in updatePayload && !sameText(licitacion[field], updatePayload[field])) changedFields.push(field);
     }
     const cartaLeida = licitacion.carta_adjudicacion_url as string | null;
-    const cartaDesactualizada = !!cartaLeida && changedFields.length > 0;
+    const cartaInvalidada = !!cartaLeida && changedFields.length > 0;
 
-    // Update licitacion
-    const { data: updated, error: updateError } = await serviceClient
-      .from('licitaciones')
-      .update(updatePayload)
-      .eq('id', licitacionId)
-      .select('*')
-      .single();
-
-    if (updateError || !updated) {
-      return sendAuthError(res, `Error al guardar adjudicacion: ${updateError?.message || 'Error desconocido'}`, 500);
-    }
-
-    // Empty the pointer only where it still holds the Carta read above: a Carta
-    // generated meanwhile (for the values now saved) is left alone.
-    let cartaInvalidada = false;
-    let clearFailed = false;
-    if (cartaDesactualizada) {
-      const { data: cleared, error: clearError } = await serviceClient
+    let updated: Record<string, unknown>;
+    if (cartaInvalidada) {
+      // The award data and the emptied pointer are ONE update, guarded by the
+      // pointer read above: if another Carta was generated (or the pointer
+      // changed) meanwhile, no row matches and nothing is saved.
+      const { data: guarded, error: guardedError } = await serviceClient
         .from('licitaciones')
-        .update({ carta_adjudicacion_url: null })
+        .update({ ...updatePayload, carta_adjudicacion_url: null })
         .eq('id', licitacionId)
         .eq('carta_adjudicacion_url', cartaLeida)
-        .select('id');
-      if (clearError) {
-        console.error('[licitaciones-adjudicacion] Carta pointer clear failed:', clearError.message);
-        clearFailed = true;
-      } else {
-        cartaInvalidada = Array.isArray(cleared) && cleared.length > 0;
+        .select('*')
+        .maybeSingle();
+      if (guardedError) {
+        return sendAuthError(res, 'Error al guardar adjudicacion', 500, guardedError.message);
       }
-      if (cartaInvalidada) (updated as Record<string, unknown>).carta_adjudicacion_url = null;
+      if (!guarded) {
+        return sendAuthError(res, CARTA_CONFLICTO_MSG, 409);
+      }
+      updated = guarded;
+    } else {
+      const { data: plain, error: updateError } = await serviceClient
+        .from('licitaciones')
+        .update(updatePayload)
+        .eq('id', licitacionId)
+        .select('*')
+        .single();
+
+      if (updateError || !plain) {
+        return sendAuthError(res, `Error al guardar adjudicacion: ${updateError?.message || 'Error desconocido'}`, 500);
+      }
+      updated = plain;
     }
 
     // Update es_ganador on all ATEs (reset then set winner)
@@ -207,12 +208,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       detalles: { ganador_ate_id: data.ganador_ate_id },
       user_id: user.id,
     });
-
-    // The data is saved but the earlier Carta still counts: a failure the screen
-    // cannot take for success, so it stops before confirming or generating.
-    if (clearFailed) {
-      return res.status(500).json({ error: CARTA_NO_INVALIDADA_MSG, datos_guardados: true });
-    }
 
     if (cartaInvalidada) {
       // No transaction is available here: if this line fails, the invalidation

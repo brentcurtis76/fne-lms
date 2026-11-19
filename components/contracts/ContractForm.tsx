@@ -6,6 +6,8 @@ import { openDocumentPreview, renderDocumentPreview } from '@/lib/contract-docum
 import { toast } from 'react-hot-toast';
 import { generateContractFromTemplate } from '@/lib/contract-template';
 import { reconcileCuotas, attachExistingCuotaIds } from '@/lib/utils/reconcileCuotas';
+import { buildClientRow } from '@/lib/contracts/client-row';
+import { splitEvenly, sumsMatch, difference, decimalsFor, hasCurrencyPrecision, precisionMessage } from '@/lib/contracts/cuotas-math';
 
 interface Programa {
   id: string;
@@ -72,7 +74,6 @@ interface ClienteFormState {
   nombre_contacto_administrativo: string;
   telefono_contacto_administrativo: string;
   email_contacto_administrativo: string;
-  telefono?: string;
 }
 
 interface ContractFormState {
@@ -85,7 +86,13 @@ interface ContractFormState {
   descripcion_manual?: string;
   cliente_id?: string;
   contrato_url?: string;
+  horas_contratadas: string; // text of the «Horas contratadas» field; '' = no value (GES-2.2)
 }
+
+const DUPLICATE_DRAFT_NUMBER_MESSAGE = 'Ya existe un contrato con este número. Por favor use un número diferente.';
+
+// «Horas contratadas»: optional, 0 to 999999.99, at most two decimals (GES-2.2)
+const HORAS_CONTRATADAS_PATTERN = /^\d{1,6}(\.\d{1,2})?$/;
 
 interface LicitacionFormData {
   cliente_id: string;
@@ -109,6 +116,12 @@ interface ContractFormProps {
   onSuccess: (contratoId?: string) => void; // Phase 5: passes new contratoId
   onCancel: () => void;
 }
+
+// The programme's hours as the field's text, or null when it has none (send-back 3)
+const hoursOfProgramme = (programas: Programa[], programaId: string): string | null => {
+  const programa = programas.find(p => p.id === programaId);
+  return programa && programa.horas_totales != null ? String(programa.horas_totales) : null;
+};
 
 export default function ContractForm({ programas, clientes, editingContract, preSelectedClientId, extractedData, licitacionId, licitacionData, onSuccess, onCancel }: ContractFormProps) {
   const supabase = useSupabaseClient();
@@ -147,8 +160,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
     email_encargado_proyecto: '',
     nombre_contacto_administrativo: '',
     telefono_contacto_administrativo: '',
-    email_contacto_administrativo: '',
-    telefono: ''
+    email_contacto_administrativo: ''
   });
   
   // Contract form
@@ -161,8 +173,14 @@ export default function ContractForm({ programas, clientes, editingContract, pre
     tipo_moneda: 'UF',
     descripcion_manual: '',
     cliente_id: '',
-    contrato_url: ''
+    contrato_url: '',
+    horas_contratadas: ''
   });
+  // Whether the edited contract already has a distribution of hours; the field is
+  // locked unless the read answered 'none' (GES-2.2)
+  const [hourAllocationState, setHourAllocationState] = useState<'none' | 'checking' | 'has' | 'error'>(
+    editingContract ? 'checking' : 'none'
+  );
   
   // Installments form
   const [cuotas, setCuotas] = useState<CuotaForm[]>([
@@ -233,7 +251,8 @@ export default function ContractForm({ programas, clientes, editingContract, pre
         precio_total_uf: extractedData.financial?.precio_total || 0,
         tipo_moneda: extractedData.financial?.moneda || 'UF',
         descripcion_manual: `Contrato importado desde PDF - ${extractedData.contract?.numero_contrato || 'Sin número'}`,
-        contrato_url: extractedData.contrato_url || ''
+        contrato_url: extractedData.contrato_url || '',
+        horas_contratadas: ''
       });
       
       // Populate client form
@@ -332,11 +351,16 @@ export default function ContractForm({ programas, clientes, editingContract, pre
         tipo_moneda: editingContract.tipo_moneda || 'UF',
         descripcion_manual: editingContract.descripcion_manual || '',
         cliente_id: editingContract.cliente_id || '',
-        contrato_url: editingContract.contrato_url || ''
+        contrato_url: editingContract.contrato_url || '',
+        horas_contratadas: editingContract.horas_contratadas != null ? String(editingContract.horas_contratadas) : ''
       });
       
       // Set selected client
       setSelectedClienteId(editingContract.cliente_id || '');
+      // Keep the client's school link on save (GES-3.1)
+      setSelectedSchoolId(editingContract.clientes?.school_id ?? '');
+      // A manual or imported contract opens as manual (GES-2.8)
+      setEsManual(!!editingContract.es_manual);
       
       // Populate installments
       if (editingContract.cuotas && editingContract.cuotas.length > 0) {
@@ -410,6 +434,54 @@ export default function ContractForm({ programas, clientes, editingContract, pre
     }
   }, [licitacionData, clientes, editingContract]);
 
+  // «Horas contratadas» rule (send-back 3, no memory): choosing a programme gives the
+  // field that programme's hours, whatever it held; a programme without hours (or no
+  // programme) leaves it as it is. Loading a contract never fills it; a locked field
+  // never changes. The licitación's programme of a NEW contract counts as a choice;
+  // it is applied once the programmes are known (they arrive from the page).
+  const licitacionProgramaId = licitacionData?.programa_id;
+  useEffect(() => {
+    if (!licitacionProgramaId || editingContract) return;
+    const horas = hoursOfProgramme(programas, licitacionProgramaId);
+    if (horas !== null) setContractForm(prev => ({ ...prev, horas_contratadas: horas }));
+  }, [licitacionProgramaId, programas, editingContract]);
+
+  // Whether a contract already has a distribution of hours: its total must equal
+  // horas_contratadas, so the column is then not written. Used by edit mode and by
+  // the draft path when it updates a draft found by its number (send-back 1).
+  const readHourAllocationState = async (contratoId: string): Promise<'none' | 'has' | 'error'> => {
+    const { data, error } = await supabase
+      .from('contract_hour_allocations')
+      .select('id')
+      .eq('contrato_id', contratoId)
+      .limit(1);
+    if (error) {
+      console.error('Error reading contract hour allocations:', error);
+      return 'error';
+    }
+    return data && data.length > 0 ? 'has' : 'none';
+  };
+
+  // In edit mode, read once whether the contract already has a distribution of
+  // hours: its total must equal horas_contratadas, so the field is then locked.
+  useEffect(() => {
+    const contratoId = editingContract?.id;
+    if (!contratoId) {
+      setHourAllocationState('none');
+      return;
+    }
+    let cancelled = false;
+    setHourAllocationState('checking');
+    (async () => {
+      const state = await readHourAllocationState(contratoId);
+      if (cancelled) return;
+      setHourAllocationState(state);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [editingContract?.id]);
+
   // Generate contract number automatically
   useEffect(() => {
     if (!editingContract) { // Only generate for new contracts
@@ -461,10 +533,11 @@ export default function ContractForm({ programas, clientes, editingContract, pre
     const numCuotas = cuotas.length;
     
     if (totalAmount > 0 && numCuotas > 0) {
-      const amountPerCuota = totalAmount / numCuotas;
+      // Whole hundredths (UF) or whole pesos (CLP); the last cuota takes the remainder (GES-2.7).
+      const amounts = splitEvenly(totalAmount, numCuotas, decimalsFor(contractForm.tipo_moneda));
       const updatedCuotas = cuotas.map((cuota, index) => ({
         ...cuota,
-        monto: parseFloat(amountPerCuota.toFixed(2))
+        monto: amounts[index]
       }));
       setCuotas(updatedCuotas);
     }
@@ -562,6 +635,34 @@ export default function ContractForm({ programas, clientes, editingContract, pre
     }
   };
 
+  // «Horas contratadas»: validity, locked state and the value to save (GES-2.2)
+  const horasText = contractForm.horas_contratadas.trim();
+  const horasValid = horasText === '' || HORAS_CONTRATADAS_PATTERN.test(horasText);
+  const horasReadOnly = hourAllocationState !== 'none';
+  const horasToSave = horasText === '' || !horasValid ? null : Number(horasText);
+
+  // Row for a brand-new client: only clientes columns (buildClientRow, GES-2.1),
+  // with the defaults the database still needs for its obligatory legal columns.
+  const newClientRow = () => {
+    const today = new Date().toISOString().split('T')[0]; // Get today's date in YYYY-MM-DD format
+    return {
+      ...buildClientRow(clienteForm, selectedSchoolId),
+      // Required fields with defaults
+      nombre_fantasia: clienteForm.nombre_fantasia || clienteForm.nombre_legal, // Use legal name if no fantasy name
+      rut_representante: clienteForm.rut_representante || '11.111.111-1', // Default RUT if not provided
+      fecha_escritura: clienteForm.fecha_escritura || today, // Use today's date if not provided
+      nombre_notario: clienteForm.nombre_notario || 'Notario Público', // Default notary name
+      // Optional fields can be null
+      comuna_notaria: clienteForm.comuna_notaria || null,
+      nombre_encargado_proyecto: clienteForm.nombre_encargado_proyecto || null,
+      telefono_encargado_proyecto: clienteForm.telefono_encargado_proyecto || null,
+      email_encargado_proyecto: clienteForm.email_encargado_proyecto || null,
+      nombre_contacto_administrativo: clienteForm.nombre_contacto_administrativo || null,
+      telefono_contacto_administrativo: clienteForm.telefono_contacto_administrativo || null,
+      email_contacto_administrativo: clienteForm.email_contacto_administrativo || null
+    };
+  };
+
   // Save contract as draft
   const handleSaveAsDraft = async () => {
     try {
@@ -569,8 +670,24 @@ export default function ContractForm({ programas, clientes, editingContract, pre
       
       // Validate minimum required fields for draft
       if (!contractForm.numero_contrato) {
-        alert('Por favor ingrese un número de contrato antes de guardar como borrador.');
+        toast.error('Por favor ingrese un número de contrato antes de guardar como borrador.');
         setSavingAsDraft(false);
+        return;
+      }
+      
+      // Check the schedule before ANY write: a draft is saved whole or not at all (GES-2.6)
+      for (const cuota of cuotas) {
+        if (!cuota.fecha_vencimiento) {
+          toast.error(`La cuota ${cuota.numero_cuota} necesita una fecha de vencimiento para guardar el borrador.`);
+          return;
+        }
+        if (!(cuota.monto > 0)) {
+          toast.error(`La cuota ${cuota.numero_cuota} necesita un monto mayor que cero para guardar el borrador.`);
+          return;
+        }
+      }
+      if (amountPrecisionError) {
+        toast.error(amountPrecisionError);
         return;
       }
       
@@ -578,17 +695,6 @@ export default function ContractForm({ programas, clientes, editingContract, pre
       let clienteId = selectedClienteId || contractForm.cliente_id;
       
       if (!clienteId && (clienteForm.rut || clienteForm.nombre_legal)) {
-        // Create minimal client if we have some data
-        const clientData: any = {};
-        if (clienteForm.rut) clientData.rut = clienteForm.rut;
-        if (clienteForm.nombre_legal) clientData.nombre_legal = clienteForm.nombre_legal || 'Cliente Pendiente';
-        if (clienteForm.direccion) clientData.direccion = clienteForm.direccion;
-        if (clienteForm.comuna) clientData.comuna = clienteForm.comuna;
-        if (clienteForm.ciudad) clientData.ciudad = clienteForm.ciudad;
-        if (clienteForm.telefono) clientData.telefono = clienteForm.telefono;
-        if (clienteForm.email_encargado_proyecto) clientData.email_encargado_proyecto = clienteForm.email_encargado_proyecto;
-        if (clienteForm.email_contacto_administrativo) clientData.email_contacto_administrativo = clienteForm.email_contacto_administrativo;
-        
         // Check if client exists
         if (clienteForm.rut) {
           const { data: existingCliente } = await supabase
@@ -602,18 +708,21 @@ export default function ContractForm({ programas, clientes, editingContract, pre
           }
         }
         
-        if (!clienteId && Object.keys(clientData).length > 0) {
+        if (!clienteId) {
+          // The same complete row as the full save (buildClientRow + defaults)
           const { data: newCliente, error: clienteError } = await supabase
             .from('clientes')
-            .insert([clientData])
+            .insert([newClientRow()])
             .select()
             .single();
             
           if (clienteError) {
+            // Stop here: without its client nothing of the draft is written
             console.error('Error creating client for draft:', clienteError);
-          } else {
-            clienteId = newCliente.id;
+            toast.error('No se pudo guardar el cliente del borrador. Revise sus datos e inténtelo de nuevo.');
+            return;
           }
+          clienteId = newCliente.id;
         }
       }
       
@@ -633,6 +742,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
       if (contractForm.tipo_moneda) contractData.tipo_moneda = contractForm.tipo_moneda;
       if (esManual && contractForm.descripcion_manual) contractData.descripcion_manual = contractForm.descripcion_manual;
       if (contractForm.contrato_url) contractData.contrato_url = contractForm.contrato_url;
+      if (!horasReadOnly) contractData.horas_contratadas = horasToSave;
       
       let contractId;
       
@@ -658,7 +768,11 @@ export default function ContractForm({ programas, clientes, editingContract, pre
           .single();
           
         if (existingDraft) {
-          // Update existing draft
+          // Update existing draft. Do not overwrite hours already distributed: if
+          // the row has allocations, or the read fails, the column is not sent.
+          if ((await readHourAllocationState(existingDraft.id)) !== 'none') {
+            delete contractData.horas_contratadas;
+          }
           const { data: updatedContract, error } = await supabase
             .from('contratos')
             .update(contractData)
@@ -678,7 +792,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
             
           if (error) {
             if (error.message.includes('duplicate key')) {
-              throw new Error('Ya existe un contrato con este número. Por favor use un número diferente.');
+              throw new Error(DUPLICATE_DRAFT_NUMBER_MESSAGE);
             }
             throw error;
           }
@@ -722,11 +836,15 @@ export default function ContractForm({ programas, clientes, editingContract, pre
         );
       }
       
-      alert('✅ Contrato guardado como borrador. Puede continuar editándolo más tarde desde la lista de contratos.');
+      toast.success('✅ Contrato guardado como borrador. Puede continuar editándolo más tarde desde la lista de contratos.');
       onSuccess(contractId);
     } catch (error: any) {
       console.error('Error saving draft:', error);
-      alert(error.message || 'Error al guardar el borrador. Por favor intente nuevamente.');
+      toast.error(
+        error?.message === DUPLICATE_DRAFT_NUMBER_MESSAGE
+          ? DUPLICATE_DRAFT_NUMBER_MESSAGE
+          : 'No se pudo guardar el borrador. Inténtelo de nuevo.'
+      );
     } finally {
       setSavingAsDraft(false);
     }
@@ -742,10 +860,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
         // EDITING MODE
         
         // Update client data with school_id
-        const clientUpdateData = {
-          ...clienteForm,
-          school_id: selectedSchoolId || null
-        };
+        const clientUpdateData = buildClientRow(clienteForm, selectedSchoolId);
         
         const { error: clienteError } = await supabase
           .from('clientes')
@@ -779,6 +894,8 @@ export default function ContractForm({ programas, clientes, editingContract, pre
             tipo_moneda: contractForm.tipo_moneda,
             es_manual: esManual,
             descripcion_manual: esManual ? contractForm.descripcion_manual : null,
+            // Not sent once the contract has a distribution of hours (GES-2.2)
+            ...(horasReadOnly ? {} : { horas_contratadas: horasToSave }),
             // Preserve/refresh the imported source PDF URL without nulling it on edit.
             ...(contractForm.contrato_url ? { contrato_url: contractForm.contrato_url } : {}),
             // A full save runs only on a validated form (isStepValid), so it
@@ -806,26 +923,8 @@ export default function ContractForm({ programas, clientes, editingContract, pre
         
         // First, save or update client
         if (!selectedClienteId) {
-          // Prepare client data with school_id if selected
-          // Provide default values for required fields
-          const today = new Date().toISOString().split('T')[0]; // Get today's date in YYYY-MM-DD format
-          const clientData = {
-            ...clienteForm,
-            school_id: selectedSchoolId || null,
-            // Required fields with defaults
-            nombre_fantasia: clienteForm.nombre_fantasia || clienteForm.nombre_legal, // Use legal name if no fantasy name
-            rut_representante: clienteForm.rut_representante || '11.111.111-1', // Default RUT if not provided
-            fecha_escritura: clienteForm.fecha_escritura || today, // Use today's date if not provided
-            nombre_notario: clienteForm.nombre_notario || 'Notario Público', // Default notary name
-            // Optional fields can be null
-            comuna_notaria: clienteForm.comuna_notaria || null,
-            nombre_encargado_proyecto: clienteForm.nombre_encargado_proyecto || null,
-            telefono_encargado_proyecto: clienteForm.telefono_encargado_proyecto || null,
-            email_encargado_proyecto: clienteForm.email_encargado_proyecto || null,
-            nombre_contacto_administrativo: clienteForm.nombre_contacto_administrativo || null,
-            telefono_contacto_administrativo: clienteForm.telefono_contacto_administrativo || null,
-            email_contacto_administrativo: clienteForm.email_contacto_administrativo || null
-          };
+          // Prepare client data with school_id if selected (defaults applied by newClientRow)
+          const clientData = newClientRow();
           
           // Check if client with this RUT already exists
           const { data: existingCliente, error: checkError } = await supabase
@@ -915,6 +1014,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
           tipo_moneda: contractForm.tipo_moneda,
           es_manual: esManual,
           descripcion_manual: esManual ? contractForm.descripcion_manual : null,
+          horas_contratadas: horasToSave,
         };
         // Phase 5: include licitacion_id if creating from licitacion
         if (licitacionId) {
@@ -1032,6 +1132,21 @@ export default function ContractForm({ programas, clientes, editingContract, pre
     return renderDocumentPreview(openDocumentPreview(), htmlContent, `Contrato ${contractForm.numero_contrato}`);
   };
 
+  // Cuotas against the contract total, in whole units of the currency (GES-2.7)
+  const moneyDecimals = decimalsFor(contractForm.tipo_moneda);
+  const cuotaAmounts = cuotas.map(c => c.monto);
+  const cuotasMatchTotal = sumsMatch(contractForm.precio_total_uf, cuotaAmounts, moneyDecimals);
+  // The amounts that are checked are the amounts that are saved: a total or a cuota
+  // with more decimals than its currency is refused, never rounded (send-back 1).
+  const badPrecisionCuota = cuotas.find(c => !hasCurrencyPrecision(c.monto, moneyDecimals));
+  const amountPrecisionError = !hasCurrencyPrecision(contractForm.precio_total_uf, moneyDecimals)
+    ? precisionMessage('total')
+    : badPrecisionCuota
+      ? precisionMessage({ cuota: badPrecisionCuota.numero_cuota })
+      : null;
+  // A cuota whose amount is not above zero cannot be saved: say which (send-back 2)
+  const zeroAmountCuota = cuotas.find(c => !(c.monto > 0));
+
   // Validation
   const isStepValid = () => {
     switch (step) {
@@ -1048,13 +1163,15 @@ export default function ContractForm({ programas, clientes, editingContract, pre
         // For manual contracts, validate description instead of program
         if (esManual) {
           return contractForm.numero_contrato && contractForm.fecha_contrato && 
-                 contractForm.fecha_fin && contractForm.descripcion_manual && contractForm.precio_total_uf > 0;
+                 contractForm.fecha_fin && contractForm.descripcion_manual && contractForm.precio_total_uf > 0 &&
+                 horasValid;
         }
         return contractForm.numero_contrato && contractForm.fecha_contrato && 
-               contractForm.fecha_fin && contractForm.programa_id && contractForm.precio_total_uf > 0;
+               contractForm.fecha_fin && contractForm.programa_id && contractForm.precio_total_uf > 0 &&
+               horasValid;
       case 'cuotas':
         return cuotas.every(c => c.fecha_vencimiento && c.monto > 0) &&
-               Math.abs(cuotas.reduce((sum, c) => sum + c.monto, 0) - contractForm.precio_total_uf) <= 0.01;
+               cuotasMatchTotal && !amountPrecisionError;
       default:
         return false;
     }
@@ -1152,6 +1269,8 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                     type="checkbox"
                     checked={esManual}
                     onChange={(e) => setEsManual(e.target.checked)}
+                    // An existing contract's nature is not flipped by accident (GES-2.8)
+                    disabled={!!editingContract}
                     className="mr-3 h-4 w-4 text-brand_primary focus:ring-brand_accent border-gray-300 rounded"
                   />
                   <div>
@@ -1673,7 +1792,16 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                   </label>
                   <select
                     value={contractForm.programa_id}
-                    onChange={(e) => !licitacionId && setContractForm({ ...contractForm, programa_id: e.target.value })}
+                    onChange={(e) => {
+                      if (licitacionId) return;
+                      // The programme's hours replace the field, unless locked (send-back 3)
+                      const horas = horasReadOnly ? null : hoursOfProgramme(programas, e.target.value);
+                      setContractForm({
+                        ...contractForm,
+                        programa_id: e.target.value,
+                        ...(horas !== null ? { horas_contratadas: horas } : {})
+                      });
+                    }}
                     disabled={!!licitacionId}
                     className={`w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent ${licitacionId ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                   >
@@ -1691,6 +1819,45 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                   )}
                 </div>
               )}
+
+              {/* Contracted hours (GES-2.2): filled from the programme, editable */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Horas contratadas
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max="999999.99"
+                  data-testid="contract-hours-input"
+                  value={contractForm.horas_contratadas}
+                  readOnly={horasReadOnly}
+                  onChange={(e) => {
+                    if (horasReadOnly) return;
+                    setContractForm({ ...contractForm, horas_contratadas: e.target.value });
+                  }}
+                  className={`w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent ${horasReadOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                />
+                {/* Locked by a distribution: only the lock note shows (send-back 2) */}
+                {hourAllocationState !== 'has' && (
+                  <p className="text-sm text-gray-500 mt-1">
+                    {esManual
+                      ? 'Horas de la bolsa de este contrato (opcional).'
+                      : 'Se completa con las horas del programa al elegirlo; puede cambiarlas después.'}
+                  </p>
+                )}
+                {hourAllocationState === 'has' && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    No se puede cambiar: el contrato ya tiene una distribución de horas.
+                  </p>
+                )}
+                {!horasValid && (
+                  <p className="text-sm text-red-600 mt-1">
+                    Las horas contratadas deben ser un número entre 0 y 999999,99 con hasta dos decimales.
+                  </p>
+                )}
+              </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1834,11 +2001,25 @@ export default function ContractForm({ programas, clientes, editingContract, pre
               ))}
             </div>
 
-            {Math.abs(cuotas.reduce((sum, c) => sum + c.monto, 0) - contractForm.precio_total_uf) > 0.01 && (
+            {!cuotasMatchTotal && (
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                 <p className="text-yellow-800 text-sm">
                   ⚠️ La suma de las cuotas no coincide con el total del contrato. 
-                  Diferencia: {contractForm.tipo_moneda} {(contractForm.precio_total_uf - cuotas.reduce((sum, c) => sum + c.monto, 0)).toLocaleString('es-CL', { minimumFractionDigits: 2 })}
+                  Diferencia: {contractForm.tipo_moneda} {difference(contractForm.precio_total_uf, cuotaAmounts, moneyDecimals).toLocaleString('es-CL', { minimumFractionDigits: moneyDecimals, maximumFractionDigits: moneyDecimals })}
+                </p>
+              </div>
+            )}
+
+            {amountPrecisionError && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <p className="text-yellow-800 text-sm">{amountPrecisionError}</p>
+              </div>
+            )}
+
+            {zeroAmountCuota && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <p className="text-yellow-800 text-sm">
+                  La cuota {zeroAmountCuota.numero_cuota} necesita un monto mayor que cero.
                 </p>
               </div>
             )}

@@ -7,13 +7,17 @@ import { createMocks } from 'node-mocks-http';
 // reports-community-forged-session.test.ts), then reads role rows + profiles
 // with a module-level service-role client. Mock both so we can drive the
 // access checks and the returned data deterministically.
-const { mockRequireVerifiedCaller, mockServiceFrom } = vi.hoisted(() => ({
+const { mockRequireVerifiedCaller, mockServiceFrom, mockSessionRpc } = vi.hoisted(() => ({
   mockRequireVerifiedCaller: vi.fn(),
   mockServiceFrom: vi.fn(),
+  // F12e V5b: the caller's own session client, used only to ask
+  // auth_consultor_assigned_school_ids (it answers about the caller).
+  mockSessionRpc: vi.fn(),
 }));
 
 vi.mock('../../../lib/api-auth', () => ({
   requireVerifiedCaller: mockRequireVerifiedCaller,
+  createApiSupabaseClient: async () => ({ rpc: mockSessionRpc }),
 }));
 
 vi.mock('@supabase/supabase-js', () => ({
@@ -65,6 +69,7 @@ function makeChain(result: Result) {
       return chain;
     },
     in: () => chain,
+    maybeSingle: () => Promise.resolve(resolved),
     then: (resolve: (v: unknown) => void) => resolve(resolved),
   };
   return { chain, record };
@@ -344,6 +349,76 @@ describe('GET /api/community/members', () => {
     it('an admin gets e-mails and unapproved people too', async () => {
       const members = await membersFor([{ role_type: 'admin', community_id: null }]);
       expect(emailsOf(members)).toEqual({ [U1]: 'ana@x.cl', [U2]: 'bruno@x.cl', [U3]: 'carla@x.cl', [U4]: 'diego@x.cl' });
+    });
+  });
+
+  // F12e V5b (N28): a consultor CURRENTLY ASSIGNED to the community's school is
+  // accepted and gets exactly what a plain member gets (no e-mails, approved
+  // people only). Unassigned, other-school and ended assignments: 403.
+  describe('consultor by current assignment (F12e V5b, N28)', () => {
+    const CONSULTOR_ID = '77777777-7777-4777-8777-777777777777';
+    const U4 = '66666666-6666-4666-8666-666666666666'; // profile not approved
+    const rowsWithPending = [
+      ...roleRows,
+      { id: 'r5', user_id: U4, role_type: 'docente', community_id: COMMUNITY_ID, school_id: 7, generation_id: null, is_active: true, assigned_at: '2026-01-05', created_at: '2026-01-05' },
+    ];
+    const profilesWithPending = [
+      ...profiles,
+      { id: U4, email: 'diego@x.cl', first_name: 'Diego', last_name: 'Cuatro', avatar_url: null, school_id: 7, generation_id: null, community_id: null, created_at: '2026-01-05', external_school_affiliation: null, approval_status: 'pending' },
+    ];
+
+    function setConsultor(assignedSchools: unknown, error: unknown = null) {
+      setSession(CONSULTOR_ID);
+      setService({
+        user_roles: [
+          // the consultor's role row names no community
+          { data: [{ role_type: 'consultor', community_id: null, is_active: true }] },
+          { data: rowsWithPending },
+        ],
+        growth_communities: [{ data: { school_id: 7 } }],
+        profiles: [{ data: profilesWithPending }],
+      });
+      mockSessionRpc.mockResolvedValue({ data: assignedSchools, error });
+    }
+
+    it("accepts a consultor assigned to the community's school, with no e-mails and approved people only", async () => {
+      setConsultor([7]);
+      const res = await invoke({ community_id: COMMUNITY_ID });
+      expect(res._getStatusCode()).toBe(200);
+      const { members } = JSON.parse(res._getData());
+      expect(members.map((m: any) => m.id)).toEqual([U1, U2, U3]);
+      expect(Object.fromEntries(members.map((m: any) => [m.id, m.email]))).toEqual({ [U1]: '', [U2]: '', [U3]: '' });
+      expect(mockSessionRpc).toHaveBeenCalledWith('auth_consultor_assigned_school_ids');
+      expect(recordedQueries.growth_communities[0].eqCalls).toEqual([['id', COMMUNITY_ID]]);
+      expectCommunityMemberQueryScopedTo(COMMUNITY_ID);
+    });
+
+    it('forbids an unassigned consultor (or one whose assignment ended: the helper names no school) (403)', async () => {
+      setConsultor([]);
+      const res = await invoke({ community_id: COMMUNITY_ID });
+      expect(res._getStatusCode()).toBe(403);
+      expect(recordedQueries.user_roles).toHaveLength(1);
+      expect(recordedQueries.profiles ?? []).toHaveLength(0);
+    });
+
+    it('forbids a consultor assigned to another school (403)', async () => {
+      setConsultor([8]);
+      const res = await invoke({ community_id: COMMUNITY_ID });
+      expect(res._getStatusCode()).toBe(403);
+    });
+
+    it('forbids when the assignment lookup fails (403, fail closed)', async () => {
+      setConsultor(null, { code: '42501' });
+      const res = await invoke({ community_id: COMMUNITY_ID });
+      expect(res._getStatusCode()).toBe(403);
+    });
+
+    it('a member of the community makes no assignment lookup', async () => {
+      setSession(MEMBER_ID);
+      setMemberRequester(COMMUNITY_ID);
+      await invoke({ community_id: COMMUNITY_ID });
+      expect(mockSessionRpc).not.toHaveBeenCalled();
+      expect(recordedQueries.growth_communities ?? []).toHaveLength(0);
     });
   });
 

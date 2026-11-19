@@ -129,3 +129,33 @@ describe('MeetingDetailsModal — the person in charge updates progress (F12a R1
     expect(propsFor('t-own')).toMatchObject({ canUpdateProgress: false });
   });
 });
+
+describe('MeetingDetailsModal — author, facilitator and finaliser by name (F12c N154)', () => {
+  const withPeople = (): MeetingWithDetails =>
+    ({
+      ...meeting(),
+      finalized_at: '2026-04-20T11:00:00Z',
+      created_by_profile: { id: ANA, first_name: 'Ana', last_name: 'Uno' },
+      facilitator: { id: NOCARD, first_name: '', last_name: '' },
+      finalized_by_profile: { id: NOCARD, first_name: '', last_name: '' },
+    } as unknown as MeetingWithDetails);
+
+  it('shows the author by name and a person without a name as «Usuario»', async () => {
+    getMeetingDetails.mockResolvedValue(withPeople());
+    const utils = render(<MeetingDetailsModal isOpen onClose={vi.fn()} meetingId="mtg-1" />);
+    await waitFor(() => expect(utils.getByText('Reunión de prueba')).toBeDefined());
+    expect(utils.getByText('Creado por: Ana Uno')).toBeDefined();
+    expect(utils.getByText('Facilitador: Usuario')).toBeDefined();
+    expect(utils.getByText(/por Usuario/)).toBeDefined();
+  });
+
+  it('an author without a name is «Usuario», never an e-mail address, even if one were passed', async () => {
+    getMeetingDetails.mockResolvedValue({
+      ...withPeople(),
+      created_by_profile: { id: NOCARD, first_name: '', last_name: '', email: 'sin-nombre@example.test' },
+    });
+    const utils = render(<MeetingDetailsModal isOpen onClose={vi.fn()} meetingId="mtg-1" />);
+    await waitFor(() => expect(utils.getByText('Reunión de prueba')).toBeDefined());
+    expect(utils.queryByText(/sin-nombre@example\.test/)).toBeNull();
+  });
+});

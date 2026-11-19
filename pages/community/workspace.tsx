@@ -328,20 +328,29 @@ const CommunityWorkspacePage: React.FC = () => {
   const [activitySubscription, setActivitySubscription] = useState<ActivitySubscription | null>(null);
   const [showNotificationSettings, setShowNotificationSettings] = useState(false);
 
+  // Start-up runs once per signed-in user id (EC-V6): Next.js hands a new
+  // router object on every navigation, which must not restart the page.
+  const startedForUserRef = useRef<string | null>(null);
+  const routerRef = useRef(router);
+  routerRef.current = router;
+
   useEffect(() => {
     if (!authLoading && user) {
+      if (startedForUserRef.current === user.id) return;
+      startedForUserRef.current = user.id;
       initializeWorkspace();
     } else if (!authLoading && !user) {
+      startedForUserRef.current = null;
       // Use navigation manager to prevent concurrent navigation
       navigationManager.navigate(async () => {
-        await router.push('/login');
+        await routerRef.current.push('/login');
       }).catch((error) => {
         console.warn('Navigation to login failed:', error);
         // Fallback - try redirecting via window.location
         window.location.href = '/login';
       });
     }
-  }, [user?.id, authLoading, router, isAdmin]);
+  }, [user?.id, authLoading]);
 
   useEffect(() => {
     if (selectedCommunityId && workspaceAccess) {
@@ -441,6 +450,21 @@ const CommunityWorkspacePage: React.FC = () => {
 
     // Reset workspace when changing communities
     setCurrentWorkspace(null);
+  };
+
+  // A person choosing a community in the chooser: a conversation link of the
+  // previous community must not stay in the address, or a reload or Back
+  // would open that community again. The section and the rest are kept.
+  const handleCommunityChosen = (communityId: string) => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.has('thread')) {
+        params.delete('thread');
+        const search = params.toString();
+        router.replace(`${window.location.pathname}${search ? `?${search}` : ''}`, undefined, { shallow: true });
+      }
+    }
+    handleCommunityChange(communityId);
   };
 
   const handleSectionChange = async (section: string) => {
@@ -547,8 +571,8 @@ const CommunityWorkspacePage: React.FC = () => {
   };
 
   const renderCommunitySelector = () => {
-    if (!workspaceAccess || workspaceAccess.accessType === 'community_member') {
-      return null; // Community members are auto-directed to their workspace
+    if (!workspaceAccess) {
+      return null;
     }
 
     const selectedCommunity = workspaceAccess.availableCommunities.find(
@@ -584,15 +608,15 @@ const CommunityWorkspacePage: React.FC = () => {
             {workspaceAccess.availableCommunities.map(community => (
               <button
                 key={community.id}
-                onClick={() => handleCommunityChange(community.id)}
+                onClick={() => handleCommunityChosen(community.id)}
                 className={`w-full text-left px-4 py-3 hover:bg-gray-50 border-b border-gray-100 last:border-b-0 transition-colors duration-200 ${
                   community.id === selectedCommunityId ? 'bg-[#fbbf24]/10' : ''
                 }`}
               >
                 <div className="flex items-center space-x-3">
                   <AcademicCapIcon className="h-4 w-4 text-[#0a0a0a] flex-shrink-0" />
-                  <div>
-                    <div className="text-sm font-medium text-gray-900">
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium text-gray-900 break-words">
                       {community.display_name || community.name}
                     </div>
                     <div className="text-xs text-gray-500">
@@ -770,6 +794,10 @@ const CommunityWorkspacePage: React.FC = () => {
         {/* Workspace-specific sections */}
         <div style={{ display: activeSection === 'meetings' ? 'block' : 'none' }}>
           <MeetingsTabContent
+            // A new identity per workspace, as the messages tab: open windows
+            // and selections (a meeting's details, its edit form, its removal)
+            // belong to one community and must not carry over to the next.
+            key={currentWorkspace?.id ?? 'no-workspace'}
             workspace={currentWorkspace}
             workspaceAccess={workspaceAccess}
             user={user}
@@ -788,6 +816,11 @@ const CommunityWorkspacePage: React.FC = () => {
 
         <div style={{ display: activeSection === 'documents' ? 'block' : 'none' }}>
           <DocumentsTabContent 
+            // A new identity per workspace, as the messages tab: the open
+            // folder, breadcrumb, selection, folder list and filters belong to
+            // one community; without this the next community's documents were
+            // asked with the previous community's folder id.
+            key={currentWorkspace?.id ?? 'no-workspace'}
             workspace={currentWorkspace} 
             workspaceAccess={workspaceAccess} 
             user={user} 
@@ -951,20 +984,20 @@ const CommunityWorkspacePage: React.FC = () => {
           <div className="mb-6">
             <div className="bg-gradient-to-r from-brand_primary to-brand_primary/80 rounded-lg shadow-lg p-6">
               <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-4 min-w-0">
                   {currentWorkspace.image_url ? (
                     <img 
                       src={currentWorkspace.image_url} 
                       alt={currentWorkspace.custom_name || currentWorkspace.name}
-                      className="w-20 h-20 rounded-lg object-cover border-2 border-white/20"
+                      className="w-20 h-20 rounded-lg object-cover border-2 border-white/20 flex-shrink-0"
                     />
                   ) : (
-                    <div className="w-20 h-20 bg-white/10 rounded-lg flex items-center justify-center border-2 border-white/20">
+                    <div className="w-20 h-20 bg-white/10 rounded-lg flex items-center justify-center border-2 border-white/20 flex-shrink-0">
                       <Users className="w-10 h-10 text-white" />
                     </div>
                   )}
-                  <div>
-                    <h1 className="text-2xl font-bold text-white">
+                  <div className="min-w-0">
+                    <h1 className="text-2xl font-bold text-white break-words">
                       {currentWorkspace.custom_name || currentWorkspace.name}
                     </h1>
                     <p className="text-white/80 mt-1">
@@ -977,10 +1010,12 @@ const CommunityWorkspacePage: React.FC = () => {
                     )}
                   </div>
                 </div>
-                {canEditWorkspace && (
+                {(canEditWorkspace ||
+                  workspaceAccess?.accessType === 'community_member' ||
+                  workspaceAccess?.accessType === 'admin') && (
                   <button
                     onClick={() => setShowWorkspaceSettings(true)}
-                    className="p-3 bg-white/10 hover:bg-white/20 rounded-lg transition-colors"
+                    className="p-3 bg-white/10 hover:bg-white/20 rounded-lg transition-colors flex-shrink-0"
                     title="Editar nombre e imagen de la comunidad"
                   >
                     <Settings className="w-6 h-6 text-white" />
@@ -1055,6 +1090,7 @@ const CommunityWorkspacePage: React.FC = () => {
           workspaceId={currentWorkspace.id}
           currentName={currentWorkspace.custom_name || currentWorkspace.name}
           currentImageUrl={currentWorkspace.image_url}
+          canChangePicture={canEditWorkspace}
           onUpdate={(updates) => {
             // Update local state
             setCurrentWorkspace({

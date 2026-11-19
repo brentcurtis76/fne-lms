@@ -331,6 +331,9 @@ test.describe.serial('FNE-ANON-01 signed-in and public journeys', () => {
 
   test('3 docente: text, quiz with open answer, image, file download; progress survives reload', async ({ browser }) => {
     const { context, page } = await signedIn(browser, 'docente');
+    const completedBlocks = async () =>
+      (await query<{ n: number }>(`SELECT count(*)::int n FROM public.lesson_progress lp JOIN auth.users u ON u.id = lp.user_id
+                                   WHERE lp.lesson_id = $1 AND u.email = $2 AND lp.completed_at IS NOT NULL`, [IDS.lesson, E2E_USERS.docente.email]))[0].n;
     await page.goto(`/student/lesson/${IDS.lesson}`);
     await expect(page.getByText('Texto sintetico FNE-ANON para leer.')).toBeVisible();
     await page.getByText('He leído este contenido').click();
@@ -345,6 +348,8 @@ test.describe.serial('FNE-ANON-01 signed-in and public journeys', () => {
     await shot(page, '3-quiz-submitted');
     note('3', 'quiz submitted with an open answer (submit_quiz RPC)');
     await expect(page.getByText(/Quiz sintetico FNE-ANON - Completado/)).toBeVisible();
+    // The page marks a block complete before its lesson_progress save returns: wait for the stored rows before reloading.
+    await expect.poll(() => completedBlocks()).toBeGreaterThanOrEqual(2);
     await page.reload();
     await expect(page.getByText('Bloque 3 de 4').first()).toBeVisible({ timeout: 30_000 });
     note('3', 'reload resumes at the first incomplete block (text + quiz persisted)');
@@ -360,11 +365,9 @@ test.describe.serial('FNE-ANON-01 signed-in and public journeys', () => {
     expect(readFileSync((await download.path()) as string).equals(TXT.buffer)).toBe(true);
     await page.getByRole('button', { name: /Marcar como Completado/ }).click();
     note('3', 'file downloaded through /api/storage/download with exact bytes');
+    await expect.poll(() => completedBlocks()).toBeGreaterThanOrEqual(4);
     await page.reload();
-    await expect.poll(async () =>
-      (await query<{ n: number }>(`SELECT count(*)::int n FROM public.lesson_progress lp JOIN auth.users u ON u.id = lp.user_id
-                                   WHERE lp.lesson_id = $1 AND u.email = $2 AND lp.completed_at IS NOT NULL`, [IDS.lesson, E2E_USERS.docente.email]))[0].n,
-    ).toBeGreaterThanOrEqual(4);
+    await expect.poll(() => completedBlocks()).toBeGreaterThanOrEqual(4);
     await expect(page.getByText(LESSON_TITLE).first()).toBeVisible();
     await shot(page, '3-lesson-reloaded');
     const subs = await query<{ open_responses: unknown }>(

@@ -6,6 +6,7 @@
 import { supabase } from '../lib/supabase-wrapper';
 import { formatFileSize } from '../lib/utils/file-format';
 import { getUserWorkspaceAccess } from './workspaceUtils';
+import { fetchProfileCards, cardName } from '../lib/profile-cards';
 
 // Storage bucket configuration
 const STORAGE_BUCKET = process.env.NEXT_PUBLIC_STORAGE_BUCKET || 'resources';
@@ -120,10 +121,17 @@ export async function getWorkspaceDocuments(
     if (documentsResult.error) throw documentsResult.error;
     if (foldersResult.error) throw foldersResult.error;
 
+    // The uploader's name comes from profile cards (other people's `profiles`
+    // rows are not readable; N163): one call for the page's uploaders.
+    const uploaderCards = await fetchProfileCards(
+      supabase,
+      documentsResult.data.map((doc: { uploaded_by?: string | null }) => doc.uploaded_by)
+    );
+
     // Enhance documents with additional information
     const enhancedDocuments: DocumentWithDetails[] = documentsResult.data.map((doc: any) => ({
       ...doc,
-      uploader_name: 'Usuario',
+      uploader_name: cardName(doc.uploaded_by ? uploaderCards.get(doc.uploaded_by) : undefined),
       uploader_email: '',
       folder_name: '',
       file_type_icon: getFileTypeIcon(doc.mime_type),

@@ -225,6 +225,7 @@ export default function FeedContainer({ workspaceId, userName, userAvatar }: Fee
         onSubmit={handleCreatePost}
         authorName={userName}
         authorAvatar={userAvatar}
+        workspaceId={workspaceId}
       />
 
       {/* Comment Modal */}

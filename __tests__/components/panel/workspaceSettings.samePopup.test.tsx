@@ -21,6 +21,13 @@ const fake = vi.hoisted(() => ({
   log: [] as unknown[],
   upload: [] as Array<{ url?: string; path?: string; error?: string } | 'pending' | 'reject'>,
   update: [] as Array<{ error: unknown } | 'pending' | 'reject'>,
+  // The GENERA fixes (EC-V1b): a changed name goes through the service's renameWorkspace.
+  rename: [] as Array<{ error: unknown } | 'pending'>,
+  // The GENERA fixes (EC-V1b, send-back 1): after its writes the window reads the workspace row back.
+  // `stored` is what the invented database holds (set when the window is drawn, changed by a write that
+  // succeeds or waits); `readBack` queues other answers.
+  stored: { custom_name: null, image_url: null } as { custom_name: string | null; image_url: string | null },
+  readBack: [] as Array<{ data: unknown; error: unknown }>,
   pending: null as null | { resolve: (value: unknown) => void },
 }));
 
@@ -44,9 +51,23 @@ vi.mock('@/lib/services/communityWorkspace', () => ({
     updateWorkspaceSettings: (...args: unknown[]) => {
       fake.log.push({ updateWorkspaceSettings: args });
       const answer = fake.update.shift() ?? { error: null };
+      if (answer === 'pending' || (typeof answer === 'object' && !answer.error)) {
+        fake.stored.image_url = (args[1] as { imageUrl?: string }).imageUrl || null;
+      }
       if (answer === 'pending') return new Promise((resolve) => (fake.pending = { resolve }));
       if (answer === 'reject') return Promise.reject(new Error('Fallo de red inventado'));
       return Promise.resolve(answer);
+    },
+    renameWorkspace: (...args: unknown[]) => {
+      fake.log.push({ renameWorkspace: args });
+      const answer = fake.rename.shift() ?? { error: null };
+      if (answer === 'pending' || !answer.error) fake.stored.custom_name = args[1] as string;
+      if (answer === 'pending') return new Promise((resolve) => (fake.pending = { resolve }));
+      return Promise.resolve(answer);
+    },
+    getWorkspaceSettings: (...args: unknown[]) => {
+      fake.log.push({ getWorkspaceSettings: args });
+      return Promise.resolve(fake.readBack.shift() ?? { data: { ...fake.stored }, error: null });
     },
   },
 }));
@@ -85,6 +106,8 @@ function propsWith(over: Props = {}): React.ComponentProps<typeof WorkspaceSetti
   };
 }
 async function draw(over: Props = {}) {
+  const props = propsWith(over);
+  fake.stored = { custom_name: props.currentName || null, image_url: props.currentImageUrl || null };
   view = render(<WorkspaceSettingsModal {...propsWith(over)} />);
   await settle();
 }
@@ -120,6 +143,8 @@ function both<T>(scenario: () => Promise<T>) {
       fake.log = [];
       fake.upload = [];
       fake.update = [];
+      fake.rename = [];
+      fake.readBack = [];
       fake.pending = null;
     },
     scenario,
@@ -195,8 +220,11 @@ describe('the community settings pop-up in both looks: the same for a person', (
   // While saving, «Cancelar» is disabled in both looks and «Guardar cambios» reads «Guardando...»,
   // disabled today and busy in the new look (the one allowed difference of state). The X is compared in
   // W10-X.
+  // A picture is chosen first: since the GENERA fixes (EC-V1b) «Guardar cambios» is disabled while
+  // nothing changed, and a picture's save is the one that waits on updateWorkspaceSettings.
   async function saving(view: () => unknown) {
     await draw();
+    await choose(smallPng());
     fake.update = ['pending'];
     await click(saveButton());
     const during = view();

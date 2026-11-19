@@ -1,7 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
 import { rolePriorityIndex } from '../../../utils/roleUtils';
-import { requireVerifiedCaller } from '../../../lib/api-auth';
+import { createApiSupabaseClient, requireVerifiedCaller } from '../../../lib/api-auth';
+import { fetchAssignedSchoolIds } from '../../../lib/consultor-assigned-schools';
 
 // Service-role client to bypass RLS safely on the server
 const serviceClient = createClient(
@@ -69,7 +70,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const isAdmin = requesterRoles?.some(r => r.role_type === 'admin');
     const isMemberOfCommunity = requesterRoles?.some(r => r.community_id === communityId);
 
-    if (!isAdmin && !isMemberOfCommunity) {
+    // F12e V5b (N28): a consultor currently assigned to the community's school
+    // is accepted too, and gets exactly what a plain member gets (no e-mails,
+    // approved people only: canSeeEmails and isAdmin below stay false).
+    let isAssignedConsultor = false;
+    if (!isAdmin && !isMemberOfCommunity && requesterRoles?.some(r => r.role_type === 'consultor')) {
+      const { data: communitySchool } = await serviceClient
+        .from('growth_communities')
+        .select('school_id')
+        .eq('id', communityId)
+        .maybeSingle();
+      const schoolId = communitySchool?.school_id;
+      if (schoolId !== null && schoolId !== undefined) {
+        const assigned = await fetchAssignedSchoolIds(await createApiSupabaseClient(req, res));
+        isAssignedConsultor = assigned.includes(Number(schoolId));
+      }
+    }
+
+    if (!isAdmin && !isMemberOfCommunity && !isAssignedConsultor) {
       return res.status(403).json({ error: 'Forbidden' });
     }
 

@@ -1,0 +1,420 @@
+// @vitest-environment jsdom
+import React from 'react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+
+(globalThis as any).React = React;
+
+import { createFakeSupabase, PROGRAMAS, clickButton, typeInto, fillCuotaDates } from './contract-form-harness';
+
+let currentClient: any;
+vi.mock('@supabase/auth-helpers-react', () => ({ useSupabaseClient: () => currentClient }));
+vi.mock('react-hot-toast', () => ({
+  toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }),
+}));
+
+import ContractForm from '../../../components/contracts/ContractForm';
+
+/**
+ * F10b (GES-2.2): a contract gets its «horas contratadas». The form fills the
+ * field from the chosen programme's horas_totales; the admin may change it;
+ * create, update and draft write it as a number (null when empty); it is
+ * read-only once the contract has a distribution of hours. Before the fix the
+ * form had no such field and no payload carried the column.
+ */
+const CLIENTE = {
+  id: 'cliente-1',
+  nombre_legal: 'Colegio Inventado SpA',
+  nombre_fantasia: 'Colegio Inventado',
+  rut: '76.123.456-0',
+  direccion: 'Calle Falsa 123',
+  comuna: 'Comuna Inventada',
+  ciudad: 'Ciudad Inventada',
+  nombre_representante: 'Persona Inventada',
+  rut_representante: '11.222.333-4',
+  fecha_escritura: '2020-01-02',
+  nombre_notario: 'Notaría Inventada',
+  nombre_contacto_administrativo: 'Contacto Inventado',
+  email_contacto_administrativo: 'contacto@ejemplo.test',
+  school_id: null,
+};
+
+const editingContract = (overrides: Record<string, any> = {}) => ({
+  id: 'contrato-1',
+  numero_contrato: 'FNE-2026-11-123',
+  fecha_contrato: '2026-01-15',
+  fecha_fin: '2026-12-15',
+  cliente_id: 'cliente-1',
+  programa_id: 'prog-a',
+  precio_total_uf: 100,
+  tipo_moneda: 'UF',
+  es_manual: false,
+  descripcion_manual: null,
+  contrato_url: null,
+  estado: 'pendiente',
+  horas_contratadas: 40,
+  clientes: CLIENTE,
+  cuotas: [{ id: 'cuota-1', numero_cuota: 1, fecha_vencimiento: '2026-06-30', monto_uf: 100 }],
+  ...overrides,
+});
+
+const hours = () => screen.getByTestId('contract-hours-input') as HTMLInputElement;
+const programmeSelect = (container: HTMLElement) => container.querySelector('select') as HTMLSelectElement;
+const HOURS_MESSAGE = 'Las horas contratadas deben ser un número entre 0 y 999999,99 con hasta dos decimales.';
+
+/** New contract for the pre-selected client, up to step 2. */
+const renderNewAtStep2 = (props: Record<string, any> = {}) => {
+  const onSuccess = vi.fn();
+  const utils = render(
+    <ContractForm
+      programas={PROGRAMAS}
+      clientes={[CLIENTE as any]}
+      preSelectedClientId="cliente-1"
+      onSuccess={onSuccess}
+      onCancel={vi.fn()}
+      {...props}
+    />,
+  );
+  clickButton('Siguiente');
+  const dates = utils.container.querySelectorAll('input[type="date"]');
+  typeInto(dates[1], '2099-12-31');
+  typeInto(screen.getByPlaceholderText('0.00'), '100');
+  return { ...utils, onSuccess };
+};
+
+const finishStep3 = (container: HTMLElement) => {
+  clickButton('Siguiente');
+  fillCuotaDates(container);
+  typeInto(container.querySelector('input[type="number"]') as Element, '100');
+};
+
+let alertSpy: ReturnType<typeof vi.spyOn>;
+beforeEach(() => {
+  alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+});
+afterEach(() => alertSpy.mockRestore());
+
+describe('ContractForm — «Horas contratadas»', () => {
+  it('choosing a programme fills the field from its horas_totales, and another programme replaces it', () => {
+    currentClient = createFakeSupabase();
+    const { container } = renderNewAtStep2();
+    expect(hours().value).toBe('');
+    typeInto(programmeSelect(container), 'prog-a');
+    expect(hours().value).toBe('120');
+    typeInto(programmeSelect(container), 'prog-b');
+    expect(hours().value).toBe('80');
+    expect(screen.getByText('Se completa con las horas del programa al elegirlo; puede cambiarlas después.')).toBeInTheDocument();
+  });
+
+  // Send-back 3 (new rule): choosing a programme always gives the field that
+  // programme's hours, whatever it held. This test replaces «a number the admin
+  // typed is not overwritten by choosing another programme» (95.5 stayed).
+  it('choose 80 h, type 90, choose 120 h: the field holds 120', () => {
+    currentClient = createFakeSupabase();
+    const { container } = renderNewAtStep2();
+    typeInto(programmeSelect(container), 'prog-b');
+    expect(hours().value).toBe('80');
+    typeInto(hours(), '90');
+    typeInto(programmeSelect(container), 'prog-a');
+    expect(hours().value).toBe('120');
+  });
+
+  it('a number typed after choosing the programme stays until the programme is changed', () => {
+    currentClient = createFakeSupabase();
+    const { container } = renderNewAtStep2();
+    typeInto(programmeSelect(container), 'prog-a');
+    typeInto(hours(), '95.5');
+    expect(hours().value).toBe('95.5');
+    typeInto(programmeSelect(container), '');
+    expect(hours().value).toBe('95.5');
+  });
+
+  it('a programme without hours, or «no programme», leaves the field as it is', () => {
+    currentClient = createFakeSupabase();
+    const programas = [...PROGRAMAS, { id: 'prog-c', nombre: 'Programa Sintético C', descripcion: 'Desc C', horas_totales: null, modalidad: 'online' }];
+    const { container } = renderNewAtStep2({ programas });
+    typeInto(programmeSelect(container), 'prog-b');
+    expect(hours().value).toBe('80');
+    typeInto(programmeSelect(container), 'prog-c');
+    expect(hours().value).toBe('80');
+    typeInto(programmeSelect(container), '');
+    expect(hours().value).toBe('80');
+  });
+
+  it('create writes horas_contratadas as a number', async () => {
+    currentClient = createFakeSupabase();
+    const { container, onSuccess } = renderNewAtStep2();
+    typeInto(programmeSelect(container), 'prog-a');
+    typeInto(hours(), '110.25');
+    finishStep3(container);
+    clickButton(/Guardar Contrato/);
+    await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+    const insert = currentClient.__writes.find((w: any) => w.table === 'contratos' && w.op === 'insert');
+    expect(insert.payload[0].horas_contratadas).toBe(110.25);
+  });
+
+  it('create writes null when the field is left empty', async () => {
+    currentClient = createFakeSupabase();
+    const { container, onSuccess } = renderNewAtStep2();
+    typeInto(programmeSelect(container), 'prog-a');
+    typeInto(hours(), '');
+    finishStep3(container);
+    clickButton(/Guardar Contrato/);
+    await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+    const insert = currentClient.__writes.find((w: any) => w.table === 'contratos' && w.op === 'insert');
+    expect(insert.payload[0]).toHaveProperty('horas_contratadas', null);
+  });
+
+  it('the draft writes horas_contratadas', async () => {
+    currentClient = createFakeSupabase();
+    const { container, onSuccess } = renderNewAtStep2();
+    typeInto(programmeSelect(container), 'prog-b');
+    finishStep3(container);
+    clickButton(/Guardar Borrador/);
+    await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+    const insert = currentClient.__writes.find((w: any) => w.table === 'contratos' && w.op === 'insert');
+    expect(insert.payload[0]).toMatchObject({ estado: 'borrador', horas_contratadas: 80 });
+  });
+
+  it('a licitación contract (programme set by the effect, select disabled) is filled too', () => {
+    currentClient = createFakeSupabase();
+    const { container } = renderNewAtStep2({
+      preSelectedClientId: undefined,
+      licitacionId: 'lic-1',
+      licitacionData: { cliente_id: 'cliente-1', programa_id: 'prog-b', precio_total_uf: 100, tipo_moneda: 'UF' },
+    });
+    expect(programmeSelect(container)).toBeDisabled();
+    expect(hours().value).toBe('80');
+  });
+
+  it('the manual branch shows the field with its own help text, empty for typing', async () => {
+    currentClient = createFakeSupabase();
+    const onSuccess = vi.fn();
+    const { container } = render(
+      <ContractForm programas={PROGRAMAS} clientes={[CLIENTE as any]} preSelectedClientId="cliente-1" onSuccess={onSuccess} onCancel={vi.fn()} />,
+    );
+    fireEvent.click(screen.getByRole('checkbox', { name: /Contrato Manual/ }));
+    clickButton('Siguiente');
+    expect(hours().value).toBe('');
+    expect(screen.getByText('Horas de la bolsa de este contrato (opcional).')).toBeInTheDocument();
+    const dates = container.querySelectorAll('input[type="date"]');
+    typeInto(dates[1], '2099-12-31');
+    typeInto(screen.getByPlaceholderText(/Asesoría personalizada/), 'Asesoría inventada');
+    typeInto(screen.getByPlaceholderText('0.00'), '100');
+    typeInto(hours(), '30');
+    finishStep3(container);
+    clickButton(/Guardar Contrato/);
+    await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+    const insert = currentClient.__writes.find((w: any) => w.table === 'contratos' && w.op === 'insert');
+    expect(insert.payload[0]).toMatchObject({ es_manual: true, horas_contratadas: 30 });
+  });
+
+  it.each(['1.234', '-1', '1000000', '1e7'])('refuses %s with the message and blocks «Siguiente»', (value) => {
+    currentClient = createFakeSupabase();
+    const { container } = renderNewAtStep2();
+    typeInto(programmeSelect(container), 'prog-a');
+    typeInto(hours(), value);
+    expect(screen.getByText(HOURS_MESSAGE)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Siguiente' })).toBeDisabled();
+  });
+
+  it('accepts 0 and 999999.99', () => {
+    currentClient = createFakeSupabase();
+    const { container } = renderNewAtStep2();
+    typeInto(programmeSelect(container), 'prog-a');
+    for (const value of ['0', '999999.99']) {
+      typeInto(hours(), value);
+      expect(screen.queryByText(HOURS_MESSAGE)).toBeNull();
+      expect(screen.getByRole('button', { name: 'Siguiente' })).toBeEnabled();
+    }
+  });
+
+  it('an edit loads the stored value; another programme replaces it; a typed 45 is sent', async () => {
+    currentClient = createFakeSupabase({ allocations: [] });
+    const onSuccess = vi.fn();
+    const { container } = render(
+      <ContractForm programas={PROGRAMAS} clientes={[CLIENTE as any]} editingContract={editingContract()} onSuccess={onSuccess} onCancel={vi.fn()} />,
+    );
+    clickButton('Siguiente');
+    await waitFor(() => expect(hours().readOnly).toBe(false));
+    expect(hours().value).toBe('40');
+    // Send-back 3: changing the programme gives the field the programme's hours
+    typeInto(programmeSelect(container), 'prog-b');
+    expect(hours().value).toBe('80');
+    typeInto(hours(), '45');
+    clickButton('Siguiente');
+    clickButton(/Actualizar Contrato/);
+    await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+    const update = currentClient.__writes.find((w: any) => w.table === 'contratos' && w.op === 'update');
+    expect(update.payload.horas_contratadas).toBe(45);
+    const allocationRead = currentClient.__reads.find((r: any) => r.table === 'contract_hour_allocations');
+    expect(allocationRead.filters).toEqual({ contrato_id: 'contrato-1' });
+  });
+
+  it('an edit shows the stored 100 and saves 100 when nothing is touched', async () => {
+    currentClient = createFakeSupabase({ allocations: [] });
+    const onSuccess = vi.fn();
+    render(
+      <ContractForm programas={PROGRAMAS} clientes={[CLIENTE as any]} editingContract={editingContract({ horas_contratadas: 100 })} onSuccess={onSuccess} onCancel={vi.fn()} />,
+    );
+    clickButton('Siguiente');
+    await waitFor(() => expect(hours().readOnly).toBe(false));
+    expect(hours().value).toBe('100');
+    clickButton('Siguiente');
+    clickButton(/Actualizar Contrato/);
+    await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+    const update = currentClient.__writes.find((w: any) => w.table === 'contratos' && w.op === 'update');
+    expect(update.payload).toHaveProperty('horas_contratadas', 100);
+  });
+
+  it('an edit that empties the field writes null', async () => {
+    currentClient = createFakeSupabase({ allocations: [] });
+    const onSuccess = vi.fn();
+    render(
+      <ContractForm programas={PROGRAMAS} clientes={[CLIENTE as any]} editingContract={editingContract()} onSuccess={onSuccess} onCancel={vi.fn()} />,
+    );
+    clickButton('Siguiente');
+    await waitFor(() => expect(hours().readOnly).toBe(false));
+    typeInto(hours(), '');
+    clickButton('Siguiente');
+    clickButton(/Actualizar Contrato/);
+    await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+    const update = currentClient.__writes.find((w: any) => w.table === 'contratos' && w.op === 'update');
+    expect(update.payload).toHaveProperty('horas_contratadas', null);
+  });
+
+  it('with existing allocations the field is read-only and the update does not send the column', async () => {
+    currentClient = createFakeSupabase({ allocations: [{ id: 'alloc-1' }] });
+    const onSuccess = vi.fn();
+    render(
+      <ContractForm programas={PROGRAMAS} clientes={[CLIENTE as any]} editingContract={editingContract({ estado: 'activo' })} onSuccess={onSuccess} onCancel={vi.fn()} />,
+    );
+    clickButton('Siguiente');
+    await screen.findByText('No se puede cambiar: el contrato ya tiene una distribución de horas.');
+    expect(hours().readOnly).toBe(true);
+    // Send-back 2, item 3: only the lock note shows, not the "you can change them" hint
+    expect(screen.queryByText('Se completa con las horas del programa al elegirlo; puede cambiarlas después.')).toBeNull();
+    typeInto(hours(), '99');
+    expect(hours().value).toBe('40');
+    clickButton('Siguiente');
+    clickButton(/Actualizar Contrato/);
+    await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+    const update = currentClient.__writes.find((w: any) => w.table === 'contratos' && w.op === 'update');
+    expect(update.payload).not.toHaveProperty('horas_contratadas');
+  });
+
+  // Send-back 1, item 2 (the lead's decision): a contract made earlier without hours
+  // stays empty on edit until the admin types a number or chooses another programme.
+  it('an edit of a contract without stored hours leaves the field empty; correcting only an e-mail sends null', async () => {
+    currentClient = createFakeSupabase({ allocations: [] });
+    const onSuccess = vi.fn();
+    render(
+      <ContractForm programas={PROGRAMAS} clientes={[CLIENTE as any]} editingContract={editingContract({ horas_contratadas: null })} onSuccess={onSuccess} onCancel={vi.fn()} />,
+    );
+    typeInto(screen.getByDisplayValue('contacto@ejemplo.test'), 'contacto.nuevo@ejemplo.test');
+    clickButton('Siguiente');
+    await waitFor(() => expect(hours().readOnly).toBe(false));
+    expect(hours().value).toBe('');
+    expect(screen.getByText('Se completa con las horas del programa al elegirlo; puede cambiarlas después.')).toBeInTheDocument();
+    clickButton('Siguiente');
+    clickButton(/Actualizar Contrato/);
+    await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+    const update = currentClient.__writes.find((w: any) => w.table === 'contratos' && w.op === 'update');
+    expect(update.payload).toHaveProperty('horas_contratadas', null);
+    const clientUpdate = currentClient.__writes.find((w: any) => w.table === 'clientes' && w.op === 'update');
+    expect(clientUpdate.payload.email_contacto_administrativo).toBe('contacto.nuevo@ejemplo.test');
+  });
+
+  it('an edit without stored hours: choosing another programme fills the field; a typed 60 is sent', async () => {
+    currentClient = createFakeSupabase({ allocations: [] });
+    const onSuccess = vi.fn();
+    const { container } = render(
+      <ContractForm programas={PROGRAMAS} clientes={[CLIENTE as any]} editingContract={editingContract({ horas_contratadas: null })} onSuccess={onSuccess} onCancel={vi.fn()} />,
+    );
+    clickButton('Siguiente');
+    await waitFor(() => expect(hours().readOnly).toBe(false));
+    expect(hours().value).toBe('');
+    fireEvent.change(programmeSelect(container), { target: { value: 'prog-b' } });
+    expect(hours().value).toBe('80');
+    typeInto(hours(), '60');
+    clickButton('Siguiente');
+    clickButton(/Actualizar Contrato/);
+    await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+    const update = currentClient.__writes.find((w: any) => w.table === 'contratos' && w.op === 'update');
+    expect(update.payload).toHaveProperty('horas_contratadas', 60);
+    expect(update.payload.programa_id).toBe('prog-b');
+  });
+
+  // Send-back 3: every programme change gives the field that programme's hours;
+  // a locked field is never changed. (Was send-back 2's «a field the admin emptied
+  // is filled again», which pinned that a typed 90 stays on a programme change.)
+  it('type 90, clear, choose 80 h, choose 120 h: the field holds 80, then 120', () => {
+    currentClient = createFakeSupabase();
+    const { container } = renderNewAtStep2();
+    typeInto(hours(), '90');
+    typeInto(hours(), '');
+    typeInto(programmeSelect(container), 'prog-b');
+    expect(hours().value).toBe('80');
+    typeInto(programmeSelect(container), 'prog-a');
+    expect(hours().value).toBe('120');
+  });
+
+  it('an edit whose stored hours the admin emptied is filled when another programme is chosen', async () => {
+    currentClient = createFakeSupabase({ allocations: [] });
+    const { container } = render(
+      <ContractForm programas={PROGRAMAS} clientes={[CLIENTE as any]} editingContract={editingContract()} onSuccess={vi.fn()} onCancel={vi.fn()} />,
+    );
+    clickButton('Siguiente');
+    await waitFor(() => expect(hours().readOnly).toBe(false));
+    expect(hours().value).toBe('40');
+    typeInto(hours(), '');
+    typeInto(programmeSelect(container), 'prog-b');
+    expect(hours().value).toBe('80');
+  });
+
+  it('a locked empty field is not filled when another programme is chosen', async () => {
+    currentClient = createFakeSupabase({ allocations: [{ id: 'alloc-1' }] });
+    const { container } = render(
+      <ContractForm programas={PROGRAMAS} clientes={[CLIENTE as any]} editingContract={editingContract({ horas_contratadas: null, estado: 'activo' })} onSuccess={vi.fn()} onCancel={vi.fn()} />,
+    );
+    clickButton('Siguiente');
+    await screen.findByText('No se puede cambiar: el contrato ya tiene una distribución de horas.');
+    typeInto(programmeSelect(container), 'prog-b');
+    expect(hours().value).toBe('');
+  });
+
+  it('a locked field with stored hours does not change on a programme change; the update omits the column', async () => {
+    currentClient = createFakeSupabase({ allocations: [{ id: 'alloc-1' }] });
+    const onSuccess = vi.fn();
+    const { container } = render(
+      <ContractForm programas={PROGRAMAS} clientes={[CLIENTE as any]} editingContract={editingContract({ estado: 'activo' })} onSuccess={onSuccess} onCancel={vi.fn()} />,
+    );
+    clickButton('Siguiente');
+    await screen.findByText('No se puede cambiar: el contrato ya tiene una distribución de horas.');
+    typeInto(programmeSelect(container), 'prog-b');
+    expect(hours().value).toBe('40');
+    clickButton('Siguiente');
+    clickButton(/Actualizar Contrato/);
+    await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+    const update = currentClient.__writes.find((w: any) => w.table === 'contratos' && w.op === 'update');
+    expect(update.payload).not.toHaveProperty('horas_contratadas');
+  });
+
+  it('when the allocation read fails, the field stays read-only and the update does not send the column', async () => {
+    currentClient = createFakeSupabase({ allocationsError: { message: 'read failed' } });
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const onSuccess = vi.fn();
+    render(
+      <ContractForm programas={PROGRAMAS} clientes={[CLIENTE as any]} editingContract={editingContract()} onSuccess={onSuccess} onCancel={vi.fn()} />,
+    );
+    clickButton('Siguiente');
+    await waitFor(() => expect(errorSpy).toHaveBeenCalledWith('Error reading contract hour allocations:', expect.anything()));
+    expect(hours().readOnly).toBe(true);
+    clickButton('Siguiente');
+    clickButton(/Actualizar Contrato/);
+    await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+    const update = currentClient.__writes.find((w: any) => w.table === 'contratos' && w.op === 'update');
+    expect(update.payload).not.toHaveProperty('horas_contratadas');
+    errorSpy.mockRestore();
+  });
+});

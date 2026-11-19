@@ -75,5 +75,6 @@
   "25c. schedule series: bulk approve fails, with and without a text": "dc50af4b4328ff03c783c3434c4b6fdb33bca172877927f71304201d910c4f2d",
   "26. «Reintentar» after a failing consultants read": "b2c88a325479b6d04cd107dc2a2cf956c65850ec3594b9b108f1bf66f931c871",
   "27. the layout marker: sign-out": "456dd800cf776ff16d05059e88ab6605fc3c68143deea34cc666c860e86aebdf",
-  "28. a router that is a new object on every render (as the older tests fake it)": "df07144de9c649b3b4d36a1ab0318b1cd5ef924fcc4f4df3d58d89aa037ae0de"
+  "28. a router that is a new object on every render (as the older tests fake it)": "df07144de9c649b3b4d36a1ab0318b1cd5ef924fcc4f4df3d58d89aa037ae0de",
+  "29. the page component’s hooks, in order (a hook added, removed or moved changes this)": "76ed7517572fe1f5df625733dabe76d2fec51f6ab645b9fb8adb93cef79b0a76"
 }

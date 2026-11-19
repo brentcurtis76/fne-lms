@@ -80,6 +80,7 @@
   "D33d. upload failure without an error text": "9d0fa7b6ad2f246bb76b4de11de41e04f6c4dbafde6749d2ec3286e7fa6b4bd7",
   "D33e. while uploading: «Subiendo...» and the input disabled": "793d642efda23e01c987dc2a1beeaae3e01c7c965a2fcf8e63dc213777d88d26",
   "D33f. a change with no file: nothing asked": "d9d45e410c585fe0c8f62b35e3df82c699c56757840d75b814f4de4ed6b642f1",
+  "D33g. upload success: the bytes of the file sent": "042cfc835a850f03a51dd10b0c1bef521aaadb51c0ddc2fe30aea8fa758c834c",
   "D34a. delete, confirm answers no: nothing asked": "facd1e0f8c2211ad9ee6d259330eefb98392b2394f077bb07164e5a644916459",
   "D34b. delete, confirm answers yes: DELETE, toast, refresh; then a failure": "e419dc5f02ea4d02894aca2db64525bf58b811c3736ccbba8020944640901a4c",
   "D35a. finalize success: the pop-up closes, toast, refresh": "318550cfa264de1efae1424b072d6554df45bdcb90a4843fe14463a89ec94bba",
@@ -93,5 +94,8 @@
   "D39a. unmount while getSession waits: the log as it is": "1e87458f85dae0aeece6661d33cb15f48d924417735d3f9cfad962c39c48face",
   "D39b. unmount while the session fetch waits: the log as it is": "d1d8aabc07518ee26486de804e89a8fd2b850e93b837e11ae13c10f77774d2f3",
   "D40. the order of the load log: a facilitator with an audio report": "1d5a5636793e15382e3cdd13121df22da41353e35aa21e3da8c5673a07986a96",
-  "D41. rerender with the same router: nothing re-asked": "a6072e806cef1a5902b970088ae2cbbab411a4a3705e914110ee4a0e75506201"
+  "D41. rerender with the same router: nothing re-asked": "a6072e806cef1a5902b970088ae2cbbab411a4a3705e914110ee4a0e75506201",
+  "D42. the address changes from one session to another: the second one is loaded": "24c9dea4f7cd51f2228b4b996169806ff83e3c4201f51e3953dcb6d4e7ea667d",
+  "D43. the phone-layout attendance cards: each control, then save (the PUT body)": "d9a6ece588a56ab4245334ffabf1dcf3013ecb9895d8d1bef2c446f0768d8b61",
+  "D44. the page component’s hooks, in order (a hook added, removed or moved changes this)": "8219696c2329c5be85e3d4dfd372bfab6db379289df8d92f63fe103332332bec"
 }

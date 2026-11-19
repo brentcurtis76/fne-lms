@@ -38,5 +38,8 @@
   "L19b. onLogout from the loading frame": "968b34d1dada72db8881a44c1399aa189720146cc1a9a4e6393e8caf3a4ff71f",
   "L20a. the order of the load log: consultor with cancelled rows": "d8ad907a87dc37ac4328f5adc901f5d250123f293279a1d65ce8a5d8e9ddebcc",
   "L20b. the order of the load log: admin": "999aee3dcccaa68da34e50f0bc495f5addfb3f78567f160998fde75ccbe1e77b",
-  "L21. rerender with the same router: nothing re-asked": "d21eb8ee0f34911dd025b64fcc2475f134ca4e068a57325b8a0327cc467f0a5c"
+  "L21. rerender with the same router: nothing re-asked": "d21eb8ee0f34911dd025b64fcc2475f134ca4e068a57325b8a0327cc467f0a5c",
+  "L22. the router turns ready after the first render: the load starts then": "9a51b82f4971ed910f8efbf0a7cdf792a093131ba09d680d10e538da3b1a4ff5",
+  "L23. the element props of the markers, drawn whole (the header icon and its children)": "ede34d047e66b0662b705c045aebc9e7492c4e9688da881c3d36fc53c9a8ef0c",
+  "L24. the page component’s hooks, in order (a hook added, removed or moved changes this)": "cfb2578bc139436f550b734b8b0fbdadfc2a041f3d3c4d167754ed9f8f5a1080"
 }

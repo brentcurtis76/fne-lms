@@ -98,7 +98,10 @@ mocks.router.replace = vi.fn((url: unknown, ...rest: unknown[]) => {
   log(rest.length === 0 ? { 'router.replace': url } : { 'router.replace': url, rest });
   return Promise.resolve(true);
 });
-mocks.router.prefetch = vi.fn(() => Promise.resolve());
+mocks.router.prefetch = vi.fn((...args: unknown[]) => {
+  log({ 'router.prefetch': args });
+  return Promise.resolve();
+});
 
 /** Props as text: functions, elements and `undefined` are named, so `undefined`, `null` and a text differ. */
 function describeProps(props: Record<string, unknown>): string {
@@ -257,6 +260,41 @@ vi.mock('@/components/layout/FunctionalPageHeader', () => ({
 
 import SessionCreatePage from '@/pages/admin/sessions/create';
 
+/**
+ * The hooks of the page's own component, in order, read from React's fiber (React 18): a custom
+ * hook makes no fiber of its own, so whatever hooks the page calls, directly or through a hook of
+ * its own, are listed here; a view drawn below the page has a fiber of its own and is not. Each
+ * hook is written as its kind and, for effects and memos, its kind of effect and the length of its
+ * dependency list (not the values: functions there change on every render).
+ */
+function hookSignature(container: HTMLElement, component: unknown): string {
+  const node = container.firstElementChild as (Element & Record<string, any>) | null;
+  if (!node) return '«nothing drawn»';
+  const key = Object.keys(node).find((k) => k.startsWith('__reactFiber$'));
+  let fiber = key ? node[key] : null;
+  while (fiber && fiber.type !== component) fiber = fiber.return;
+  if (!fiber) return '«page fiber not found»';
+  const kinds: string[] = [];
+  for (let hook = fiber.memoizedState; hook; hook = hook.next) {
+    const state = hook.memoizedState;
+    const deps = (d: unknown) => (Array.isArray(d) ? `[${d.length}]` : String(d));
+    if (hook.queue) {
+      const reducer = hook.queue.lastRenderedReducer;
+      kinds.push(reducer && reducer.name === 'basicStateReducer' ? 'state' : 'reducer');
+    } else if (state && typeof state === 'object' && 'create' in state && 'tag' in state) {
+      // The tag without its "has effect" bit (1), which changes from render to render.
+      kinds.push(`effect(tag ${state.tag & ~1}, deps ${deps(state.deps)})`);
+    } else if (state && typeof state === 'object' && !Array.isArray(state) && Object.keys(state).join() === 'current') {
+      kinds.push('ref');
+    } else if (Array.isArray(state) && state.length === 2) {
+      kinds.push(`memo(deps ${deps(state[1])})`);
+    } else {
+      kinds.push(`other(${typeof state})`);
+    }
+  }
+  return `${kinds.length} hooks:\n${kinds.join('\n')}`;
+}
+
 // ── The fetch fake: answers by method and address, can fail or stay pending, writes each call down. ──
 
 function defaultAnswer(key: string): Answer {
@@ -279,6 +317,14 @@ function fakeFetch(url: string, ...args: unknown[]) {
   };
   const other = init ? Object.keys(init).filter((k) => !['method', 'headers', 'body'].includes(k)) : [];
   if (args.length === 0) entry.init = '«no second argument»';
+  // The options as given: an option present as `null` or `undefined` differs from one left out,
+  // and so does an explicit `null` or `undefined` second argument.
+  if (args.length > 0 && args[0] == null) entry.init = args[0] === null ? '«null given»' : '«undefined given»';
+  if (init) {
+    for (const k of ['method', 'headers', 'body']) {
+      if (k in init && init[k] == null) entry[`${k} as given`] = init[k] === null ? '«null»' : '«undefined»';
+    }
+  }
   if (other.length > 0) entry.other = describeProps(Object.fromEntries(other.map((k) => [k, init![k]])));
   if (args.length > 1) entry.more = describeProps({ args: args.slice(1) });
   log(entry);
@@ -415,12 +461,14 @@ async function fillValid() {
 }
 
 let consoleError: { mockRestore: () => void } | null = null;
+let ORIGINAL_ZOOM_FLAG: string | undefined;
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(NOON);
   mocks.log = [];
   mocks.props = {};
   mocks.freshRouter = false;
+  ORIGINAL_ZOOM_FLAG = process.env.NEXT_PUBLIC_FEATURE_ZOOM_MEETINGS;
   process.env.NEXT_PUBLIC_FEATURE_ZOOM_MEETINGS = 'true';
   vi.stubGlobal('fetch', vi.fn(fakeFetch));
   vi.stubGlobal(
@@ -442,7 +490,9 @@ beforeEach(() => {
 afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllGlobals();
-  delete process.env.NEXT_PUBLIC_FEATURE_ZOOM_MEETINGS;
+  // The flag as the process had it before this case.
+  if (ORIGINAL_ZOOM_FLAG === undefined) delete process.env.NEXT_PUBLIC_FEATURE_ZOOM_MEETINGS;
+  else process.env.NEXT_PUBLIC_FEATURE_ZOOM_MEETINGS = ORIGINAL_ZOOM_FLAG;
   consoleError?.mockRestore();
   consoleError = null;
 });
@@ -1232,6 +1282,13 @@ describe("today's create-session form (pinned before SA)", () => {
     await change(field('title'), 'T');
     return [...first, ...second, ...snap()];
   });
+
+  // ── Added in send-back 1 (the review's finding 6), produced by today's page. ──
+
+  pinned('29. the page component’s hooks, in order (a hook added, removed or moved changes this)', async () => {
+    await draw(admin());
+    return [hookSignature(view.container, SessionCreatePage), ...snap()];
+  });
 });
 
-digestsFileHolds(77);
+digestsFileHolds(78);

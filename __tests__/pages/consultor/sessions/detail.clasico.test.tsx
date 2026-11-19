@@ -25,11 +25,16 @@ import React from 'react';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { act, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createHash } from 'node:crypto';
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { makePin, serialise } from '../../../helpers/pin';
 
-vi.hoisted(() => {
+// The zone this process had before is kept and put back after the file (all test files of a run
+// may share one process).
+const ORIGINAL_TZ = vi.hoisted(() => {
+  const before = process.env.TZ;
   process.env.TZ = 'America/Santiago';
+  return before;
 });
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -48,6 +53,8 @@ interface Scenario {
   /** By `METHOD address`; an array is consumed in order and its last answer stays. */
   fetch?: Record<string, Answer | Answer[]>;
   confirm?: boolean;
+  /** Also write down a digest of the bytes of every file a `FormData` body carries. */
+  fileBytes?: boolean;
 }
 
 const mocks = vi.hoisted(() => ({
@@ -56,6 +63,7 @@ const mocks = vi.hoisted(() => ({
   props: {} as Record<string, any>,
   router: {} as any,
   release: null as null | ((value?: unknown) => void),
+  reads: [] as Promise<void>[],
 }));
 
 function log(entry: unknown) {
@@ -112,7 +120,10 @@ function resetRouter(s: Scenario) {
       log({ 'router.replace': args });
       return Promise.resolve(true);
     }),
-    prefetch: vi.fn(() => Promise.resolve()),
+    prefetch: vi.fn((...args: unknown[]) => {
+      log({ 'router.prefetch': args });
+      return Promise.resolve();
+    }),
     events: { on: () => {}, off: () => {} },
   };
 }
@@ -177,6 +188,50 @@ vi.mock('@/components/sessions/EditRequestModal', () => ({ default: marker('Edit
 
 import SessionDetailPage from '@/pages/consultor/sessions/[id]';
 
+/**
+ * The hooks of the page's own component, in order, read from React's fiber (React 18): a custom
+ * hook makes no fiber of its own, so whatever hooks the page calls, directly or through a hook of
+ * its own, are listed here; a view drawn below the page has a fiber of its own and is not. Each
+ * hook is written as its kind and, for effects and memos, its kind of effect and the length of its
+ * dependency list (not the values: functions there change on every render).
+ */
+function hookSignature(container: HTMLElement, component: unknown): string {
+  const node = container.firstElementChild as (Element & Record<string, any>) | null;
+  if (!node) return '«nothing drawn»';
+  const key = Object.keys(node).find((k) => k.startsWith('__reactFiber$'));
+  let fiber = key ? node[key] : null;
+  while (fiber && fiber.type !== component) fiber = fiber.return;
+  if (!fiber) return '«page fiber not found»';
+  const kinds: string[] = [];
+  for (let hook = fiber.memoizedState; hook; hook = hook.next) {
+    const state = hook.memoizedState;
+    const deps = (d: unknown) => (Array.isArray(d) ? `[${d.length}]` : String(d));
+    if (hook.queue) {
+      const reducer = hook.queue.lastRenderedReducer;
+      kinds.push(reducer && reducer.name === 'basicStateReducer' ? 'state' : 'reducer');
+    } else if (state && typeof state === 'object' && 'create' in state && 'tag' in state) {
+      // The tag without its "has effect" bit (1), which changes from render to render.
+      kinds.push(`effect(tag ${state.tag & ~1}, deps ${deps(state.deps)})`);
+    } else if (state && typeof state === 'object' && !Array.isArray(state) && Object.keys(state).join() === 'current') {
+      kinds.push('ref');
+    } else if (Array.isArray(state) && state.length === 2) {
+      kinds.push(`memo(deps ${deps(state[1])})`);
+    } else {
+      kinds.push(`other(${typeof state})`);
+    }
+  }
+  return `${kinds.length} hooks:\n${kinds.join('\n')}`;
+}
+
+function readBytes(blob: Blob): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(Buffer.from(reader.result as ArrayBuffer));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsArrayBuffer(blob);
+  });
+}
+
 // ── The fetch fake: answers by method and address, can fail or stay pending, writes each call down. ──
 
 function describeInit(init: unknown): unknown {
@@ -187,6 +242,22 @@ function describeInit(init: unknown): unknown {
 function fakeFetch(url: string, ...args: unknown[]) {
   const init = args[0] as { method?: string } | undefined;
   const entry: Record<string, unknown> = { fetch: url, init: describeInit(init) };
+  // The options as given: an explicit `undefined` or `null` second argument differs from none.
+  if (args.length > 0 && args[0] === undefined) entry.init = '«undefined given»';
+  if (args[0] === null) entry.init = '«null given»';
+  const body = (init as { body?: unknown } | undefined)?.body;
+  if (S().fileBytes && typeof FormData !== 'undefined' && body instanceof FormData) {
+    // The content of each file, read when the page sends it (the read ends before the case's stage).
+    const files = Array.from(body.entries()).filter(([, v]) => typeof v !== 'string');
+    entry.fileBytes = '«reading»';
+    mocks.reads.push(
+      Promise.all(files.map(([k, v]) => readBytes(v as Blob).then((bytes) => `${k}: sha256 ${createHash('sha256').update(bytes).digest('hex')}`))).then(
+        (digests) => {
+          entry.fileBytes = digests;
+        }
+      )
+    );
+  }
   if (args.length > 1) entry.more = describeProps({ args: args.slice(1) });
   log(entry);
   const key = `${init?.method ?? 'GET'} ${url}`;
@@ -336,6 +407,7 @@ beforeEach(() => {
   mocks.log = [];
   mocks.props = {};
   mocks.release = null;
+  mocks.reads = [];
   vi.stubGlobal('fetch', vi.fn(fakeFetch));
   vi.stubGlobal(
     'confirm',
@@ -357,6 +429,11 @@ afterEach(() => {
   vi.unstubAllGlobals();
   consoleError?.mockRestore();
   consoleError = null;
+});
+
+afterAll(() => {
+  if (ORIGINAL_TZ === undefined) delete process.env.TZ;
+  else process.env.TZ = ORIGINAL_TZ;
 });
 
 describe('the machine does not reach the pin', () => {
@@ -1149,5 +1226,52 @@ describe("today's consultor session page (pinned before SA)", () => {
     return [...first, ...stage()];
   });
 
-  digestsFileHolds(95);
+  // ── Added in send-back 1 (the review's findings 5 and 6), produced by today's page. ──
+
+  pinned('D42. the address changes from one session to another: the second one is loaded', async () => {
+    const second = payload({ id: 'ses-2', title: 'Segunda Sesión Inventada', status: 'pendiente_informe' });
+    await draw(as('consultor', payload(), { 'GET /api/sessions/ses-2?include=activity_log': ok(second) }));
+    const first = stage();
+    mocks.router.query = { id: 'ses-2' };
+    mocks.router.asPath = '/consultor/sessions/ses-2';
+    view.rerender(<SessionDetailPage />);
+    await settle();
+    return [...first, ...stage()];
+  });
+
+  pinned('D43. the phone-layout attendance cards: each control, then save (the PUT body)', async () => {
+    await draw(as('consultor', payload({ attendees: ATTENDEES }), { [ATT_PUT]: { body: { data: {} } } }));
+    const stages = stage();
+    const cards = view.container.querySelector('ul[aria-label="Lista de asistencia"]')!;
+    fireEvent.click(cards.querySelectorAll('input[type="checkbox"]')[0]);
+    fireEvent.click(cards.querySelectorAll('input[type="checkbox"]')[1]);
+    fireEvent.change(cards.querySelectorAll('select')[2], { target: { value: 'on_time' } });
+    fireEvent.change(cards.querySelectorAll('select')[1], { target: { value: '' } });
+    fireEvent.change(cards.querySelectorAll('input[type="text"]')[3], { target: { value: 'Nota desde el teléfono' } });
+    fireEvent.change(cards.querySelectorAll('input[type="text"]')[1], { target: { value: '' } });
+    await settle();
+    stages.push(...stage());
+    await click(button('Guardar asistencia'));
+    stages.push(...stage());
+    return stages;
+  });
+
+  pinned('D33g. upload success: the bytes of the file sent', async () => {
+    await draw({ ...as('consultor', payload({ materials: MATERIALS }), { [MAT_POST]: { status: 201, body: { data: {} } } }), fileBytes: true });
+    const stages = stage();
+    await openTab('Materiales');
+    const file = new File(['contenido inventado del acta'], 'acta-inventada.pdf', { type: 'application/pdf' });
+    fireEvent.change(view.container.querySelector('input[type="file"]')!, { target: { files: [file] } });
+    await settle();
+    await Promise.all(mocks.reads);
+    stages.push(...stage());
+    return stages;
+  });
+
+  pinned('D44. the page component’s hooks, in order (a hook added, removed or moved changes this)', async () => {
+    await draw(as('consultor', payload()));
+    return [hookSignature(view.container, SessionDetailPage), ...stage()];
+  });
+
+  digestsFileHolds(99);
 });

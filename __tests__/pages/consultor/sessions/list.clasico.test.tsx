@@ -23,12 +23,17 @@
 import React from 'react';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { act, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { makePin, serialise } from '../../../helpers/pin';
 
-vi.hoisted(() => {
+// The zone this process had before is kept and put back after the file (all test files of a run
+// may share one process).
+const ORIGINAL_TZ = vi.hoisted(() => {
+  const before = process.env.TZ;
   process.env.TZ = 'America/Santiago';
+  return before;
 });
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -107,7 +112,10 @@ function resetRouter(s: Scenario) {
       log({ 'router.replace': args });
       return Promise.resolve(true);
     }),
-    prefetch: vi.fn(() => Promise.resolve()),
+    prefetch: vi.fn((...args: unknown[]) => {
+      log({ 'router.prefetch': args });
+      return Promise.resolve();
+    }),
     events: { on: () => {}, off: () => {} },
   };
 }
@@ -187,6 +195,41 @@ vi.mock('@/components/tutorials/HelpButton', () => ({ default: marker('HelpButto
 
 import ConsultorSessionsPage from '@/pages/consultor/sessions/index';
 
+/**
+ * The hooks of the page's own component, in order, read from React's fiber (React 18): a custom
+ * hook makes no fiber of its own, so whatever hooks the page calls, directly or through a hook of
+ * its own, are listed here; a view drawn below the page has a fiber of its own and is not. Each
+ * hook is written as its kind and, for effects and memos, its kind of effect and the length of its
+ * dependency list (not the values: functions there change on every render).
+ */
+function hookSignature(container: HTMLElement, component: unknown): string {
+  const node = container.firstElementChild as (Element & Record<string, any>) | null;
+  if (!node) return '«nothing drawn»';
+  const key = Object.keys(node).find((k) => k.startsWith('__reactFiber$'));
+  let fiber = key ? node[key] : null;
+  while (fiber && fiber.type !== component) fiber = fiber.return;
+  if (!fiber) return '«page fiber not found»';
+  const kinds: string[] = [];
+  for (let hook = fiber.memoizedState; hook; hook = hook.next) {
+    const state = hook.memoizedState;
+    const deps = (d: unknown) => (Array.isArray(d) ? `[${d.length}]` : String(d));
+    if (hook.queue) {
+      const reducer = hook.queue.lastRenderedReducer;
+      kinds.push(reducer && reducer.name === 'basicStateReducer' ? 'state' : 'reducer');
+    } else if (state && typeof state === 'object' && 'create' in state && 'tag' in state) {
+      // The tag without its "has effect" bit (1), which changes from render to render.
+      kinds.push(`effect(tag ${state.tag & ~1}, deps ${deps(state.deps)})`);
+    } else if (state && typeof state === 'object' && !Array.isArray(state) && Object.keys(state).join() === 'current') {
+      kinds.push('ref');
+    } else if (Array.isArray(state) && state.length === 2) {
+      kinds.push(`memo(deps ${deps(state[1])})`);
+    } else {
+      kinds.push(`other(${typeof state})`);
+    }
+  }
+  return `${kinds.length} hooks:\n${kinds.join('\n')}`;
+}
+
 // ── The fetch fake: answers by address, can fail or stay pending, writes each call down. ──
 
 function describeInit(init: unknown): unknown {
@@ -196,6 +239,9 @@ function describeInit(init: unknown): unknown {
 
 function fakeFetch(url: string, ...args: unknown[]) {
   const entry: Record<string, unknown> = { fetch: url, init: describeInit(args[0]) };
+  // The options as given: an explicit `undefined` or `null` second argument differs from none.
+  if (args.length > 0 && args[0] === undefined) entry.init = '«undefined given»';
+  if (args[0] === null) entry.init = '«null given»';
   if (args.length > 1) entry.more = describeProps({ args: args.slice(1) });
   log(entry);
   const table = S().fetch ?? {};
@@ -327,6 +373,11 @@ afterEach(() => {
   vi.unstubAllGlobals();
   consoleError?.mockRestore();
   consoleError = null;
+});
+
+afterAll(() => {
+  if (ORIGINAL_TZ === undefined) delete process.env.TZ;
+  else process.env.TZ = ORIGINAL_TZ;
 });
 
 describe('the machine does not reach the pin', () => {
@@ -657,5 +708,39 @@ describe("today's consultor sessions list (pinned before SA)", () => {
     return [...first, ...stage()];
   });
 
-  digestsFileHolds(40);
+  // ── Added in send-back 1 (the review's findings 4 and 6), produced by today's page. ──
+
+  pinned('L22. the router turns ready after the first render: the load starts then', async () => {
+    rowCount = 0;
+    await draw(consultor({ ready: false, fetch: { [FIRST]: page([row({ title: 'Tras Listo' })]) } }));
+    const first = stage();
+    mocks.router.isReady = true;
+    view.rerender(<ConsultorSessionsPage />);
+    await settle();
+    return [...first, ...stage()];
+  });
+
+  pinned('L23. the element props of the markers, drawn whole (the header icon and its children)', async () => {
+    await draw(consultor({ fetch: { [FIRST]: page([], 0) } }));
+    const drawn = Object.keys(mocks.props)
+      .sort()
+      .map((name) => {
+        const props = mocks.props[name];
+        const elements = Object.keys(props)
+          .filter((key) => key !== 'children' && React.isValidElement(props[key]))
+          .sort()
+          .map((key) => `${name}.${key}: ${renderToStaticMarkup(props[key])}`);
+        return elements.join('\n');
+      })
+      .filter(Boolean);
+    return [drawn.join('\n'), ...stage()];
+  });
+
+  pinned('L24. the page component’s hooks, in order (a hook added, removed or moved changes this)', async () => {
+    rowCount = 0;
+    await draw(consultor({ fetch: { [FIRST]: page([row()]) } }));
+    return [hookSignature(view.container, ConsultorSessionsPage), ...stage()];
+  });
+
+  digestsFileHolds(43);
 });

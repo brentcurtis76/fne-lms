@@ -6,6 +6,7 @@ import { toast } from 'react-hot-toast';
 import { convertToCLP, formatCurrency, getAvailableCurrencies } from '../../lib/currency-service';
 import { RECEIPTS_BUCKET } from '../../utils/expenseConfig';
 import { receiptPathFromStored, receiptExtensionFromFileName } from '../../lib/expenses/receipt-path';
+import { parseEsCl } from '../../lib/money/parse-es-cl';
 
 interface ExpenseCategory {
   id: string;
@@ -30,6 +31,65 @@ interface ExpenseItemForm {
   receipt_file?: File;
   receipt_url?: string;
   receipt_filename?: string;
+  // GES-3.32: the amount as typed (pesos or the foreign currency), read with parseEsCl.
+  amountText?: string;
+}
+
+const PESOS_NO_DECIMALS = 'Los montos en pesos no llevan decimales.';
+const FOREIGN_TWO_DECIMALS = 'Los montos en moneda extranjera llevan hasta dos decimales.';
+
+/**
+ * GES-3.32: reads an amount typed the Chilean way with lib/money/parse-es-cl:
+ * pesos without decimals («15.990» is 15990), a foreign currency with up to
+ * two. Returns the value, or the sentence that refuses it ('' = not readable).
+ */
+export function readTypedAmount(
+  text: string,
+  currency: ExpenseItemForm['currency'] | undefined
+): { value: number | null; problem: string | null } {
+  if (!text.trim()) return { value: null, problem: null };
+  const pesos = !currency || currency === 'CLP';
+  const value = parseEsCl(text, { decimals: pesos ? 0 : 2 });
+  if (value !== null) return { value, problem: null };
+  // A number with more decimals than the currency takes gets its own sentence.
+  if (parseEsCl(text, { decimals: 10 }) !== null) {
+    return { value: null, problem: pesos ? PESOS_NO_DECIMALS : FOREIGN_TWO_DECIMALS };
+  }
+  return { value: null, problem: '' };
+}
+
+/** GES-3.27: a row nobody filled in (dropped silently when saving). */
+function isEmptyRow(item: ExpenseItemForm): boolean {
+  return !item.id
+    && !item.description.trim()
+    && !item.category_id
+    && !item.expense_date
+    && !(item.amount > 0)
+    && !(item.amountText || '').trim()
+    && (!item.currency || item.currency === 'CLP')
+    && !item.vendor.trim()
+    && !item.expense_number.trim()
+    && !item.notes.trim()
+    && !item.receipt_url
+    && !item.receipt_filename;
+}
+
+/**
+ * GES-3.27: the sentences that stop the save for one row (number = 1-based),
+ * e.g. «El gasto 3 no tiene categoría.»; empty when the row can be saved.
+ */
+export function rowProblems(item: ExpenseItemForm, number: number): string[] {
+  const out: string[] = [];
+  const typed = item.amountText !== undefined ? readTypedAmount(item.amountText, item.currency) : null;
+  if (!item.description.trim()) out.push(`El gasto ${number} no tiene descripción.`);
+  if (!item.category_id) out.push(`El gasto ${number} no tiene categoría.`);
+  if (typed?.problem) {
+    out.push(`El gasto ${number}: ${typed.problem}`);
+  } else if (!(item.amount > 0) || (typed !== null && !(typed.value !== null && typed.value > 0))) {
+    out.push(`El gasto ${number} no tiene monto.`);
+  }
+  if (!item.expense_date) out.push(`El gasto ${number} no tiene fecha.`);
+  return out;
 }
 
 interface ExpenseReportFormProps {
@@ -60,6 +120,15 @@ export function conversionSourceAmount(
   return prev.currency && prev.currency !== 'CLP'
     ? prev.original_amount ?? prev.amount ?? 0
     : prev.amount ?? 0;
+}
+
+/** The fields of `next` that differ from `prev` (by reference). */
+function changesOf(prev: ExpenseItemForm | undefined, next: ExpenseItemForm): Partial<ExpenseItemForm> {
+  const out: Partial<ExpenseItemForm> = {};
+  (Object.keys(next) as Array<keyof ExpenseItemForm>).forEach((key) => {
+    if (!prev || prev[key] !== next[key]) (out as any)[key] = next[key];
+  });
+  return out;
 }
 
 export default function ExpenseReportForm({ categories, editingReport, onSuccess, onCancel }: ExpenseReportFormProps) {
@@ -149,10 +218,15 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
     }
   };
 
-  const updateExpenseItem = async (index: number, field: keyof ExpenseItemForm, value: any) => {
+  const updateExpenseItem = async (
+    index: number,
+    field: keyof ExpenseItemForm,
+    value: any,
+    extra: Partial<ExpenseItemForm> = {}
+  ) => {
     const previousItem = expenseItems[index];
     const updatedItems = [...expenseItems];
-    updatedItems[index] = { ...previousItem, [field]: value };
+    updatedItems[index] = { ...previousItem, [field]: value, ...extra };
 
     // If currency or amount changed, recompute the CLP conversion from the raw
     // source-currency amount (not the stored CLP value — see conversionSourceAmount).
@@ -175,7 +249,10 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
       }
     }
 
-    setExpenseItems(updatedItems);
+    // Only this row's changed fields are merged into the latest state, so a
+    // conversion that resolves later does not put back an older copy.
+    const changes = updatedItems[index];
+    setExpenseItems(prev => prev.map((it, i) => (i === index ? { ...it, ...changesOf(previousItem, changes) } : it)));
   };
 
   const handleReceiptUpload = async (index: number, file: File) => {
@@ -298,6 +375,14 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
     }
   };
 
+  // A typed amount: the text is kept as typed; the number follows when readable.
+  const updateTypedAmount = (index: number, text: string) => {
+    const item = expenseItems[index];
+    setExpenseItems(prev => prev.map((it, i) => (i === index ? { ...it, amountText: text } : it)));
+    const { value } = readTypedAmount(text, item.currency);
+    updateExpenseItem(index, 'amount', value ?? 0, { amountText: text });
+  };
+
   const calculateTotal = () => {
     return expenseItems.reduce((sum, item) => sum + (item.amount || 0), 0);
   };
@@ -321,16 +406,22 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
         return;
       }
 
-      const validItems = expenseItems.filter(item => 
-        item.description.trim() && item.amount > 0 && item.category_id && item.expense_date
-      );
+      // GES-3.27: a row nobody filled in is dropped silently; any other row
+      // must be complete, or the save stops and names the row and the field.
+      const problems = expenseItems.flatMap((item, index) => (isEmptyRow(item) ? [] : rowProblems(item, index + 1)));
+      if (problems.length > 0) {
+        toast.error(problems.join(' '));
+        return;
+      }
+      const validItems = expenseItems.filter(item => !isEmptyRow(item));
 
       if (validItems.length === 0) {
         toast.error('Debe agregar al menos un gasto válido');
         return;
       }
 
-      const totalAmount = calculateTotal();
+      // The total of a new report counts only the rows that are sent.
+      const totalAmount = validItems.reduce((sum, item) => sum + (item.amount || 0), 0);
 
       if (editingReport) {
         // UPDATE MODE (GES-3.26): one database function, called with the
@@ -598,21 +689,19 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
                     </label>
                     <div className="space-y-2">
                       <input
-                        type="number"
-                        min="0"
-                        step={(item.currency === 'CLP' || !item.currency) ? '1' : '0.01'}
-                        value={(item.currency === 'CLP' || !item.currency) ? (item.amount || '') : (item.original_amount || '')}
-                        onChange={(e) => {
-                          const value = parseFloat(e.target.value) || 0;
-                          if (item.currency === 'CLP' || !item.currency) {
-                            updateExpenseItem(index, 'amount', value);
-                          } else {
-                            updateExpenseItem(index, 'amount', value);
-                          }
-                        }}
+                        type="text"
+                        inputMode={(item.currency === 'CLP' || !item.currency) ? 'numeric' : 'decimal'}
+                        data-testid="expense-amount-input"
+                        value={item.amountText !== undefined
+                          ? item.amountText
+                          : String(((item.currency === 'CLP' || !item.currency) ? item.amount : item.original_amount) || '')}
+                        onChange={(e) => updateTypedAmount(index, e.target.value)}
                         className="w-full p-3 border-2 border-brand_accent rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-brand_accent text-sm font-medium bg-white"
-                        placeholder="0.00"
+                        placeholder={(item.currency === 'CLP' || !item.currency) ? '0' : '0,00'}
                       />
+                      {item.amountText !== undefined && readTypedAmount(item.amountText, item.currency).problem ? (
+                        <p className="text-xs text-red-600">{readTypedAmount(item.amountText, item.currency).problem}</p>
+                      ) : null}
                       {item.currency !== 'CLP' && item.conversion_rate && item.original_amount && (
                         <div className="text-sm text-amber-700 font-medium bg-amber-100 p-2 rounded">
                           ≈ ${Math.round((item.original_amount || 0) * (item.conversion_rate || 1)).toLocaleString('es-CL')} CLP

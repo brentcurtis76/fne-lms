@@ -8,7 +8,6 @@ import {
   MapPin,
   ExternalLink,
   Users,
-  ClipboardList,
   PenLine,
   Paperclip,
   FileText,
@@ -27,68 +26,97 @@ import {
 } from 'lucide-react';
 import {
   SessionWithRelations,
-  SessionAttendee,
   SessionMaterial,
   SessionEditRequest,
 } from '../../lib/types/consultor-sessions.types';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { getStatusBadge, formatTime, getModalityIcon } from '../../lib/utils/session-ui-helpers';
+import { formatTime, getModalityIcon } from '../../lib/utils/session-ui-helpers';
 import { formatSessionTimeForConsultant } from '../../lib/utils/session-timezone';
-import type { TabId } from './SessionDetail.types';
-import type { SessionDetail } from '../../hooks/useSessionDetail';
+import type { SessionDetail, SessionDetailDecisions } from '../../hooks/useSessionDetail';
 
 /**
  * Today's session page, the classic view: the page's body moved out of
  * `pages/consultor/sessions/[id].tsx` unchanged (redesign 6S, release SA). It draws only what
- * `useSessionDetail()` gives it; the frame (`MainLayout`), the loading and refusal returns, the
+ * `useSessionDetail()` gives it and the decisions the page worked out with `detail.decide()` after
+ * its refusal returns (each condition has one copy, in the hook); the frame (`MainLayout`), the loading and refusal returns, the
  * outer column and the two pop-ups stay in the page.
  */
-export default function SessionDetailClasico({ detail }: { detail: SessionDetail }) {
+export default function SessionDetailClasico({ detail, decisions }: { detail: SessionDetail; decisions: SessionDetailDecisions }) {
   const {
-    user,
-    userRole,
     conflictVisible,
     activeTab,
-    setActiveTab,
-    isFacilitator,
-    attendanceData,
     savingAttendance,
     reportContent,
-    setReportContent,
     reportVisibility,
-    setReportVisibility,
     editingReport,
-    setEditingReport,
     savingReport,
     existingReport,
     reportTranscript,
     signedAudioUrl,
     uploadingMaterial,
     fileInputRef,
-    setShowFinalizeModal,
-    setShowEditRequestModal,
-    fetchSession,
     handleAudioReportCreated,
-    getStatusHelperText,
     handleAttendanceChange,
     handleMarkAllPresent,
     handleSaveAttendance,
     handleSaveReport,
     handleUploadMaterial,
     handleDeleteMaterial,
-    canFinalizeSession,
     hasPendingEditRequest,
     formatFileSize,
     canEdit,
+    reload,
+    onSuggestionsApplied,
+    selectTab,
+    openEditRequest,
+    openFinalize,
+    startEditingReport,
+    cancelEditingReport,
+    changeReportContent,
+    changeReportVisibility,
   } = detail;
+  const {
+    badge,
+    helperText,
+    tabs,
+    finalizeCheck,
+    canChange,
+    readMode,
+    showReadOnlyBand,
+    seriesNumberShown,
+    showCalendarLink,
+    showEditRequestButton,
+    showFinalizeButton,
+    showJoinLink,
+    isPendingReport,
+    showEditRequests,
+    editRequestStatusLabel,
+    editRequestFieldLabel,
+    showReviewNotes,
+    attendeeCount,
+    presentCount,
+    absentCount,
+    unmarkedCount,
+    attendanceOf,
+    attendeeName,
+    materials,
+    uploaderName,
+    canDeleteMaterial,
+    onlyFacilitatorsReport,
+    showAudioUploader,
+    audioUploaderDisabled,
+    showCreateReportButton,
+    showEditReportButton,
+    showReportEditor,
+    isForAllParticipants,
+    hasActivity,
+  } = decisions;
   // Drawn only after the page's refusal returns, where `session` is set (the type the page had there).
   const session = detail.session as SessionWithRelations;
 
   const renderTabContent = () => {
     if (!session) return null;
-
-    const isReadOnly = session.status === 'completada' || session.status === 'cancelada';
 
     switch (activeTab) {
       case 'details':
@@ -135,13 +163,13 @@ export default function SessionDetailClasico({ detail }: { detail: SessionDetail
                   and the panel removes itself for anyone who is not facilitator/admin. */}
               <AttendanceSuggestionsPanel
                 sessionId={session.id}
-                onApplied={() => void fetchSession()}
+                onApplied={onSuggestionsApplied}
               />
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-lg font-semibold text-gray-900">
-                  Asistencia ({session.attendees.length})
+                  Asistencia ({attendeeCount()})
                 </h3>
-                {!isReadOnly && canEdit && (
+                {canChange && (
                   <div className="flex flex-col sm:flex-row gap-2">
                     <button
                       onClick={handleMarkAllPresent}
@@ -165,14 +193,14 @@ export default function SessionDetailClasico({ detail }: { detail: SessionDetail
               <div className="mb-4 flex gap-4 text-sm">
                 <span className="text-green-700">
                   <CheckCircle className="w-4 h-4 inline mr-1" />
-                  Presentes: {session.attendees.filter((a) => a.attended === true).length}
+                  Presentes: {presentCount()}
                 </span>
                 <span className="text-red-700">
                   <X className="w-4 h-4 inline mr-1" />
-                  Ausentes: {session.attendees.filter((a) => a.attended === false).length}
+                  Ausentes: {absentCount()}
                 </span>
                 <span className="text-gray-700">
-                  Sin marcar: {session.attendees.filter((a) => a.attended === null).length}
+                  Sin marcar: {unmarkedCount()}
                 </span>
               </div>
 
@@ -190,11 +218,8 @@ export default function SessionDetailClasico({ detail }: { detail: SessionDetail
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {session.attendees.map((attendee, index) => {
-                      const attData = attendanceData.find((a) => a.user_id === attendee.user_id);
-                      const profile = (attendee as SessionAttendee & { profiles?: { first_name: string; last_name: string; email: string } }).profiles;
-                      const fullName = profile
-                        ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim()
-                        : 'Usuario desconocido';
+                      const attData = attendanceOf(attendee.user_id);
+                      const fullName = attendeeName(attendee);
 
                       return (
                         <tr
@@ -214,7 +239,7 @@ export default function SessionDetailClasico({ detail }: { detail: SessionDetail
                             )}
                           </td>
                           <td className="px-4 py-2 text-center">
-                            {isReadOnly || !canEdit ? (
+                            {readMode ? (
                               attendee.attended === true ? (
                                 <Check className="w-4 h-4 text-green-600 mx-auto" />
                               ) : attendee.attended === false ? (
@@ -234,7 +259,7 @@ export default function SessionDetailClasico({ detail }: { detail: SessionDetail
                             )}
                           </td>
                           <td className="px-4 py-2">
-                            {isReadOnly || !canEdit ? (
+                            {readMode ? (
                               <span className="text-sm text-gray-600 capitalize">
                                 {attendee.arrival_status?.replace(/_/g, ' ') || '—'}
                               </span>
@@ -258,7 +283,7 @@ export default function SessionDetailClasico({ detail }: { detail: SessionDetail
                             )}
                           </td>
                           <td className="px-4 py-2">
-                            {isReadOnly || !canEdit ? (
+                            {readMode ? (
                               <span className="text-sm text-gray-600">{attendee.notes || '—'}</span>
                             ) : (
                               <input
@@ -282,11 +307,8 @@ export default function SessionDetailClasico({ detail }: { detail: SessionDetail
               {/* Mobile Cards */}
               <ul className="md:hidden space-y-3" role="list" aria-label="Lista de asistencia">
                 {session.attendees.map((attendee) => {
-                  const attData = attendanceData.find((a) => a.user_id === attendee.user_id);
-                  const profile = (attendee as SessionAttendee & { profiles?: { first_name: string; last_name: string; email: string } }).profiles;
-                  const fullName = profile
-                    ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim()
-                    : 'Usuario desconocido';
+                  const attData = attendanceOf(attendee.user_id);
+                  const fullName = attendeeName(attendee);
 
                   return (
                     <li
@@ -306,7 +328,7 @@ export default function SessionDetailClasico({ detail }: { detail: SessionDetail
                       {/* Attended Checkbox */}
                       <div className="flex items-center gap-2 mb-3">
                         <label className="flex items-center gap-2 text-sm font-medium text-gray-700 min-h-[44px]">
-                          {isReadOnly || !canEdit ? (
+                          {readMode ? (
                             attendee.attended === true ? (
                               <Check className="w-5 h-5 text-green-600" />
                             ) : attendee.attended === false ? (
@@ -331,7 +353,7 @@ export default function SessionDetailClasico({ detail }: { detail: SessionDetail
                       {/* Arrival Status Dropdown */}
                       <div className="mb-3">
                         <label className="block text-sm font-medium text-gray-700 mb-1">Estado de llegada</label>
-                        {isReadOnly || !canEdit ? (
+                        {readMode ? (
                           <span className="text-sm text-gray-600 capitalize">
                             {attendee.arrival_status?.replace(/_/g, ' ') || '—'}
                           </span>
@@ -358,7 +380,7 @@ export default function SessionDetailClasico({ detail }: { detail: SessionDetail
                       {/* Notes Input */}
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Notas</label>
-                        {isReadOnly || !canEdit ? (
+                        {readMode ? (
                           <span className="text-sm text-gray-600">{attendee.notes || '—'}</span>
                         ) : (
                           <input
@@ -390,10 +412,9 @@ export default function SessionDetailClasico({ detail }: { detail: SessionDetail
         );
 
       case 'materials':
-        const materials = session.materials || [];
         return (
           <div className="space-y-4">
-            {!isReadOnly && canEdit && (
+            {canChange && (
               <div className="flex justify-end">
                 <label className="px-4 py-2 bg-brand_accent hover:bg-brand_accent_hover text-white rounded cursor-pointer flex items-center gap-2">
                   <Upload className="w-4 h-4" />
@@ -429,17 +450,14 @@ export default function SessionDetailClasico({ detail }: { detail: SessionDetail
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {materials.map((material: SessionMaterial & { profiles?: { first_name: string; last_name: string; email: string }; download_url?: string }) => {
-                      const profile = material.profiles;
-                      const uploaderName = profile
-                        ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim()
-                        : 'Usuario desconocido';
+                      const uploaderNameText = uploaderName(material);
 
                       return (
                         <tr key={material.id}>
                           <td className="px-4 py-2 text-sm text-gray-900">{material.file_name}</td>
                           <td className="px-4 py-2 text-sm text-gray-600">{material.file_type}</td>
                           <td className="px-4 py-2 text-sm text-gray-600">{formatFileSize(material.file_size)}</td>
-                          <td className="px-4 py-2 text-sm text-gray-600">{uploaderName}</td>
+                          <td className="px-4 py-2 text-sm text-gray-600">{uploaderNameText}</td>
                           <td className="px-4 py-2 text-sm text-gray-600">
                             {format(parseISO(material.created_at), 'dd MMM yyyy', { locale: es })}
                           </td>
@@ -455,8 +473,7 @@ export default function SessionDetailClasico({ detail }: { detail: SessionDetail
                                   <ExternalLink className="w-4 h-4" />
                                 </a>
                               )}
-                              {!isReadOnly &&
-                                (material.uploaded_by === user?.id || canEdit) && (
+                              {canDeleteMaterial(material) && (
                                   <button
                                     onClick={() => handleDeleteMaterial(material.id, material.file_name)}
                                     className="text-red-600 hover:text-red-800"
@@ -477,7 +494,7 @@ export default function SessionDetailClasico({ detail }: { detail: SessionDetail
         );
 
       case 'report':
-        if (!canEdit && !existingReport) {
+        if (onlyFacilitatorsReport) {
           return (
             <div className="text-center py-12 text-gray-500">
               <FileText className="w-12 h-12 mx-auto mb-3 text-gray-400" />
@@ -489,39 +506,39 @@ export default function SessionDetailClasico({ detail }: { detail: SessionDetail
         return (
           <div className="space-y-4">
             {/* Audio uploader - show when no existing report and not read-only */}
-            {!isReadOnly && canEdit && !existingReport && !editingReport && session && (
+            {showAudioUploader && (
               <AudioReportUploader
                 sessionId={session.id}
                 onReportCreated={handleAudioReportCreated}
-                disabled={session.status === 'completada' || session.status === 'cancelada'}
+                disabled={audioUploaderDisabled}
               />
             )}
 
-            {!isReadOnly && canEdit && !existingReport && !editingReport && (
+            {showCreateReportButton && (
               <button
-                onClick={() => setEditingReport(true)}
+                onClick={startEditingReport}
                 className="px-4 py-2 bg-brand_accent hover:bg-brand_accent_hover text-white rounded"
               >
                 Crear Informe
               </button>
             )}
 
-            {!isReadOnly && canEdit && existingReport && !editingReport && (
+            {showEditReportButton && (
               <button
-                onClick={() => setEditingReport(true)}
+                onClick={startEditingReport}
                 className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded"
               >
                 Editar Informe
               </button>
             )}
 
-            {editingReport && canEdit && !isReadOnly ? (
+            {showReportEditor ? (
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Contenido del informe</label>
                   <textarea
                     value={reportContent}
-                    onChange={(e) => setReportContent(e.target.value)}
+                    onChange={changeReportContent}
                     rows={10}
                     className="w-full border border-gray-300 rounded px-3 py-2"
                     placeholder="Escriba el informe de la sesión..."
@@ -531,7 +548,7 @@ export default function SessionDetailClasico({ detail }: { detail: SessionDetail
                   <label className="block text-sm font-medium text-gray-700 mb-2">Visibilidad</label>
                   <select
                     value={reportVisibility}
-                    onChange={(e) => setReportVisibility(e.target.value as 'facilitators_only' | 'all_participants')}
+                    onChange={changeReportVisibility}
                     className="border border-gray-300 rounded px-3 py-2"
                   >
                     <option value="facilitators_only">Solo facilitadores</option>
@@ -548,13 +565,7 @@ export default function SessionDetailClasico({ detail }: { detail: SessionDetail
                   </button>
                   {editingReport && (
                     <button
-                      onClick={() => {
-                        setEditingReport(false);
-                        if (existingReport) {
-                          setReportContent(existingReport.content);
-                          setReportVisibility(existingReport.visibility);
-                        }
-                      }}
+                      onClick={cancelEditingReport}
                       className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded"
                     >
                       Cancelar
@@ -580,12 +591,12 @@ export default function SessionDetailClasico({ detail }: { detail: SessionDetail
                       </span>
                       <span
                         className={`px-2 py-0.5 text-xs rounded ${
-                          existingReport.visibility === 'all_participants'
+                          isForAllParticipants(existingReport)
                             ? 'bg-green-100 text-green-800'
                             : 'bg-gray-100 text-gray-800'
                         }`}
                       >
-                        {existingReport.visibility === 'all_participants'
+                        {isForAllParticipants(existingReport)
                           ? 'Todos los participantes'
                           : 'Solo facilitadores'}
                       </span>
@@ -616,7 +627,7 @@ export default function SessionDetailClasico({ detail }: { detail: SessionDetail
       case 'activity':
         return (
           <div className="space-y-4">
-            {session.activity_log && session.activity_log.length > 0 ? (
+            {hasActivity ? (
               session.activity_log.map((log) => (
                 <div key={log.id} className="flex items-start gap-3 pb-3 border-b border-gray-200">
                   <Activity className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
@@ -646,19 +657,6 @@ export default function SessionDetailClasico({ detail }: { detail: SessionDetail
     }
   };
 
-  const badge = getStatusBadge(session.status);
-  const helperText = getStatusHelperText(session.status);
-
-  const tabs: { id: TabId; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
-    { id: 'details', label: 'Detalles', icon: ClipboardList },
-    ...(canEdit ? [{ id: 'planning' as TabId, label: 'Planificación', icon: PenLine }] : []),
-    { id: 'materials', label: 'Materiales', icon: Paperclip },
-    { id: 'report', label: 'Informe', icon: FileText },
-    { id: 'communications', label: 'Comunicaciones', icon: MessageSquare },
-    { id: 'activity', label: 'Actividad', icon: Activity },
-  ];
-
-  const finalizeCheck = canFinalizeSession();
 
   return (
     <>
@@ -672,7 +670,7 @@ export default function SessionDetailClasico({ detail }: { detail: SessionDetail
             Otra persona editó esta sesión mientras trabajabas en ella. Recarga para ver los últimos cambios.
           </div>
           <button
-            onClick={() => fetchSession()}
+            onClick={reload}
             className="px-3 py-1 text-sm bg-orange-600 hover:bg-orange-700 text-white rounded"
           >
             Recargar
@@ -680,7 +678,7 @@ export default function SessionDetailClasico({ detail }: { detail: SessionDetail
         </div>
       )}
 
-      {!isFacilitator && userRole !== 'admin' && (
+      {showReadOnlyBand && (
         <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg flex items-start gap-2">
           <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
           <div className="text-sm text-yellow-800">
@@ -698,7 +696,7 @@ export default function SessionDetailClasico({ detail }: { detail: SessionDetail
               <span className={`px-3 py-1 rounded-full text-sm font-medium ${badge.className}`}>
                 {badge.label}
               </span>
-              {session.recurrence_group_id && session.session_number && (
+              {seriesNumberShown && (
                 <div className="flex items-center gap-1 text-sm text-gray-600">
                   <Link2 className="w-4 h-4" />
                   <span>Sesión {session.session_number}</span>
@@ -710,7 +708,7 @@ export default function SessionDetailClasico({ detail }: { detail: SessionDetail
           {/* Action Buttons */}
           <div className="flex flex-wrap gap-2">
             {/* Add to Calendar Button - for exportable statuses */}
-            {(['programada', 'en_progreso', 'pendiente_informe'] as string[]).includes(session.status) && (
+            {showCalendarLink && (
               <a
                 href={`/api/sessions/${session.id}/ical`}
                 download
@@ -722,10 +720,10 @@ export default function SessionDetailClasico({ detail }: { detail: SessionDetail
             )}
 
             {/* Edit Request Button */}
-            {canEdit && (session.status !== 'completada' && session.status !== 'cancelada') && (
+            {showEditRequestButton && (
               <div className="relative group">
                 <button
-                  onClick={() => setShowEditRequestModal(true)}
+                  onClick={openEditRequest}
                   disabled={hasPendingEditRequest()}
                   className={`px-4 py-2 rounded flex items-center gap-2 ${
                     hasPendingEditRequest()
@@ -745,10 +743,10 @@ export default function SessionDetailClasico({ detail }: { detail: SessionDetail
             )}
 
             {/* Finalize Button */}
-            {canEdit && session.status === 'pendiente_informe' && (
+            {showFinalizeButton && (
               <div className="relative group">
                 <button
-                  onClick={() => setShowFinalizeModal(true)}
+                  onClick={openFinalize}
                   disabled={!finalizeCheck.can}
                   className={`px-4 py-2 rounded flex items-center gap-2 ${
                     finalizeCheck.can
@@ -794,7 +792,7 @@ export default function SessionDetailClasico({ detail }: { detail: SessionDetail
           <div className="flex items-center gap-2 text-gray-700">
             {getModalityIcon(session.modality, 'w-5 h-5')}
             <span className="capitalize">{session.modality}</span>
-            {session.has_meeting && session.join_path && (
+            {showJoinLink && (
               <a
                 href={session.join_path}
                 data-testid="session-join-link"
@@ -817,7 +815,7 @@ export default function SessionDetailClasico({ detail }: { detail: SessionDetail
         {helperText && (
           <div
             className={`mt-4 p-3 rounded-lg ${
-              session.status === 'pendiente_informe'
+              isPendingReport
                 ? 'bg-orange-50 border border-orange-200 text-orange-800'
                 : 'bg-gray-50 border border-gray-200 text-gray-800'
             }`}
@@ -828,7 +826,7 @@ export default function SessionDetailClasico({ detail }: { detail: SessionDetail
       </div>
 
       {/* Edit Request History */}
-      {session.edit_requests && session.edit_requests.length > 0 && (
+      {showEditRequests && (
         <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Historial de Solicitudes de Cambio</h3>
           <div className="space-y-3">
@@ -839,12 +837,7 @@ export default function SessionDetailClasico({ detail }: { detail: SessionDetail
                   : request.status === 'approved'
                   ? 'bg-green-100 text-green-800'
                   : 'bg-red-100 text-red-800';
-              const statusLabel =
-                request.status === 'pending'
-                  ? 'Pendiente'
-                  : request.status === 'approved'
-                  ? 'Aprobada'
-                  : 'Rechazada';
+              const statusLabel = editRequestStatusLabel(request);
 
               return (
                 <div key={request.id} className="border border-gray-200 rounded-lg p-4">
@@ -861,16 +854,7 @@ export default function SessionDetailClasico({ detail }: { detail: SessionDetail
                   <div className="text-sm space-y-1">
                     {Object.keys(request.changes).map((field) => {
                       const change = request.changes[field];
-                      const fieldLabel =
-                        field === 'session_date'
-                          ? 'Fecha'
-                          : field === 'start_time'
-                          ? 'Hora inicio'
-                          : field === 'end_time'
-                          ? 'Hora término'
-                          : field === 'modality'
-                          ? 'Modalidad'
-                          : field;
+                      const fieldLabel = editRequestFieldLabel(field);
                       return (
                         <div key={field} className="text-gray-700">
                           <span className="font-medium">{fieldLabel}:</span>{' '}
@@ -885,7 +869,7 @@ export default function SessionDetailClasico({ detail }: { detail: SessionDetail
                       <span className="font-medium">Razón:</span> {request.reason}
                     </div>
                   )}
-                  {request.review_notes && request.status !== 'pending' && (
+                  {showReviewNotes(request) && (
                     <div className="mt-2 text-sm text-gray-600 bg-gray-50 p-2 rounded">
                       <span className="font-medium">Nota del revisor:</span> {request.review_notes}
                     </div>
@@ -906,7 +890,7 @@ export default function SessionDetailClasico({ detail }: { detail: SessionDetail
               return (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => selectTab(tab.id)}
                   className={`px-3 sm:px-6 py-3 text-sm font-medium flex items-center gap-2 border-b-2 whitespace-nowrap ${
                     activeTab === tab.id
                       ? 'border-brand_accent text-brand_accent'

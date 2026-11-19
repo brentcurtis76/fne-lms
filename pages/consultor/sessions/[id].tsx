@@ -13,10 +13,10 @@ const SessionDetailPage: React.FC = () => {
     fetchError,
     session,
     showFinalizeModal,
-    setShowFinalizeModal,
+    closeFinalize,
     finalizing,
     showEditRequestModal,
-    setShowEditRequestModal,
+    closeEditRequest,
     submittingEditRequest,
     handleLogout,
     handleFinalize,
@@ -57,10 +57,13 @@ const SessionDetailPage: React.FC = () => {
     );
   }
 
+  // Where today's page worked out its body's decisions: after the refusal returns, on every render.
+  const decisions = detail.decide();
+
   return (
     <MainLayout user={user} onLogout={handleLogout}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <SessionDetailClasico detail={detail} />
+        <SessionDetailClasico detail={detail} decisions={decisions} />
 
         {/* Finalize Modal */}
         {showFinalizeModal && (
@@ -72,7 +75,7 @@ const SessionDetailPage: React.FC = () => {
               </p>
               <div className="flex gap-3 justify-end">
                 <button
-                  onClick={() => setShowFinalizeModal(false)}
+                  onClick={closeFinalize}
                   disabled={finalizing}
                   className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded disabled:opacity-50"
                 >
@@ -94,7 +97,7 @@ const SessionDetailPage: React.FC = () => {
         {showEditRequestModal && session && (
           <EditRequestModal
             session={session}
-            onClose={() => setShowEditRequestModal(false)}
+            onClose={closeEditRequest}
             onSubmit={handleSubmitEditRequest}
             submitting={submittingEditRequest}
           />

@@ -10,10 +10,14 @@ import {
   SessionStatus,
   SessionAttendee,
   SessionReport,
+  SessionMaterial,
   AttendanceUpdatePayload,
+  SessionEditRequest,
 } from '../lib/types/consultor-sessions.types';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { ClipboardList, PenLine, Paperclip, FileText, MessageSquare, Activity } from 'lucide-react';
+import { getStatusBadge } from '../lib/utils/session-ui-helpers';
 import type { TabId } from '../components/sessions/SessionDetail.types';
 
 /**
@@ -594,6 +598,156 @@ export function useSessionDetail() {
   // Admins can edit even if not facilitator; lider_comunidad is always read-only
   const canEdit = isFacilitator || userRole === 'admin';
 
+  // ── Handlers the markup wrote inline (redesign 6S, release SA, step 3): the same bodies. ──
+  const reload = () => fetchSession();
+  const onSuggestionsApplied = () => void fetchSession();
+  const selectTab = (tabId: TabId) => setActiveTab(tabId);
+  const openEditRequest = () => setShowEditRequestModal(true);
+  const closeEditRequest = () => setShowEditRequestModal(false);
+  const openFinalize = () => setShowFinalizeModal(true);
+  const closeFinalize = () => setShowFinalizeModal(false);
+  const startEditingReport = () => setEditingReport(true);
+  const cancelEditingReport = () => {
+    setEditingReport(false);
+    if (existingReport) {
+      setReportContent(existingReport.content);
+      setReportVisibility(existingReport.visibility);
+    }
+  };
+  const changeReportContent = (e: React.ChangeEvent<HTMLTextAreaElement>) => setReportContent(e.target.value);
+  const changeReportVisibility = (e: React.ChangeEvent<HTMLSelectElement>) => setReportVisibility(e.target.value as 'facilitators_only' | 'all_participants');
+
+  /**
+   * One copy of each decision the session's body makes (step 3), each the markup's own expression,
+   * word for word. Called by the page only where today's page worked them out: after the loading
+   * and refusal returns, on every render of the body, when `session` is set (hence `session!`, a
+   * type-only mark). Those the markup worked out per row or only inside one tab are functions,
+   * asked at that place.
+   */
+  const decide = () => {
+    const badge = getStatusBadge(session!.status);
+    const helperText = getStatusHelperText(session!.status);
+
+    const tabs: { id: TabId; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+      { id: 'details', label: 'Detalles', icon: ClipboardList },
+      ...(canEdit ? [{ id: 'planning' as TabId, label: 'Planificación', icon: PenLine }] : []),
+      { id: 'materials', label: 'Materiales', icon: Paperclip },
+      { id: 'report', label: 'Informe', icon: FileText },
+      { id: 'communications', label: 'Comunicaciones', icon: MessageSquare },
+      { id: 'activity', label: 'Actividad', icon: Activity },
+    ];
+
+    const finalizeCheck = canFinalizeSession();
+
+    // Read-only states and who may change what
+    const isReadOnly = session!.status === 'completada' || session!.status === 'cancelada';
+    const canChange = !isReadOnly && canEdit;
+    const readMode = isReadOnly || !canEdit;
+    const showReadOnlyBand = !isFacilitator && userRole !== 'admin';
+
+    // Header
+    const seriesNumberShown = session!.recurrence_group_id && session!.session_number;
+    const showCalendarLink = (['programada', 'en_progreso', 'pendiente_informe'] as string[]).includes(session!.status);
+    const showEditRequestButton = canEdit && (session!.status !== 'completada' && session!.status !== 'cancelada');
+    const showFinalizeButton = canEdit && session!.status === 'pendiente_informe';
+    const showJoinLink = session!.has_meeting && session!.join_path;
+    const isPendingReport = session!.status === 'pendiente_informe';
+
+    // Edit request history
+    const showEditRequests = session!.edit_requests && session!.edit_requests.length > 0;
+    const editRequestStatusLabel = (request: SessionEditRequest) =>
+      request.status === 'pending'
+        ? 'Pendiente'
+        : request.status === 'approved'
+        ? 'Aprobada'
+        : 'Rechazada';
+    const editRequestFieldLabel = (field: string) =>
+      field === 'session_date'
+        ? 'Fecha'
+        : field === 'start_time'
+        ? 'Hora inicio'
+        : field === 'end_time'
+        ? 'Hora término'
+        : field === 'modality'
+        ? 'Modalidad'
+        : field;
+    const showReviewNotes = (request: SessionEditRequest) => request.review_notes && request.status !== 'pending';
+
+    // «Detalles»: attendance (asked inside that tab only, as the markup did)
+    const attendeeCount = () => session!.attendees.length;
+    const presentCount = () => session!.attendees.filter((a) => a.attended === true).length;
+    const absentCount = () => session!.attendees.filter((a) => a.attended === false).length;
+    const unmarkedCount = () => session!.attendees.filter((a) => a.attended === null).length;
+    const attendanceOf = (userId: string) => attendanceData.find((a) => a.user_id === userId);
+    const attendeeName = (attendee: SessionAttendee) => {
+      const profile = (attendee as SessionAttendee & { profiles?: { first_name: string; last_name: string; email: string } }).profiles;
+      return profile
+        ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim()
+        : 'Usuario desconocido';
+    };
+
+    // «Materiales»
+    const materials = session!.materials || [];
+    const uploaderName = (material: SessionMaterial & { profiles?: { first_name: string; last_name: string; email: string }; download_url?: string }) => {
+      const profile = material.profiles;
+      return profile
+        ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim()
+        : 'Usuario desconocido';
+    };
+    const canDeleteMaterial = (material: SessionMaterial) => !isReadOnly &&
+      (material.uploaded_by === user?.id || canEdit);
+
+    // «Informe»
+    const onlyFacilitatorsReport = !canEdit && !existingReport;
+    const showAudioUploader = !isReadOnly && canEdit && !existingReport && !editingReport && session;
+    const audioUploaderDisabled = session!.status === 'completada' || session!.status === 'cancelada';
+    const showCreateReportButton = !isReadOnly && canEdit && !existingReport && !editingReport;
+    const showEditReportButton = !isReadOnly && canEdit && existingReport && !editingReport;
+    const showReportEditor = editingReport && canEdit && !isReadOnly;
+    const isForAllParticipants = (report: SessionReport) => report.visibility === 'all_participants';
+
+    // «Actividad»
+    const hasActivity = session!.activity_log && session!.activity_log.length > 0;
+
+    return {
+      badge,
+      helperText,
+      tabs,
+      finalizeCheck,
+      isReadOnly,
+      canChange,
+      readMode,
+      showReadOnlyBand,
+      seriesNumberShown,
+      showCalendarLink,
+      showEditRequestButton,
+      showFinalizeButton,
+      showJoinLink,
+      isPendingReport,
+      showEditRequests,
+      editRequestStatusLabel,
+      editRequestFieldLabel,
+      showReviewNotes,
+      attendeeCount,
+      presentCount,
+      absentCount,
+      unmarkedCount,
+      attendanceOf,
+      attendeeName,
+      materials,
+      uploaderName,
+      canDeleteMaterial,
+      onlyFacilitatorsReport,
+      showAudioUploader,
+      audioUploaderDisabled,
+      showCreateReportButton,
+      showEditReportButton,
+      showReportEditor,
+      isForAllParticipants,
+      hasActivity,
+    };
+  };
+
   return {
     user,
     userRole,
@@ -640,7 +794,21 @@ export function useSessionDetail() {
     hasPendingEditRequest,
     formatFileSize,
     canEdit,
+    // Step 3: the decisions, worked out only when called, and the handlers the markup wrote inline
+    decide,
+    reload,
+    onSuggestionsApplied,
+    selectTab,
+    openEditRequest,
+    closeEditRequest,
+    openFinalize,
+    closeFinalize,
+    startEditingReport,
+    cancelEditingReport,
+    changeReportContent,
+    changeReportVisibility,
   };
 }
 
 export type SessionDetail = ReturnType<typeof useSessionDetail>;
+export type SessionDetailDecisions = ReturnType<SessionDetail['decide']>;

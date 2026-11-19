@@ -32,6 +32,9 @@ const CARTA_TEXT_FIELDS = [
 const CARTA_INVALIDADA_MSG =
   'La Carta de adjudicación ya no corresponde a los datos guardados. Genérela de nuevo antes de confirmar.';
 
+const CARTA_NO_INVALIDADA_MSG =
+  'Los datos se guardaron, pero no se pudo invalidar la Carta anterior. Vuelva a guardar antes de confirmar.';
+
 const isEmpty = (v: unknown) => v === null || v === undefined || v === '';
 
 function sameText(stored: unknown, incoming: unknown): boolean {
@@ -167,6 +170,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Empty the pointer only where it still holds the Carta read above: a Carta
     // generated meanwhile (for the values now saved) is left alone.
     let cartaInvalidada = false;
+    let clearFailed = false;
     if (cartaDesactualizada) {
       const { data: cleared, error: clearError } = await serviceClient
         .from('licitaciones')
@@ -176,6 +180,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .select('id');
       if (clearError) {
         console.error('[licitaciones-adjudicacion] Carta pointer clear failed:', clearError.message);
+        clearFailed = true;
       } else {
         cartaInvalidada = Array.isArray(cleared) && cleared.length > 0;
       }
@@ -202,6 +207,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       detalles: { ganador_ate_id: data.ganador_ate_id },
       user_id: user.id,
     });
+
+    // The data is saved but the earlier Carta still counts: a failure the screen
+    // cannot take for success, so it stops before confirming or generating.
+    if (clearFailed) {
+      return res.status(500).json({ error: CARTA_NO_INVALIDADA_MSG, datos_guardados: true });
+    }
 
     if (cartaInvalidada) {
       // No transaction is available here: if this line fails, the invalidation

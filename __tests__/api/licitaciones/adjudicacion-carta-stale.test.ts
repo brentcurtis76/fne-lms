@@ -16,6 +16,7 @@ const { h } = vi.hoisted(() => ({
     updates: [] as Array<{ table: string; payload: Record<string, unknown>; eqs: unknown[][] }>,
     pointerChanged: false, // another Carta was generated after the route read the tender
     historyFails: false, // the invalidation's history insert answers an error
+    clearFails: false, // the narrow pointer update answers a database error
     inserts: [] as Array<{ table: string; payload: Record<string, unknown> }>,
     deletes: [] as string[],
   },
@@ -31,6 +32,7 @@ vi.mock('@/lib/api-auth', async () => {
       h.updates.push({ table: req.target, payload, eqs });
       // The narrow pointer update: matches a row only while the pointer is unchanged.
       if (req.target === 'licitaciones' && 'carta_adjudicacion_url' in payload) {
+        if (h.clearFails) return { data: null, error: { message: 'base inventada caída' } };
         return { data: h.pointerChanged ? [] : [{ id: h.licitacion.id }], error: null };
       }
       return { data: { ...h.licitacion, ...payload }, error: null };
@@ -81,7 +83,7 @@ const sameBody = () => ({
 });
 
 beforeEach(() => {
-  h.updates = []; h.inserts = []; h.deletes = []; h.pointerChanged = false; h.historyFails = false;
+  h.updates = []; h.inserts = []; h.deletes = []; h.pointerChanged = false; h.historyFails = false; h.clearFails = false;
   h.licitacion = {
     id: LIC, school_id: 1, estado: 'adjudicacion_pendiente', carta_adjudicacion_url: CARTA,
     ganador_ate_id: ATE_A,
@@ -140,7 +142,7 @@ describe('adjudicacion — a Carta made for earlier values stops counting (LIC-D
     expect(historyActions()).toEqual(['Datos de adjudicacion guardados']);
   });
 
-  it('fields the screen leaves out (empty inputs) change nothing and keep the Carta', async () => {
+  it('fields left out of the request (an older client) change nothing and keep the Carta', async () => {
     const r = await save({ ganador_ate_id: ATE_A });
     expect(r.status).toBe(200);
     expect(pointerUpdates()).toHaveLength(0);
@@ -186,6 +188,18 @@ describe('adjudicacion — a Carta made for earlier values stops counting (LIC-D
     expect(r.json.data.historial_registrado).toBe(false);
     expect(logged).toHaveBeenCalledWith(expect.stringContaining('licitacion_historial'), 'historial inventado caído');
     expect(historyActions()).toEqual(['Datos de adjudicacion guardados']);
+    logged.mockRestore();
+  });
+
+  it('when emptying the pointer fails in the database, the answer is a failure that says the data was saved (send-back 2)', async () => {
+    h.clearFails = true;
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const r = await save({ ...sameBody(), monto_adjudicado_uf: 450 });
+    expect(r.status).toBe(500);
+    expect(r.json.error).toBe('Los datos se guardaron, pero no se pudo invalidar la Carta anterior. Vuelva a guardar antes de confirmar.');
+    expect(r.json.datos_guardados).toBe(true);
+    expect(tenderUpdate().payload).toMatchObject({ monto_adjudicado_uf: 450 });
+    expect(historyActions()).not.toContain('Carta de Adjudicacion anulada por cambio de datos');
     logged.mockRestore();
   });
 });

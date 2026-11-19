@@ -16,6 +16,39 @@ import type {
 const MENTION_NOTIFICATION_FAILED =
   'Tu publicación se guardó, pero no pudimos enviar la notificación de mención.';
 
+const NO_PERMISSION =
+  'No tienes permisos para publicar en esta comunidad. Verifica que estés asignado a la comunidad.';
+const PUBLISH_FAILED = 'No se pudo publicar. Inténtalo de nuevo.';
+
+/** An error of createPost whose message is a Spanish sentence for the person (EC-V7). */
+export class FeedPublishError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'FeedPublishError';
+  }
+}
+
+/**
+ * The store's answer to an upload of a path that already holds a file: a
+ * StorageApiError with status / statusCode 409 and "The resource already
+ * exists" (@supabase/storage-js src/lib/errors.ts:14-23, src/lib/fetch.ts:35-37).
+ * Only exactly that counts as uploaded; any other refusal is a failure.
+ */
+function isAlreadyStored(error: unknown): boolean {
+  const e = error as { status?: unknown; statusCode?: unknown; message?: unknown } | null;
+  if (!e) return false;
+  const conflict = e.status === 409 || String(e.statusCode ?? '') === '409';
+  return conflict && /already exists/i.test(String(e.message ?? ''));
+}
+
+/** Whatever createPost throws reaches the person as a Spanish sentence. */
+function asPublishError(error: unknown): FeedPublishError {
+  if (error instanceof FeedPublishError) return error;
+  const message = String((error as { message?: unknown } | null)?.message ?? '');
+  if (message.includes('row-level security')) return new FeedPublishError(NO_PERMISSION);
+  return new FeedPublishError(PUBLISH_FAILED);
+}
+
 /** A profile card in the author shape the feed components read (author.first_name, …). */
 function cardAsAuthor(card: ProfileCard | undefined): PostComment['author'] {
   return (card ?? null) as PostComment['author'];
@@ -144,15 +177,23 @@ export class FeedService {
   }
 
   /**
-   * Create a new post
+   * Create a new post (EC-V7: files first, one post per composition).
+   *
+   * `postId`: the id the composing window gave this composition. It is kept
+   * across retries, so the post can exist only once. Every file is put in the
+   * `post-media` store BEFORE the post is written: if an upload fails, no post
+   * exists. A person cannot delete from that store (its delete rule needs the
+   * path to start with their own id), so files from a failed try stay, and on
+   * the retry the store's "already exists" answer counts as uploaded.
    */
   static async createPost(
     workspaceId: string,
-    input: CreatePostInput
+    input: CreatePostInput,
+    postId?: string
   ): Promise<CommunityPost> {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Usuario no autenticado');
+      if (!user) throw new FeedPublishError('Usuario no autenticado');
 
       // Check if user can access workspace before creating post
       const canAccess = await supabase.rpc('can_access_workspace', {
@@ -161,13 +202,35 @@ export class FeedService {
       });
       
       if (!canAccess.data) {
-        throw new Error('No tienes permisos para publicar en esta comunidad. Verifica que estés asignado a la comunidad.');
+        throw new FeedPublishError(NO_PERMISSION);
       }
 
-      // Create the post
-      const { data: post, error: postError } = await supabase
+      const id = postId || crypto.randomUUID();
+
+      // 1. Every file into the store first; nothing is written if one fails.
+      const files = input.media ?? [];
+      const uploads = await Promise.all(
+        files.map(async (file, index) => {
+          const fileExt = file.name.split('.').pop();
+          const fileName = `${id}/${index}.${fileExt}`;
+          const { error: uploadError } = await supabase.storage
+            .from('post-media')
+            .upload(fileName, file);
+          return { file, index, fileName, failed: Boolean(uploadError) && !isAlreadyStored(uploadError) };
+        })
+      );
+      const failedUpload = uploads.find((upload) => upload.failed);
+      if (failedUpload) {
+        throw new FeedPublishError(
+          `No se pudo subir «${failedUpload.file.name}». La publicación no se guardó; inténtalo de nuevo.`
+        );
+      }
+
+      // 2. The post, with the composition's id.
+      const { data: inserted, error: postError } = await supabase
         .from('community_posts')
         .insert({
+          id,
           workspace_id: workspaceId,
           author_id: user.id,
           type: input.type,
@@ -177,58 +240,80 @@ export class FeedService {
         .select()
         .single();
 
+      let post = inserted;
+      let alreadyThere = false;
       if (postError) {
-        // Check if it's a table not found error
-        if (postError.message.includes('relation "community_posts" does not exist')) {
-          throw new Error('Las tablas del feed no están configuradas. Por favor, contacta al administrador.');
+        if ((postError as { code?: string }).code === '23505') {
+          // A retry after a lost answer: the post is there if it is the
+          // caller's own post in this workspace.
+          const { data: existing } = await supabase
+            .from('community_posts')
+            .select('*')
+            .eq('id', id)
+            .eq('author_id', user.id)
+            .eq('workspace_id', workspaceId)
+            .maybeSingle();
+          if (!existing) throw new FeedPublishError(PUBLISH_FAILED);
+          post = existing;
+          alreadyThere = true;
+        } else if (postError.message?.includes('relation "community_posts" does not exist')) {
+          throw new FeedPublishError('Las tablas del feed no están configuradas. Por favor, contacta al administrador.');
+        } else {
+          throw postError;
         }
-        throw postError;
       }
 
-      // Handle media uploads
-      if (input.media && input.media.length > 0) {
-        const mediaPromises = input.media.map(async (file, index) => {
-          const fileExt = file.name.split('.').pop();
-          const fileName = `${post.id}/${index}.${fileExt}`;
-          
-          const { data: uploadData, error: uploadError } = await supabase.storage
-            .from('post-media')
-            .upload(fileName, file);
-
-          if (uploadError) throw uploadError;
-
-          const { data: { publicUrl } } = supabase.storage
-            .from('post-media')
-            .getPublicUrl(fileName);
-
-          // Determine media type
-          let mediaType: 'image' | 'video' | 'document' = 'document';
-          if (file.type.startsWith('image/')) {
-            mediaType = 'image';
-          } else if (file.type.startsWith('video/')) {
-            mediaType = 'video';
+      // 3. The post_media rows that do not exist yet.
+      if (uploads.length > 0) {
+        const existingIndexes = new Set<number>();
+        if (alreadyThere) {
+          const { data: existingMedia, error: existingError } = await supabase
+            .from('post_media')
+            .select('order_index')
+            .eq('post_id', post.id);
+          if (existingError) throw new FeedPublishError(PUBLISH_FAILED);
+          for (const row of (existingMedia ?? []) as Array<{ order_index: number }>) {
+            existingIndexes.add(row.order_index);
           }
+        }
 
-          return {
-            post_id: post.id,
-            type: mediaType,
-            url: publicUrl,
-            storage_path: uploadData.path,
-            order_index: index,
-            metadata: {
-              size: file.size,
-              type: file.type,
-              name: file.name,
-            },
-          };
-        });
+        const mediaData = uploads
+          .filter((upload) => !existingIndexes.has(upload.index))
+          .map(({ file, index, fileName }) => {
+            const { data: { publicUrl } } = supabase.storage
+              .from('post-media')
+              .getPublicUrl(fileName);
 
-        const mediaData = await Promise.all(mediaPromises);
-        const { error: mediaError } = await supabase.from('post_media').insert(mediaData);
-        
-        if (mediaError) {
-          console.error('Error inserting media:', mediaError);
-          throw new Error(`Error al subir archivos: ${mediaError.message}`);
+            // Determine media type
+            let mediaType: 'image' | 'video' | 'document' = 'document';
+            if (file.type.startsWith('image/')) {
+              mediaType = 'image';
+            } else if (file.type.startsWith('video/')) {
+              mediaType = 'video';
+            }
+
+            return {
+              post_id: post.id,
+              type: mediaType,
+              url: publicUrl,
+              storage_path: fileName,
+              order_index: index,
+              metadata: {
+                size: file.size,
+                type: file.type,
+                name: file.name,
+              },
+            };
+          });
+
+        if (mediaData.length > 0) {
+          const { error: mediaError } = await supabase.from('post_media').insert(mediaData);
+          if (mediaError) {
+            console.error('Error inserting media:', mediaError);
+            // Whole or nothing: the author's own delete rule removes the post again.
+            await supabase.from('community_posts').delete().eq('id', post.id).eq('author_id', user.id);
+            throw new FeedPublishError('No se pudo guardar la publicación con sus archivos. Inténtalo de nuevo.');
+          }
         }
       }
 
@@ -306,7 +391,7 @@ export class FeedService {
       } as CommunityPost;
     } catch (error) {
       console.error('Error creating post:', error);
-      throw error;
+      throw asPublishError(error);
     }
   }
 

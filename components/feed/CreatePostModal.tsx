@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { XIcon, PhotographIcon, DocumentIcon, LinkIcon, HashtagIcon, AtSymbolIcon } from '@heroicons/react/outline';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -11,7 +11,11 @@ import MentionList from './MentionList';
 interface CreatePostModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (post: CreatePostInput) => Promise<void>;
+  /**
+   * EC-V7: `postId` is this composition's own id, kept across retries until the
+   * post is published or the window is closed, so a retry publishes it once.
+   */
+  onSubmit: (post: CreatePostInput, postId: string) => Promise<void>;
   authorName: string;
   authorAvatar?: string;
   /** F12e N97: the workspace the post is written in; the @mention search is scoped to it. */
@@ -32,6 +36,9 @@ export default function CreatePostModal({
   const [linkUrl, setLinkUrl] = useState('');
   const [fileInputType, setFileInputType] = useState<'image' | 'document'>('image');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // EC-V7: one id per composition; cleared on success and on close.
+  const pendingPostIdRef = useRef<string | null>(null);
+  const [publishError, setPublishError] = useState<string | null>(null);
   // The editor (and its mention search) is built once; the ref keeps the
   // search on the workspace currently shown.
   const workspaceIdRef = useRef(workspaceId);
@@ -147,6 +154,10 @@ export default function CreatePostModal({
       json.content.forEach(extractMentions);
     }
 
+    if (!pendingPostIdRef.current) pendingPostIdRef.current = crypto.randomUUID();
+    const postId = pendingPostIdRef.current;
+
+    setPublishError(null);
     setIsSubmitting(true);
     try {
       const postData: CreatePostInput = {
@@ -175,34 +186,23 @@ export default function CreatePostModal({
         postData.media = selectedFiles;
       }
 
-      await onSubmit(postData);
+      await onSubmit(postData, postId);
+      pendingPostIdRef.current = null;
       handleClose();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error creating post:', error);
-      
-      // Extract the actual error message
-      let errorMessage = 'Error al crear la publicación. Por favor, intenta de nuevo.';
-      
-      if (error?.message) {
-        if (typeof error.message === 'string') {
-          errorMessage = error.message;
-        } else if (error.message.includes?.('tablas del feed')) {
-          errorMessage = error.message;
-        }
-      }
-      
-      // Check if it's an RLS policy error
-      if (error?.message?.includes('new row violates row-level security policy')) {
-        errorMessage = 'No tienes permisos para publicar en esta comunidad. Verifica que estés asignado a la comunidad.';
-      }
-      
-      alert(errorMessage);
+      // The text and the files stay; the person reads a Spanish sentence, never
+      // the store's or the database's raw text. The next «Publicar» keeps the id.
+      const isPublishError = error instanceof Error && error.name === 'FeedPublishError';
+      setPublishError(isPublishError ? error.message : 'No se pudo publicar. Inténtalo de nuevo.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleClose = () => {
+    pendingPostIdRef.current = null;
+    setPublishError(null);
     editor?.commands.clearContent();
     setSelectedFiles([]);
     setLinkUrl('');
@@ -231,6 +231,14 @@ export default function CreatePostModal({
       setPostType('text');
     }
   };
+
+  // A window closed from outside starts the next composition with a new id.
+  useEffect(() => {
+    if (!isOpen) {
+      pendingPostIdRef.current = null;
+      setPublishError(null);
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -337,6 +345,12 @@ export default function CreatePostModal({
               </div>
             )}
           </div>
+
+          {publishError && (
+            <p role="alert" data-testid="create-post-error" className="mx-4 mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+              {publishError}
+            </p>
+          )}
 
           {/* Actions bar */}
           <div className="border-t border-gray-200 px-4 py-3">

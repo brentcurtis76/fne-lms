@@ -1,9 +1,52 @@
 // UF (Unidad de Fomento) Service for Chilean contracts
 // Fetches official UF values from CMF Chile API
 
+/**
+ * Where a UF value comes from (N89):
+ * - 'live': a value a source gave just now;
+ * - 'last-known': the last live value this browser obtained, with ITS date;
+ * - 'fixed': the number built into the code, with ITS date.
+ */
+export type UFSource = 'live' | 'last-known' | 'fixed';
+
 export interface UFValue {
   fecha: string;
   valor: number; // UF value in CLP
+  source: UFSource;
+}
+
+/**
+ * The SII's UF value of 29 May 2025 ($39,184.40 CLP, rounded). Used only when
+ * no source and no last-known value exist, and always shown as such, under
+ * its own date (never under today's).
+ */
+const FIXED_UF: Readonly<UFValue> = { fecha: '2025-05-29', valor: 39184, source: 'fixed' };
+
+/** Every request for the UF gives up after this long (N89). */
+const UF_FETCH_TIMEOUT_MS = 5000;
+
+/** Browser storage key of the last live value, as `{ fecha, valor }`. */
+const LAST_LIVE_KEY = 'genera.uf.lastLive';
+
+function isPositiveFinite(n: unknown): n is number {
+  return typeof n === 'number' && Number.isFinite(n) && n > 0;
+}
+
+/**
+ * fetch with a 5-second limit: AbortSignal.timeout where the browser has it,
+ * otherwise an AbortController whose timer is always cleared.
+ */
+async function fetchWithTimeout(url: string, init: RequestInit = {}): Promise<Response> {
+  if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') {
+    return fetch(url, { ...init, signal: AbortSignal.timeout(UF_FETCH_TIMEOUT_MS) });
+  }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), UF_FETCH_TIMEOUT_MS);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export interface UFResponse {
@@ -41,6 +84,7 @@ class UFService {
       const ufValue = await this.fetchFromSII();
       if (ufValue) {
         this.cache.set(today, ufValue);
+        this.storeLastLive(ufValue);
         return ufValue;
       }
     } catch (error) {
@@ -52,6 +96,7 @@ class UFService {
       const ufValue = await this.fetchFromPublicAPI();
       if (ufValue) {
         this.cache.set(today, ufValue);
+        this.storeLastLive(ufValue);
         return ufValue;
       }
     } catch (error) {
@@ -63,14 +108,47 @@ class UFService {
       const ufValue = await this.fetchFromCMF();
       if (ufValue) {
         this.cache.set(today, ufValue);
+        this.storeLastLive(ufValue);
         return ufValue;
       }
     } catch (error) {
       console.warn('CMF API failed, using fallback:', error);
     }
 
-    // Fallback to static value
-    return this.getFallbackUF();
+    // No source gave a value: the last live value this browser obtained (with
+    // its own date), otherwise the fixed one. Neither goes into the cache.
+    return this.readLastLive() ?? this.getFallbackUF();
+  }
+
+  /** Keep a live value for later days (browser only; never throws). */
+  private storeLastLive(value: UFValue): void {
+    if (typeof window === 'undefined') return;
+    try {
+      window.localStorage.setItem(LAST_LIVE_KEY, JSON.stringify({ fecha: value.fecha, valor: value.valor }));
+    } catch {
+      // Storage unavailable or full: the value is simply not kept.
+    }
+  }
+
+  /** The stored last live value, if it is valid (browser only; never throws). */
+  private readLastLive(): UFValue | null {
+    if (typeof window === 'undefined') return null;
+    try {
+      const raw = window.localStorage.getItem(LAST_LIVE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (
+        parsed &&
+        typeof parsed.fecha === 'string' &&
+        /^\d{4}-\d{2}-\d{2}$/.test(parsed.fecha) &&
+        isPositiveFinite(parsed.valor)
+      ) {
+        return { fecha: parsed.fecha, valor: parsed.valor, source: 'last-known' };
+      }
+      return null;
+    } catch {
+      return null;
+    }
   }
 
   /**
@@ -113,7 +191,8 @@ class UFService {
     
     return {
       fecha: futureDate,
-      valor: Math.round(projectedValue)
+      valor: Math.round(projectedValue),
+      source: currentUF.source
     };
   }
 
@@ -154,7 +233,7 @@ class UFService {
     }
 
     try {
-      const response = await fetch(
+      const response = await fetchWithTimeout(
         `${this.CMF_API_BASE}/uf?apikey=${apiKey}&formato=json`,
         {
           method: 'GET',
@@ -171,7 +250,8 @@ class UFService {
       
       return {
         fecha: latest.Fecha,
-        valor: parseFloat(latest.Valor.replace(',', ''))
+        valor: parseFloat(latest.Valor.replace(',', '')),
+        source: 'live'
       };
     } catch (error) {
       console.error('CMF API fetch failed:', error);
@@ -188,7 +268,7 @@ class UFService {
 
     try {
       const [year, month, day] = date.split('-');
-      const response = await fetch(
+      const response = await fetchWithTimeout(
         `${this.CMF_API_BASE}/uf/${year}/${month}/dias/${day}?apikey=${apiKey}&formato=json`
       );
 
@@ -199,7 +279,8 @@ class UFService {
       
       return {
         fecha: date,
-        valor: parseFloat(ufData.Valor.replace(',', ''))
+        valor: parseFloat(ufData.Valor.replace(',', '')),
+        source: 'live'
       };
     } catch (error) {
       console.error(`CMF API fetch failed for date ${date}:`, error);
@@ -212,16 +293,18 @@ class UFService {
    */
   private async fetchFromSII(): Promise<UFValue | null> {
     try {
-      const response = await fetch('/api/uf-value');
+      const response = await fetchWithTimeout('/api/uf-value');
       
       if (!response.ok) throw new Error(`SII API error: ${response.status}`);
       
       const data = await response.json();
       
-      if (data.success && data.valor) {
+      // Only a real success with a positive finite value counts (N89).
+      if (data.success === true && isPositiveFinite(data.valor)) {
         return {
           fecha: data.fecha,
-          valor: data.valor
+          valor: data.valor,
+          source: 'live'
         };
       } else {
         console.warn('SII API returned unsuccessful response:', data);
@@ -239,7 +322,7 @@ class UFService {
   private async fetchFromPublicAPI(): Promise<UFValue | null> {
     try {
       // Try mindicador.cl - free Chilean economic indicators API
-      const response = await fetch('https://mindicador.cl/api/uf');
+      const response = await fetchWithTimeout('https://mindicador.cl/api/uf');
       
       if (!response.ok) throw new Error(`API error: ${response.status}`);
       
@@ -248,7 +331,8 @@ class UFService {
       
       return {
         fecha: latest.fecha.split('T')[0], // Convert to YYYY-MM-DD
-        valor: Math.round(latest.valor)
+        valor: Math.round(latest.valor),
+        source: 'live'
       };
     } catch (error) {
       console.error('Public API fetch failed:', error);
@@ -257,17 +341,11 @@ class UFService {
   }
 
   /**
-   * Fallback UF value when API is unavailable
-   * Updated with current SII value as of May 29, 2025
+   * Fixed UF value: the SII's value of 29 May 2025, used only when nothing
+   * better exists, and returned under its own date with source 'fixed'.
    */
   private getFallbackUF(): UFValue {
-    const today = new Date().toISOString().split('T')[0];
-    
-    // Current UF value as of May 29, 2025 from SII
-    return {
-      fecha: today,
-      valor: 39184 // Current UF value: $39,184.40 CLP (rounded)
-    };
+    return { ...FIXED_UF };
   }
 
   /**

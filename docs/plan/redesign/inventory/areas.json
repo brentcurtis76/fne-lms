@@ -345,6 +345,7 @@
       "pages": [
         "pages/admin/configuration.tsx",
         "pages/admin/feedback.tsx",
+        "pages/profile/reportes.tsx",
         "pages/admin/roadmap.tsx"
       ],
       "api": [

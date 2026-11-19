@@ -164,7 +164,8 @@ export default function Step6Adjudicacion({
 
     // Auto-save first to ensure ganador_ate_id is persisted. No refresh yet: the
     // parent refreshes once, after the generation has answered (see finally).
-    await saveAdjudicacion();
+    // A failed save stops here: the Carta would name the stored winner instead.
+    if (!(await saveAdjudicacion())) return;
 
     setGeneratingCarta(true);
     try {
@@ -237,10 +238,14 @@ export default function Step6Adjudicacion({
 
     setConfirming(true);
     try {
+      // The award goes to the provider on the screen: save it first and stop when
+      // that fails; the route refuses an id that is not the stored winner.
+      if (!(await saveAdjudicacion())) return;
+
       const res = await fetch(`/api/licitaciones/${licitacionId}/adjudicacion-confirmar`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ es_fne: esFne }),
+        body: JSON.stringify({ es_fne: esFne, ganador_ate_id: selectedAteId }),
       });
 
       const json = await res.json();

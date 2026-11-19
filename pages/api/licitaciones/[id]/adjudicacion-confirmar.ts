@@ -17,10 +17,20 @@ import {
   handleMethodNotAllowed,
 } from '@/lib/api-auth';
 import { getUserRoles } from '@/utils/roleUtils';
+import { z } from 'zod';
 import { uuidSchema } from '@/lib/validation/schemas';
-import { ConfirmarAdjudicacionSchema } from '@/types/licitaciones';
 import { confirmAdjudicacion } from '@/lib/licitacionService';
 import notificationService from '@/lib/notificationService';
+
+// The route's own input check: the decision, and the provider selected on the
+// screen (optional, so an older client that sends only es_fne still works).
+const ConfirmarInputSchema = z.object({
+  es_fne: z.boolean(),
+  ganador_ate_id: z.string().uuid('UUID invalido').optional(),
+});
+
+const GANADOR_NO_GUARDADO =
+  'El ganador seleccionado no está guardado. Guarde la adjudicación y vuelva a confirmar.';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   logApiRequest(req, 'licitaciones-adjudicacion-confirmar');
@@ -55,7 +65,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Fetch licitacion for school scoping
     const { data: licitacion, error: licitError } = await serviceClient
       .from('licitaciones')
-      .select('id, school_id, estado')
+      .select('id, school_id, estado, ganador_ate_id')
       .eq('id', licitacionId)
       .single();
 
@@ -73,13 +83,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Validate input
-    const parseResult = ConfirmarAdjudicacionSchema.safeParse(req.body);
+    const parseResult = ConfirmarInputSchema.safeParse(req.body);
     if (!parseResult.success) {
       const errors = parseResult.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join('; ');
       return sendAuthError(res, `Datos invalidos: ${errors}`, 400);
     }
 
-    const { es_fne } = parseResult.data;
+    const { es_fne, ganador_ate_id: selectedAteId } = parseResult.data;
+
+    // The award goes only to the provider on the screen: when the client names
+    // it, it must be the stored winner (the screen saves before confirming).
+    if (selectedAteId !== undefined && selectedAteId !== licitacion.ganador_ate_id) {
+      return sendAuthError(res, GANADOR_NO_GUARDADO, 409);
+    }
 
     // Execute confirmation (handles state transition + historial)
     const updated = await confirmAdjudicacion(serviceClient, licitacionId, es_fne, user.id);

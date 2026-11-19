@@ -115,7 +115,9 @@ export default function ContractDetailsModal({
   const [uploadingInvoice, setUploadingInvoice] = useState<string | null>(null);
   const [deleteInvoiceId, setDeleteInvoiceId] = useState<string | null>(null);
   const [deletingInvoice, setDeletingInvoice] = useState<string | null>(null);
-  const [hiddenInvoices, setHiddenInvoices] = useState<Set<string>>(new Set());
+  // Invoices hidden right after a delete, by cuota id, with the stored value
+  // that was hidden (send-back 1: a replacement must not stay hidden).
+  const [hiddenInvoices, setHiddenInvoices] = useState<Map<string, string | undefined>>(new Map());
   // GES-1.4: which invoice control is waiting for its link (`view-<id>` / `download-<id>`).
   const [openingInvoice, setOpeningInvoice] = useState<string | null>(null);
   const [showActivateConfirm, setShowActivateConfirm] = useState(false);
@@ -162,12 +164,28 @@ export default function ContractDetailsModal({
   // Clear hidden invoices when modal closes or contract changes
   useEffect(() => {
     if (!isOpen || !contrato) {
-      setHiddenInvoices(new Set());
+      setHiddenInvoices(new Map());
       setDeletingInvoice(null);
       setDeleteInvoiceId(null);
       setShowActivateConfirm(false);
     }
   }, [isOpen, contrato?.id]);
+
+  // Send-back 1: a refresh of this contract that brings a cuota WITH an
+  // invoice other than the one hidden on delete shows it again.
+  useEffect(() => {
+    setHiddenInvoices(prev => {
+      if (prev.size === 0) return prev;
+      let next: Map<string, string | undefined> | null = null;
+      for (const cuota of contrato?.cuotas ?? []) {
+        if (prev.has(cuota.id) && cuota.factura_url && cuota.factura_url !== prev.get(cuota.id)) {
+          next = next ?? new Map(prev);
+          next.delete(cuota.id);
+        }
+      }
+      return next ?? prev;
+    });
+  }, [contrato?.cuotas]);
 
   if (!isOpen) return null;
 
@@ -307,6 +325,13 @@ export default function ContractDetailsModal({
       setUploadingInvoice(cuotaId);
       try {
         await onUploadInvoice(cuotaId, file);
+        // Send-back 1: the uploaded invoice replaces one deleted in this window.
+        setHiddenInvoices(prev => {
+          if (!prev.has(cuotaId)) return prev;
+          const next = new Map(prev);
+          next.delete(cuotaId);
+          return next;
+        });
       } finally {
         setUploadingInvoice(null);
         input.value = '';
@@ -352,7 +377,8 @@ export default function ContractDetailsModal({
     if (onDeleteInvoice && deleteInvoiceId) {
       setDeletingInvoice(deleteInvoiceId);
       // Optimistic update - hide the invoice immediately
-      setHiddenInvoices(prev => new Set(prev).add(deleteInvoiceId));
+      const hiddenValue = contrato.cuotas?.find(c => c.id === deleteInvoiceId)?.factura_url;
+      setHiddenInvoices(prev => new Map(prev).set(deleteInvoiceId, hiddenValue));
       setDeleteInvoiceId(null);
       
       try {
@@ -361,7 +387,7 @@ export default function ContractDetailsModal({
         console.error('Error deleting invoice:', error);
         // Revert optimistic update on error
         setHiddenInvoices(prev => {
-          const newSet = new Set(prev);
+          const newSet = new Map(prev);
           newSet.delete(deleteInvoiceId);
           return newSet;
         });

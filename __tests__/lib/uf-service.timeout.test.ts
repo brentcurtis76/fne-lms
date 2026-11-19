@@ -136,12 +136,14 @@ describe('UFService.getCurrentUF — time limit and source', () => {
     expect(JSON.parse(storage.data.get(KEY)!)).toEqual({ fecha: DAY1, valor: 40111.11 });
   });
 
-  it('(4b) only a live value is cached for today: a fixed answer is asked again on the next call', async () => {
+  it('(4b) only a live value is cached for today: a fixed answer is asked again on the next call after its minute', async () => {
     asBrowser(fakeStorage());
     failEverywhere();
     await UFService.getCurrentUF();
     const first = fetchMock.mock.calls.length;
     fetchMock.mockReset();
+    // Send-back 1: a non-live result is remembered for 60 seconds.
+    vi.setSystemTime(Date.now() + 61_000);
     fetchMock.mockResolvedValueOnce(routeLive(DAY2, 40123.45));
     expect(await UFService.getCurrentUF()).toEqual({ fecha: DAY2, valor: 40123.45, source: 'live' });
     expect(first).toBe(3);
@@ -193,6 +195,8 @@ describe('UFService.getCurrentUF — time limit and source', () => {
     failEverywhere();
     await expect(UFService.getCurrentUF()).resolves.toEqual({ fecha: '2025-05-29', valor: 39184, source: 'fixed' });
     fetchMock.mockReset();
+    // Send-back 1: a non-live result is remembered for 60 seconds.
+    vi.setSystemTime(Date.now() + 61_000);
     fetchMock.mockResolvedValueOnce(routeLive(DAY2, 40123.45));
     await expect(UFService.getCurrentUF()).resolves.toEqual({ fecha: DAY2, valor: 40123.45, source: 'live' });
   });

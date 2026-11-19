@@ -33,22 +33,102 @@ const UF_FETCH_TIMEOUT_MS = 5000;
 /** Browser storage key of the last live value, as `{ fecha, valor }`. */
 const LAST_LIVE_KEY = 'genera.uf.lastLive';
 
-function isPositiveFinite(n: unknown): n is number {
-  return typeof n === 'number' && Number.isFinite(n) && n > 0;
+/** A non-live result is answered again for this long without asking the sources (F15d send-back 1). */
+const NOT_LIVE_MEMORY_MS = 60_000;
+
+/**
+ * A usable UF number: finite and between 10,000 and 1,000,000 CLP. Anything
+ * else (0, a negative, a text, NaN, 5, 5,000,000) is not a UF value.
+ */
+function isUsableUFNumber(n: unknown): n is number {
+  return typeof n === 'number' && Number.isFinite(n) && n >= 10_000 && n <= 1_000_000;
+}
+
+/** A real calendar date written YYYY-MM-DD (2026-02-30 is not one). */
+function isCalendarDate(text: unknown): text is string {
+  if (typeof text !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(text)) return false;
+  const [y, m, d] = text.split('-').map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d));
+  return date.getUTCFullYear() === y && date.getUTCMonth() === m - 1 && date.getUTCDate() === d;
 }
 
 /**
- * fetch with a 5-second limit: AbortSignal.timeout where the browser has it,
- * otherwise an AbortController whose timer is always cleared.
+ * Today's calendar day in Chile (America/Santiago), as YYYY-MM-DD. Read from
+ * the time zone's own rules, never by adding hours to UTC.
  */
-async function fetchWithTimeout(url: string, init: RequestInit = {}): Promise<Response> {
-  if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') {
-    return fetch(url, { ...init, signal: AbortSignal.timeout(UF_FETCH_TIMEOUT_MS) });
-  }
+export function todayInChile(now: Date): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Santiago',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(now);
+  const part = (type: string) => parts.find((p) => p.type === type)?.value ?? '';
+  return `${part('year')}-${part('month')}-${part('day')}`;
+}
+
+/** A source's answer as a live value, only when its number is usable and its date is today in Chile. */
+function liveIfToday(fecha: unknown, valor: unknown, today: string): UFValue | null {
+  if (fecha !== today || !isUsableUFNumber(valor)) return null;
+  return { fecha: today, valor, source: 'live' };
+}
+
+/**
+ * Projected UF value for a future date from a known base value: the modest
+ * growth the screen has always assumed (2.5% annual = ~0.21% monthly), counted
+ * in months from now. Pure arithmetic apart from reading the clock, as before.
+ */
+export function projectUF(base: UFValue, futureDate: string): UFValue {
+  const currentDate = new Date();
+  const targetDate = new Date(futureDate);
+
+  // Calculate months difference
+  const monthsDiff = (targetDate.getFullYear() - currentDate.getFullYear()) * 12 +
+                    (targetDate.getMonth() - currentDate.getMonth());
+
+  // Apply modest monthly growth (2.5% annual = ~0.21% monthly)
+  const monthlyGrowthRate = 0.0021;
+  const projectedValue = base.valor * Math.pow(1 + monthlyGrowthRate, monthsDiff);
+
+  return {
+    fecha: futureDate,
+    valor: Math.round(projectedValue),
+    source: base.source
+  };
+}
+
+/**
+ * fetch with a 5-second limit that covers fetching AND reading the body:
+ * the request carries AbortSignal.timeout where it exists (otherwise an
+ * AbortController's signal), and the whole of fetching and reading races a
+ * timer of the same length, which is always cleared. Returns the parsed body
+ * (only when the answer is ok).
+ */
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit = {},
+  read: 'json' | 'text' = 'json'
+): Promise<{ ok: boolean; status: number; body: unknown }> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), UF_FETCH_TIMEOUT_MS);
+  const signal =
+    typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function'
+      ? AbortSignal.timeout(UF_FETCH_TIMEOUT_MS)
+      : controller.signal;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(() => {
+      controller.abort();
+      reject(new Error(`UF request timed out after ${UF_FETCH_TIMEOUT_MS} ms`));
+    }, UF_FETCH_TIMEOUT_MS);
+  });
+  const work = (async () => {
+    const response = await fetch(url, { ...init, signal });
+    if (!response.ok) return { ok: false, status: response.status, body: undefined };
+    const body = read === 'json' ? await response.json() : await response.text();
+    return { ok: true, status: response.status, body };
+  })();
   try {
-    return await fetch(url, { ...init, signal: controller.signal });
+    return await Promise.race([work, deadline]);
   } finally {
     clearTimeout(timer);
   }
@@ -64,6 +144,8 @@ export interface UFResponse {
 class UFService {
   private static instance: UFService;
   private cache: Map<string, UFValue> = new Map();
+  /** The last non-live result and until when it is answered again (ms since epoch). */
+  private notLive: { value: UFValue; until: number } | null = null;
   private readonly CMF_API_BASE = 'https://api.cmfchile.cl/api-sbifv3/recursos_api';
   
   static getInstance(): UFService {
@@ -77,16 +159,22 @@ class UFService {
    * Get current UF value
    */
   async getCurrentUF(): Promise<UFValue> {
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayInChile(new Date());
     const cached = this.cache.get(today);
     
     if (cached) {
       return cached;
     }
 
+    // A non-live result of the last minute is answered at once, instead of
+    // repeating every source's time limit.
+    if (this.notLive && Date.now() < this.notLive.until) {
+      return { ...this.notLive.value };
+    }
+
     try {
       // Try SII scraping first (most accurate)
-      const ufValue = await this.fetchFromSII();
+      const ufValue = await this.fetchFromSII(today);
       if (ufValue) {
         this.cache.set(today, ufValue);
         this.storeLastLive(ufValue);
@@ -98,7 +186,7 @@ class UFService {
 
     try {
       // Try public UF API as backup (no API key required)
-      const ufValue = await this.fetchFromPublicAPI();
+      const ufValue = await this.fetchFromPublicAPI(today);
       if (ufValue) {
         this.cache.set(today, ufValue);
         this.storeLastLive(ufValue);
@@ -110,7 +198,7 @@ class UFService {
 
     try {
       // Try CMF API as last resort (requires API key)
-      const ufValue = await this.fetchFromCMF();
+      const ufValue = await this.fetchFromCMF(today);
       if (ufValue) {
         this.cache.set(today, ufValue);
         this.storeLastLive(ufValue);
@@ -121,8 +209,11 @@ class UFService {
     }
 
     // No source gave a value: the last live value this browser obtained (with
-    // its own date), otherwise the fixed one. Neither goes into the cache.
-    return this.readLastLive() ?? this.getFallbackUF();
+    // its own date), otherwise the fixed one. Neither goes into the cache;
+    // the result is remembered for a minute only.
+    const result = this.readLastLive(today) ?? this.getFallbackUF();
+    this.notLive = { value: { ...result }, until: Date.now() + NOT_LIVE_MEMORY_MS };
+    return result;
   }
 
   /** Keep a live value for later days (browser only; never throws). */
@@ -136,17 +227,18 @@ class UFService {
   }
 
   /** The stored last live value, if it is valid (browser only; never throws). */
-  private readLastLive(): UFValue | null {
+  private readLastLive(today: string): UFValue | null {
     if (typeof window === 'undefined') return null;
     try {
       const raw = window.localStorage.getItem(LAST_LIVE_KEY);
       if (!raw) return null;
       const parsed = JSON.parse(raw);
+      // A usable number, a real calendar date, and not after today in Chile.
       if (
         parsed &&
-        typeof parsed.fecha === 'string' &&
-        /^\d{4}-\d{2}-\d{2}$/.test(parsed.fecha) &&
-        isPositiveFinite(parsed.valor)
+        isCalendarDate(parsed.fecha) &&
+        parsed.fecha <= today &&
+        isUsableUFNumber(parsed.valor)
       ) {
         return { fecha: parsed.fecha, valor: parsed.valor, source: 'last-known' };
       }
@@ -183,22 +275,7 @@ class UFService {
    */
   async getProjectedUF(futureDate: string): Promise<UFValue> {
     const currentUF = await this.getCurrentUF();
-    const currentDate = new Date();
-    const targetDate = new Date(futureDate);
-    
-    // Calculate months difference
-    const monthsDiff = (targetDate.getFullYear() - currentDate.getFullYear()) * 12 + 
-                      (targetDate.getMonth() - currentDate.getMonth());
-    
-    // Apply modest monthly growth (2.5% annual = ~0.21% monthly)
-    const monthlyGrowthRate = 0.0021;
-    const projectedValue = currentUF.valor * Math.pow(1 + monthlyGrowthRate, monthsDiff);
-    
-    return {
-      fecha: futureDate,
-      valor: Math.round(projectedValue),
-      source: currentUF.source
-    };
+    return projectUF(currentUF, futureDate);
   }
 
   /**
@@ -226,7 +303,7 @@ class UFService {
   /**
    * Fetch from official CMF Chile API
    */
-  private async fetchFromCMF(): Promise<UFValue | null> {
+  private async fetchFromCMF(today: string): Promise<UFValue | null> {
     // Note: This requires an API key from CMF Chile
     // For demo purposes, we'll use a mock response
     // In production, you'd need to register at CMF and get an API key
@@ -250,14 +327,11 @@ class UFService {
 
       if (!response.ok) throw new Error(`CMF API error: ${response.status}`);
       
-      const data: UFResponse = await response.json();
+      const data = response.body as UFResponse;
       const latest = data.UFs[0];
       
-      return {
-        fecha: latest.Fecha,
-        valor: parseFloat(latest.Valor.replace(',', '')),
-        source: 'live'
-      };
+      // Live only when the record is today's (Chile) and its number is usable.
+      return liveIfToday(latest.Fecha, parseFloat(latest.Valor.replace(',', '')), today);
     } catch (error) {
       console.error('CMF API fetch failed:', error);
       return null;
@@ -279,7 +353,7 @@ class UFService {
 
       if (!response.ok) throw new Error(`CMF API error: ${response.status}`);
       
-      const data: UFResponse = await response.json();
+      const data = response.body as UFResponse;
       const ufData = data.UFs[0];
       
       return {
@@ -296,21 +370,18 @@ class UFService {
   /**
    * Fetch from our SII scraping API (most accurate)
    */
-  private async fetchFromSII(): Promise<UFValue | null> {
+  private async fetchFromSII(today: string): Promise<UFValue | null> {
     try {
       const response = await fetchWithTimeout('/api/uf-value');
       
       if (!response.ok) throw new Error(`SII API error: ${response.status}`);
       
-      const data = await response.json();
+      const data = response.body as { success?: unknown; valor?: unknown; fecha?: unknown };
       
-      // Only a real success with a positive finite value counts (N89).
-      if (data.success === true && isPositiveFinite(data.valor)) {
-        return {
-          fecha: data.fecha,
-          valor: data.valor,
-          source: 'live'
-        };
+      // Only a real success, dated today (Chile), with a usable number counts.
+      const live = data.success === true ? liveIfToday(data.fecha, data.valor, today) : null;
+      if (live) {
+        return live;
       } else {
         console.warn('SII API returned unsuccessful response:', data);
         return null;
@@ -324,21 +395,20 @@ class UFService {
   /**
    * Fetch from public UF API (backup)
    */
-  private async fetchFromPublicAPI(): Promise<UFValue | null> {
+  private async fetchFromPublicAPI(today: string): Promise<UFValue | null> {
     try {
       // Try mindicador.cl - free Chilean economic indicators API
       const response = await fetchWithTimeout('https://mindicador.cl/api/uf');
       
       if (!response.ok) throw new Error(`API error: ${response.status}`);
       
-      const data = await response.json();
+      const data = response.body as { serie: Array<{ fecha: string; valor: unknown }> };
       const latest = data.serie[0]; // Most recent value
       
-      return {
-        fecha: latest.fecha.split('T')[0], // Convert to YYYY-MM-DD
-        valor: Math.round(latest.valor),
-        source: 'live'
-      };
+      // Its date is an instant: take the Chile calendar day of that instant.
+      const instant = new Date(latest.fecha);
+      if (Number.isNaN(instant.getTime()) || typeof latest.valor !== 'number') return null;
+      return liveIfToday(todayInChile(instant), Math.round(latest.valor), today);
     } catch (error) {
       console.error('Public API fetch failed:', error);
       return null;
@@ -375,6 +445,7 @@ class UFService {
    */
   clearCache(): void {
     this.cache.clear();
+    this.notLive = null;
   }
 }
 

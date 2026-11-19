@@ -338,10 +338,9 @@ export default function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
               <Link
                 href="/profile/reportes"
                 data-testid="feedback-my-reports-link"
-                onClick={() => {
-                  reset();
-                  onClose();
-                }}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Ver mis reportes (se abre en otra pestaña)"
                 className="self-center text-sm text-gray-500 underline"
               >
                 Ver mis reportes

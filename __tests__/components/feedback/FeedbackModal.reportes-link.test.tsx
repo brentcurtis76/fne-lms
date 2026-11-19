@@ -6,7 +6,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 /**
  * F15e (GES-2.18, E2-link): the feedback window leads to «Mis reportes».
  * The link is in the window's footer, shown in the form step (also while a
- * report is being sent); following it closes the window. Synthetic data.
+ * report is being sent); it opens «Mis reportes» in another tab and leaves
+ * the window and the report being written untouched (send-back 1). Synthetic data.
  */
 
 const { db } = vi.hoisted(() => ({
@@ -54,7 +55,8 @@ beforeEach(() => {
   global.fetch = vi.fn(async () => ({ ok: true, json: async () => ({ notificationsCreated: 1 }) })) as any;
 });
 
-const link = () => screen.getByRole('link', { name: 'Ver mis reportes' });
+// The accessible name is the aria-label; the visible text stays «Ver mis reportes».
+const link = () => screen.getByTestId('feedback-my-reports-link');
 
 describe('«Ver mis reportes» in the feedback window', () => {
   it('the open window holds the link to /profile/reportes', () => {
@@ -63,11 +65,33 @@ describe('«Ver mis reportes» in the feedback window', () => {
     expect(link().textContent).toBe('Ver mis reportes');
   });
 
-  it('following it closes the window', () => {
+  it('opens in another tab and says so', () => {
+    render(<FeedbackModal isOpen onClose={vi.fn()} />);
+    expect(link()).toHaveAttribute('target', '_blank');
+    expect(link()).toHaveAttribute('rel', 'noopener noreferrer');
+    expect(link()).toHaveAttribute('aria-label', 'Ver mis reportes (se abre en otra pestaña)');
+    expect(screen.getByRole('link', { name: 'Ver mis reportes (se abre en otra pestaña)' })).toBe(link());
+  });
+
+  it('following it leaves the window open: onClose is not called', () => {
     const onClose = vi.fn();
     render(<FeedbackModal isOpen onClose={onClose} />);
     fireEvent.click(link());
-    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onClose).not.toHaveBeenCalled();
+    expect(link()).toBeInTheDocument();
+  });
+
+  it('following it keeps the description typed and the picture attached', async () => {
+    const { container } = render(<FeedbackModal isOpen onClose={vi.fn()} />);
+    const box = screen.getByPlaceholderText('El botón no funciona cuando...') as HTMLTextAreaElement;
+    fireEvent.change(box, { target: { value: 'Un reporte sintético a medio escribir' } });
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+    const picture = new File(['sintetico'], 'captura.png', { type: 'image/png' });
+    fireEvent.change(input, { target: { files: [picture] } });
+    expect(await screen.findByAltText('Preview')).toBeInTheDocument();
+    fireEvent.click(link());
+    expect((screen.getByPlaceholderText('El botón no funciona cuando...') as HTMLTextAreaElement).value).toBe('Un reporte sintético a medio escribir');
+    expect(screen.getByAltText('Preview')).toBeInTheDocument();
   });
 
   it('is there after typing and choosing a type, and while the report is being sent', async () => {
@@ -97,6 +121,6 @@ describe('«Ver mis reportes» in the feedback window', () => {
 
   it('a closed window shows nothing', () => {
     render(<FeedbackModal isOpen={false} onClose={vi.fn()} />);
-    expect(screen.queryByRole('link', { name: 'Ver mis reportes' })).not.toBeInTheDocument();
+    expect(screen.queryByTestId('feedback-my-reports-link')).not.toBeInTheDocument();
   });
 });

@@ -113,12 +113,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Fetch evaluation criteria for this program
-    const { data: criteriosData } = await serviceClient
+    const { data: criteriosData, error: criteriosError } = await serviceClient
       .from('programa_evaluacion_criterios')
       .select('*')
       .eq('programa_id', licitacion.programa_id)
       .eq('is_active', true)
       .order('orden', { ascending: true });
+
+    // A failed query is a server error, not "no criteria".
+    if (criteriosError) {
+      return sendAuthError(res, 'Error al generar el documento de Bases', 500, criteriosError.message);
+    }
 
     // Bases are not generated for a programme without active evaluation criteria
     // (LIC-B5): they would print an empty evaluation table.

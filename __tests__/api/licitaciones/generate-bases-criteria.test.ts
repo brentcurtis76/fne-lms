@@ -11,6 +11,7 @@ import { createMocks } from 'node-mocks-http';
 const { h } = vi.hoisted(() => {
   const h = {
     criterios: [] as Array<Record<string, unknown>>,
+    criteriosError: null as { message: string } | null,
     template: { nombre_servicio: 'Servicio inventado', objetivo: 'Objetivo inventado', version: 1 } as Record<string, unknown> | null,
     uploads: [] as string[],
     inserts: [] as string[],
@@ -40,7 +41,9 @@ vi.mock('@/lib/api-auth', async () => {
     if (req.target === 'programa_bases_templates') {
       return h.template ? { data: h.template, error: null } : { data: null, error: { message: 'none' } };
     }
-    if (req.target === 'programa_evaluacion_criterios') return { data: h.criterios, error: null };
+    if (req.target === 'programa_evaluacion_criterios') {
+      return h.criteriosError ? { data: null, error: h.criteriosError } : { data: h.criterios, error: null };
+    }
     return { data: null, error: null };
   };
   const client = {
@@ -79,7 +82,7 @@ async function call() {
 }
 
 beforeEach(() => {
-  h.criterios = []; h.uploads = []; h.inserts = [];
+  h.criterios = []; h.criteriosError = null; h.uploads = []; h.inserts = [];
   h.template = { nombre_servicio: 'Servicio inventado', objetivo: 'Objetivo inventado', version: 1 };
   generateBasesDocument.mockClear();
 });
@@ -91,6 +94,17 @@ describe('generate-bases — a programme without active evaluation criteria', ()
     expect(r.json.error).toBe(
       'El programa no tiene criterios de evaluación activos. Configúrelos en /admin/licitaciones/criterios antes de generar las Bases.'
     );
+    expect(generateBasesDocument).not.toHaveBeenCalled();
+    expect(h.uploads).toHaveLength(0);
+    expect(h.inserts).toHaveLength(0);
+  });
+
+  it('answers a server error, not the «no criteria» 422, when the criteria query fails (send-back 1)', async () => {
+    h.criteriosError = { message: 'synthetic query failure' };
+    const r = await call();
+    expect(r.status).toBe(500);
+    expect(r.json.error).toBe('Error al generar el documento de Bases');
+    expect(r.json.error).not.toContain('criterios de evaluación activos');
     expect(generateBasesDocument).not.toHaveBeenCalled();
     expect(h.uploads).toHaveLength(0);
     expect(h.inserts).toHaveLength(0);

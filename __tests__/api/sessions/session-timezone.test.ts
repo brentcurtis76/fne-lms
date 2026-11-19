@@ -160,7 +160,7 @@ describe('the consultant timezone lives in exactly one module', () => {
 
   it('the two scheduling forms reach the conversion through the owning module', () => {
     for (const rel of [
-      path.join('pages', 'admin', 'sessions', 'create.tsx'),
+      path.join('hooks', 'useSessionCreate.ts'),
       path.join('components', 'sessions', 'EditRequestModal.tsx'),
     ]) {
       const text = fs.readFileSync(path.join(ROOT, rel), 'utf8');

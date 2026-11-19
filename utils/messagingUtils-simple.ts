@@ -520,14 +520,28 @@ export async function createThread(
   }
 }
 
+/** An attachment that could not be attached to a stored message, and why (EC-M9). */
+export interface FailedAttachment {
+  name: string;
+  reason: string;
+}
+
+const failureReason = (error: unknown): string =>
+  (error as { message?: string } | null)?.message || 'Error desconocido';
+
 /**
  * Send a message (simplified)
+ *
+ * The message is stored first; its attachments follow (their paths carry the
+ * message's id). An attachment that cannot be uploaded or recorded is named in
+ * `failedAttachments` and does not make the send throw: the message row
+ * exists, and a retry would store it twice (EC-M9).
  */
 export async function sendMessage(
   workspaceId: string | null,
   messageData: MessageCompositionData,
   userId: string
-): Promise<MessageWithDetails> {
+): Promise<MessageWithDetails & { failedAttachments: FailedAttachment[] }> {
   try {
     // First get the user's profile to get their name
     const { data: userProfile } = await supabase
@@ -568,6 +582,7 @@ export async function sendMessage(
 
     // Handle attachments if provided
     let attachmentRecords: any[] = [];
+    const failedAttachments: FailedAttachment[] = [];
     if (messageData.attachments && messageData.attachments.length > 0) {
       for (const file of messageData.attachments) {
         try {
@@ -585,6 +600,7 @@ export async function sendMessage(
 
           if (uploadError) {
             console.error('Error uploading file:', uploadError);
+            failedAttachments.push({ name: file.name, reason: failureReason(uploadError) });
             continue; // Skip this file but continue with others
           }
 
@@ -609,9 +625,17 @@ export async function sendMessage(
 
           if (!attachmentError && attachmentRecord) {
             attachmentRecords.push(attachmentRecord);
+          } else {
+            // The file stays in the store with nothing pointing to it (decided: not removed).
+            console.error('Error recording attachment:', attachmentError);
+            failedAttachments.push({
+              name: file.name,
+              reason: attachmentError ? failureReason(attachmentError) : 'No se guardó el registro del archivo',
+            });
           }
         } catch (attachmentErr) {
           console.error('Error processing attachment:', attachmentErr);
+          failedAttachments.push({ name: file.name, reason: failureReason(attachmentErr) });
         }
       }
     }
@@ -634,7 +658,8 @@ export async function sendMessage(
       attachments: attachmentRecords,
       mentions: [],
       user_reaction: undefined,
-      is_mentioned: false
+      is_mentioned: false,
+      failedAttachments
     };
 
   } catch (error) {

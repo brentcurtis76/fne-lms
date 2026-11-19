@@ -2483,11 +2483,13 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
     setThreads(prev => prev.map(thread => (thread.id === threadId ? { ...thread, ...counters } : thread)));
   };
 
-  const handleMessageSend = async (messageData: any) => {
+  // Resolves with the files that could not be attached (the message itself is
+  // stored), so the box keeps them to send again; with nothing when all went (EC-M9).
+  const handleMessageSend = async (messageData: any): Promise<File[] | void> => {
     if (!workspace || !user || !selectedThread) return;
 
     try {
-      const newMessage = await sendMessage(workspace.id, {
+      const { failedAttachments = [], ...newMessage } = await sendMessage(workspace.id, {
         ...messageData,
         thread_id: selectedThread.id,
         reply_to_id: replyToMessage?.id || null
@@ -2514,7 +2516,24 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
       );
       setReplyToMessage(null); // Clear reply state after sending
       void refreshThreadCounters(selectedThread.id);
-      toast.success('Mensaje enviado');
+      if (failedAttachments.length === 0) {
+        toast.success('Mensaje enviado');
+        return;
+      }
+      const names = failedAttachments.map(failed => failed.name);
+      toast.error(
+        `Mensaje enviado, pero no se adjuntó: ${names.join(', ')}. ` +
+        `${names.length > 1 ? 'Adjúntalos' : 'Adjúntalo'} en un nuevo mensaje.`
+      );
+      // The File objects the person chose, matched by name, in their order.
+      const chosen: File[] = Array.isArray(messageData?.attachments) ? messageData.attachments : [];
+      const remaining = [...names];
+      return chosen.filter(file => {
+        const at = remaining.indexOf(file.name);
+        if (at === -1) return false;
+        remaining.splice(at, 1);
+        return true;
+      });
     } catch (error) {
       console.error('Error sending message:', error);
       toast.error('Error al enviar el mensaje');

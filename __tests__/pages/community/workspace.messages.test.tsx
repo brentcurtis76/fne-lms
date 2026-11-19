@@ -729,3 +729,71 @@ describe('F18f EC-M8 a send whose message insert fails', () => {
     expect(cardIds(utils)).toEqual([]);
   });
 });
+
+// ---------------------------------------------------------------------------
+// F18f EC-M9: a message whose attachment failed is sent; the page names the
+// file instead of «Mensaje enviado» and hands the failed files back to the box
+// ---------------------------------------------------------------------------
+
+describe('F18f EC-M9 a send whose attachment failed', () => {
+  it('one failed file: an error toast names it, no «Mensaje enviado», and the failed File is handed back', async () => {
+    const { toast } = await import('react-hot-toast');
+    vi.mocked(toast.error).mockClear();
+    vi.mocked(toast.success).mockClear();
+    const first = new File(['%PDF'], 'primero.pdf', { type: 'application/pdf' });
+    const second = new File(['%PDF'], 'segundo.pdf', { type: 'application/pdf' });
+    h.sendMessage = vi.fn(async () => ({
+      ...message('m-own', THREAD_A.id, { author_id: 'user-1' }),
+      failedAttachments: [{ name: 'segundo.pdf', reason: 'upload failed' }],
+    }));
+    const utils = render(<CommunityWorkspacePage />);
+    await openThread(utils, COMMUNITY_A);
+
+    let handedBack: unknown;
+    await act(async () => {
+      handedBack = await h.composer!.onSendMessage({ content: 'Con adjuntos', attachments: [first, second] });
+    });
+    expect(h.sendMessage).toHaveBeenCalledTimes(1);
+    expect(toast.error).toHaveBeenCalledWith('Mensaje enviado, pero no se adjuntó: segundo.pdf. Adjúntalo en un nuevo mensaje.');
+    expect(toast.success).not.toHaveBeenCalledWith('Mensaje enviado');
+    expect(handedBack).toEqual([second]);
+    expect((handedBack as File[])[0]).toBe(second);
+    expect(cardIds(utils)).toEqual(['m-own']);
+  });
+
+  it('two failed files: both named, «Adjúntalos»', async () => {
+    const { toast } = await import('react-hot-toast');
+    vi.mocked(toast.error).mockClear();
+    const a = new File(['%PDF'], 'a.pdf', { type: 'application/pdf' });
+    const b = new File(['%PDF'], 'b.pdf', { type: 'application/pdf' });
+    h.sendMessage = vi.fn(async () => ({
+      ...message('m-own', THREAD_A.id, { author_id: 'user-1' }),
+      failedAttachments: [{ name: 'a.pdf', reason: 'x' }, { name: 'b.pdf', reason: 'y' }],
+    }));
+    const utils = render(<CommunityWorkspacePage />);
+    await openThread(utils, COMMUNITY_A);
+    let handedBack: unknown;
+    await act(async () => {
+      handedBack = await h.composer!.onSendMessage({ content: 'Dos', attachments: [a, b] });
+    });
+    expect(toast.error).toHaveBeenCalledWith('Mensaje enviado, pero no se adjuntó: a.pdf, b.pdf. Adjúntalos en un nuevo mensaje.');
+    expect(handedBack).toEqual([a, b]);
+  });
+
+  it('nothing failed: «Mensaje enviado» as before, and nothing handed back', async () => {
+    const { toast } = await import('react-hot-toast');
+    vi.mocked(toast.success).mockClear();
+    vi.mocked(toast.error).mockClear();
+    h.sendMessage = vi.fn(async () => ({ ...message('m-own', THREAD_A.id, { author_id: 'user-1' }), failedAttachments: [] }));
+    const utils = render(<CommunityWorkspacePage />);
+    await openThread(utils, COMMUNITY_A);
+    let handedBack: unknown = 'x';
+    await act(async () => {
+      handedBack = await h.composer!.onSendMessage({ content: 'Bien', attachments: [new File(['%PDF'], 'ok.pdf')] });
+    });
+    expect(toast.success).toHaveBeenCalledWith('Mensaje enviado');
+    // (The harness's meetings tab toasts its own load error; only the send's toasts matter here.)
+    expect(vi.mocked(toast.error).mock.calls.filter(([text]) => String(text).startsWith('Mensaje enviado'))).toEqual([]);
+    expect(handedBack).toBeUndefined();
+  });
+});

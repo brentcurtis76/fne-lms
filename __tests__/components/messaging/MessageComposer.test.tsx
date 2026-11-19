@@ -221,3 +221,30 @@ describe('F18f EC-M8 a failed send or edit keeps what was typed', () => {
     expect(alertSpy).not.toHaveBeenCalled();
   });
 });
+
+// ---------------------------------------------------------------------------
+// F18f EC-M9: when the send handler resolves with files (attachments that were
+// not attached), the text is cleared and exactly those files stay in the box
+// ---------------------------------------------------------------------------
+
+describe('F18f EC-M9 failed attachments stay in the box', () => {
+  it('clears the text and the reply target, keeps exactly the files handed back', async () => {
+    const ok = new File(['%PDF-1.4'], 'primero.pdf', { type: 'application/pdf' });
+    const failed = new File(['%PDF-1.4'], 'segundo.pdf', { type: 'application/pdf' });
+    const onSendMessage = vi.fn(async () => [failed]);
+    const onCancelReply = vi.fn();
+    const { textarea, type, container } = setup({
+      mentionSuggestions: [], onSendMessage: onSendMessage as any, onCancelReply,
+      replyToMessage: { id: 'msg-parent', author_name: 'Ana Uno', content: 'Mensaje al que se responde' } as any,
+    });
+    fireEvent.change(container.querySelector('input[type="file"]')!, { target: { files: [ok, failed] } });
+    type('Con dos adjuntos');
+    fireEvent.keyDown(textarea, { key: 'Enter' });
+    await waitFor(() => expect(onSendMessage).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(textarea.value).toBe(''));
+
+    expect(onCancelReply).toHaveBeenCalled();
+    expect(screen.queryByText('primero.pdf')).toBeNull();
+    expect(screen.getByText('segundo.pdf')).toBeTruthy();
+  });
+});

@@ -15,6 +15,7 @@ import { ResponsiveFunctionalPageHeader } from '../components/layout/FunctionalP
 
 import { getUserPrimaryRole } from '../utils/roleUtils';
 import { expenseReportActions } from '../lib/expenses/report-actions';
+import { parseLocalDate } from '../utils/dateUtils';
 interface ExpenseCategory {
   id: string;
   name: string;
@@ -230,8 +231,9 @@ export default function ExpenseReportsPage() {
     return `$${amount.toLocaleString('es-CL')}`;
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('es-CL');
+  // GES-3.25: start_date / end_date are dates (no time): shown as typed.
+  const formatDay = (dateString: string) => {
+    return dateString ? parseLocalDate(dateString).toLocaleDateString('es-CL') : '';
   };
 
   const getStatusColor = (status: string) => {
@@ -543,7 +545,7 @@ export default function ExpenseReportsPage() {
                             </td>
                             <td className="py-3 px-4">
                               <div className="text-sm text-gray-600">
-                                {formatDate(report.start_date)} - {formatDate(report.end_date)}
+                                {formatDay(report.start_date)} - {formatDay(report.end_date)}
                               </div>
                             </td>
                             <td className="py-3 px-4">

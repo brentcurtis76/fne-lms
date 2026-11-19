@@ -1,4 +1,5 @@
 import * as XLSX from 'xlsx';
+import { parseLocalDate } from '../utils/dateUtils';
 
 interface ExpenseCategory {
   id: string;
@@ -53,6 +54,16 @@ interface ExpenseReport {
 export class ExpenseReportExporter {
   private static formatDate(dateString: string): string {
     return new Date(dateString).toLocaleDateString('es-CL', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+  }
+
+  // GES-3.25: a date without time (period, expense date) is shown as typed.
+  private static formatDay(dateString: string): string {
+    if (!dateString) return '';
+    return parseLocalDate(dateString).toLocaleDateString('es-CL', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric'
@@ -164,7 +175,7 @@ export class ExpenseReportExporter {
     doc.setFont('helvetica', 'normal');
     doc.text(`Estado: ${this.getStatusText(report.status)}`, 14, yPos);
     yPos += 6;
-    doc.text(`Período: ${this.formatDate(report.start_date)} - ${this.formatDate(report.end_date)}`, 14, yPos);
+    doc.text(`Período: ${this.formatDay(report.start_date)} - ${this.formatDay(report.end_date)}`, 14, yPos);
     yPos += 6;
     doc.text(`Total: ${this.formatCurrency(report.total_amount)}`, 14, yPos);
     yPos += 6;
@@ -197,7 +208,7 @@ export class ExpenseReportExporter {
       yPos += 8;
       
       const tableData = report.expense_items.map(item => [
-        this.formatDate(item.expense_date),
+        this.formatDay(item.expense_date),
         item.expense_categories?.name || 'Sin categoría',
         item.description,
         item.vendor || '-',
@@ -326,7 +337,7 @@ export class ExpenseReportExporter {
       ['Información General'],
       ['Nombre del Reporte:', report.report_name],
       ['Estado:', this.getStatusText(report.status)],
-      ['Período:', `${this.formatDate(report.start_date)} - ${this.formatDate(report.end_date)}`],
+      ['Período:', `${this.formatDay(report.start_date)} - ${this.formatDay(report.end_date)}`],
       ['Total:', this.formatCurrency(report.total_amount)],
       ['Descripción:', report.description || 'N/A'],
       [''],
@@ -361,7 +372,7 @@ export class ExpenseReportExporter {
       report.expense_items.forEach(item => {
         const audit = this.excelAuditCells(item);
         itemsData.push([
-          this.formatDate(item.expense_date),
+          this.formatDay(item.expense_date),
           item.expense_categories?.name || 'Sin categoría',
           item.description,
           item.vendor || '',
@@ -495,7 +506,7 @@ export class ExpenseReportExporter {
     // Reports table
     const tableData = reports.map(report => [
       report.report_name,
-      `${this.formatDate(report.start_date)} - ${this.formatDate(report.end_date)}`,
+      `${this.formatDay(report.start_date)} - ${this.formatDay(report.end_date)}`,
       this.getStatusText(report.status),
       `${report.profiles?.first_name} ${report.profiles?.last_name}`,
       this.formatCurrency(report.total_amount)
@@ -575,7 +586,7 @@ export class ExpenseReportExporter {
     reports.forEach(report => {
       summaryData.push([
         report.report_name,
-        `${this.formatDate(report.start_date)} - ${this.formatDate(report.end_date)}`,
+        `${this.formatDay(report.start_date)} - ${this.formatDay(report.end_date)}`,
         this.getStatusText(report.status),
         `${report.profiles?.first_name} ${report.profiles?.last_name}`,
         report.profiles?.email || '',

@@ -17,9 +17,12 @@ const ConsultorSessionsPage: React.FC = () => {
     );
   }
 
+  // Where the body's decisions were worked out before SA: from here on, never while loading.
+  const decisions = list.decide();
+
   return (
     <MainLayout user={user} onLogout={handleLogout}>
-      <SessionsListClasico list={list} />
+      <SessionsListClasico list={list} decisions={decisions} />
     </MainLayout>
   );
 };

@@ -621,8 +621,9 @@ export function useSessionDetail() {
    * One copy of each decision the session's body makes (step 3), each the markup's own expression,
    * word for word. Called by the page only where today's page worked them out: after the loading
    * and refusal returns, on every render of the body, when `session` is set (hence `session!`, a
-   * type-only mark). Those the markup worked out per row or only inside one tab are functions,
-   * asked at that place.
+   * type-only mark). Those the markup worked out per row, per cell, only inside one tab or only
+   * inside a drawn part are functions, asked at that place and as often as the markup worked them
+   * out (send-back 1 of SA: none of them is worked out where the markup did not reach it).
    */
   const decide = () => {
     const badge = getStatusBadge(session!.status);
@@ -639,10 +640,11 @@ export function useSessionDetail() {
 
     const finalizeCheck = canFinalizeSession();
 
-    // Read-only states and who may change what
+    // Read-only states and who may change what. `isReadOnly` was worked out at the top of the tab
+    // body, on every render of the body; the other two where a tab draws them (`readMode` per cell).
     const isReadOnly = session!.status === 'completada' || session!.status === 'cancelada';
-    const canChange = !isReadOnly && canEdit;
-    const readMode = isReadOnly || !canEdit;
+    const canChange = () => !isReadOnly && canEdit;
+    const readMode = () => isReadOnly || !canEdit;
     const showReadOnlyBand = !isFacilitator && userRole !== 'admin';
 
     // Header
@@ -651,7 +653,8 @@ export function useSessionDetail() {
     const showEditRequestButton = canEdit && (session!.status !== 'completada' && session!.status !== 'cancelada');
     const showFinalizeButton = canEdit && session!.status === 'pendiente_informe';
     const showJoinLink = session!.has_meeting && session!.join_path;
-    const isPendingReport = session!.status === 'pendiente_informe';
+    // Asked only when the helper text is drawn.
+    const isPendingReport = () => session!.status === 'pendiente_informe';
 
     // Edit request history
     const showEditRequests = session!.edit_requests && session!.edit_requests.length > 0;
@@ -686,8 +689,8 @@ export function useSessionDetail() {
         : 'Usuario desconocido';
     };
 
-    // «Materiales»
-    const materials = session!.materials || [];
+    // «Materiales» (asked only inside that tab)
+    const listMaterials = () => session!.materials || [];
     const uploaderName = (material: SessionMaterial & { profiles?: { first_name: string; last_name: string; email: string }; download_url?: string }) => {
       const profile = material.profiles;
       return profile
@@ -697,17 +700,17 @@ export function useSessionDetail() {
     const canDeleteMaterial = (material: SessionMaterial) => !isReadOnly &&
       (material.uploaded_by === user?.id || canEdit);
 
-    // «Informe»
-    const onlyFacilitatorsReport = !canEdit && !existingReport;
-    const showAudioUploader = !isReadOnly && canEdit && !existingReport && !editingReport && session;
-    const audioUploaderDisabled = session!.status === 'completada' || session!.status === 'cancelada';
-    const showCreateReportButton = !isReadOnly && canEdit && !existingReport && !editingReport;
-    const showEditReportButton = !isReadOnly && canEdit && existingReport && !editingReport;
-    const showReportEditor = editingReport && canEdit && !isReadOnly;
+    // «Informe» (asked only inside that tab; the uploader's `disabled` only when it is drawn)
+    const onlyFacilitatorsReport = () => !canEdit && !existingReport;
+    const showAudioUploader = () => !isReadOnly && canEdit && !existingReport && !editingReport && session;
+    const audioUploaderDisabled = () => session!.status === 'completada' || session!.status === 'cancelada';
+    const showCreateReportButton = () => !isReadOnly && canEdit && !existingReport && !editingReport;
+    const showEditReportButton = () => !isReadOnly && canEdit && existingReport && !editingReport;
+    const showReportEditor = () => editingReport && canEdit && !isReadOnly;
     const isForAllParticipants = (report: SessionReport) => report.visibility === 'all_participants';
 
-    // «Actividad»
-    const hasActivity = session!.activity_log && session!.activity_log.length > 0;
+    // «Actividad» (asked only inside that tab)
+    const hasActivity = () => session!.activity_log && session!.activity_log.length > 0;
 
     return {
       badge,
@@ -734,7 +737,7 @@ export function useSessionDetail() {
       unmarkedCount,
       attendanceOf,
       attendeeName,
-      materials,
+      listMaterials,
       uploaderName,
       canDeleteMaterial,
       onlyFacilitatorsReport,

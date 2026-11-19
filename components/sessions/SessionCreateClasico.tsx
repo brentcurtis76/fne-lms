@@ -191,7 +191,7 @@ export default function SessionCreateClasico({
                     value={selectedContratoId}
                     onChange={handleContratoChange}
                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
-                    disabled={contratoSelectDisabled}
+                    disabled={contratoSelectDisabled()}
                   >
                     <option value="">Seleccione un contrato</option>
                     {contratos.map((c) => (
@@ -200,7 +200,7 @@ export default function SessionCreateClasico({
                       </option>
                     ))}
                   </select>
-                  {showNoContratos && (
+                  {showNoContratos() && (
                     <p className="text-xs text-gray-500 mt-1">
                       No hay contratos activos para este colegio.
                     </p>
@@ -216,7 +216,7 @@ export default function SessionCreateClasico({
                   <span className="inline-flex items-center px-3 py-1 rounded-full text-xs bg-gray-100 text-gray-600">
                     Cargando horas disponibles...
                   </span>
-                ) : hasHoursBucket ? (() => {
+                ) : hasHoursBucket() ? (() => {
                   const { isExhausted, isWarning } = hoursLevel(availableHours as number);
                   const badgeClass = isExhausted
                     ? 'bg-red-100 text-red-800'
@@ -252,7 +252,7 @@ export default function SessionCreateClasico({
                 </p>
 
                 {/* Loading state */}
-                {showConsultantsLoading && (
+                {showConsultantsLoading() && (
                   <div className="flex items-center justify-center p-4 bg-gray-50 rounded-lg mb-4">
                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-brand_accent mr-2"></div>
                     <span className="text-sm text-gray-700">Cargando consultores...</span>
@@ -260,7 +260,7 @@ export default function SessionCreateClasico({
                 )}
 
                 {/* Error state */}
-                {showConsultantsError && (
+                {showConsultantsError() && (
                   <div className="p-4 bg-red-50 border border-red-200 rounded-lg mb-4">
                     <div className="flex items-start justify-between">
                       <div>
@@ -279,7 +279,7 @@ export default function SessionCreateClasico({
                 )}
 
                 {/* Empty state */}
-                {showConsultantsEmpty && (
+                {showConsultantsEmpty() && (
                   <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg mb-4">
                     <p className="text-sm text-yellow-800">
                       No hay consultores disponibles para este colegio. Verifique que existan usuarios con rol activo de consultor.
@@ -288,7 +288,7 @@ export default function SessionCreateClasico({
                 )}
 
                 {/* Current facilitators list */}
-                {showFacilitators && (
+                {showFacilitators() && (
                   <div className="mb-4 space-y-2">
                     {facilitators.map((facilitator) => {
                       const consultant = consultantOf(facilitator);
@@ -341,11 +341,11 @@ export default function SessionCreateClasico({
                 )}
 
                 {/* Consultant selector */}
-                {showConsultantSelector && (
+                {showConsultantSelector() && (
                   <select
                     onChange={handleConsultantSelect}
                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
-                    disabled={consultantSelectorDisabled}
+                    disabled={consultantSelectorDisabled()}
                   >
                     <option value="">Agregar consultor...</option>
                     {selectableConsultants()
@@ -520,7 +520,7 @@ export default function SessionCreateClasico({
                 </div>
 
                 {/* Count Input (for non-custom) */}
-                {showRecurrenceCount && (
+                {showRecurrenceCount() && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Número de sesiones (2-52)
@@ -537,7 +537,7 @@ export default function SessionCreateClasico({
                 )}
 
                 {/* Custom Dates Input */}
-                {showCustomDates && (
+                {showCustomDates() && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Fechas personalizadas
@@ -552,7 +552,7 @@ export default function SessionCreateClasico({
                             min={earliestDate()}
                             className="flex-1 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
                           />
-                          {canRemoveCustomDate && (
+                          {canRemoveCustomDate() && (
                             <button
                               type="button"
                               onClick={() => handleRemoveCustomDate(index)}
@@ -577,7 +577,7 @@ export default function SessionCreateClasico({
                 )}
 
                 {/* Preview Panel */}
-                {showPreview && (
+                {showPreview() && (
                   <div className="bg-white p-4 rounded border border-gray-200">
                     <h5 className="text-sm font-medium text-gray-700 mb-2">
                       Vista previa ({previewDates.length} sesiones)
@@ -652,7 +652,7 @@ export default function SessionCreateClasico({
                         Generar reunión Zoom
                       </span>
                     </label>
-                    {showZoomManagedHelp && (
+                    {showZoomManagedHelp() && (
                       <p
                         data-testid="session-zoom-managed-help"
                         className="mt-2 text-xs text-gray-500"
@@ -663,7 +663,7 @@ export default function SessionCreateClasico({
                   </div>
                 )}
 
-                {showManualMeetingFields && (
+                {showManualMeetingFields() && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -727,7 +727,7 @@ export default function SessionCreateClasico({
                 className="inline-flex items-center justify-center px-4 py-2 border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors disabled:opacity-50"
               >
                 <Save size={20} className="mr-2" />
-                {showSeriesCountInButtons
+                {showSeriesCountInButtons()
                   ? `Guardar serie como borrador (${previewDates.length} sesiones)`
                   : 'Guardar borrador'}
               </button>
@@ -738,7 +738,7 @@ export default function SessionCreateClasico({
                 className="inline-flex items-center justify-center px-4 py-2 bg-brand_accent text-brand_primary font-semibold hover:bg-brand_accent_hover rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Send size={20} className="mr-2" />
-                {showSeriesCountInButtons
+                {showSeriesCountInButtons()
                   ? `Programar serie (${previewDates.length} sesiones)`
                   : 'Programar sesión'}
               </button>

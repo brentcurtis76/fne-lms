@@ -6,14 +6,21 @@ import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { getStatusBadge, formatTime, getModalityIcon, getCancellationSubBadge } from '../../lib/utils/session-ui-helpers';
 import type { SessionListItem } from './SessionsList.types';
-import type { SessionsList } from '../../hooks/useSessionsList';
+import type { SessionsList, SessionsListDecisions } from '../../hooks/useSessionsList';
 
 /**
  * Today's «Mis Sesiones», the classic view: the page's body moved out of
  * `pages/consultor/sessions/index.tsx` unchanged (redesign 6S, release SA). It draws only what
- * `useSessionsList()` gives it; the frame (`MainLayout`) and the loading mark stay in the page.
+ * `useSessionsList()` gives it and the decisions the page worked out with `list.decide()` after its
+ * loading return; the frame (`MainLayout`) and the loading mark stay in the page.
  */
-export default function SessionsListClasico({ list }: { list: SessionsList }) {
+export default function SessionsListClasico({
+  list,
+  decisions,
+}: {
+  list: SessionsList;
+  decisions: SessionsListDecisions;
+}) {
   const {
     totalSessions,
     filters,
@@ -26,11 +33,7 @@ export default function SessionsListClasico({ list }: { list: SessionsList }) {
     sortedOtherDates,
     nextSessionCountdown,
     pendingReportsCount,
-    showExportCalendar,
     icalHref,
-    noMySessions,
-    noOtherSessions,
-    showLoadMore,
     seriesNumberShown,
     isCancelled,
     ledgerOf,
@@ -40,6 +43,7 @@ export default function SessionsListClasico({ list }: { list: SessionsList }) {
     changeDateFromFilter,
     changeDateToFilter,
   } = list;
+  const { showExportCalendar, noMySessions, noOtherSessions, showLoadMore } = decisions;
 
   const renderSessionCard = (session: SessionListItem, dimmed: boolean = false) => {
     const badge = getStatusBadge(session.status);

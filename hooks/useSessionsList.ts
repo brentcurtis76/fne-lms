@@ -298,19 +298,26 @@ export function useSessionsList() {
   );
 
   // ── One copy of each decision the markup makes (redesign 6S, release SA, step 3). Each is the
-  // markup's own expression, word for word, worked out on every render as the markup did; those
-  // the markup worked out per row or only inside a drawn part are functions, asked at that place.
+  // markup's own expression, word for word, worked out when and only when the markup worked it
+  // out: those of the body in `decide()`, which the page calls after its loading return, as the
+  // markup was drawn only there; those the markup worked out per row or only inside a drawn part
+  // are functions, asked at that place.
 
-  // The calendar export link: drawn only when there are rows; its address carries the filters set.
-  const showExportCalendar = sessions.length > 0;
+  /** Called by the page after its loading return, once per render that draws the body. */
+  const decide = () => {
+    // The calendar export link: drawn only when there are rows.
+    const showExportCalendar = sessions.length > 0;
+    // The two columns' empty sentences
+    const noMySessions = mySessions.length === 0;
+    const noOtherSessions = otherSessions.length === 0;
+    // «Cargar más»
+    const showLoadMore = sessions.length < totalSessions;
+    return { showExportCalendar, noMySessions, noOtherSessions, showLoadMore };
+  };
+  // The export link's address (asked only where the link is drawn): it carries the filters set.
   const icalHref = () => `/api/sessions/ical?${new URLSearchParams(
     Object.fromEntries(Object.entries(filters).filter(([, v]) => v))
   ).toString()}`;
-  // The two columns' empty sentences
-  const noMySessions = mySessions.length === 0;
-  const noOtherSessions = otherSessions.length === 0;
-  // «Cargar más»
-  const showLoadMore = sessions.length < totalSessions;
   // Per card: the series number (keeps the markup's shape: a 0 is drawn), the cancellation
   // ledger outcome, and where a click goes.
   const seriesNumberShown = (session: SessionListItem) => session.recurrence_group_id && session.session_number;
@@ -344,12 +351,9 @@ export function useSessionsList() {
     sortedOtherDates,
     nextSessionCountdown,
     pendingReportsCount,
-    // The decisions (step 3)
-    showExportCalendar,
+    // The decisions (step 3): those of the body worked out only when `decide()` is called
+    decide,
     icalHref,
-    noMySessions,
-    noOtherSessions,
-    showLoadMore,
     seriesNumberShown,
     isCancelled,
     ledgerOf,
@@ -362,3 +366,4 @@ export function useSessionsList() {
 }
 
 export type SessionsList = ReturnType<typeof useSessionsList>;
+export type SessionsListDecisions = ReturnType<SessionsList['decide']>;

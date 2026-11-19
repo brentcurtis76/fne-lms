@@ -732,8 +732,10 @@ export function useSessionCreate() {
   /**
    * One named copy of each decision the form's markup makes from data or status. Called by the
    * page after its loading and refusal returns, on every render that draws the form, as the
-   * markup worked them out; the clock and the flag are read at that moment, and the pieces the
-   * markup worked out only inside a branch are functions, asked by the view inside that branch.
+   * markup worked them out; the clock and the flag are read at that moment, before the frame is
+   * drawn, as the page did. The pieces the markup worked out only inside a branch, per row, or
+   * more than once are functions, asked by the view inside that branch, per row, and as often
+   * (send-back 1 of SA: none of them is worked out where the markup did not reach it).
    */
   const decide = () => {
     // §14 master kill switch. Off ⇒ the box never appears and the form behaves
@@ -756,11 +758,13 @@ export function useSessionCreate() {
       showHourTypesLoading: hourTypesLoading,
       showHourTypesError: hourTypesError && !hourTypesLoading,
       showHourTypeSelects: hourTypes.length > 0,
-      contratoSelectDisabled: formData.school_id === 0,
-      showNoContratos: formData.school_id > 0 && contratos.length === 0,
+      // Asked only inside the hour-types branch
+      contratoSelectDisabled: () => formData.school_id === 0,
+      showNoContratos: () => formData.school_id > 0 && contratos.length === 0,
       // The hours chip (a text when shown, as the markup's `&&` chain gave it)
       showHoursChip: selectedHourTypeKey && selectedContratoId,
-      hasHoursBucket: availableHours !== null,
+      // Asked only while the chip is drawn and not loading
+      hasHoursBucket: () => availableHours !== null,
       // Asked by the view only when a bucket was found, where the markup worked it out. The chip's
       // colours and words stay in the view (this folder is not one Tailwind reads).
       hoursLevel: (availableHours: number) => {
@@ -774,27 +778,28 @@ export function useSessionCreate() {
       },
       // Consultants and facilitators (the error is a text when shown)
       showConsultants: formData.school_id > 0,
-      showConsultantsLoading: consultantsLoading,
-      showConsultantsError: consultantsError,
-      showConsultantsEmpty: !consultantsLoading && !consultantsError && consultants.length === 0,
-      showFacilitators: facilitators.length > 0,
+      // Asked only inside the school branch
+      showConsultantsLoading: () => consultantsLoading,
+      showConsultantsError: () => consultantsError,
+      showConsultantsEmpty: () => !consultantsLoading && !consultantsError && consultants.length === 0,
+      showFacilitators: () => facilitators.length > 0,
       consultantOf: (facilitator: Facilitator) => consultants.find((c) => c.id === facilitator.user_id),
       facilitatorRoleLabel: (facilitator: Facilitator) =>
         facilitator.facilitator_role === 'consultor_externo'
           ? 'Externo'
           : 'Interno',
-      showConsultantSelector: !consultantsLoading && !consultantsError,
-      consultantSelectorDisabled: consultants.length === 0 && !consultantsError,
+      showConsultantSelector: () => !consultantsLoading && !consultantsError,
+      consultantSelectorDisabled: () => consultants.length === 0 && !consultantsError,
       selectableConsultants: () => consultants
         .filter((c) => !facilitators.find((f) => f.user_id === c.id)),
       // The earliest date a date field accepts: the clock, read each time a field is drawn.
       earliestDate: () => new Date().toISOString().split('T')[0],
-      // Recurrence
+      // Recurrence (all but the first asked only inside the series branch; the removal per row)
       showRecurrence: isRecurring,
-      showRecurrenceCount: recurrenceFrequency !== 'custom',
-      showCustomDates: recurrenceFrequency === 'custom',
-      canRemoveCustomDate: customDates.length > 1,
-      showPreview: previewDates.length > 0,
+      showRecurrenceCount: () => recurrenceFrequency !== 'custom',
+      showCustomDates: () => recurrenceFrequency === 'custom',
+      canRemoveCustomDate: () => customDates.length > 1,
+      showPreview: () => previewDates.length > 0,
       previewRow: (date: string) => {
         const parsedDate = parseISO(date);
         const dayOfWeek = parsedDate.getDay();
@@ -803,11 +808,12 @@ export function useSessionCreate() {
       },
       // Modality
       showMeetingFields: formData.modality === 'online' || formData.modality === 'hibrida',
-      showZoomManagedHelp: formData.is_zoom_managed,
-      showManualMeetingFields: !formData.is_zoom_managed,
+      // Asked only inside the meeting branch (the help only inside the Zoom box's branch)
+      showZoomManagedHelp: () => formData.is_zoom_managed,
+      showManualMeetingFields: () => !formData.is_zoom_managed,
       showLocation: formData.modality === 'presencial' || formData.modality === 'hibrida',
-      // Buttons
-      showSeriesCountInButtons: isRecurring && previewDates.length > 0,
+      // Buttons (the series count asked once per button, as the markup did)
+      showSeriesCountInButtons: () => isRecurring && previewDates.length > 0,
       draftDisabled: submitting,
       scheduleDisabled: submitting,
     };

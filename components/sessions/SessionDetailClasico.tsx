@@ -100,7 +100,7 @@ export default function SessionDetailClasico({ detail, decisions }: { detail: Se
     unmarkedCount,
     attendanceOf,
     attendeeName,
-    materials,
+    listMaterials,
     uploaderName,
     canDeleteMaterial,
     onlyFacilitatorsReport,
@@ -169,7 +169,7 @@ export default function SessionDetailClasico({ detail, decisions }: { detail: Se
                 <h3 className="text-lg font-semibold text-gray-900">
                   Asistencia ({attendeeCount()})
                 </h3>
-                {canChange && (
+                {canChange() && (
                   <div className="flex flex-col sm:flex-row gap-2">
                     <button
                       onClick={handleMarkAllPresent}
@@ -239,7 +239,7 @@ export default function SessionDetailClasico({ detail, decisions }: { detail: Se
                             )}
                           </td>
                           <td className="px-4 py-2 text-center">
-                            {readMode ? (
+                            {readMode() ? (
                               attendee.attended === true ? (
                                 <Check className="w-4 h-4 text-green-600 mx-auto" />
                               ) : attendee.attended === false ? (
@@ -259,7 +259,7 @@ export default function SessionDetailClasico({ detail, decisions }: { detail: Se
                             )}
                           </td>
                           <td className="px-4 py-2">
-                            {readMode ? (
+                            {readMode() ? (
                               <span className="text-sm text-gray-600 capitalize">
                                 {attendee.arrival_status?.replace(/_/g, ' ') || '—'}
                               </span>
@@ -283,7 +283,7 @@ export default function SessionDetailClasico({ detail, decisions }: { detail: Se
                             )}
                           </td>
                           <td className="px-4 py-2">
-                            {readMode ? (
+                            {readMode() ? (
                               <span className="text-sm text-gray-600">{attendee.notes || '—'}</span>
                             ) : (
                               <input
@@ -328,7 +328,7 @@ export default function SessionDetailClasico({ detail, decisions }: { detail: Se
                       {/* Attended Checkbox */}
                       <div className="flex items-center gap-2 mb-3">
                         <label className="flex items-center gap-2 text-sm font-medium text-gray-700 min-h-[44px]">
-                          {readMode ? (
+                          {readMode() ? (
                             attendee.attended === true ? (
                               <Check className="w-5 h-5 text-green-600" />
                             ) : attendee.attended === false ? (
@@ -353,7 +353,7 @@ export default function SessionDetailClasico({ detail, decisions }: { detail: Se
                       {/* Arrival Status Dropdown */}
                       <div className="mb-3">
                         <label className="block text-sm font-medium text-gray-700 mb-1">Estado de llegada</label>
-                        {readMode ? (
+                        {readMode() ? (
                           <span className="text-sm text-gray-600 capitalize">
                             {attendee.arrival_status?.replace(/_/g, ' ') || '—'}
                           </span>
@@ -380,7 +380,7 @@ export default function SessionDetailClasico({ detail, decisions }: { detail: Se
                       {/* Notes Input */}
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Notas</label>
-                        {readMode ? (
+                        {readMode() ? (
                           <span className="text-sm text-gray-600">{attendee.notes || '—'}</span>
                         ) : (
                           <input
@@ -412,9 +412,10 @@ export default function SessionDetailClasico({ detail, decisions }: { detail: Se
         );
 
       case 'materials':
+        const materials = listMaterials();
         return (
           <div className="space-y-4">
-            {canChange && (
+            {canChange() && (
               <div className="flex justify-end">
                 <label className="px-4 py-2 bg-brand_accent hover:bg-brand_accent_hover text-white rounded cursor-pointer flex items-center gap-2">
                   <Upload className="w-4 h-4" />
@@ -494,7 +495,7 @@ export default function SessionDetailClasico({ detail, decisions }: { detail: Se
         );
 
       case 'report':
-        if (onlyFacilitatorsReport) {
+        if (onlyFacilitatorsReport()) {
           return (
             <div className="text-center py-12 text-gray-500">
               <FileText className="w-12 h-12 mx-auto mb-3 text-gray-400" />
@@ -506,15 +507,15 @@ export default function SessionDetailClasico({ detail, decisions }: { detail: Se
         return (
           <div className="space-y-4">
             {/* Audio uploader - show when no existing report and not read-only */}
-            {showAudioUploader && (
+            {showAudioUploader() && (
               <AudioReportUploader
                 sessionId={session.id}
                 onReportCreated={handleAudioReportCreated}
-                disabled={audioUploaderDisabled}
+                disabled={audioUploaderDisabled()}
               />
             )}
 
-            {showCreateReportButton && (
+            {showCreateReportButton() && (
               <button
                 onClick={startEditingReport}
                 className="px-4 py-2 bg-brand_accent hover:bg-brand_accent_hover text-white rounded"
@@ -523,7 +524,7 @@ export default function SessionDetailClasico({ detail, decisions }: { detail: Se
               </button>
             )}
 
-            {showEditReportButton && (
+            {showEditReportButton() && (
               <button
                 onClick={startEditingReport}
                 className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded"
@@ -532,7 +533,7 @@ export default function SessionDetailClasico({ detail, decisions }: { detail: Se
               </button>
             )}
 
-            {showReportEditor ? (
+            {showReportEditor() ? (
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Contenido del informe</label>
@@ -627,7 +628,7 @@ export default function SessionDetailClasico({ detail, decisions }: { detail: Se
       case 'activity':
         return (
           <div className="space-y-4">
-            {hasActivity ? (
+            {hasActivity() ? (
               session.activity_log.map((log) => (
                 <div key={log.id} className="flex items-start gap-3 pb-3 border-b border-gray-200">
                   <Activity className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
@@ -815,7 +816,7 @@ export default function SessionDetailClasico({ detail, decisions }: { detail: Se
         {helperText && (
           <div
             className={`mt-4 p-3 rounded-lg ${
-              isPendingReport
+              isPendingReport()
                 ? 'bg-orange-50 border border-orange-200 text-orange-800'
                 : 'bg-gray-50 border border-gray-200 text-gray-800'
             }`}

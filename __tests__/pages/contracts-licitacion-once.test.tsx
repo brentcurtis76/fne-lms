@@ -55,7 +55,7 @@ vi.mock('../../lib/supabase', () => ({ supabase: {} }));
 vi.mock('@supabase/auth-helpers-react', () => ({ useSupabaseClient: () => currentClient }));
 vi.mock('next/router', () => ({ useRouter: () => routerHolder.current }));
 vi.mock('../../utils/roleUtils', () => ({ getUserPrimaryRole: async () => 'admin' }));
-vi.mock('react-hot-toast', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock('react-hot-toast', () => ({ toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }) }));
 vi.mock('../../components/layout/MainLayout', () => ({
   default: ({ children }: any) => <div>{children}</div>,
 }));
@@ -68,6 +68,8 @@ vi.mock('../../components/contracts/ContractForm', () => ({
   default: (props: any) => (
     <div data-testid="tender-form" data-licitacion={props.licitacionId ?? ''}>
       <button onClick={() => props.onSuccess('contrato-nuevo')}>fake-save</button>
+      <button onClick={() => props.onSuccess('contrato-existente', { reused: true, withoutCuotas: false })}>fake-reuse</button>
+      <button onClick={() => props.onSuccess('contrato-existente', { reused: true, withoutCuotas: true })}>fake-reuse-sin-cuotas</button>
     </div>
   ),
 }));
@@ -77,11 +79,15 @@ vi.mock('../../components/contracts/ContractPDFImporter', () => ({ default: () =
 vi.mock('../../components/contracts/HourAllocationPanel', () => ({ default: () => null }));
 
 import ContractsPage from '../../pages/contracts';
+import { toast } from 'react-hot-toast';
 
 let fetchMock: ReturnType<typeof vi.fn>;
 const tenderReads = () => fetchMock.mock.calls.filter(([url]) => url === `/api/licitaciones/${LIC_ID}`).length;
 
 beforeEach(() => {
+  vi.mocked(toast).mockClear();
+  vi.mocked(toast.success).mockClear();
+  vi.mocked(toast.error).mockClear();
   currentClient = createFakeSupabase();
   replaceMock.mockReset();
   routerHolder.current = makeRouter({ tab: 'nuevo', licitacion_id: LIC_ID });
@@ -150,5 +156,42 @@ describe('Contracts page — a saved tender contract does not reopen the form', 
     await routerChanges(rerender, { contrato_id: 'contrato-nuevo' });
     expect(screen.queryByTestId('tender-form')).not.toBeInTheDocument();
     expect(tenderReads()).toBe(1);
+  });
+
+  // Send-back 1 (1) and (3): reusing an existing contract says so.
+  const REUSED = 'Esta licitación ya tenía un contrato: se abrió el contrato existente. Los cambios de este formulario no se guardaron; edite el contrato desde Gestión.';
+  const NO_CUOTAS = 'El contrato existente no tiene cuotas registradas: revíselo antes de continuar.';
+  const OLD_SUCCESS = 'Contrato generado y vinculado a la licitacion exitosamente';
+
+  const openAndReuse = async (button: string) => {
+    render(<ContractsPage />);
+    await screen.findByTestId('tender-form');
+    fireEvent.click(screen.getByText(button));
+    await waitFor(() => expect(replaceMock).toHaveBeenCalledTimes(1));
+  };
+
+  it('a reused contract: the warning sentence, not the old success sentence; linked and opened', async () => {
+    await openAndReuse('fake-reuse');
+    const link = fetchMock.mock.calls.find(([url]) => url === `/api/licitaciones/${LIC_ID}/generate-contract`);
+    expect(JSON.parse(link![1].body)).toEqual({ contrato_id: 'contrato-existente' });
+    expect(toast).toHaveBeenCalledWith(REUSED, expect.objectContaining({ icon: '⚠️' }));
+    expect(toast.success).not.toHaveBeenCalledWith(OLD_SUCCESS);
+    expect(replaceMock).toHaveBeenCalledWith(
+      { pathname: '/contracts', query: { contrato_id: 'contrato-existente' } },
+      undefined,
+      { shallow: true }
+    );
+  });
+
+  it('a reused contract without cuotas: the second sentence too', async () => {
+    await openAndReuse('fake-reuse-sin-cuotas');
+    expect(toast).toHaveBeenCalledWith(`${REUSED} ${NO_CUOTAS}`, expect.objectContaining({ icon: '⚠️' }));
+    expect(toast.success).not.toHaveBeenCalledWith(OLD_SUCCESS);
+  });
+
+  it('a new contract still gets the old success sentence', async () => {
+    await openAndSave();
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith(OLD_SUCCESS));
+    expect(toast).not.toHaveBeenCalledWith(REUSED, expect.anything());
   });
 });

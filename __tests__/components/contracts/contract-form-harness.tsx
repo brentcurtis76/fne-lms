@@ -37,6 +37,12 @@ export interface FakeOptions {
   allocationsError?: { message: string } | null;
   /** Row returned by the tender's lookup `contratos … eq('licitacion_id', x)` (a list read); null = none. */
   contratoByLicitacion?: Row | null;
+  /** Rows returned by that lookup, in the given order (takes precedence over contratoByLicitacion). */
+  contratosByLicitacion?: Row[];
+  /** The tender's contrato_id, returned by `licitaciones … select('contrato_id')`. */
+  licitacionContratoId?: string | null;
+  /** Rows returned by `cuotas … eq('contrato_id', x)` per contract id (the reuse check); falls back to existingCuotas. */
+  cuotasByContrato?: Record<string, Row[]>;
 }
 
 export function createFakeSupabase(options: FakeOptions = {}) {
@@ -88,8 +94,15 @@ export function createFakeSupabase(options: FakeOptions = {}) {
         return { data: null, error: { code: 'PGRST116', message: 'no rows' } };
       }
       if (table === 'contratos' && 'licitacion_id' in ctx.filters) {
+        if (options.contratosByLicitacion) return { data: options.contratosByLicitacion.map((r) => ({ ...r })), error: null };
         const row = options.contratoByLicitacion ?? null;
         return { data: row ? [row] : [], error: null };
+      }
+      if (table === 'licitaciones') {
+        return { data: { id: ctx.filters.id, contrato_id: options.licitacionContratoId ?? null }, error: null };
+      }
+      if (table === 'cuotas' && options.cuotasByContrato && 'contrato_id' in ctx.filters) {
+        return { data: options.cuotasByContrato[ctx.filters.contrato_id] ?? [], error: null };
       }
       if (table === 'cuotas') return { data: options.existingCuotas ?? [], error: null };
       if (table === 'contract_hour_allocations') {

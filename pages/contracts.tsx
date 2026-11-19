@@ -899,7 +899,7 @@ export default function ContractsPage() {
                 extractedData={extractedContractData}
                 licitacionId={activeLicitacionId || undefined}
                 licitacionData={activeLicitacionData || undefined}
-                onSuccess={async (contratoId?: string) => {
+                onSuccess={async (contratoId?: string, reuse?: { reused: true; withoutCuotas: boolean }) => {
                   // Phase 5: if created from a licitacion, call generate-contract API to link back
                   if (activeLicitacionId && contratoId) {
                     try {
@@ -915,7 +915,18 @@ export default function ContractsPage() {
                         const err = await linkRes.json();
                         toast.error(`Contrato creado pero error al vincular con licitacion: ${err.error || 'Error desconocido'}. Contacte al administrador.`);
                       } else {
-                        toast.success('Contrato generado y vinculado a la licitacion exitosamente');
+                        if (reuse?.reused) {
+                          // Send-back 1: the tender already had a contract; the form saved nothing.
+                          toast(
+                            'Esta licitación ya tenía un contrato: se abrió el contrato existente. Los cambios de este formulario no se guardaron; edite el contrato desde Gestión.' +
+                              (reuse.withoutCuotas
+                                ? ' El contrato existente no tiene cuotas registradas: revíselo antes de continuar.'
+                                : ''),
+                            { icon: '⚠️', duration: 10000 }
+                          );
+                        } else {
+                          toast.success('Contrato generado y vinculado a la licitacion exitosamente');
+                        }
                         // LIC-D4: the address no longer says tab=nuevo&licitacion_id;
                         // it shows the contract's own view.
                         void router.replace(

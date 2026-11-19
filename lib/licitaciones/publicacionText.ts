@@ -49,14 +49,14 @@ export function buildPublicacionText(
   const fechaLimite = deadline ? formatDateInline(deadline) : FECHA_PENDIENTE;
 
   return (
-    `Con el objetivo de asesorar al equipo directivo y lideres del establecimiento ` +
-    `en el cambio de cultura organizacional centrada en la innovacion educativa y ` +
+    `Con el objetivo de asesorar al equipo directivo y líderes del establecimiento ` +
+    `en el cambio de cultura organizacional centrada en la innovación educativa y ` +
     `en el Modelo Relacional es que el ${schoolName}, de la comuna de ${comuna}, ` +
-    `llamamos a concurso publico para la contratacion de servicios ATE con el ` +
-    `siguiente requerimiento: asesoria al equipo directivo para liderar a la escuela ` +
-    `hacia una cultura colaborativa, de aprendizaje profundo, con metodologias de ` +
+    `llamamos a concurso público para la contratación de servicios ATE con el ` +
+    `siguiente requerimiento: asesoría al equipo directivo para liderar a la escuela ` +
+    `hacia una cultura colaborativa, de aprendizaje profundo, con metodologías de ` +
     `vanguardia y con la base en un enfoque en lo relacional.\n\n` +
-    `Bases de la licitacion se pueden solicitar hasta el ${fechaLimite} al ` +
+    `Bases de la licitación se pueden solicitar hasta el ${fechaLimite} al ` +
     `correo ${licitacion.email_licitacion}`
   );
 }

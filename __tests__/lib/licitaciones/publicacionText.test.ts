@@ -48,6 +48,14 @@ describe('buildPublicacionText', () => {
     expect(text).toContain('hasta el 20 de noviembre de 2026 al correo');
   });
 
+  it('writes its Spanish words with their accents (LIC-B6)', () => {
+    const text = buildPublicacionText(base, null);
+    expect(text).toContain('líderes del establecimiento');
+    expect(text).toContain('concurso público para la contratación de servicios ATE');
+    expect(text).toContain('Bases de la licitación se pueden solicitar');
+    expect(text).not.toMatch(/lideres|innovacion|publico|contratacion|asesoria|metodologias|de la licitacion/);
+  });
+
   it('is empty without a client to name (the screen then says so)', () => {
     expect(buildPublicacionText({ ...base, cliente: null } as LicitacionDetail, null)).toBe('');
   });

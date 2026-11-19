@@ -58,3 +58,18 @@ describe('Carta de adjudicación — the awarded amount', () => {
     expect(amountSentence(xml)).toContain('[monto por confirmar]');
   });
 });
+
+describe('Carta de adjudicación — accents (LIC-B6)', () => {
+  it('writes its Spanish words with their accents', async () => {
+    const xml = await documentText(carta());
+    expect(xml).toContain('De mi consideración:');
+    expect(xml).toContain('la última oferta económica presentada');
+    expect(xml).toContain('el Proveedor deberá coordinarse con la Dirección, a través de');
+    expect(xml).not.toMatch(/consideracion|licitacion|ultima oferta|economica|segun|debera|Direccion|traves|telefono|adjudicacion|participacion|permitira/);
+  });
+
+  it('writes the phone placeholder with its accent', async () => {
+    const xml = await documentText(carta({ contacto_coordinacion_telefono: null }));
+    expect(xml).toContain('[teléfono coordinador]');
+  });
+});

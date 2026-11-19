@@ -8,8 +8,8 @@
  * this file controls, and keeps ONE digest (see `__tests__/helpers/pin.ts`) of two things
  * together: (a) the rendered markup of the whole page, serialised as Vitest serialises a snapshot,
  * and (b) the ordered log of what the page asked for (every `fetch` with its address, method,
- * headers and body; every Supabase read with its table, columns and filters; every `rpc`; every
- * `auth.*` call; the role helper; every router push or replace; every toast; the browser's
+ * headers and body; every read of a response's body, read once as a real one; every Supabase read with its table, columns and filters; every `rpc`; every
+ * `auth.*` call; the role helper; every router push, replace or event subscription; every toast; the browser's
  * confirmation question; the page's own error lines), from the first render to the settled screen
  * and after each action of a case. If a case fails, the form changed: what it draws, what it asks
  * for, or in which order.
@@ -81,7 +81,7 @@ const mocks = vi.hoisted(() => ({
     push: null as any,
     replace: null as any,
     prefetch: null as any,
-    events: { on: () => {}, off: () => {} },
+    events: null as any,
   },
 }));
 
@@ -102,6 +102,11 @@ mocks.router.prefetch = vi.fn((...args: unknown[]) => {
   log({ 'router.prefetch': args });
   return Promise.resolve();
 });
+// Each subscription is written down with its event's name (send-back 2).
+mocks.router.events = {
+  on: vi.fn((name: unknown) => log(`router.events.on: ${String(name)}`)),
+  off: vi.fn((name: unknown) => log(`router.events.off: ${String(name)}`)),
+};
 
 /** Props as text: functions, elements and `undefined` are named, so `undefined`, `null` and a text differ. */
 function describeProps(props: Record<string, unknown>): string {
@@ -337,10 +342,21 @@ function fakeFetch(url: string, ...args: unknown[]) {
   if (answer === 'pending') return new Promise(() => {});
   const status = answer.status ?? 200;
   const body = answer.body;
+  let used = false;
+  // A body is read once, as a real `Response`'s is (send-back 2): every read is written down, and a
+  // second read fails («body already read») instead of answering again.
   return Promise.resolve({
     ok: status >= 200 && status < 300,
     status,
-    json: () => Promise.resolve(body),
+    json: () => {
+      if (used) {
+        log(`body read again (json) of ${key}`);
+        return Promise.reject(new TypeError('Synthetic: body already read'));
+      }
+      used = true;
+      log(`body read (json) of ${key}`);
+      return Promise.resolve(body);
+    },
   });
 }
 

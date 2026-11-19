@@ -8,7 +8,8 @@
  * this file controls, and keeps ONE digest (through `makePin`) of two things together: (a) the
  * rendered markup, serialised as Vitest serialises a snapshot, and (b) the ordered log of what the
  * page asked for (every `auth.*` call, the role helper, every Supabase read with its table, columns
- * and filters, every `fetch` with its address and options, every router push and replace, every
+ * and filters, every `fetch` with its address and options, every read of a response's body (a
+ * body is read once, as a real one), every router push, replace and event subscription, every
  * toast, and the error lines the page writes to the console), from the first render to the settled
  * screen and after each action of a behaviour case. The digests live in
  * `list.clasico.digests.json`, produced by the page as it was before the move.
@@ -116,7 +117,11 @@ function resetRouter(s: Scenario) {
       log({ 'router.prefetch': args });
       return Promise.resolve();
     }),
-    events: { on: () => {}, off: () => {} },
+    // Each subscription is written down with its event's name (send-back 2).
+    events: {
+      on: vi.fn((name: unknown) => log(`router.events.on: ${String(name)}`)),
+      off: vi.fn((name: unknown) => log(`router.events.off: ${String(name)}`)),
+    },
   };
 }
 
@@ -251,11 +256,28 @@ function fakeFetch(url: string, ...args: unknown[]) {
   if (given === 'reject') return Promise.reject(new TypeError('Synthetic network failure'));
   if (given === 'pending') return new Promise(() => {});
   const status = given.status ?? 200;
-  return Promise.resolve({
+  return Promise.resolve(fakeResponse(url, status, given.body));
+}
+
+/**
+ * A response whose body is read once, as a real `Response`'s is (send-back 2): every read is
+ * written down, and a second read fails («body already read») instead of answering again.
+ */
+function fakeResponse(url: string, status: number, body: unknown) {
+  let used = false;
+  return {
     ok: status >= 200 && status < 300,
     status,
-    json: () => Promise.resolve(given.body),
-  });
+    json: () => {
+      if (used) {
+        log(`body read again (json) of ${url}`);
+        return Promise.reject(new TypeError('Synthetic: body already read'));
+      }
+      used = true;
+      log(`body read (json) of ${url}`);
+      return Promise.resolve(body);
+    },
+  };
 }
 
 // ── Invented data. ──

@@ -7,7 +7,8 @@
  * this file controls, and keeps ONE digest (through `makePin`) of two things together: (a) the
  * rendered markup, serialised as Vitest serialises a snapshot, and (b) the ordered log of what the
  * page asked for (every `auth.*` call, the role helper, every `fetch` with its address, method,
- * headers and body, every router push, every toast, every `confirm`, the clearing of the file input,
+ * headers and body, every read of a response's body (a body is read once, as a real one), every
+ * router push and event subscription, every toast, every `confirm`, the clearing of the file input,
  * and the error lines the page writes to the console), from the first render to the settled screen
  * and after each action of a behaviour case. The digests live in `detail.clasico.digests.json`,
  * produced by the page as it was before the move.
@@ -124,7 +125,11 @@ function resetRouter(s: Scenario) {
       log({ 'router.prefetch': args });
       return Promise.resolve();
     }),
-    events: { on: () => {}, off: () => {} },
+    // Each subscription is written down with its event's name (send-back 2).
+    events: {
+      on: vi.fn((name: unknown) => log(`router.events.on: ${String(name)}`)),
+      off: vi.fn((name: unknown) => log(`router.events.off: ${String(name)}`)),
+    },
   };
 }
 
@@ -269,10 +274,31 @@ function fakeFetch(url: string, ...args: unknown[]) {
   if (given === 'pending') return new Promise(() => {});
   const respond = (g: { status?: number; body?: unknown }) => {
     const status = g.status ?? 200;
-    return { ok: status >= 200 && status < 300, status, json: () => Promise.resolve(g.body) };
+    return fakeResponse(key, status, g.body);
   };
   if (given === 'deferred') return deferred(() => respond({ body: { data: { session: payload() } } }));
   return Promise.resolve(respond(given));
+}
+
+/**
+ * A response whose body is read once, as a real `Response`'s is (send-back 2): every read is
+ * written down, and a second read fails («body already read») instead of answering again.
+ */
+function fakeResponse(key: string, status: number, body: unknown) {
+  let used = false;
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    json: () => {
+      if (used) {
+        log(`body read again (json) of ${key}`);
+        return Promise.reject(new TypeError('Synthetic: body already read'));
+      }
+      used = true;
+      log(`body read (json) of ${key}`);
+      return Promise.resolve(body);
+    },
+  };
 }
 
 // ── Invented data. ──
@@ -1273,5 +1299,16 @@ describe("today's consultor session page (pinned before SA)", () => {
     return [hookSignature(view.container, SessionDetailPage), ...stage()];
   });
 
-  digestsFileHolds(99);
+  // ── Added in send-back 2 (the review's finding 2), produced by today's page. ──
+
+  pinned('D45. the router turns ready after the first render, with the same id: the session loads then', async () => {
+    await draw({ ...as('consultor', payload()), ready: false });
+    const first = stage();
+    mocks.router.isReady = true;
+    view.rerender(<SessionDetailPage />);
+    await settle();
+    return [...first, ...stage()];
+  });
+
+  digestsFileHolds(100);
 });

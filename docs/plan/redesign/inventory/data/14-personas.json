@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "d701100d014e948bec5766fb68836675e13355b6",
-  "date": "2026-11-18T15:21:06-03:00"
+  "commit": "ca9dad512fc0b65bf1db627e23a6d84edd80dd28",
+  "date": "2026-11-19T14:41:10-03:00"
  },
  "screens": [
   {
@@ -1905,7 +1905,7 @@
     ],
     "linkedFrom": [
      "components/layout/Sidebar.tsx:392",
-     "middleware.ts:234"
+     "middleware.ts:235"
     ],
     "qaScenarios": {},
     "tests": {
@@ -5178,7 +5178,7 @@
      "pages/admin/qa/index.tsx:894",
      "pages/admin/school-users.tsx:55",
      "pages/api/qa/seed-codebase-index.ts:18",
-     "pages/notifications.tsx:274"
+     "pages/notifications.tsx:277"
     ],
     "qaScenarios": {
      "admin": [
@@ -5969,7 +5969,7 @@
   {
    "file": "pages/profile.tsx",
    "route": "/profile",
-   "lines": 816,
+   "lines": 819,
    "marks": {},
    "frame": "MainLayout",
    "server": "none",
@@ -6029,19 +6029,19 @@
     },
     "inPage": [
      {
-      "line": 80,
-      "text": "router.push → /login  (when !session?.user)"
+      "line": 83,
+      "text": "router.push → /login?next=[*]  (when !session?.user)"
      },
      {
-      "line": 92,
+      "line": 95,
       "text": "adminRole = metadataHasRole(userData?.user?.user_metadata, 'admin')"
      },
      {
-      "line": 460,
+      "line": 463,
       "text": "router.push → /pending-approval  (when !(updateError) && isNewUser)"
      },
      {
-      "line": 472,
+      "line": 475,
       "text": "router.push → /login"
      }
     ],
@@ -6059,8 +6059,9 @@
      "lib/auth/forced-password-change.ts:156",
      "lib/frontend-auth-utils.ts:143",
      "lib/notifications/catalog.ts:359",
-     "middleware.ts:351",
-     "pages/login.tsx:137"
+     "middleware.ts:357",
+     "pages/login.tsx:137",
+     "pages/profile/reportes.tsx:232"
     ],
     "qaScenarios": {
      "admin": [
@@ -6082,22 +6083,23 @@
       "tests/qa/auth-redirects.spec.ts"
      ],
      "unit": [
-      "__tests__/notifications/entry-points.test.tsx"
+      "__tests__/notifications/entry-points.test.tsx",
+      "__tests__/pages/profile.direct-open.test.tsx"
      ]
     }
    },
    "rows": [
     {
      "kind": "nav",
-     "line": 80,
+     "line": 83,
      "in": "getSessionAndProfile",
      "when": "!session?.user",
-     "text": "/login",
+     "text": "/login?next=[*]",
      "via": "router.push"
     },
     {
      "kind": "access",
-     "line": 92,
+     "line": 95,
      "in": "getSessionAndProfile",
      "when": "!(userError)",
      "text": "adminRole = metadataHasRole(userData?.user?.user_metadata, 'admin')",
@@ -6105,7 +6107,7 @@
     },
     {
      "kind": "toast",
-     "line": 406,
+     "line": 409,
      "in": "handleSave",
      "when": "updateError",
      "text": "{TOAST_MESSAGES.USER.PROFILE_ERROR + ': ' + updateError.message}",
@@ -6113,7 +6115,7 @@
     },
     {
      "kind": "toast",
-     "line": 451,
+     "line": 454,
      "in": "handleSave",
      "when": "!(updateError) && avatarUploadFailed",
      "text": "{TOAST_MESSAGES.USER.PROFILE_UPDATED}",
@@ -6121,7 +6123,7 @@
     },
     {
      "kind": "toast",
-     "line": 452,
+     "line": 455,
      "in": "handleSave",
      "when": "!(updateError) && avatarUploadFailed",
      "text": "{avatarErrorMessage}",
@@ -6129,7 +6131,7 @@
     },
     {
      "kind": "toast",
-     "line": 454,
+     "line": 457,
      "in": "handleSave",
      "when": "!(updateError) && !(avatarUploadFailed)",
      "text": "{TOAST_MESSAGES.USER.PROFILE_UPDATED}",
@@ -6137,7 +6139,7 @@
     },
     {
      "kind": "hook",
-     "line": 459,
+     "line": 462,
      "in": "handleSave",
      "when": "!(updateError) && isNewUser",
      "text": "setTimeout(…, 1500)",
@@ -6145,7 +6147,7 @@
     },
     {
      "kind": "nav",
-     "line": 460,
+     "line": 463,
      "in": "handleSave",
      "when": "!(updateError) && isNewUser",
      "text": "/pending-approval",
@@ -6153,28 +6155,28 @@
     },
     {
      "kind": "toast",
-     "line": 466,
+     "line": 469,
      "in": "handleSave",
      "text": "{TOAST_MESSAGES.NETWORK.UNEXPECTED_ERROR}",
      "variant": "error"
     },
     {
      "kind": "nav",
-     "line": 472,
+     "line": 475,
      "in": "handleLogout",
      "text": "/login",
      "via": "router.push"
     },
     {
      "kind": "text",
-     "line": 480,
+     "line": 483,
      "in": "ProfilePage",
      "when": "loading",
      "text": "Cargando..."
     },
     {
      "kind": "heading",
-     "line": 496,
+     "line": 499,
      "in": "ProfilePage",
      "when": "!session && router.query.from === 'login'",
      "text": "Error de Sesión",
@@ -6182,14 +6184,14 @@
     },
     {
      "kind": "text",
-     "line": 498,
+     "line": 501,
      "in": "ProfilePage",
      "when": "!session && router.query.from === 'login'",
      "text": "Hubo un problema al establecer tu sesión. Por favor, intenta iniciar sesión nuevamente."
     },
     {
      "kind": "link",
-     "line": 500,
+     "line": 503,
      "in": "ProfilePage",
      "when": "!session && router.query.from === 'login'",
      "text": "Volver a Iniciar Sesión",
@@ -6197,28 +6199,28 @@
     },
     {
      "kind": "piece",
-     "line": 509,
+     "line": 512,
      "in": "ProfilePage",
      "text": "",
      "tag": "MainLayout"
     },
     {
      "kind": "piece",
-     "line": 518,
+     "line": 521,
      "in": "ProfilePage",
      "text": "title: Mi Perfil · subtitle: Completa tu información personal para acceder a la plataforma / Actualiza tu información personal · primaryAction: Editar Perfil",
      "tag": "ResponsiveFunctionalPageHeader"
     },
     {
      "kind": "hook",
-     "line": 526,
+     "line": 529,
      "in": "ProfilePage",
      "text": "getElementById('profile-form')",
      "type": "lookup"
     },
     {
      "kind": "hook",
-     "line": 528,
+     "line": 531,
      "in": "ProfilePage",
      "when": "formElement",
      "text": "formElement.scrollIntoView()",
@@ -6226,7 +6228,7 @@
     },
     {
      "kind": "hook",
-     "line": 535,
+     "line": 538,
      "in": "ProfilePage",
      "text": "id=profile-page",
      "type": "mark",
@@ -6234,7 +6236,7 @@
     },
     {
      "kind": "hook",
-     "line": 538,
+     "line": 541,
      "in": "ProfilePage",
      "when": "dataLoaded",
      "text": "id=success-alert",
@@ -6243,21 +6245,21 @@
     },
     {
      "kind": "text",
-     "line": 540,
+     "line": 543,
      "in": "ProfilePage",
      "when": "dataLoaded",
      "text": "Perfil cargado exitosamente"
     },
     {
      "kind": "text",
-     "line": 541,
+     "line": 544,
      "in": "ProfilePage",
      "when": "dataLoaded",
      "text": "@keyframes fadeIn { 0% { opacity: 0; transform: translate(-50%, -20px); } 100% { opacity: 1; transform: translate(-50%, 0); } } @keyframes fadeOut { 0% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; transform: translate(…"
     },
     {
      "kind": "hook",
-     "line": 559,
+     "line": 562,
      "in": "ProfilePage",
      "text": "id=profile-form",
      "type": "mark",
@@ -6265,7 +6267,7 @@
     },
     {
      "kind": "media",
-     "line": 565,
+     "line": 568,
      "in": "ProfilePage",
      "when": "previewUrl",
      "text": "img · alt Profile avatar · {previewUrl}",
@@ -6275,7 +6277,7 @@
     },
     {
      "kind": "media",
-     "line": 572,
+     "line": 575,
      "in": "ProfilePage",
      "when": "!(previewUrl) && avatarUrl",
      "text": "img · alt Profile avatar · {avatarUrl}",
@@ -6285,7 +6287,7 @@
     },
     {
      "kind": "clickable",
-     "line": 583,
+     "line": 586,
      "in": "ProfilePage",
      "text": "",
      "tag": "div",
@@ -6293,14 +6295,14 @@
     },
     {
      "kind": "hook",
-     "line": 585,
+     "line": 588,
      "in": "ProfilePage",
      "text": "getElementById('avatar-input')",
      "type": "lookup"
     },
     {
      "kind": "field",
-     "line": 590,
+     "line": 593,
      "in": "ProfilePage",
      "screen": "hidden",
      "text": "",
@@ -6314,26 +6316,26 @@
     },
     {
      "kind": "text",
-     "line": 597,
+     "line": 600,
      "in": "ProfilePage",
      "text": "PNG, JPG, GIF o WEBP (max. 10MB)"
     },
     {
      "kind": "form",
-     "line": 600,
+     "line": 603,
      "in": "ProfilePage",
      "text": "{(e) => { e.preventDefault(); handleSave(); }}"
     },
     {
      "kind": "label",
-     "line": 604,
+     "line": 607,
      "in": "ProfilePage",
      "text": "Nombre",
      "for": "firstName"
     },
     {
      "kind": "field",
-     "line": 605,
+     "line": 608,
      "in": "ProfilePage",
      "text": "Nombre",
      "type": "text",
@@ -6346,14 +6348,14 @@
     },
     {
      "kind": "label",
-     "line": 617,
+     "line": 620,
      "in": "ProfilePage",
      "text": "Segundo nombre (opcional)",
      "for": "middleName"
     },
     {
      "kind": "field",
-     "line": 618,
+     "line": 621,
      "in": "ProfilePage",
      "text": "Segundo nombre (opcional)",
      "type": "text",
@@ -6365,14 +6367,14 @@
     },
     {
      "kind": "label",
-     "line": 629,
+     "line": 632,
      "in": "ProfilePage",
      "text": "Apellidos",
      "for": "lastName"
     },
     {
      "kind": "field",
-     "line": 630,
+     "line": 633,
      "in": "ProfilePage",
      "text": "Apellidos",
      "type": "text",
@@ -6385,13 +6387,13 @@
     },
     {
      "kind": "label",
-     "line": 642,
+     "line": 645,
      "in": "ProfilePage",
      "text": "Correo electrónico"
     },
     {
      "kind": "field",
-     "line": 643,
+     "line": 646,
      "in": "ProfilePage",
      "text": "Correo electrónico",
      "type": "email",
@@ -6399,14 +6401,14 @@
     },
     {
      "kind": "label",
-     "line": 653,
+     "line": 656,
      "in": "ProfilePage",
      "text": "Escuela",
      "for": "school"
     },
     {
      "kind": "field",
-     "line": 655,
+     "line": 658,
      "in": "ProfilePage",
      "when": "!isAdmin && schools.length <= 1",
      "text": "Escuela",
@@ -6419,7 +6421,7 @@
     },
     {
      "kind": "field",
-     "line": 663,
+     "line": 666,
      "in": "ProfilePage",
      "when": "!(!isAdmin && schools.length <= 1)",
      "text": "Escuela",
@@ -6436,14 +6438,14 @@
     },
     {
      "kind": "label",
-     "line": 684,
+     "line": 687,
      "in": "ProfilePage",
      "when": "isConsultant && profile?.external_school_affiliation",
      "text": "Escuela externa (afiliación)"
     },
     {
      "kind": "field",
-     "line": 688,
+     "line": 691,
      "in": "ProfilePage",
      "when": "isConsultant && profile?.external_school_affiliation",
      "text": "Escuela externa (afiliación)",
@@ -6452,27 +6454,27 @@
     },
     {
      "kind": "text",
-     "line": 695,
+     "line": 698,
      "in": "ProfilePage",
      "when": "isConsultant && profile?.external_school_affiliation",
      "text": "Esta información es gestionada por los administradores"
     },
     {
      "kind": "label",
-     "line": 702,
+     "line": 705,
      "in": "ProfilePage",
      "text": "Comunidades de crecimiento / Comunidad de crecimiento"
     },
     {
      "kind": "value",
-     "line": 708,
+     "line": 711,
      "in": "ProfilePage",
      "when": "growthCommunities.length > 0 && each growthCommunities",
      "text": "{community.name}"
     },
     {
      "kind": "field",
-     "line": 717,
+     "line": 720,
      "in": "ProfilePage",
      "when": "!(growthCommunities.length > 0)",
      "text": "Comunidades de crecimiento / Comunidad de crecimiento",
@@ -6481,14 +6483,14 @@
     },
     {
      "kind": "label",
-     "line": 728,
+     "line": 731,
      "in": "ProfilePage",
      "text": "Descripción",
      "for": "description"
     },
     {
      "kind": "field",
-     "line": 729,
+     "line": 732,
      "in": "ProfilePage",
      "text": "Descripción",
      "type": "textarea",
@@ -6501,14 +6503,14 @@
     },
     {
      "kind": "piece",
-     "line": 740,
+     "line": 743,
      "in": "ProfilePage",
      "text": "",
      "tag": "PasswordChangeSection"
     },
     {
      "kind": "link",
-     "line": 743,
+     "line": 746,
      "in": "ProfilePage",
      "text": "Notificaciones por correo Elige qué notificaciones recibes por correo",
      "target": "/configuracion/notificaciones",
@@ -6518,28 +6520,28 @@
     },
     {
      "kind": "piece",
-     "line": 749,
+     "line": 752,
      "in": "ProfilePage",
      "text": "aria-hidden: true",
      "tag": "Bell"
     },
     {
      "kind": "button",
-     "line": 759,
+     "line": 762,
      "in": "ProfilePage",
      "text": "Cerrar sesión",
      "action": "{handleLogout}"
     },
     {
      "kind": "button",
-     "line": 766,
+     "line": 769,
      "in": "ProfilePage",
      "text": "Guardar perfil",
      "submit": true
     },
     {
      "kind": "popup",
-     "line": 778,
+     "line": 781,
      "in": "ProfilePage",
      "when": "showAvatarModal",
      "text": "Vista previa del avatar",
@@ -6547,7 +6549,7 @@
     },
     {
      "kind": "heading",
-     "line": 780,
+     "line": 783,
      "in": "ProfilePage",
      "when": "showAvatarModal",
      "text": "Vista previa del avatar",
@@ -6555,21 +6557,21 @@
     },
     {
      "kind": "media",
-     "line": 784,
+     "line": 787,
      "in": "ProfilePage",
      "when": "showAvatarModal",
      "text": "img · alt Avatar Preview · {previewUrl}"
     },
     {
      "kind": "text",
-     "line": 790,
+     "line": 793,
      "in": "ProfilePage",
      "when": "showAvatarModal",
      "text": "Esta es la apariencia que tendrá tu avatar"
     },
     {
      "kind": "button",
-     "line": 794,
+     "line": 797,
      "in": "ProfilePage",
      "when": "showAvatarModal",
      "text": "Cancelar",
@@ -6577,7 +6579,7 @@
     },
     {
      "kind": "button",
-     "line": 800,
+     "line": 803,
      "in": "ProfilePage",
      "when": "showAvatarModal",
      "text": "Confirmar",
@@ -6585,13 +6587,13 @@
     },
     {
      "kind": "string",
-     "line": 332,
+     "line": 335,
      "in": "ProfilePage",
      "text": "El almacenamiento para avatares no está configurado. Tu perfil se guardará sin la imagen."
     },
     {
      "kind": "string",
-     "line": 348,
+     "line": 351,
      "in": "ProfilePage",
      "text": "Error inesperado al subir la imagen. Tu perfil se guardará sin la imagen."
     },

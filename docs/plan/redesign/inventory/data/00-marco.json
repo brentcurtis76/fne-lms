@@ -5,8 +5,8 @@
  "routesOnly": false,
  "frame": true,
  "readFrom": {
-  "commit": "d701100d014e948bec5766fb68836675e13355b6",
-  "date": "2026-11-18T15:21:06-03:00"
+  "commit": "ca9dad512fc0b65bf1db627e23a6d84edd80dd28",
+  "date": "2026-11-19T14:41:10-03:00"
  },
  "screens": [
   {
@@ -1243,11 +1243,11 @@
    "usedBy": [
     "(the frame)"
    ],
-   "lines": 360,
+   "lines": 371,
    "rows": [
     {
      "kind": "toast",
-     "line": 29,
+     "line": 30,
      "in": "handleFileSelect",
      "when": "file && file.size > 5 * 1024 * 1024",
      "text": "La imagen no puede superar 5MB",
@@ -1255,7 +1255,7 @@
     },
     {
      "kind": "toast",
-     "line": 47,
+     "line": 48,
      "in": "FeedbackModal",
      "when": "file && file.type.startsWith('image/') && file.size > 5 * 1024 * 1024",
      "text": "La imagen no puede superar 5MB",
@@ -1263,7 +1263,7 @@
     },
     {
      "kind": "message",
-     "line": 85,
+     "line": 86,
      "in": "uploadScreenshot",
      "when": "error",
      "text": "Error al subir la imagen",
@@ -1271,7 +1271,7 @@
     },
     {
      "kind": "toast",
-     "line": 98,
+     "line": 99,
      "in": "handleSubmit",
      "when": "!description.trim()",
      "text": "Por favor describe el problema o sugerencia",
@@ -1279,7 +1279,7 @@
     },
     {
      "kind": "message",
-     "line": 108,
+     "line": 109,
      "in": "handleSubmit",
      "when": "!user",
      "text": "Usuario no autenticado",
@@ -1287,34 +1287,34 @@
     },
     {
      "kind": "hook",
-     "line": 175,
+     "line": 176,
      "in": "handleSubmit",
      "text": "setTimeout(…, 3000)",
      "type": "timer"
     },
     {
      "kind": "toast",
-     "line": 186,
+     "line": 187,
      "in": "handleSubmit",
      "text": "Error al enviar el feedback",
      "variant": "error"
     },
     {
      "kind": "gate",
-     "line": 201,
+     "line": 202,
      "in": "FeedbackModal",
      "text": "!isOpen"
     },
     {
      "kind": "popup",
-     "line": 204,
+     "line": 205,
      "in": "FeedbackModal",
      "text": "¡Gracias! 🎉",
      "how": "written in this file"
     },
     {
      "kind": "heading",
-     "line": 212,
+     "line": 213,
      "in": "FeedbackModal",
      "when": "isSuccess",
      "text": "¡Gracias! 🎉",
@@ -1322,21 +1322,21 @@
     },
     {
      "kind": "text",
-     "line": 213,
+     "line": 214,
      "in": "FeedbackModal",
      "when": "isSuccess",
      "text": "Tu reporte fue enviado."
     },
     {
      "kind": "text",
-     "line": 214,
+     "line": 215,
      "in": "FeedbackModal",
      "when": "isSuccess",
      "text": "Número: #FB- {feedbackId?.slice(0, 8).toUpperCase…}"
     },
     {
      "kind": "button",
-     "line": 215,
+     "line": 216,
      "in": "FeedbackModal",
      "when": "isSuccess",
      "text": "✓ Cerrar",
@@ -1344,7 +1344,7 @@
     },
     {
      "kind": "heading",
-     "line": 229,
+     "line": 230,
      "in": "FeedbackModal",
      "when": "!(isSuccess)",
      "text": "¿Qué sucedió? 💭",
@@ -1352,7 +1352,7 @@
     },
     {
      "kind": "button",
-     "line": 230,
+     "line": 231,
      "in": "FeedbackModal",
      "when": "!(isSuccess)",
      "text": "[icon X]",
@@ -1360,7 +1360,7 @@
     },
     {
      "kind": "field",
-     "line": 244,
+     "line": 245,
      "in": "FeedbackModal",
      "when": "!(isSuccess)",
      "text": "El botón no funciona cuando...",
@@ -1371,14 +1371,14 @@
     },
     {
      "kind": "label",
-     "line": 256,
+     "line": 257,
      "in": "FeedbackModal",
      "when": "!(isSuccess)",
      "text": "📸 Adjuntar captura (opcional)"
     },
     {
      "kind": "clickable",
-     "line": 259,
+     "line": 260,
      "in": "FeedbackModal",
      "when": "!(isSuccess)",
      "text": "[img: Preview] / Arrastra una imagen o haz clic para seleccionar",
@@ -1388,14 +1388,14 @@
     },
     {
      "kind": "media",
-     "line": 267,
+     "line": 268,
      "in": "FeedbackModal",
      "when": "!(isSuccess) && screenshotPreview",
      "text": "img · alt Preview · {screenshotPreview}"
     },
     {
      "kind": "button",
-     "line": 272,
+     "line": 273,
      "in": "FeedbackModal",
      "when": "!(isSuccess) && screenshotPreview",
      "text": "[icon X]",
@@ -1403,14 +1403,14 @@
     },
     {
      "kind": "text",
-     "line": 288,
+     "line": 289,
      "in": "FeedbackModal",
      "when": "!(isSuccess) && !(screenshotPreview)",
      "text": "Arrastra una imagen o haz clic para seleccionar"
     },
     {
      "kind": "field",
-     "line": 292,
+     "line": 293,
      "in": "FeedbackModal",
      "when": "!(isSuccess)",
      "screen": "hidden",
@@ -1421,14 +1421,14 @@
     },
     {
      "kind": "label",
-     "line": 304,
+     "line": 305,
      "in": "FeedbackModal",
      "when": "!(isSuccess)",
      "text": "Tipo:"
     },
     {
      "kind": "button",
-     "line": 308,
+     "line": 309,
      "in": "FeedbackModal",
      "when": "!(isSuccess)",
      "text": "Problema",
@@ -1436,15 +1436,28 @@
     },
     {
      "kind": "button",
-     "line": 320,
+     "line": 321,
      "in": "FeedbackModal",
      "when": "!(isSuccess)",
      "text": "Idea",
      "action": "{() => setType('idea')}"
     },
     {
+     "kind": "link",
+     "line": 338,
+     "in": "FeedbackModal",
+     "when": "!(isSuccess)",
+     "text": "Ver mis reportes",
+     "target": "/profile/reportes",
+     "newTab": true,
+     "hook": {
+      "testid": "feedback-my-reports-link"
+     },
+     "aria": "Ver mis reportes (se abre en otra pestaña)"
+    },
+    {
      "kind": "button",
-     "line": 337,
+     "line": 348,
      "in": "FeedbackModal",
      "when": "!(isSuccess)",
      "text": "Cancelar",
@@ -1453,7 +1466,7 @@
     },
     {
      "kind": "button",
-     "line": 347,
+     "line": 358,
      "in": "FeedbackModal",
      "when": "!(isSuccess)",
      "text": "Enviando... / Enviar →",
@@ -4309,8 +4322,27 @@
    "calledBy": [],
    "referencedIn": [
     "__tests__/api/feedback/notify-admins.test.ts",
+    "__tests__/components/feedback/FeedbackModal.reportes-link.test.tsx",
     "components/feedback/FeedbackModal.tsx",
     "tests/e2e/feedback-notify-admins.spec.ts"
+   ]
+  },
+  {
+   "file": "pages/api/feedback/reply.ts",
+   "route": "/api/feedback/reply",
+   "methods": [
+    "POST"
+   ],
+   "guards": [
+    "createServiceRoleClient"
+   ],
+   "calledBy": [
+    "/admin/feedback"
+   ],
+   "referencedIn": [
+    "__tests__/api/feedback/reply.test.ts",
+    "__tests__/components/feedback/FeedbackDetail.reply.test.tsx",
+    "components/feedback/FeedbackDetail.tsx"
    ]
   }
  ]

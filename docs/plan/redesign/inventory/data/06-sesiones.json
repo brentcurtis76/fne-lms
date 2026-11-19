@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "d701100d014e948bec5766fb68836675e13355b6",
-  "date": "2026-11-18T15:21:06-03:00"
+  "commit": "ca9dad512fc0b65bf1db627e23a6d84edd80dd28",
+  "date": "2026-11-19T14:41:10-03:00"
  },
  "screens": [
   {
@@ -620,7 +620,7 @@
     ],
     "linkedFrom": [
      "components/layout/Sidebar.tsx:479",
-     "middleware.ts:223"
+     "middleware.ts:224"
     ],
     "qaScenarios": {
      "admin": [
@@ -1212,8 +1212,8 @@
      }
     ],
     "linkedFrom": [
-     "pages/admin/sessions/create.tsx:604",
-     "pages/admin/sessions/create.tsx:718",
+     "hooks/useSessionCreate.ts:579",
+     "hooks/useSessionCreate.ts:697",
      "pages/admin/sessions/index.tsx:314"
     ],
     "qaScenarios": {},
@@ -3066,7 +3066,7 @@
   {
    "file": "pages/admin/sessions/create.tsx",
    "route": "/admin/sessions/create",
-   "lines": 1445,
+   "lines": 48,
    "marks": {},
    "frame": "MainLayout",
    "server": "none",
@@ -3115,28 +3115,7 @@
       "middleware": "sent to /dashboard"
      }
     },
-    "inPage": [
-     {
-      "line": 184,
-      "text": "router.push → /login  (when !session?.user)"
-     },
-     {
-      "line": 189,
-      "text": "userRole = await getUserPrimaryRole(session.user.id)"
-     },
-     {
-      "line": 194,
-      "text": "router.push → /dashboard  (when !isAdminUser)"
-     },
-     {
-      "line": 199,
-      "text": "router.push → /login"
-     },
-     {
-      "line": 730,
-      "text": "router.push → /login"
-     }
-    ],
+    "inPage": [],
     "linkedFrom": [
      "pages/admin/sessions/index.tsx:564"
     ],
@@ -3164,341 +3143,15 @@
      ],
      "unit": [
       "__tests__/pages/admin/sessions/create-timezone.test.tsx",
-      "__tests__/pages/admin/sessions/create-zoom-managed.test.tsx"
+      "__tests__/pages/admin/sessions/create-zoom-managed.test.tsx",
+      "__tests__/pages/admin/sessions/create.clasico.test.tsx"
      ]
     }
    },
    "rows": [
     {
-     "kind": "nav",
-     "line": 184,
-     "in": "initializeAuth",
-     "when": "!session?.user",
-     "text": "/login",
-     "via": "router.push"
-    },
-    {
-     "kind": "access",
-     "line": 189,
-     "in": "initializeAuth",
-     "text": "userRole = await getUserPrimaryRole(session.user.id)",
-     "via": "getUserPrimaryRole"
-    },
-    {
-     "kind": "nav",
-     "line": 194,
-     "in": "initializeAuth",
-     "when": "!isAdminUser",
-     "text": "/dashboard",
-     "via": "router.push"
-    },
-    {
-     "kind": "nav",
-     "line": 199,
-     "in": "initializeAuth",
-     "text": "/login",
-     "via": "router.push"
-    },
-    {
-     "kind": "toast",
-     "line": 216,
-     "in": "fetchSchools",
-     "text": "Error al cargar colegios",
-     "variant": "error"
-    },
-    {
-     "kind": "toast",
-     "line": 232,
-     "in": "fetchCommunities",
-     "text": "Error al cargar comunidades",
-     "variant": "error"
-    },
-    {
-     "kind": "list",
-     "line": 244,
-     "in": "fetchConsultants",
-     "when": "!session?.access_token",
-     "text": "errorMsg",
-     "items": [
-      "Error de autenticación"
-     ]
-    },
-    {
-     "kind": "toast",
-     "line": 246,
-     "in": "fetchConsultants",
-     "when": "!session?.access_token",
-     "text": "{errorMsg}",
-     "variant": "error"
-    },
-    {
-     "kind": "toast",
-     "line": 261,
-     "in": "fetchConsultants",
-     "when": "!response.ok",
-     "text": "{errorMsg}",
-     "variant": "error"
-    },
-    {
-     "kind": "list",
-     "line": 271,
-     "in": "fetchConsultants",
-     "text": "errorMsg",
-     "items": [
-      "Error al cargar consultores"
-     ]
-    },
-    {
-     "kind": "toast",
-     "line": 273,
-     "in": "fetchConsultants",
-     "text": "{errorMsg}",
-     "variant": "error"
-    },
-    {
-     "kind": "toast",
-     "line": 396,
-     "in": "handleAddFacilitator",
-     "when": "facilitators.find((f) => f.user_id === consultantId)",
-     "text": "Este consultor ya está asignado",
-     "variant": "error"
-    },
-    {
-     "kind": "toast",
-     "line": 408,
-     "in": "handleAddFacilitator",
-     "text": "Facilitador agregado",
-     "variant": "success"
-    },
-    {
-     "kind": "toast",
-     "line": 454,
-     "in": "validateForm",
-     "when": "formData.school_id <= 0",
-     "text": "Debe seleccionar un colegio",
-     "variant": "error"
-    },
-    {
-     "kind": "toast",
-     "line": 459,
-     "in": "validateForm",
-     "when": "!formData.growth_community_id",
-     "text": "Debe seleccionar una comunidad de crecimiento",
-     "variant": "error"
-    },
-    {
-     "kind": "toast",
-     "line": 464,
-     "in": "validateForm",
-     "when": "!formData.title.trim()",
-     "text": "Debe ingresar un título",
-     "variant": "error"
-    },
-    {
-     "kind": "toast",
-     "line": 469,
-     "in": "validateForm",
-     "when": "!formData.session_date",
-     "text": "Debe seleccionar una fecha",
-     "variant": "error"
-    },
-    {
-     "kind": "toast",
-     "line": 474,
-     "in": "validateForm",
-     "when": "!formData.start_time || !formData.end_time",
-     "text": "Debe ingresar hora de inicio y término",
-     "variant": "error"
-    },
-    {
-     "kind": "toast",
-     "line": 481,
-     "in": "validateForm",
-     "when": "endHour * 60 + endMin <= startHour * 60 + startMin",
-     "text": "La hora de término debe ser posterior a la hora de inicio",
-     "variant": "error"
-    },
-    {
-     "kind": "toast",
-     "line": 493,
-     "in": "validateForm",
-     "when": "(formData.modality === 'online' || formData.modality === 'hibrida') && !formData.is_zoom_managed && !formData.meeting_link",
-     "text": "Debe ingresar un enlace de reunión para modalidad online o híbrida",
-     "variant": "error"
-    },
-    {
-     "kind": "toast",
-     "line": 501,
-     "in": "validateForm",
-     "when": "(formData.modality === 'presencial' || formData.modality === 'hibrida') && !formData.location",
-     "text": "Debe ingresar una ubicación para modalidad presencial o híbrida",
-     "variant": "error"
-    },
-    {
-     "kind": "toast",
-     "line": 507,
-     "in": "validateForm",
-     "when": "facilitators.length === 0",
-     "text": "Debe asignar al menos un facilitador a la sesión",
-     "variant": "error"
-    },
-    {
-     "kind": "toast",
-     "line": 514,
-     "in": "validateForm",
-     "when": "leadCount !== 1",
-     "text": "Debe haber exactamente un facilitador principal",
-     "variant": "error"
-    },
-    {
-     "kind": "toast",
-     "line": 523,
-     "in": "validateForm",
-     "when": "isRecurring && recurrenceFrequency === 'custom' && validDates.length < 2",
-     "text": "Debe ingresar al menos 2 fechas personalizadas",
-     "variant": "error"
-    },
-    {
-     "kind": "toast",
-     "line": 528,
-     "in": "validateForm",
-     "when": "isRecurring && !(recurrenceFrequency === 'custom') && (recurrenceCount < 2 || recurrenceCount > 52)",
-     "text": "El número de sesiones debe estar entre 2 y 52",
-     "variant": "error"
-    },
-    {
-     "kind": "toast",
-     "line": 546,
-     "in": "handleSaveDraft",
-     "when": "!session?.access_token",
-     "text": "Error de autenticación",
-     "variant": "error"
-    },
-    {
-     "kind": "message",
-     "line": 589,
-     "in": "handleSaveDraft",
-     "when": "!response.ok",
-     "text": "Error al crear sesión",
-     "via": "throw (shown by whoever catches it)"
-    },
-    {
-     "kind": "toast",
-     "line": 594,
-     "in": "handleSaveDraft",
-     "text": "{sessionCount} sesiones guardadas como borrador / Sesión guardada como borrador",
-     "variant": "success"
-    },
-    {
-     "kind": "nav",
-     "line": 601,
-     "in": "handleSaveDraft",
-     "when": "isRecurring",
-     "text": "/admin/sessions",
-     "via": "router.push"
-    },
-    {
-     "kind": "nav",
-     "line": 604,
-     "in": "handleSaveDraft",
-     "when": "!(isRecurring)",
-     "text": "/admin/sessions/[*]",
-     "via": "router.push"
-    },
-    {
-     "kind": "toast",
-     "line": 608,
-     "in": "handleSaveDraft",
-     "text": "Error al guardar borrador",
-     "variant": "error"
-    },
-    {
-     "kind": "confirm",
-     "line": 618,
-     "in": "handleScheduleSession",
-     "text": "¿Está seguro de que desea programar estas {sessionCount} sesiones? Se notificará a los participantes. / ¿Está seguro de que desea programar esta sesión? Se notificará a los participantes."
-    },
-    {
-     "kind": "toast",
-     "line": 632,
-     "in": "handleScheduleSession",
-     "when": "!session?.access_token",
-     "text": "Error de autenticación",
-     "variant": "error"
-    },
-    {
-     "kind": "message",
-     "line": 676,
-     "in": "handleScheduleSession",
-     "when": "!createResponse.ok",
-     "text": "Error al crear sesión",
-     "via": "throw (shown by whoever catches it)"
-    },
-    {
-     "kind": "message",
-     "line": 694,
-     "in": "handleScheduleSession",
-     "when": "isRecurring && createResult.data.recurrence_group_id && !approveResponse.ok",
-     "text": "Error al aprobar sesiones",
-     "via": "throw (shown by whoever catches it)"
-    },
-    {
-     "kind": "toast",
-     "line": 697,
-     "in": "handleScheduleSession",
-     "when": "isRecurring && createResult.data.recurrence_group_id",
-     "text": "{sessionCount} sesiones programadas exitosamente",
-     "variant": "success"
-    },
-    {
-     "kind": "nav",
-     "line": 698,
-     "in": "handleScheduleSession",
-     "when": "isRecurring && createResult.data.recurrence_group_id",
-     "text": "/admin/sessions",
-     "via": "router.push"
-    },
-    {
-     "kind": "message",
-     "line": 714,
-     "in": "handleScheduleSession",
-     "when": "!(isRecurring && createResult.data.recurrence_group_id) && !approveResponse.ok",
-     "text": "Error al aprobar sesión",
-     "via": "throw (shown by whoever catches it)"
-    },
-    {
-     "kind": "toast",
-     "line": 717,
-     "in": "handleScheduleSession",
-     "when": "!(isRecurring && createResult.data.recurrence_group_id)",
-     "text": "Sesión programada exitosamente",
-     "variant": "success"
-    },
-    {
-     "kind": "nav",
-     "line": 718,
-     "in": "handleScheduleSession",
-     "when": "!(isRecurring && createResult.data.recurrence_group_id)",
-     "text": "/admin/sessions/[*]",
-     "via": "router.push"
-    },
-    {
-     "kind": "toast",
-     "line": 722,
-     "in": "handleScheduleSession",
-     "text": "Error al programar sesión",
-     "variant": "error"
-    },
-    {
-     "kind": "nav",
-     "line": 730,
-     "in": "handleLogout",
-     "text": "/login",
-     "via": "router.push"
-    },
-    {
      "kind": "heading",
-     "line": 745,
+     "line": 23,
      "in": "SessionCreatePage",
      "when": "!isAdmin",
      "text": "Acceso Denegado",
@@ -3506,730 +3159,31 @@
     },
     {
      "kind": "text",
-     "line": 746,
+     "line": 24,
      "in": "SessionCreatePage",
      "when": "!isAdmin",
      "text": "No tiene permisos para acceder a esta página."
     },
     {
      "kind": "piece",
-     "line": 765,
+     "line": 34,
      "in": "SessionCreatePage",
      "text": "",
      "tag": "MainLayout"
     },
     {
      "kind": "piece",
-     "line": 773,
+     "line": 42,
      "in": "SessionCreatePage",
-     "text": "title: Programar Sesión · subtitle: Crear una nueva sesión de consultoría para una comunidad de crecimiento",
-     "tag": "ResponsiveFunctionalPageHeader"
-    },
-    {
-     "kind": "text",
-     "line": 782,
-     "in": "SessionCreatePage",
-     "text": "* Campos obligatorios"
-    },
-    {
-     "kind": "label",
-     "line": 788,
-     "in": "SessionCreatePage",
-     "text": "Colegio *"
-    },
-    {
-     "kind": "field",
-     "line": 791,
-     "in": "SessionCreatePage",
-     "text": "Colegio *",
-     "type": "select",
-     "name": "school_id",
-     "required": "true",
-     "action": "{handleInputChange}",
-     "options": [
-      "Seleccione un colegio",
-      "(lista) {school.name}"
-     ]
-    },
-    {
-     "kind": "label",
-     "line": 808,
-     "in": "SessionCreatePage",
-     "text": "Comunidad de Crecimiento *"
-    },
-    {
-     "kind": "field",
-     "line": 811,
-     "in": "SessionCreatePage",
-     "text": "Comunidad de Crecimiento *",
-     "type": "select",
-     "name": "growth_community_id",
-     "required": "true",
-     "disabled": "{formData.school_id === 0}",
-     "action": "{handleInputChange}",
-     "options": [
-      "Seleccione una comunidad",
-      "(lista) {community.name}"
-     ]
-    },
-    {
-     "kind": "text",
-     "line": 831,
-     "in": "SessionCreatePage",
-     "when": "hourTypesLoading",
-     "text": "Cargando tipos de hora..."
-    },
-    {
-     "kind": "text",
-     "line": 835,
-     "in": "SessionCreatePage",
-     "when": "hourTypesError && !hourTypesLoading",
-     "text": "No se pudieron cargar los tipos de hora. La sesión puede crearse sin seguimiento de horas."
-    },
-    {
-     "kind": "label",
-     "line": 841,
-     "in": "SessionCreatePage",
-     "when": "hourTypes.length > 0",
-     "text": "Tipo de Hora",
-     "for": "hour-type-select"
-    },
-    {
-     "kind": "field",
-     "line": 844,
-     "in": "SessionCreatePage",
-     "when": "hourTypes.length > 0",
-     "text": "Tipo de Hora",
-     "type": "select",
-     "action": "{(e) => setSelectedHourTypeKey(e.target.value)}",
-     "options": [
-      "Seleccione tipo de hora",
-      "(lista) {ht.display_name}"
-     ],
-     "hook": {
-      "id": "hour-type-select",
-      "idUsed": true
-     }
-    },
-    {
-     "kind": "label",
-     "line": 860,
-     "in": "SessionCreatePage",
-     "when": "hourTypes.length > 0",
-     "text": "Contrato",
-     "for": "contrato-select"
-    },
-    {
-     "kind": "field",
-     "line": 863,
-     "in": "SessionCreatePage",
-     "when": "hourTypes.length > 0",
-     "text": "Contrato",
-     "type": "select",
-     "disabled": "{formData.school_id === 0}",
-     "action": "{(e) => setSelectedContratoId(e.target.value)}",
-     "options": [
-      "Seleccione un contrato",
-      "(lista) {c.nombre}"
-     ],
-     "hook": {
-      "id": "contrato-select",
-      "idUsed": true
-     }
-    },
-    {
-     "kind": "text",
-     "line": 879,
-     "in": "SessionCreatePage",
-     "when": "hourTypes.length > 0 && formData.school_id > 0 && contratos.length === 0",
-     "text": "No hay contratos activos para este colegio."
-    },
-    {
-     "kind": "text",
-     "line": 891,
-     "in": "SessionCreatePage",
-     "when": "selectedHourTypeKey && selectedContratoId && availableHoursLoading",
-     "text": "Cargando horas disponibles..."
-    },
-    {
-     "kind": "list",
-     "line": 905,
-     "in": "SessionCreatePage",
-     "when": "selectedHourTypeKey && selectedContratoId && !(availableHoursLoading) && availableHours !== null",
-     "text": "badgeText",
-     "items": [
-      "Sin horas disponibles en este tipo (se registrará como sobrepresupuesto) / {availableHours.toFixed(1)} horas disponibles en este tipo — ¡Quedan menos del 25%! / {availableHours.toFixed(1)} horas disponibles en este tipo"
-     ]
-    },
-    {
-     "kind": "value",
-     "line": 911,
-     "in": "SessionCreatePage",
-     "when": "selectedHourTypeKey && selectedContratoId && !(availableHoursLoading) && availableHours !== null",
-     "text": "{badgeText}"
-    },
-    {
-     "kind": "text",
-     "line": 917,
-     "in": "SessionCreatePage",
-     "when": "selectedHourTypeKey && selectedContratoId && !(availableHoursLoading) && !(availableHours !== null)",
-     "text": "No hay asignación de horas para este tipo en el contrato seleccionado"
-    },
-    {
-     "kind": "label",
-     "line": 926,
-     "in": "SessionCreatePage",
-     "when": "formData.school_id > 0",
-     "text": "Consultor(es) asignados *"
-    },
-    {
-     "kind": "text",
-     "line": 930,
-     "in": "SessionCreatePage",
-     "when": "formData.school_id > 0",
-     "text": "Debe asignar al menos un consultor antes de crear la sesión."
-    },
-    {
-     "kind": "text",
-     "line": 937,
-     "in": "SessionCreatePage",
-     "when": "formData.school_id > 0 && consultantsLoading",
-     "text": "Cargando consultores..."
-    },
-    {
-     "kind": "heading",
-     "line": 946,
-     "in": "SessionCreatePage",
-     "when": "formData.school_id > 0 && consultantsError",
-     "text": "Error al cargar consultores",
-     "level": 4
-    },
-    {
-     "kind": "value",
-     "line": 947,
-     "in": "SessionCreatePage",
-     "when": "formData.school_id > 0 && consultantsError",
-     "text": "{consultantsError}"
-    },
-    {
-     "kind": "button",
-     "line": 949,
-     "in": "SessionCreatePage",
-     "when": "formData.school_id > 0 && consultantsError",
-     "text": "Reintentar",
-     "action": "{() => fetchConsultants(formData.school_id)}"
-    },
-    {
-     "kind": "text",
-     "line": 964,
-     "in": "SessionCreatePage",
-     "when": "formData.school_id > 0 && !consultantsLoading && !consultantsError && consultants.length === 0",
-     "text": "No hay consultores disponibles para este colegio. Verifique que existan usuarios con rol activo de consultor."
-    },
-    {
-     "kind": "gate",
-     "line": 974,
-     "in": "SessionCreatePage",
-     "when": "formData.school_id > 0 && facilitators.length > 0 && each facilitators",
-     "text": "!consultant"
-    },
-    {
-     "kind": "value",
-     "line": 982,
-     "in": "SessionCreatePage",
-     "when": "formData.school_id > 0 && facilitators.length > 0 && each facilitators",
-     "text": "{consultant.first_name} {consultant.last_name}"
-    },
-    {
-     "kind": "value",
-     "line": 985,
-     "in": "SessionCreatePage",
-     "when": "formData.school_id > 0 && facilitators.length > 0 && each facilitators",
-     "text": "{consultant.email}"
-    },
-    {
-     "kind": "button",
-     "line": 989,
-     "in": "SessionCreatePage",
-     "when": "formData.school_id > 0 && facilitators.length > 0 && each facilitators",
-     "text": "Externo / Interno",
-     "action": "{() => handleToggleRole(facilitator.user_id)}"
-    },
-    {
-     "kind": "label",
-     "line": 999,
-     "in": "SessionCreatePage",
-     "when": "formData.school_id > 0 && facilitators.length > 0 && each facilitators",
-     "text": "Consultor principal"
-    },
-    {
-     "kind": "field",
-     "line": 1000,
-     "in": "SessionCreatePage",
-     "when": "formData.school_id > 0 && facilitators.length > 0 && each facilitators",
-     "text": "Consultor principal",
-     "type": "checkbox",
-     "action": "{() => handleToggleLead(facilitator.user_id)}"
-    },
-    {
-     "kind": "button",
-     "line": 1009,
-     "in": "SessionCreatePage",
-     "when": "formData.school_id > 0 && facilitators.length > 0 && each facilitators",
-     "text": "Quitar",
-     "action": "{() => handleRemoveFacilitator(facilitator.user_id)}",
-     "aria": "{`Quitar consultor ${consultant.first_name} ${consultant.last_name}`}"
-    },
-    {
-     "kind": "field",
-     "line": 1026,
-     "in": "SessionCreatePage",
-     "when": "formData.school_id > 0 && !consultantsLoading && !consultantsError",
-     "text": "Consultor(es) asignados *",
-     "type": "select",
-     "disabled": "{consultants.length === 0 && !consultantsError}",
-     "action": "{(e) => { if (e.target.value) { handleAddFacilitator(e.target.value); e.target.v…}",
-     "options": [
-      "Agregar consultor...",
-      "(lista) {consultant.first_name} {consultant.last_name} ( {consultant.email} )"
-     ]
-    },
-    {
-     "kind": "label",
-     "line": 1051,
-     "in": "SessionCreatePage",
-     "text": "Título de la Sesión *"
-    },
-    {
-     "kind": "field",
-     "line": 1054,
-     "in": "SessionCreatePage",
-     "text": "Título de la Sesión *",
-     "type": "text",
-     "name": "title",
-     "placeholder": "Ej: Sesión de planificación trimestral",
-     "required": "true",
-     "limits": "maxLength={200}",
-     "action": "{handleInputChange}"
-    },
-    {
-     "kind": "label",
-     "line": 1068,
-     "in": "SessionCreatePage",
-     "text": "Descripción"
-    },
-    {
-     "kind": "field",
-     "line": 1071,
-     "in": "SessionCreatePage",
-     "text": "Descripción",
-     "type": "textarea",
-     "name": "description",
-     "placeholder": "Descripción de la sesión...",
-     "limits": "",
-     "action": "{handleInputChange}"
-    },
-    {
-     "kind": "label",
-     "line": 1083,
-     "in": "SessionCreatePage",
-     "text": "Objetivos"
-    },
-    {
-     "kind": "field",
-     "line": 1086,
-     "in": "SessionCreatePage",
-     "text": "Objetivos",
-     "type": "textarea",
-     "name": "objectives",
-     "placeholder": "Objetivos de la sesión...",
-     "limits": "",
-     "action": "{handleInputChange}"
-    },
-    {
-     "kind": "label",
-     "line": 1099,
-     "in": "SessionCreatePage",
-     "text": "Fecha *"
-    },
-    {
-     "kind": "field",
-     "line": 1102,
-     "in": "SessionCreatePage",
-     "text": "Fecha *",
-     "type": "date",
-     "name": "session_date",
-     "required": "true",
-     "limits": "min={new Date().toISOString().split('T')[0]}",
-     "action": "{handleInputChange}"
-    },
-    {
-     "kind": "label",
-     "line": 1114,
-     "in": "SessionCreatePage",
-     "text": "Hora de inicio (hora Chile) *"
-    },
-    {
-     "kind": "field",
-     "line": 1118,
-     "in": "SessionCreatePage",
-     "text": "Hora de inicio (hora Chile) *",
-     "type": "time",
-     "name": "start_time",
-     "required": "true",
-     "action": "{handleInputChange}"
-    },
-    {
-     "kind": "label",
-     "line": 1129,
-     "in": "SessionCreatePage",
-     "text": "Hora de término (hora Chile) *"
-    },
-    {
-     "kind": "field",
-     "line": 1133,
-     "in": "SessionCreatePage",
-     "text": "Hora de término (hora Chile) *",
-     "type": "time",
-     "name": "end_time",
-     "required": "true",
-     "action": "{handleInputChange}"
-    },
-    {
-     "kind": "hook",
-     "line": 1152,
-     "in": "SessionCreatePage",
-     "when": "spainTimePreview",
-     "text": "testid=create-session-spain-preview",
-     "type": "mark",
-     "tag": "p"
-    },
-    {
-     "kind": "text",
-     "line": 1156,
-     "in": "SessionCreatePage",
-     "when": "spainTimePreview",
-     "text": "En España:"
-    },
-    {
-     "kind": "value",
-     "line": 1156,
-     "in": "SessionCreatePage",
-     "when": "spainTimePreview",
-     "text": "{spainTimePreview}"
-    },
-    {
-     "kind": "label",
-     "line": 1162,
-     "in": "SessionCreatePage",
-     "text": "Tipo de sesión"
-    },
-    {
-     "kind": "label",
-     "line": 1166,
-     "in": "SessionCreatePage",
-     "text": "Sesión única"
-    },
-    {
-     "kind": "field",
-     "line": 1167,
-     "in": "SessionCreatePage",
-     "text": "Sesión única",
-     "type": "radio",
-     "action": "{() => setIsRecurring(false)}"
-    },
-    {
-     "kind": "label",
-     "line": 1175,
-     "in": "SessionCreatePage",
-     "text": "Serie recurrente"
-    },
-    {
-     "kind": "field",
-     "line": 1176,
-     "in": "SessionCreatePage",
-     "text": "Serie recurrente",
-     "type": "radio",
-     "action": "{() => setIsRecurring(true)}"
-    },
-    {
-     "kind": "heading",
-     "line": 1190,
-     "in": "SessionCreatePage",
-     "when": "isRecurring",
-     "text": "Configuración de recurrencia",
-     "level": 4
-    },
-    {
-     "kind": "label",
-     "line": 1194,
-     "in": "SessionCreatePage",
-     "when": "isRecurring",
-     "text": "Frecuencia"
-    },
-    {
-     "kind": "field",
-     "line": 1197,
-     "in": "SessionCreatePage",
-     "when": "isRecurring",
-     "text": "Frecuencia",
-     "type": "select",
-     "action": "{(e) => setRecurrenceFrequency(e.target.value as RecurrenceFrequency)}",
-     "options": [
-      "Semanal",
-      "Quincenal",
-      "Mensual",
-      "Fechas personalizadas"
-     ]
-    },
-    {
-     "kind": "label",
-     "line": 1212,
-     "in": "SessionCreatePage",
-     "when": "isRecurring && recurrenceFrequency !== 'custom'",
-     "text": "Número de sesiones (2-52)"
-    },
-    {
-     "kind": "field",
-     "line": 1215,
-     "in": "SessionCreatePage",
-     "when": "isRecurring && recurrenceFrequency !== 'custom'",
-     "text": "Número de sesiones (2-52)",
-     "type": "number",
-     "limits": "min={2} max={52}",
-     "action": "{(e) => setRecurrenceCount(parseInt(e.target.value, 10))}"
-    },
-    {
-     "kind": "label",
-     "line": 1229,
-     "in": "SessionCreatePage",
-     "when": "isRecurring && recurrenceFrequency === 'custom'",
-     "text": "Fechas personalizadas"
-    },
-    {
-     "kind": "field",
-     "line": 1235,
-     "in": "SessionCreatePage",
-     "when": "isRecurring && recurrenceFrequency === 'custom' && each customDates",
-     "text": "Fechas personalizadas",
-     "type": "date",
-     "limits": "min={new Date().toISOString().split('T')[0]}",
-     "action": "{(e) => handleCustomDateChange(index, e.target.value)}"
-    },
-    {
-     "kind": "button",
-     "line": 1243,
-     "in": "SessionCreatePage",
-     "when": "isRecurring && recurrenceFrequency === 'custom' && each customDates && customDates.length > 1",
-     "text": "[icon X]",
-     "action": "{() => handleRemoveCustomDate(index)}",
-     "aria": "Eliminar fecha"
-    },
-    {
-     "kind": "button",
-     "line": 1255,
-     "in": "SessionCreatePage",
-     "when": "isRecurring && recurrenceFrequency === 'custom'",
-     "text": "Agregar fecha",
-     "action": "{handleAddCustomDate}"
-    },
-    {
-     "kind": "heading",
-     "line": 1269,
-     "in": "SessionCreatePage",
-     "when": "isRecurring && previewDates.length > 0",
-     "text": "Vista previa ( {previewDates.length} sesiones)",
-     "level": 5
-    },
-    {
-     "kind": "text",
-     "line": 1285,
-     "in": "SessionCreatePage",
-     "when": "isRecurring && previewDates.length > 0 && each previewDates",
-     "text": "Sesión {index + 1}"
-    },
-    {
-     "kind": "value",
-     "line": 1286,
-     "in": "SessionCreatePage",
-     "when": "isRecurring && previewDates.length > 0 && each previewDates",
-     "text": "{format(parsedDate, 'EEEE, dd MMMM y…}"
-    },
-    {
-     "kind": "text",
-     "line": 1292,
-     "in": "SessionCreatePage",
-     "when": "isRecurring && previewDates.length > 0 && each previewDates && isWeekend",
-     "text": "Fin de semana"
-    },
-    {
-     "kind": "label",
-     "line": 1306,
-     "in": "SessionCreatePage",
-     "text": "Modalidad *"
-    },
-    {
-     "kind": "label",
-     "line": 1311,
-     "in": "SessionCreatePage",
-     "when": "each (['presencial', 'online', 'hibrida'] as const)",
-     "text": "{mod}"
-    },
-    {
-     "kind": "field",
-     "line": 1312,
-     "in": "SessionCreatePage",
-     "when": "each (['presencial', 'online', 'hibrida'] as const)",
-     "text": "{mod}",
-     "type": "radio",
-     "name": "modality",
-     "action": "{() => handleModalityChange(mod)}"
-    },
-    {
-     "kind": "label",
-     "line": 1331,
-     "in": "SessionCreatePage",
-     "when": "((formData.modality === 'online' || formData.modality === 'hibrida')) && zoomManagedAvailable",
-     "text": "Generar reunión Zoom"
-    },
-    {
-     "kind": "field",
-     "line": 1332,
-     "in": "SessionCreatePage",
-     "when": "((formData.modality === 'online' || formData.modality === 'hibrida')) && zoomManagedAvailable",
-     "text": "Generar reunión Zoom",
-     "type": "checkbox",
-     "name": "is_zoom_managed",
-     "action": "{(e) => setFormData((prev) => ({ ...prev, is_zoom_managed: e.target.checked }))}",
-     "hook": {
-      "testid": "session-zoom-managed"
-     }
-    },
-    {
-     "kind": "hook",
-     "line": 1347,
-     "in": "SessionCreatePage",
-     "when": "((formData.modality === 'online' || formData.modality === 'hibrida')) && zoomManagedAvailable && formData.is_zoom_managed",
-     "text": "testid=session-zoom-managed-help",
-     "type": "mark",
-     "tag": "p"
-    },
-    {
-     "kind": "text",
-     "line": 1351,
-     "in": "SessionCreatePage",
-     "when": "((formData.modality === 'online' || formData.modality === 'hibrida')) && zoomManagedAvailable && formData.is_zoom_managed",
-     "text": "GENERA crea la reunión y su enlace cuando se apruebe la sesión."
-    },
-    {
-     "kind": "label",
-     "line": 1360,
-     "in": "SessionCreatePage",
-     "when": "((formData.modality === 'online' || formData.modality === 'hibrida')) && !formData.is_zoom_managed",
-     "text": "Enlace de reunión *"
-    },
-    {
-     "kind": "field",
-     "line": 1363,
-     "in": "SessionCreatePage",
-     "when": "((formData.modality === 'online' || formData.modality === 'hibrida')) && !formData.is_zoom_managed",
-     "text": "Enlace de reunión *",
-     "type": "url",
-     "name": "meeting_link",
-     "placeholder": "https://zoom.us/j/123456789",
-     "action": "{handleInputChange}"
-    },
-    {
-     "kind": "label",
-     "line": 1374,
-     "in": "SessionCreatePage",
-     "when": "((formData.modality === 'online' || formData.modality === 'hibrida')) && !formData.is_zoom_managed",
-     "text": "Proveedor de reunión"
-    },
-    {
-     "kind": "field",
-     "line": 1377,
-     "in": "SessionCreatePage",
-     "when": "((formData.modality === 'online' || formData.modality === 'hibrida')) && !formData.is_zoom_managed",
-     "text": "Proveedor de reunión",
-     "type": "select",
-     "name": "meeting_provider",
-     "action": "{handleInputChange}",
-     "options": [
-      "Auto-detectar",
-      "Zoom",
-      "Google Meet",
-      "Microsoft Teams",
-      "Otro"
-     ]
-    },
-    {
-     "kind": "label",
-     "line": 1398,
-     "in": "SessionCreatePage",
-     "when": "(formData.modality === 'presencial' || formData.modality === 'hibrida')",
-     "text": "Ubicación *"
-    },
-    {
-     "kind": "field",
-     "line": 1401,
-     "in": "SessionCreatePage",
-     "when": "(formData.modality === 'presencial' || formData.modality === 'hibrida')",
-     "text": "Ubicación *",
-     "type": "text",
-     "name": "location",
-     "placeholder": "Ej: Sala de profesores",
-     "action": "{handleInputChange}"
-    },
-    {
-     "kind": "button",
-     "line": 1415,
-     "in": "SessionCreatePage",
-     "text": "Guardar serie como borrador ({previewDates.length} sesiones) / Guardar borrador",
-     "action": "{handleSaveDraft}",
-     "disabled": "{submitting}"
-    },
-    {
-     "kind": "button",
-     "line": 1426,
-     "in": "SessionCreatePage",
-     "text": "Programar serie ({previewDates.length} sesiones) / Programar sesión",
-     "action": "{handleScheduleSession}",
-     "disabled": "{submitting}"
-    },
-    {
-     "kind": "string",
-     "line": 253,
-     "in": "SessionCreatePage",
-     "text": "Bearer {session.access_token}"
+     "text": "",
+     "tag": "SessionCreateClasico"
     }
    ],
-   "db": [
-    {
-     "what": "rpc:get_bucket_summary",
-     "ops": []
-    },
-    {
-     "what": "table:contratos",
-     "ops": [
-      "select"
-     ]
-    },
-    {
-     "what": "table:growth_communities",
-     "ops": [
-      "select"
-     ]
-    },
-    {
-     "what": "table:schools",
-     "ops": [
-      "select"
-     ]
-    }
-   ],
+   "db": [],
    "pieces": [
     "components/layout/FunctionalPageHeader.tsx",
+    "components/sessions/SessionCreateClasico.tsx",
+    "hooks/useSessionCreate.ts",
     "lib/utils/recurrence.ts",
     "lib/utils/session-timezone.ts",
     "types/roles.ts",
@@ -4243,7 +3197,7 @@
       "GET"
      ],
      "from": [
-      "pages/admin/sessions/create.tsx:251"
+      "hooks/useSessionCreate.ts:226"
      ]
     },
     {
@@ -4253,7 +3207,7 @@
       "GET"
      ],
      "from": [
-      "pages/admin/sessions/create.tsx:291"
+      "hooks/useSessionCreate.ts:266"
      ]
     },
     {
@@ -4263,8 +3217,8 @@
       "POST"
      ],
      "from": [
-      "pages/admin/sessions/create.tsx:578",
-      "pages/admin/sessions/create.tsx:665"
+      "hooks/useSessionCreate.ts:553",
+      "hooks/useSessionCreate.ts:644"
      ]
     },
     {
@@ -4274,7 +3228,7 @@
       "POST"
      ],
      "from": [
-      "pages/admin/sessions/create.tsx:704"
+      "hooks/useSessionCreate.ts:683"
      ]
     },
     {
@@ -4284,7 +3238,7 @@
       "POST"
      ],
      "from": [
-      "pages/admin/sessions/create.tsx:683"
+      "hooks/useSessionCreate.ts:662"
      ]
     }
    ]
@@ -4375,8 +3329,8 @@
     ],
     "linkedFrom": [
      "components/layout/Sidebar.tsx:494",
-     "pages/admin/sessions/create.tsx:601",
-     "pages/admin/sessions/create.tsx:698"
+     "hooks/useSessionCreate.ts:576",
+     "hooks/useSessionCreate.ts:677"
     ],
     "qaScenarios": {
      "admin": [
@@ -5387,7 +4341,7 @@
   {
    "file": "pages/consultor/sessions/[id].tsx",
    "route": "/consultor/sessions/[id]",
-   "lines": 1539,
+   "lines": 111,
    "marks": {},
    "frame": "MainLayout",
    "server": "none",
@@ -5436,50 +4390,13 @@
       "middleware": "pass"
      }
     },
-    "inPage": [
-     {
-      "line": 109,
-      "text": "router.push → /login  (when !authSession?.user || !authSession.access_token)"
-     },
-     {
-      "line": 116,
-      "text": "role = await getUserPrimaryRole(authSession.user.id)"
-     },
-     {
-      "line": 123,
-      "text": "router.push → /dashboard  (when !allowed)"
-     },
-     {
-      "line": 131,
-      "text": "router.push → /login  (when !cancelled)"
-     },
-     {
-      "line": 159,
-      "text": "router.push → /login  (when response.status === 401)"
-     },
-     {
-      "line": 228,
-      "text": "router.push → /login  (when !authSession?.access_token)"
-     },
-     {
-      "line": 283,
-      "text": "router.push → /login"
-     },
-     {
-      "line": 621,
-      "text": "canEdit = isFacilitator || userRole === 'admin'"
-     },
-     {
-      "line": 626,
-      "text": "isReadOnly = session.status === 'completada' || session.status === 'cancelada'"
-     }
-    ],
+    "inPage": [],
     "linkedFrom": [
      "components/dashboard/unified/UpcomingSessionsCard.tsx:77",
      "components/workspace/WorkspaceSessionsTab.tsx:264",
      "components/workspace/WorkspaceSessionsTab.tsx:268",
+     "hooks/useSessionsList.ts:326",
      "lib/notifications/catalog.ts:195",
-     "pages/consultor/sessions/index.tsx:319",
      "pages/consultor/sessions/reports.tsx:817",
      "pages/consultor/sessions/reports.tsx:821"
     ],
@@ -5495,1022 +4412,15 @@
       "tests/e2e/session-reminders.spec.ts"
      ],
      "unit": [
+      "__tests__/pages/consultor/sessions/detail.clasico.test.tsx",
       "__tests__/pages/consultor/sessions/detail.test.tsx"
      ]
     }
    },
    "rows": [
     {
-     "kind": "gate",
-     "line": 97,
-     "in": "SessionDetailPage",
-     "text": "!router.isReady || !id"
-    },
-    {
-     "kind": "nav",
-     "line": 109,
-     "in": "loadSessionPage",
-     "when": "!authSession?.user || !authSession.access_token",
-     "text": "/login",
-     "via": "router.push"
-    },
-    {
-     "kind": "access",
-     "line": 116,
-     "in": "loadSessionPage",
-     "text": "role = await getUserPrimaryRole(authSession.user.id)",
-     "via": "getUserPrimaryRole"
-    },
-    {
-     "kind": "nav",
-     "line": 123,
-     "in": "loadSessionPage",
-     "when": "!allowed",
-     "text": "/dashboard",
-     "via": "router.push"
-    },
-    {
-     "kind": "nav",
-     "line": 131,
-     "in": "loadSessionPage",
-     "when": "!cancelled",
-     "text": "/login",
-     "via": "router.push"
-    },
-    {
-     "kind": "nav",
-     "line": 159,
-     "in": "fetchSessionData",
-     "when": "response.status === 401",
-     "text": "/login",
-     "via": "router.push"
-    },
-    {
-     "kind": "message",
-     "line": 174,
-     "in": "fetchSessionData",
-     "when": "!response.ok",
-     "text": "Error al cargar sesión",
-     "via": "throw (shown by whoever catches it)"
-    },
-    {
-     "kind": "nav",
-     "line": 228,
-     "in": "fetchSession",
-     "when": "!authSession?.access_token",
-     "text": "/login",
-     "via": "router.push"
-    },
-    {
-     "kind": "toast",
-     "line": 235,
-     "in": "fetchSession",
-     "text": "Error al cargar sesión",
-     "variant": "error"
-    },
-    {
-     "kind": "nav",
-     "line": 283,
-     "in": "handleLogout",
-     "text": "/login",
-     "via": "router.push"
-    },
-    {
-     "kind": "list",
-     "line": 287,
-     "in": "getStatusHelperText",
-     "text": "texts",
-     "items": [
-      "Esta sesión está en borrador. El administrador debe aprobarla.",
-      "Esta sesión está pendiente de aprobación por el administrador.",
-      "Sesión programada para {format(parseISO(session.ses…}. [if session]",
-      "Sesión programada. [if not session]",
-      "Sesión en curso.",
-      "Sesión finalizada. Debe completar el informe y la asistencia.",
-      "Sesión completada.",
-      "Esta sesión fue cancelada. Razón: {session.cancellation_reason} [if session?.cancellation_reason]",
-      "Esta sesión fue cancelada. [if not session?.cancellation_reason]"
-     ]
-    },
-    {
-     "kind": "toast",
-     "line": 325,
-     "in": "handleSaveAttendance",
-     "when": "!authSession?.access_token",
-     "text": "Error de autenticación",
-     "variant": "error"
-    },
-    {
-     "kind": "toast",
-     "line": 340,
-     "in": "handleSaveAttendance",
-     "when": "response.status === 409",
-     "text": "Otra persona editó esta sesión. Recarga para ver los últimos cambios.",
-     "variant": "error"
-    },
-    {
-     "kind": "message",
-     "line": 346,
-     "in": "handleSaveAttendance",
-     "when": "!response.ok",
-     "text": "Error al guardar asistencia",
-     "via": "throw (shown by whoever catches it)"
-    },
-    {
-     "kind": "toast",
-     "line": 349,
-     "in": "handleSaveAttendance",
-     "text": "Asistencia guardada correctamente",
-     "variant": "success"
-    },
-    {
-     "kind": "toast",
-     "line": 353,
-     "in": "handleSaveAttendance",
-     "text": "Error al guardar asistencia",
-     "variant": "error"
-    },
-    {
-     "kind": "toast",
-     "line": 361,
-     "in": "handleSaveReport",
-     "when": "!session || !reportContent.trim()",
-     "text": "El contenido del informe es requerido",
-     "variant": "error"
-    },
-    {
-     "kind": "toast",
-     "line": 371,
-     "in": "handleSaveReport",
-     "when": "!authSession?.access_token",
-     "text": "Error de autenticación",
-     "variant": "error"
-    },
-    {
-     "kind": "list",
-     "line": 379,
-     "in": "handleSaveReport",
-     "text": "method",
-     "items": [
-      "PUT / POST"
-     ]
-    },
-    {
-     "kind": "toast",
-     "line": 397,
-     "in": "handleSaveReport",
-     "when": "response.status === 409",
-     "text": "Otra persona editó esta sesión. Recarga para ver los últimos cambios.",
-     "variant": "error"
-    },
-    {
-     "kind": "message",
-     "line": 403,
-     "in": "handleSaveReport",
-     "when": "!response.ok",
-     "text": "Error al guardar informe",
-     "via": "throw (shown by whoever catches it)"
-    },
-    {
-     "kind": "toast",
-     "line": 406,
-     "in": "handleSaveReport",
-     "text": "Informe actualizado correctamente / Informe creado correctamente",
-     "variant": "success"
-    },
-    {
-     "kind": "toast",
-     "line": 411,
-     "in": "handleSaveReport",
-     "text": "Error al guardar informe",
-     "variant": "error"
-    },
-    {
-     "kind": "toast",
-     "line": 426,
-     "in": "handleUploadMaterial",
-     "when": "file.size > 25 * 1024 * 1024",
-     "text": "El archivo excede el tamaño máximo de 25 MB",
-     "variant": "error"
-    },
-    {
-     "kind": "toast",
-     "line": 436,
-     "in": "handleUploadMaterial",
-     "when": "!authSession?.access_token",
-     "text": "Error de autenticación",
-     "variant": "error"
-    },
-    {
-     "kind": "message",
-     "line": 454,
-     "in": "handleUploadMaterial",
-     "when": "!response.ok",
-     "text": "Error al subir material",
-     "via": "throw (shown by whoever catches it)"
-    },
-    {
-     "kind": "toast",
-     "line": 457,
-     "in": "handleUploadMaterial",
-     "text": "Material subido correctamente",
-     "variant": "success"
-    },
-    {
-     "kind": "toast",
-     "line": 461,
-     "in": "handleUploadMaterial",
-     "text": "Error al subir material",
-     "variant": "error"
-    },
-    {
-     "kind": "confirm",
-     "line": 471,
-     "in": "handleDeleteMaterial",
-     "text": "¿Está seguro que desea eliminar \"{fileName}\"?"
-    },
-    {
-     "kind": "toast",
-     "line": 480,
-     "in": "handleDeleteMaterial",
-     "when": "!authSession?.access_token",
-     "text": "Error de autenticación",
-     "variant": "error"
-    },
-    {
-     "kind": "message",
-     "line": 493,
-     "in": "handleDeleteMaterial",
-     "when": "!response.ok",
-     "text": "Error al eliminar material",
-     "via": "throw (shown by whoever catches it)"
-    },
-    {
-     "kind": "toast",
-     "line": 496,
-     "in": "handleDeleteMaterial",
-     "text": "Material eliminado correctamente",
-     "variant": "success"
-    },
-    {
-     "kind": "toast",
-     "line": 500,
-     "in": "handleDeleteMaterial",
-     "text": "Error al eliminar material",
-     "variant": "error"
-    },
-    {
-     "kind": "toast",
-     "line": 513,
-     "in": "handleFinalize",
-     "when": "!authSession?.access_token",
-     "text": "Error de autenticación",
-     "variant": "error"
-    },
-    {
-     "kind": "message",
-     "line": 527,
-     "in": "handleFinalize",
-     "when": "!response.ok",
-     "text": "Error al finalizar sesión",
-     "via": "throw (shown by whoever catches it)"
-    },
-    {
-     "kind": "toast",
-     "line": 530,
-     "in": "handleFinalize",
-     "text": "Sesión finalizada correctamente",
-     "variant": "success"
-    },
-    {
-     "kind": "toast",
-     "line": 535,
-     "in": "handleFinalize",
-     "text": "Error al finalizar sesión",
-     "variant": "error"
-    },
-    {
-     "kind": "message",
-     "line": 547,
-     "in": "canFinalizeSession",
-     "when": "session.status !== 'pendiente_informe'",
-     "text": "La sesión debe estar en estado \"Pendiente de Informe\"",
-     "via": "reasons.push"
-    },
-    {
-     "kind": "message",
-     "line": 554,
-     "in": "canFinalizeSession",
-     "when": "sessionReports.length === 0",
-     "text": "Falta informe de sesión",
-     "via": "reasons.push"
-    },
-    {
-     "kind": "message",
-     "line": 560,
-     "in": "canFinalizeSession",
-     "when": "unmarkedCount > 0",
-     "text": "Hay {unmarkedCount} asistente(s) sin marcar",
-     "via": "reasons.push"
-    },
-    {
-     "kind": "toast",
-     "line": 578,
-     "in": "handleSubmitEditRequest",
-     "when": "!authSession?.access_token",
-     "text": "Error de autenticación",
-     "variant": "error"
-    },
-    {
-     "kind": "message",
-     "line": 593,
-     "in": "handleSubmitEditRequest",
-     "when": "!response.ok",
-     "text": "Error al crear solicitud de cambio",
-     "via": "throw (shown by whoever catches it)"
-    },
-    {
-     "kind": "toast",
-     "line": 596,
-     "in": "handleSubmitEditRequest",
-     "text": "Solicitud de cambio enviada correctamente",
-     "variant": "success"
-    },
-    {
-     "kind": "toast",
-     "line": 601,
-     "in": "handleSubmitEditRequest",
-     "text": "Error al crear solicitud de cambio",
-     "variant": "error"
-    },
-    {
-     "kind": "access",
-     "line": 621,
-     "in": "SessionDetailPage",
-     "text": "canEdit = isFacilitator || userRole === 'admin'",
-     "via": "declaration"
-    },
-    {
-     "kind": "access",
-     "line": 626,
-     "in": "renderTabContent",
-     "text": "isReadOnly = session.status === 'completada' || session.status === 'cancelada'",
-     "via": "declaration"
-    },
-    {
-     "kind": "heading",
-     "line": 633,
-     "in": "renderTabContent",
-     "when": "activeTab === 'details'",
-     "text": "Descripción",
-     "level": 3
-    },
-    {
-     "kind": "text",
-     "line": 634,
-     "in": "renderTabContent",
-     "when": "activeTab === 'details'",
-     "text": "{session.description} / Sin descripción"
-    },
-    {
-     "kind": "heading",
-     "line": 639,
-     "in": "renderTabContent",
-     "when": "activeTab === 'details'",
-     "text": "Objetivos",
-     "level": 3
-    },
-    {
-     "kind": "text",
-     "line": 640,
-     "in": "renderTabContent",
-     "when": "activeTab === 'details'",
-     "text": "{session.objectives} / Sin objetivos definidos"
-    },
-    {
-     "kind": "heading",
-     "line": 645,
-     "in": "renderTabContent",
-     "when": "activeTab === 'details'",
-     "text": "Facilitadores",
-     "level": 3
-    },
-    {
-     "kind": "value",
-     "line": 650,
-     "in": "renderTabContent",
-     "when": "activeTab === 'details' && each session.facilitators",
-     "text": "{f.profiles?.first_name} {f.profiles?.last_name}"
-    },
-    {
-     "kind": "text",
-     "line": 655,
-     "in": "renderTabContent",
-     "when": "activeTab === 'details' && each session.facilitators && f.is_lead",
-     "text": "Líder"
-    },
-    {
-     "kind": "value",
-     "line": 658,
-     "in": "renderTabContent",
-     "when": "activeTab === 'details' && each session.facilitators",
-     "text": "( {f.facilitator_role.replace(/_/g, ' …} )"
-    },
-    {
      "kind": "piece",
-     "line": 671,
-     "in": "renderTabContent",
-     "when": "activeTab === 'details'",
-     "text": "",
-     "tag": "AttendanceSuggestionsPanel"
-    },
-    {
-     "kind": "heading",
-     "line": 676,
-     "in": "renderTabContent",
-     "when": "activeTab === 'details'",
-     "text": "Asistencia ( {session.attendees.length} )",
-     "level": 3
-    },
-    {
-     "kind": "button",
-     "line": 681,
-     "in": "renderTabContent",
-     "when": "activeTab === 'details' && !isReadOnly && canEdit",
-     "text": "Marcar todos presentes",
-     "action": "{handleMarkAllPresent}"
-    },
-    {
-     "kind": "button",
-     "line": 687,
-     "in": "renderTabContent",
-     "when": "activeTab === 'details' && !isReadOnly && canEdit",
-     "text": "Guardando... / Guardar asistencia",
-     "action": "{handleSaveAttendance}",
-     "disabled": "{savingAttendance}"
-    },
-    {
-     "kind": "text",
-     "line": 703,
-     "in": "renderTabContent",
-     "when": "activeTab === 'details'",
-     "text": "Presentes:"
-    },
-    {
-     "kind": "text",
-     "line": 707,
-     "in": "renderTabContent",
-     "when": "activeTab === 'details'",
-     "text": "Ausentes:"
-    },
-    {
-     "kind": "text",
-     "line": 709,
-     "in": "renderTabContent",
-     "when": "activeTab === 'details'",
-     "text": "Sin marcar: {session.attendees.filter((a) => a.a…}"
-    },
-    {
-     "kind": "column",
-     "line": 719,
-     "in": "renderTabContent",
-     "when": "activeTab === 'details'",
-     "screen": "hidden md:block",
-     "text": "Nombre"
-    },
-    {
-     "kind": "column",
-     "line": 720,
-     "in": "renderTabContent",
-     "when": "activeTab === 'details'",
-     "screen": "hidden md:block",
-     "text": "Esperado"
-    },
-    {
-     "kind": "column",
-     "line": 721,
-     "in": "renderTabContent",
-     "when": "activeTab === 'details'",
-     "screen": "hidden md:block",
-     "text": "Asistió"
-    },
-    {
-     "kind": "column",
-     "line": 722,
-     "in": "renderTabContent",
-     "when": "activeTab === 'details'",
-     "screen": "hidden md:block",
-     "text": "Estado de llegada"
-    },
-    {
-     "kind": "column",
-     "line": 723,
-     "in": "renderTabContent",
-     "when": "activeTab === 'details'",
-     "screen": "hidden md:block",
-     "text": "Notas"
-    },
-    {
-     "kind": "list",
-     "line": 730,
-     "in": "renderTabContent",
-     "when": "activeTab === 'details' && each session.attendees",
-     "screen": "hidden md:block",
-     "text": "fullName",
-     "items": [
-      "Usuario desconocido"
-     ]
-    },
-    {
-     "kind": "value",
-     "line": 743,
-     "in": "renderTabContent",
-     "when": "activeTab === 'details' && each session.attendees",
-     "screen": "hidden md:block",
-     "text": "{fullName}"
-    },
-    {
-     "kind": "field",
-     "line": 761,
-     "in": "renderTabContent",
-     "when": "activeTab === 'details' && each session.attendees && (!(isReadOnly || !canEdit))",
-     "screen": "hidden md:block",
-     "text": "",
-     "type": "checkbox",
-     "action": "{(e) => handleAttendanceChange(attendee.user_id, 'attended', e.target.checked)}"
-    },
-    {
-     "kind": "value",
-     "line": 773,
-     "in": "renderTabContent",
-     "when": "activeTab === 'details' && each session.attendees && (isReadOnly || !canEdit)",
-     "screen": "hidden md:block",
-     "text": "{attendee.arrival_status?.replace(/_…} / —"
-    },
-    {
-     "kind": "field",
-     "line": 777,
-     "in": "renderTabContent",
-     "when": "activeTab === 'details' && each session.attendees && (!(isReadOnly || !canEdit))",
-     "screen": "hidden md:block",
-     "text": "",
-     "type": "select",
-     "action": "{(e) => handleAttendanceChange( attendee.user_id, 'arrival_status', e.target.val…}",
-     "options": [
-      "—",
-      "A tiempo",
-      "Tarde",
-      "Salió temprano"
-     ]
-    },
-    {
-     "kind": "value",
-     "line": 797,
-     "in": "renderTabContent",
-     "when": "activeTab === 'details' && each session.attendees && (isReadOnly || !canEdit)",
-     "screen": "hidden md:block",
-     "text": "{attendee.notes} / —"
-    },
-    {
-     "kind": "field",
-     "line": 799,
-     "in": "renderTabContent",
-     "when": "activeTab === 'details' && each session.attendees && (!(isReadOnly || !canEdit))",
-     "screen": "hidden md:block",
-     "text": "Notas opcionales",
-     "type": "text",
-     "placeholder": "Notas opcionales",
-     "action": "{(e) => handleAttendanceChange(attendee.user_id, 'notes', e.target.value || null)}"
-    },
-    {
-     "kind": "text",
-     "line": 818,
-     "in": "renderTabContent",
-     "when": "activeTab === 'details'",
-     "screen": "md:hidden",
-     "text": "Lista de asistencia",
-     "attr": "aria-label"
-    },
-    {
-     "kind": "hook",
-     "line": 818,
-     "in": "renderTabContent",
-     "when": "activeTab === 'details'",
-     "screen": "md:hidden",
-     "text": "role=list",
-     "type": "role",
-     "tag": "ul",
-     "aria": "Lista de asistencia"
-    },
-    {
-     "kind": "list",
-     "line": 822,
-     "in": "renderTabContent",
-     "when": "activeTab === 'details' && each session.attendees",
-     "screen": "md:hidden",
-     "text": "fullName",
-     "items": [
-      "Usuario desconocido"
-     ]
-    },
-    {
-     "kind": "heading",
-     "line": 833,
-     "in": "renderTabContent",
-     "when": "activeTab === 'details' && each session.attendees",
-     "screen": "md:hidden",
-     "text": "{fullName}",
-     "level": 4
-    },
-    {
-     "kind": "text",
-     "line": 835,
-     "in": "renderTabContent",
-     "when": "activeTab === 'details' && each session.attendees && attendee.expected",
-     "screen": "md:hidden",
-     "text": "Esperado"
-    },
-    {
-     "kind": "text",
-     "line": 837,
-     "in": "renderTabContent",
-     "when": "activeTab === 'details' && each session.attendees && !(attendee.expected)",
-     "screen": "md:hidden",
-     "text": "No esperado"
-    },
-    {
-     "kind": "label",
-     "line": 843,
-     "in": "renderTabContent",
-     "when": "activeTab === 'details' && each session.attendees",
-     "screen": "md:hidden",
-     "text": "— Asistió"
-    },
-    {
-     "kind": "field",
-     "line": 853,
-     "in": "renderTabContent",
-     "when": "activeTab === 'details' && each session.attendees && (!(isReadOnly || !canEdit))",
-     "screen": "md:hidden",
-     "text": "— Asistió",
-     "type": "checkbox",
-     "action": "{(e) => handleAttendanceChange(attendee.user_id, 'attended', e.target.checked)}"
-    },
-    {
-     "kind": "label",
-     "line": 868,
-     "in": "renderTabContent",
-     "when": "activeTab === 'details' && each session.attendees",
-     "screen": "md:hidden",
-     "text": "Estado de llegada"
-    },
-    {
-     "kind": "value",
-     "line": 870,
-     "in": "renderTabContent",
-     "when": "activeTab === 'details' && each session.attendees && (isReadOnly || !canEdit)",
-     "screen": "md:hidden",
-     "text": "{attendee.arrival_status?.replace(/_…} / —"
-    },
-    {
-     "kind": "field",
-     "line": 874,
-     "in": "renderTabContent",
-     "when": "activeTab === 'details' && each session.attendees && (!(isReadOnly || !canEdit))",
-     "screen": "md:hidden",
-     "text": "Estado de llegada",
-     "type": "select",
-     "action": "{(e) => handleAttendanceChange( attendee.user_id, 'arrival_status', e.target.val…}",
-     "options": [
-      "—",
-      "A tiempo",
-      "Tarde",
-      "Salió temprano"
-     ]
-    },
-    {
-     "kind": "label",
-     "line": 895,
-     "in": "renderTabContent",
-     "when": "activeTab === 'details' && each session.attendees",
-     "screen": "md:hidden",
-     "text": "Notas"
-    },
-    {
-     "kind": "value",
-     "line": 897,
-     "in": "renderTabContent",
-     "when": "activeTab === 'details' && each session.attendees && (isReadOnly || !canEdit)",
-     "screen": "md:hidden",
-     "text": "{attendee.notes} / —"
-    },
-    {
-     "kind": "field",
-     "line": 899,
-     "in": "renderTabContent",
-     "when": "activeTab === 'details' && each session.attendees && (!(isReadOnly || !canEdit))",
-     "screen": "md:hidden",
-     "text": "Notas",
-     "type": "text",
-     "placeholder": "Notas opcionales",
-     "action": "{(e) => handleAttendanceChange(attendee.user_id, 'notes', e.target.value || null)}"
-    },
-    {
-     "kind": "text",
-     "line": 923,
-     "in": "renderTabContent",
-     "when": "activeTab === 'planning'",
-     "text": "Notas de planificación disponibles próximamente"
-    },
-    {
-     "kind": "label",
-     "line": 933,
-     "in": "renderTabContent",
-     "when": "activeTab === 'materials' && !isReadOnly && canEdit",
-     "text": "Subiendo... / Subir material"
-    },
-    {
-     "kind": "field",
-     "line": 936,
-     "in": "renderTabContent",
-     "when": "activeTab === 'materials' && !isReadOnly && canEdit",
-     "screen": "hidden",
-     "text": "Subiendo... / Subir material",
-     "type": "file",
-     "disabled": "{uploadingMaterial}",
-     "action": "{handleUploadMaterial}"
-    },
-    {
-     "kind": "text",
-     "line": 950,
-     "in": "renderTabContent",
-     "when": "activeTab === 'materials' && materials.length === 0",
-     "text": "No hay materiales subidos"
-    },
-    {
-     "kind": "column",
-     "line": 957,
-     "in": "renderTabContent",
-     "when": "activeTab === 'materials' && !(materials.length === 0)",
-     "text": "Archivo"
-    },
-    {
-     "kind": "column",
-     "line": 958,
-     "in": "renderTabContent",
-     "when": "activeTab === 'materials' && !(materials.length === 0)",
-     "text": "Tipo"
-    },
-    {
-     "kind": "column",
-     "line": 959,
-     "in": "renderTabContent",
-     "when": "activeTab === 'materials' && !(materials.length === 0)",
-     "text": "Tamaño"
-    },
-    {
-     "kind": "column",
-     "line": 960,
-     "in": "renderTabContent",
-     "when": "activeTab === 'materials' && !(materials.length === 0)",
-     "text": "Subido por"
-    },
-    {
-     "kind": "column",
-     "line": 961,
-     "in": "renderTabContent",
-     "when": "activeTab === 'materials' && !(materials.length === 0)",
-     "text": "Fecha"
-    },
-    {
-     "kind": "column",
-     "line": 962,
-     "in": "renderTabContent",
-     "when": "activeTab === 'materials' && !(materials.length === 0)",
-     "text": "Acciones"
-    },
-    {
-     "kind": "list",
-     "line": 968,
-     "in": "renderTabContent",
-     "when": "activeTab === 'materials' && !(materials.length === 0) && each materials",
-     "text": "uploaderName",
-     "items": [
-      "Usuario desconocido"
-     ]
-    },
-    {
-     "kind": "value",
-     "line": 974,
-     "in": "renderTabContent",
-     "when": "activeTab === 'materials' && !(materials.length === 0) && each materials",
-     "text": "{material.file_name}"
-    },
-    {
-     "kind": "value",
-     "line": 975,
-     "in": "renderTabContent",
-     "when": "activeTab === 'materials' && !(materials.length === 0) && each materials",
-     "text": "{material.file_type}"
-    },
-    {
-     "kind": "value",
-     "line": 976,
-     "in": "renderTabContent",
-     "when": "activeTab === 'materials' && !(materials.length === 0) && each materials",
-     "text": "{formatFileSize(material.file_size)}"
-    },
-    {
-     "kind": "value",
-     "line": 977,
-     "in": "renderTabContent",
-     "when": "activeTab === 'materials' && !(materials.length === 0) && each materials",
-     "text": "{uploaderName}"
-    },
-    {
-     "kind": "value",
-     "line": 978,
-     "in": "renderTabContent",
-     "when": "activeTab === 'materials' && !(materials.length === 0) && each materials",
-     "text": "{format(parseISO(material.created_at…}"
-    },
-    {
-     "kind": "link",
-     "line": 984,
-     "in": "renderTabContent",
-     "when": "activeTab === 'materials' && !(materials.length === 0) && each materials && material.download_url",
-     "text": "[icon ExternalLink]",
-     "target": "{material.download_url}",
-     "newTab": true
-    },
-    {
-     "kind": "button",
-     "line": 995,
-     "in": "renderTabContent",
-     "when": "activeTab === 'materials' && !(materials.length === 0) && each materials && (!isReadOnly && (material.uploaded_by === user?.id || canEdit))",
-     "text": "[icon Trash2]",
-     "action": "{() => handleDeleteMaterial(material.id, material.file_name)}"
-    },
-    {
-     "kind": "text",
-     "line": 1019,
-     "in": "renderTabContent",
-     "when": "activeTab === 'report' && !canEdit && !existingReport",
-     "text": "Solo los facilitadores pueden crear informes"
-    },
-    {
-     "kind": "piece",
-     "line": 1028,
-     "in": "renderTabContent",
-     "when": "activeTab === 'report' && !isReadOnly && canEdit && !existingReport && !editingReport && session",
-     "text": "",
-     "tag": "AudioReportUploader"
-    },
-    {
-     "kind": "button",
-     "line": 1036,
-     "in": "renderTabContent",
-     "when": "activeTab === 'report' && !isReadOnly && canEdit && !existingReport && !editingReport",
-     "text": "Crear Informe",
-     "action": "{() => setEditingReport(true)}"
-    },
-    {
-     "kind": "button",
-     "line": 1045,
-     "in": "renderTabContent",
-     "when": "activeTab === 'report' && !isReadOnly && canEdit && existingReport && !editingReport",
-     "text": "Editar Informe",
-     "action": "{() => setEditingReport(true)}"
-    },
-    {
-     "kind": "label",
-     "line": 1056,
-     "in": "renderTabContent",
-     "when": "activeTab === 'report' && editingReport && canEdit && !isReadOnly",
-     "text": "Contenido del informe"
-    },
-    {
-     "kind": "field",
-     "line": 1057,
-     "in": "renderTabContent",
-     "when": "activeTab === 'report' && editingReport && canEdit && !isReadOnly",
-     "text": "Contenido del informe",
-     "type": "textarea",
-     "placeholder": "Escriba el informe de la sesión...",
-     "limits": "",
-     "action": "{(e) => setReportContent(e.target.value)}"
-    },
-    {
-     "kind": "label",
-     "line": 1066,
-     "in": "renderTabContent",
-     "when": "activeTab === 'report' && editingReport && canEdit && !isReadOnly",
-     "text": "Visibilidad"
-    },
-    {
-     "kind": "field",
-     "line": 1067,
-     "in": "renderTabContent",
-     "when": "activeTab === 'report' && editingReport && canEdit && !isReadOnly",
-     "text": "Visibilidad",
-     "type": "select",
-     "action": "{(e) => setReportVisibility(e.target.value as 'facilitators_only' | 'all_partici…}",
-     "options": [
-      "Solo facilitadores",
-      "Todos los participantes"
-     ]
-    },
-    {
-     "kind": "button",
-     "line": 1077,
-     "in": "renderTabContent",
-     "when": "activeTab === 'report' && editingReport && canEdit && !isReadOnly",
-     "text": "Guardando... / Actualizar / Crear",
-     "action": "{handleSaveReport}",
-     "disabled": "{savingReport || !reportContent.trim()}"
-    },
-    {
-     "kind": "button",
-     "line": 1085,
-     "in": "renderTabContent",
-     "when": "activeTab === 'report' && editingReport && canEdit && !isReadOnly && editingReport",
-     "text": "Cancelar",
-     "action": "{() => { setEditingReport(false); if (existingReport) { setReportContent(existin…}"
-    },
-    {
-     "kind": "piece",
-     "line": 1104,
-     "in": "renderTabContent",
-     "when": "activeTab === 'report' && !(editingReport && canEdit && !isReadOnly) && existingReport && signedAudioUrl",
-     "text": "",
-     "tag": "AudioPlayer"
-    },
-    {
-     "kind": "value",
-     "line": 1113,
-     "in": "renderTabContent",
-     "when": "activeTab === 'report' && !(editingReport && canEdit && !isReadOnly) && existingReport",
-     "text": "{format(parseISO(existingReport.crea…}"
-    },
-    {
-     "kind": "text",
-     "line": 1116,
-     "in": "renderTabContent",
-     "when": "activeTab === 'report' && !(editingReport && canEdit && !isReadOnly) && existingReport",
-     "text": "Todos los participantes / Solo facilitadores"
-    },
-    {
-     "kind": "value",
-     "line": 1129,
-     "in": "renderTabContent",
-     "when": "activeTab === 'report' && !(editingReport && canEdit && !isReadOnly) && existingReport",
-     "text": "{existingReport.content}"
-    },
-    {
-     "kind": "text",
-     "line": 1137,
-     "in": "renderTabContent",
-     "when": "activeTab === 'report' && !(editingReport && canEdit && !isReadOnly) && !(existingReport)",
-     "text": "No hay informe creado"
-    },
-    {
-     "kind": "text",
-     "line": 1147,
-     "in": "renderTabContent",
-     "when": "activeTab === 'communications'",
-     "text": "Comunicaciones disponibles próximamente"
-    },
-    {
-     "kind": "value",
-     "line": 1159,
-     "in": "renderTabContent",
-     "when": "activeTab === 'activity' && session.activity_log && session.activity_log.length > 0 && each session.activity_log",
-     "text": "{log.profiles?.first_name} {log.profiles?.last_name}"
-    },
-    {
-     "kind": "value",
-     "line": 1162,
-     "in": "renderTabContent",
-     "when": "activeTab === 'activity' && session.activity_log && session.activity_log.length > 0 && each session.activity_log",
-     "text": "{log.action.replace(/_/g, ' ')}"
-    },
-    {
-     "kind": "value",
-     "line": 1165,
-     "in": "renderTabContent",
-     "when": "activeTab === 'activity' && session.activity_log && session.activity_log.length > 0 && each session.activity_log",
-     "text": "{format(parseISO(log.created_at), 'd…}"
-    },
-    {
-     "kind": "text",
-     "line": 1173,
-     "in": "renderTabContent",
-     "when": "activeTab === 'activity' && !(session.activity_log && session.activity_log.length > 0)",
-     "text": "No hay actividad registrada"
-    },
-    {
-     "kind": "piece",
-     "line": 1186,
+     "line": 28,
      "in": "SessionDetailPage",
      "when": "loading",
      "text": "",
@@ -6518,14 +4428,14 @@
     },
     {
      "kind": "text",
-     "line": 1188,
+     "line": 30,
      "in": "SessionDetailPage",
      "when": "loading",
      "text": "Cargando..."
     },
     {
      "kind": "piece",
-     "line": 1196,
+     "line": 38,
      "in": "SessionDetailPage",
      "when": "fetchError === 'forbidden'",
      "text": "",
@@ -6533,7 +4443,7 @@
     },
     {
      "kind": "heading",
-     "line": 1199,
+     "line": 41,
      "in": "SessionDetailPage",
      "when": "fetchError === 'forbidden'",
      "text": "Acceso denegado",
@@ -6541,14 +4451,14 @@
     },
     {
      "kind": "text",
-     "line": 1200,
+     "line": 42,
      "in": "SessionDetailPage",
      "when": "fetchError === 'forbidden'",
      "text": "No tiene permisos para ver esta sesión."
     },
     {
      "kind": "piece",
-     "line": 1208,
+     "line": 50,
      "in": "SessionDetailPage",
      "when": "fetchError === 'not_found' || !session",
      "text": "",
@@ -6556,7 +4466,7 @@
     },
     {
      "kind": "heading",
-     "line": 1211,
+     "line": 53,
      "in": "SessionDetailPage",
      "when": "fetchError === 'not_found' || !session",
      "text": "Sesión no encontrada",
@@ -6564,289 +4474,28 @@
     },
     {
      "kind": "text",
-     "line": 1212,
+     "line": 54,
      "in": "SessionDetailPage",
      "when": "fetchError === 'not_found' || !session",
      "text": "La sesión solicitada no existe o fue eliminada."
     },
     {
-     "kind": "list",
-     "line": 1221,
-     "in": "SessionDetailPage",
-     "text": "tabs",
-     "items": [
-      "Detalles",
-      "Planificación [if canEdit]",
-      "Materiales",
-      "Informe",
-      "Comunicaciones",
-      "Actividad"
-     ]
-    },
-    {
      "kind": "piece",
-     "line": 1233,
+     "line": 64,
      "in": "SessionDetailPage",
      "text": "",
      "tag": "MainLayout"
     },
     {
-     "kind": "hook",
-     "line": 1236,
+     "kind": "piece",
+     "line": 66,
      "in": "SessionDetailPage",
-     "when": "conflictVisible",
-     "text": "role=alert",
-     "type": "role",
-     "tag": "div"
-    },
-    {
-     "kind": "text",
-     "line": 1242,
-     "in": "SessionDetailPage",
-     "when": "conflictVisible",
-     "text": "Otra persona editó esta sesión mientras trabajabas en ella. Recarga para ver los últimos cambios."
-    },
-    {
-     "kind": "button",
-     "line": 1244,
-     "in": "SessionDetailPage",
-     "when": "conflictVisible",
-     "text": "Recargar",
-     "action": "{() => fetchSession()}"
-    },
-    {
-     "kind": "text",
-     "line": 1257,
-     "in": "SessionDetailPage",
-     "when": "!isFacilitator && userRole !== 'admin'",
-     "text": "Está viendo esta sesión en modo lectura. No está asignado como facilitador."
-    },
-    {
-     "kind": "heading",
-     "line": 1266,
-     "in": "SessionDetailPage",
-     "text": "{session.title}",
-     "level": 1
-    },
-    {
-     "kind": "value",
-     "line": 1268,
-     "in": "SessionDetailPage",
-     "text": "{badge.label}"
-    },
-    {
-     "kind": "text",
-     "line": 1274,
-     "in": "SessionDetailPage",
-     "when": "session.recurrence_group_id && session.session_number",
-     "text": "Sesión {session.session_number}"
-    },
-    {
-     "kind": "link",
-     "line": 1284,
-     "in": "SessionDetailPage",
-     "when": "(['programada', 'en_progreso', 'pendiente_informe'] as string[]).includes(session.status)",
-     "text": "Agregar al Calendario",
-     "target": "/api/sessions/[*]/ical",
-     "download": true
-    },
-    {
-     "kind": "download",
-     "line": 1284,
-     "in": "SessionDetailPage",
-     "when": "(['programada', 'en_progreso', 'pendiente_informe'] as string[]).includes(session.status)",
-     "text": "<a download> Agregar al Calendario",
-     "how": "link with download"
-    },
-    {
-     "kind": "button",
-     "line": 1297,
-     "in": "SessionDetailPage",
-     "when": "canEdit && (session.status !== 'completada' && session.status !== 'cancelada')",
-     "text": "Solicitar Cambios",
-     "action": "{() => setShowEditRequestModal(true)}",
-     "disabled": "{hasPendingEditRequest()}"
-    },
-    {
-     "kind": "text",
-     "line": 1311,
-     "in": "SessionDetailPage",
-     "when": "canEdit && (session.status !== 'completada' && session.status !== 'cancelada') && hasPendingEditRequest()",
-     "text": "Ya existe una solicitud de cambio pendiente para esta sesión."
-    },
-    {
-     "kind": "button",
-     "line": 1320,
-     "in": "SessionDetailPage",
-     "when": "canEdit && session.status === 'pendiente_informe'",
-     "text": "Finalizar Sesión",
-     "action": "{() => setShowFinalizeModal(true)}",
-     "disabled": "{!finalizeCheck.can}"
-    },
-    {
-     "kind": "text",
-     "line": 1334,
-     "in": "SessionDetailPage",
-     "when": "canEdit && session.status === 'pendiente_informe' && !finalizeCheck.can",
-     "text": "Condiciones faltantes:"
-    },
-    {
-     "kind": "value",
-     "line": 1337,
-     "in": "SessionDetailPage",
-     "when": "canEdit && session.status === 'pendiente_informe' && !finalizeCheck.can && each finalizeCheck.reasons",
-     "text": "{reason}"
-    },
-    {
-     "kind": "value",
-     "line": 1350,
-     "in": "SessionDetailPage",
-     "text": "{format(parseISO(session.session_dat…}"
-    },
-    {
-     "kind": "text",
-     "line": 1357,
-     "in": "SessionDetailPage",
-     "text": "(hora Chile)"
-    },
-    {
-     "kind": "value",
-     "line": 1359,
-     "in": "SessionDetailPage",
-     "text": "{formatSessionTimeForConsultant(sess…} - {formatSessionTimeForConsultant(sess…}"
-    },
-    {
-     "kind": "value",
-     "line": 1366,
-     "in": "SessionDetailPage",
-     "text": "{session.modality}"
-    },
-    {
-     "kind": "link",
-     "line": 1368,
-     "in": "SessionDetailPage",
-     "when": "session.has_meeting && session.join_path",
-     "text": "Enlace",
-     "target": "{session.join_path}",
-     "hook": {
-      "testid": "session-join-link"
-     }
-    },
-    {
-     "kind": "value",
-     "line": 1379,
-     "in": "SessionDetailPage",
-     "when": "session.schools",
-     "text": "{session.schools.name}"
-    },
-    {
-     "kind": "value",
-     "line": 1382,
-     "in": "SessionDetailPage",
-     "when": "session.growth_communities",
-     "text": "{session.growth_communities.name}"
-    },
-    {
-     "kind": "value",
-     "line": 1388,
-     "in": "SessionDetailPage",
-     "when": "helperText",
-     "text": "{helperText}"
-    },
-    {
-     "kind": "heading",
-     "line": 1403,
-     "in": "SessionDetailPage",
-     "when": "session.edit_requests && session.edit_requests.length > 0",
-     "text": "Historial de Solicitudes de Cambio",
-     "level": 3
-    },
-    {
-     "kind": "list",
-     "line": 1412,
-     "in": "SessionDetailPage",
-     "when": "session.edit_requests && session.edit_requests.length > 0 && each session.edit_requests",
-     "text": "statusLabel",
-     "items": [
-      "Pendiente / Aprobada / Rechazada"
-     ]
-    },
-    {
-     "kind": "value",
-     "line": 1423,
-     "in": "SessionDetailPage",
-     "when": "session.edit_requests && session.edit_requests.length > 0 && each session.edit_requests",
-     "text": "{statusLabel}"
-    },
-    {
-     "kind": "value",
-     "line": 1426,
-     "in": "SessionDetailPage",
-     "when": "session.edit_requests && session.edit_requests.length > 0 && each session.edit_requests",
-     "text": "{format(parseISO(request.created_at)…}"
-    },
-    {
-     "kind": "list",
-     "line": 1434,
-     "in": "SessionDetailPage",
-     "when": "session.edit_requests && session.edit_requests.length > 0 && each session.edit_requests && each Object.keys(request.changes)",
-     "text": "fieldLabel",
-     "items": [
-      "Fecha / Hora inicio / Hora término / Modalidad"
-     ]
-    },
-    {
-     "kind": "value",
-     "line": 1446,
-     "in": "SessionDetailPage",
-     "when": "session.edit_requests && session.edit_requests.length > 0 && each session.edit_requests && each Object.keys(request.changes)",
-     "text": "{fieldLabel} :"
-    },
-    {
-     "kind": "value",
-     "line": 1447,
-     "in": "SessionDetailPage",
-     "when": "session.edit_requests && session.edit_requests.length > 0 && each session.edit_requests && each Object.keys(request.changes)",
-     "text": "{String(change.old)}"
-    },
-    {
-     "kind": "value",
-     "line": 1448,
-     "in": "SessionDetailPage",
-     "when": "session.edit_requests && session.edit_requests.length > 0 && each session.edit_requests && each Object.keys(request.changes)",
-     "text": "{String(change.new)}"
-    },
-    {
-     "kind": "text",
-     "line": 1455,
-     "in": "SessionDetailPage",
-     "when": "session.edit_requests && session.edit_requests.length > 0 && each session.edit_requests && request.reason",
-     "text": "Razón:"
-    },
-    {
-     "kind": "text",
-     "line": 1460,
-     "in": "SessionDetailPage",
-     "when": "session.edit_requests && session.edit_requests.length > 0 && each session.edit_requests && request.review_notes && request.status !== 'pending'",
-     "text": "Nota del revisor:"
-    },
-    {
-     "kind": "button",
-     "line": 1477,
-     "in": "SessionDetailPage",
-     "when": "each tabs",
-     "text": "{tab.label}",
-     "action": "{() => setActiveTab(tab.id)}"
-    },
-    {
-     "kind": "value",
-     "line": 1493,
-     "in": "SessionDetailPage",
-     "text": "{renderTabContent()}"
+     "text": "",
+     "tag": "SessionDetailClasico"
     },
     {
      "kind": "popup",
-     "line": 1498,
+     "line": 70,
      "in": "SessionDetailPage",
      "when": "showFinalizeModal",
      "text": "Finalizar Sesión",
@@ -6854,7 +4503,7 @@
     },
     {
      "kind": "heading",
-     "line": 1500,
+     "line": 72,
      "in": "SessionDetailPage",
      "when": "showFinalizeModal",
      "text": "Finalizar Sesión",
@@ -6862,23 +4511,23 @@
     },
     {
      "kind": "text",
-     "line": 1502,
+     "line": 74,
      "in": "SessionDetailPage",
      "when": "showFinalizeModal",
      "text": "¿Está seguro que desea finalizar esta sesión? Esta acción no se puede deshacer."
     },
     {
      "kind": "button",
-     "line": 1505,
+     "line": 77,
      "in": "SessionDetailPage",
      "when": "showFinalizeModal",
      "text": "Cancelar",
-     "action": "{() => setShowFinalizeModal(false)}",
+     "action": "{closeFinalize}",
      "disabled": "{finalizing}"
     },
     {
      "kind": "button",
-     "line": 1512,
+     "line": 84,
      "in": "SessionDetailPage",
      "when": "showFinalizeModal",
      "text": "Finalizando... / Finalizar",
@@ -6887,35 +4536,11 @@
     },
     {
      "kind": "popup",
-     "line": 1526,
+     "line": 98,
      "in": "SessionDetailPage",
      "when": "showEditRequestModal && session",
      "text": "EditRequestModal",
      "how": "component"
-    },
-    {
-     "kind": "string",
-     "line": 151,
-     "in": "SessionDetailPage",
-     "text": "Bearer {accessToken}"
-    },
-    {
-     "kind": "string",
-     "line": 246,
-     "in": "SessionDetailPage",
-     "text": "Bearer {authSession.access_token}"
-    },
-    {
-     "kind": "string",
-     "line": 542,
-     "in": "SessionDetailPage",
-     "text": "Sesión no cargada"
-    },
-    {
-     "kind": "hook",
-     "line": 1,
-     "text": "[id] (part of the address)",
-     "type": "address value"
     }
    ],
    "db": [],
@@ -6924,6 +4549,8 @@
     "components/sessions/AudioPlayer.tsx",
     "components/sessions/AudioReportUploader.tsx",
     "components/sessions/EditRequestModal.tsx",
+    "components/sessions/SessionDetailClasico.tsx",
+    "hooks/useSessionDetail.ts",
     "lib/services/audio-transcription.ts",
     "lib/utils/session-timezone.ts",
     "lib/utils/session-ui-helpers.tsx",
@@ -6938,7 +4565,7 @@
       "GET"
      ],
      "from": [
-      "pages/consultor/sessions/[id].tsx:149"
+      "hooks/useSessionDetail.ts:127"
      ]
     },
     {
@@ -6959,7 +4586,7 @@
      ],
      "from": [
       "components/sessions/AttendanceSuggestionsPanel.tsx:117",
-      "pages/consultor/sessions/[id].tsx:329"
+      "hooks/useSessionDetail.ts:307"
      ]
     },
     {
@@ -6979,7 +4606,7 @@
       "POST"
      ],
      "from": [
-      "pages/consultor/sessions/[id].tsx:582"
+      "hooks/useSessionDetail.ts:560"
      ]
     },
     {
@@ -6989,7 +4616,7 @@
       "POST"
      ],
      "from": [
-      "pages/consultor/sessions/[id].tsx:517"
+      "hooks/useSessionDetail.ts:495"
      ]
     },
     {
@@ -6997,7 +4624,7 @@
      "route": "/api/sessions/[id]/ical",
      "methods": [],
      "from": [
-      "pages/consultor/sessions/[id].tsx:1285"
+      "components/sessions/SessionDetailClasico.tsx:714"
      ]
     },
     {
@@ -7007,7 +4634,7 @@
       "POST"
      ],
      "from": [
-      "pages/consultor/sessions/[id].tsx:444"
+      "hooks/useSessionDetail.ts:422"
      ]
     },
     {
@@ -7017,7 +4644,7 @@
       "DELETE"
      ],
      "from": [
-      "pages/consultor/sessions/[id].tsx:484"
+      "hooks/useSessionDetail.ts:462"
      ]
     },
     {
@@ -7025,7 +4652,7 @@
      "route": "/api/sessions/[id]/reports",
      "methods": [],
      "from": [
-      "pages/consultor/sessions/[id].tsx:378"
+      "hooks/useSessionDetail.ts:356"
      ]
     },
     {
@@ -7035,8 +4662,8 @@
       "GET"
      ],
      "from": [
-      "pages/consultor/sessions/[id].tsx:244",
-      "pages/consultor/sessions/[id].tsx:377"
+      "hooks/useSessionDetail.ts:222",
+      "hooks/useSessionDetail.ts:355"
      ]
     }
    ]
@@ -7044,7 +4671,7 @@
   {
    "file": "pages/consultor/sessions/index.tsx",
    "route": "/consultor/sessions",
-   "lines": 557,
+   "lines": 31,
    "marks": {},
    "frame": "MainLayout",
    "server": "none",
@@ -7103,28 +4730,7 @@
       "middleware": "pass"
      }
     },
-    "inPage": [
-     {
-      "line": 137,
-      "text": "router.push → /login  (when !session?.user)"
-     },
-     {
-      "line": 142,
-      "text": "userRole = await getUserPrimaryRole(session.user.id)"
-     },
-     {
-      "line": 147,
-      "text": "router.push → /dashboard  (when !allowed)"
-     },
-     {
-      "line": 152,
-      "text": "router.push → /login"
-     },
-     {
-      "line": 211,
-      "text": "router.push → /login"
-     }
-    ],
+    "inPage": [],
     "linkedFrom": [
      "components/dashboard/unified/UpcomingSessionsCard.tsx:81",
      "components/layout/Sidebar.tsx:180",
@@ -7168,136 +4774,15 @@
      "e2eCi": [],
      "e2e": [],
      "unit": [
+      "__tests__/pages/consultor/sessions/list.clasico.test.tsx",
       "__tests__/pages/consultor/sessions/list.test.tsx"
      ]
     }
    },
    "rows": [
     {
-     "kind": "gate",
-     "line": 101,
-     "in": "ConsultorSessionsPage",
-     "text": "!data"
-    },
-    {
-     "kind": "nav",
-     "line": 128,
-     "in": "ConsultorSessionsPage",
-     "text": "{{ pathname: router.pathname, query }}",
-     "via": "router.replace"
-    },
-    {
-     "kind": "nav",
-     "line": 137,
-     "in": "initializeAuth",
-     "when": "!session?.user",
-     "text": "/login",
-     "via": "router.push"
-    },
-    {
-     "kind": "access",
-     "line": 142,
-     "in": "initializeAuth",
-     "text": "userRole = await getUserPrimaryRole(session.user.id)",
-     "via": "getUserPrimaryRole"
-    },
-    {
-     "kind": "nav",
-     "line": 147,
-     "in": "initializeAuth",
-     "when": "!allowed",
-     "text": "/dashboard",
-     "via": "router.push"
-    },
-    {
-     "kind": "nav",
-     "line": 152,
-     "in": "initializeAuth",
-     "text": "/login",
-     "via": "router.push"
-    },
-    {
-     "kind": "message",
-     "line": 182,
-     "in": "fetchSessions",
-     "when": "!response.ok",
-     "text": "Error al cargar sesiones",
-     "via": "throw (shown by whoever catches it)"
-    },
-    {
-     "kind": "list",
-     "line": 204,
-     "in": "fetchSessions",
-     "text": "errorMessage",
-     "items": [
-      "Error al cargar sesiones"
-     ]
-    },
-    {
-     "kind": "toast",
-     "line": 205,
-     "in": "fetchSessions",
-     "text": "{errorMessage}",
-     "variant": "error"
-    },
-    {
-     "kind": "nav",
-     "line": 211,
-     "in": "handleLogout",
-     "text": "/login",
-     "via": "router.push"
-    },
-    {
-     "kind": "clickable",
-     "line": 317,
-     "in": "renderSessionCard",
-     "text": "{session.title} [# {session.session_number}] {formatTime(session.start_time)} - {formatTime(session.end_time)} (Chile) …",
-     "tag": "div",
-     "action": "{() => router.push(`/consultor/sessions/${session.id}`)}",
-     "aria": "{`Ver detalles de ${session.title}`}"
-    },
-    {
-     "kind": "nav",
-     "line": 319,
-     "in": "renderSessionCard",
-     "text": "/consultor/sessions/[*]",
-     "via": "router.push"
-    },
-    {
-     "kind": "heading",
-     "line": 330,
-     "in": "renderSessionCard",
-     "text": "{session.title}",
-     "level": 3
-    },
-    {
-     "kind": "value",
-     "line": 334,
-     "in": "renderSessionCard",
-     "when": "session.recurrence_group_id && session.session_number",
-     "text": "# {session.session_number}"
-    },
-    {
-     "kind": "text",
-     "line": 343,
-     "in": "renderSessionCard",
-     "text": "(Chile)"
-    },
-    {
-     "kind": "value",
-     "line": 348,
-     "in": "renderSessionCard",
-     "text": "{session.modality}"
-    },
-    {
-     "kind": "value",
-     "line": 353,
-     "in": "renderSessionCard",
-     "text": "{badge.label}"
-    },
-    {
      "kind": "piece",
-     "line": 375,
+     "line": 12,
      "in": "ConsultorSessionsPage",
      "when": "loading",
      "text": "",
@@ -7305,323 +4790,35 @@
     },
     {
      "kind": "text",
-     "line": 377,
+     "line": 14,
      "in": "ConsultorSessionsPage",
      "when": "loading",
      "text": "Cargando..."
     },
     {
      "kind": "piece",
-     "line": 384,
+     "line": 24,
      "in": "ConsultorSessionsPage",
      "text": "",
      "tag": "MainLayout"
     },
     {
      "kind": "piece",
-     "line": 386,
+     "line": 25,
      "in": "ConsultorSessionsPage",
-     "text": "title: Mis Sesiones · subtitle: Vista de sesiones de consultoría asignadas",
-     "tag": "ResponsiveFunctionalPageHeader"
-    },
-    {
-     "kind": "piece",
-     "line": 391,
-     "in": "ConsultorSessionsPage",
-     "text": "sectionId: mis-sesiones",
-     "tag": "HelpButton"
-    },
-    {
-     "kind": "text",
-     "line": 397,
-     "in": "ConsultorSessionsPage",
-     "text": "Total Sesiones"
-    },
-    {
-     "kind": "value",
-     "line": 398,
-     "in": "ConsultorSessionsPage",
-     "text": "{totalSessions}"
-    },
-    {
-     "kind": "text",
-     "line": 401,
-     "in": "ConsultorSessionsPage",
-     "text": "Informes Pendientes"
-    },
-    {
-     "kind": "value",
-     "line": 402,
-     "in": "ConsultorSessionsPage",
-     "text": "{pendingReportsCount}"
-    },
-    {
-     "kind": "text",
-     "line": 405,
-     "in": "ConsultorSessionsPage",
-     "text": "Próxima Sesión"
-    },
-    {
-     "kind": "value",
-     "line": 406,
-     "in": "ConsultorSessionsPage",
-     "text": "{nextSessionCountdown}"
-    },
-    {
-     "kind": "heading",
-     "line": 414,
-     "in": "ConsultorSessionsPage",
-     "text": "Filtros",
-     "level": 3
-    },
-    {
-     "kind": "label",
-     "line": 418,
-     "in": "ConsultorSessionsPage",
-     "text": "Filtrar por colegio"
-    },
-    {
-     "kind": "field",
-     "line": 419,
-     "in": "ConsultorSessionsPage",
-     "text": "Filtrar por colegio",
-     "type": "select",
-     "action": "{(e) => setFilters({ ...filters, school_id: e.target.value })}",
-     "options": [
-      "Todos",
-      "(lista) {school.name}"
-     ]
-    },
-    {
-     "kind": "label",
-     "line": 433,
-     "in": "ConsultorSessionsPage",
-     "text": "Filtrar por estado"
-    },
-    {
-     "kind": "field",
-     "line": 434,
-     "in": "ConsultorSessionsPage",
-     "text": "Filtrar por estado",
-     "type": "select",
-     "action": "{(e) => setFilters({ ...filters, status: e.target.value })}",
-     "options": [
-      "Todos",
-      "Borrador",
-      "Pendiente Aprobación",
-      "Programada",
-      "En Progreso",
-      "Pendiente Informe",
-      "Completada",
-      "Cancelada"
-     ]
-    },
-    {
-     "kind": "label",
-     "line": 450,
-     "in": "ConsultorSessionsPage",
-     "text": "Fecha desde"
-    },
-    {
-     "kind": "field",
-     "line": 451,
-     "in": "ConsultorSessionsPage",
-     "text": "Fecha desde",
-     "type": "date",
-     "action": "{(e) => setFilters({ ...filters, date_from: e.target.value })}"
-    },
-    {
-     "kind": "label",
-     "line": 459,
-     "in": "ConsultorSessionsPage",
-     "text": "Fecha hasta"
-    },
-    {
-     "kind": "field",
-     "line": 460,
-     "in": "ConsultorSessionsPage",
-     "text": "Fecha hasta",
-     "type": "date",
-     "action": "{(e) => setFilters({ ...filters, date_to: e.target.value })}"
-    },
-    {
-     "kind": "button",
-     "line": 469,
-     "in": "ConsultorSessionsPage",
-     "text": "Limpiar filtros",
-     "action": "{handleClearFilters}"
-    },
-    {
-     "kind": "link",
-     "line": 477,
-     "in": "ConsultorSessionsPage",
-     "when": "sessions.length > 0",
-     "text": "Exportar Calendario",
-     "target": "/api/sessions/ical?[*]",
-     "download": true
-    },
-    {
-     "kind": "download",
-     "line": 477,
-     "in": "ConsultorSessionsPage",
-     "when": "sessions.length > 0",
-     "text": "<a download> Exportar Calendario",
-     "how": "link with download"
-    },
-    {
-     "kind": "heading",
-     "line": 495,
-     "in": "ConsultorSessionsPage",
-     "text": "Mis Sesiones",
-     "level": 2
-    },
-    {
-     "kind": "text",
-     "line": 498,
-     "in": "ConsultorSessionsPage",
-     "when": "mySessions.length === 0",
-     "text": "No está asignado como facilitador en ninguna sesión"
-    },
-    {
-     "kind": "heading",
-     "line": 504,
-     "in": "ConsultorSessionsPage",
-     "when": "!(mySessions.length === 0) && each sortedMyDates",
-     "text": "{format(parseISO(date), 'EEEE, dd MM…}",
-     "level": 3
-    },
-    {
-     "kind": "value",
-     "line": 507,
-     "in": "ConsultorSessionsPage",
-     "when": "!(mySessions.length === 0) && each sortedMyDates",
-     "text": "{mySessionsByDate[date].map((session…}"
-    },
-    {
-     "kind": "heading",
-     "line": 518,
-     "in": "ConsultorSessionsPage",
-     "text": "Otras Sesiones en Mis Colegios",
-     "level": 2
-    },
-    {
-     "kind": "text",
-     "line": 521,
-     "in": "ConsultorSessionsPage",
-     "when": "otherSessions.length === 0",
-     "text": "No hay otras sesiones en sus colegios asignados"
-    },
-    {
-     "kind": "heading",
-     "line": 527,
-     "in": "ConsultorSessionsPage",
-     "when": "!(otherSessions.length === 0) && each sortedOtherDates",
-     "text": "{format(parseISO(date), 'EEEE, dd MM…}",
-     "level": 3
-    },
-    {
-     "kind": "value",
-     "line": 530,
-     "in": "ConsultorSessionsPage",
-     "when": "!(otherSessions.length === 0) && each sortedOtherDates",
-     "text": "{otherSessionsByDate[date].map((sess…}"
-    },
-    {
-     "kind": "button",
-     "line": 543,
-     "in": "ConsultorSessionsPage",
-     "when": "sessions.length < totalSessions",
-     "text": "Cargar más",
-     "action": "{handleLoadMore}"
-    },
-    {
-     "kind": "string",
-     "line": 177,
-     "in": "ConsultorSessionsPage",
-     "text": "Bearer {authSession.access_token}"
-    },
-    {
-     "kind": "string",
-     "line": 288,
-     "in": "ConsultorSessionsPage",
-     "text": "Sin sesiones próximas"
-    },
-    {
-     "kind": "string",
-     "line": 296,
-     "in": "ConsultorSessionsPage",
-     "text": "Hoy"
-    },
-    {
-     "kind": "string",
-     "line": 297,
-     "in": "ConsultorSessionsPage",
-     "text": "Hoy a las {formatTime(next.start_time)}"
-    },
-    {
-     "kind": "string",
-     "line": 299,
-     "in": "ConsultorSessionsPage",
-     "text": "Mañana"
-    },
-    {
-     "kind": "string",
-     "line": 300,
-     "in": "ConsultorSessionsPage",
-     "text": "En {diffDays} días"
-    },
-    {
-     "kind": "list",
-     "line": 288,
-     "in": "getNextSessionCountdown",
-     "text": "getNextSessionCountdown()",
-     "items": [
-      "Sin sesiones próximas",
-      "Hoy",
-      "Hoy a las {formatTime(next.start_time)}",
-      "Mañana",
-      "En {diffDays} días"
-     ]
-    },
-    {
-     "kind": "hook",
-     "line": 1,
-     "text": "?date_from",
-     "type": "address value"
-    },
-    {
-     "kind": "hook",
-     "line": 1,
-     "text": "?date_to",
-     "type": "address value"
-    },
-    {
-     "kind": "hook",
-     "line": 1,
-     "text": "?school_id",
-     "type": "address value"
-    },
-    {
-     "kind": "hook",
-     "line": 1,
-     "text": "?status",
-     "type": "address value"
+     "text": "",
+     "tag": "SessionsListClasico"
     }
    ],
-   "db": [
-    {
-     "what": "table:contract_hours_ledger",
-     "ops": [
-      "select"
-     ]
-    }
-   ],
+   "db": [],
    "pieces": [
     "components/layout/FunctionalPageHeader.tsx",
+    "components/sessions/SessionsListClasico.tsx",
     "components/tutorials/HelpButton.tsx",
     "components/tutorials/HelpDrawer.tsx",
     "components/tutorials/VimeoEmbed.tsx",
     "components/ui/dialog.tsx",
+    "hooks/useSessionsList.ts",
     "lib/tutorials/content.ts",
     "lib/utils/session-timezone.ts",
     "lib/utils/session-ui-helpers.tsx",
@@ -7636,7 +4833,7 @@
       "GET"
      ],
      "from": [
-      "pages/consultor/sessions/index.tsx:175"
+      "hooks/useSessionsList.ts:162"
      ]
     },
     {
@@ -7644,7 +4841,7 @@
      "route": "/api/sessions/ical",
      "methods": [],
      "from": [
-      "pages/consultor/sessions/index.tsx:478"
+      "hooks/useSessionsList.ts:318"
      ]
     }
    ]
@@ -12697,6 +9894,1556 @@
    ],
    "db": []
   },
+  "components/sessions/SessionCreateClasico.tsx": {
+   "usedBy": [
+    "/admin/sessions/create"
+   ],
+   "lines": 753,
+   "rows": [
+    {
+     "kind": "piece",
+     "line": 100,
+     "in": "SessionCreateClasico",
+     "text": "title: Programar Sesión · subtitle: Crear una nueva sesión de consultoría para una comunidad de crecimiento",
+     "tag": "ResponsiveFunctionalPageHeader"
+    },
+    {
+     "kind": "text",
+     "line": 109,
+     "in": "SessionCreateClasico",
+     "text": "* Campos obligatorios"
+    },
+    {
+     "kind": "label",
+     "line": 115,
+     "in": "SessionCreateClasico",
+     "text": "Colegio *"
+    },
+    {
+     "kind": "field",
+     "line": 118,
+     "in": "SessionCreateClasico",
+     "text": "Colegio *",
+     "type": "select",
+     "name": "school_id",
+     "required": "true",
+     "action": "{handleInputChange}",
+     "options": [
+      "Seleccione un colegio",
+      "(lista) {school.name}"
+     ]
+    },
+    {
+     "kind": "label",
+     "line": 135,
+     "in": "SessionCreateClasico",
+     "text": "Comunidad de Crecimiento *"
+    },
+    {
+     "kind": "field",
+     "line": 138,
+     "in": "SessionCreateClasico",
+     "text": "Comunidad de Crecimiento *",
+     "type": "select",
+     "name": "growth_community_id",
+     "required": "true",
+     "disabled": "{communitySelectDisabled}",
+     "action": "{handleInputChange}",
+     "options": [
+      "Seleccione una comunidad",
+      "(lista) {community.name}"
+     ]
+    },
+    {
+     "kind": "text",
+     "line": 158,
+     "in": "SessionCreateClasico",
+     "when": "showHourTypesLoading",
+     "text": "Cargando tipos de hora..."
+    },
+    {
+     "kind": "text",
+     "line": 162,
+     "in": "SessionCreateClasico",
+     "when": "showHourTypesError",
+     "text": "No se pudieron cargar los tipos de hora. La sesión puede crearse sin seguimiento de horas."
+    },
+    {
+     "kind": "label",
+     "line": 168,
+     "in": "SessionCreateClasico",
+     "when": "showHourTypeSelects",
+     "text": "Tipo de Hora",
+     "for": "hour-type-select"
+    },
+    {
+     "kind": "field",
+     "line": 171,
+     "in": "SessionCreateClasico",
+     "when": "showHourTypeSelects",
+     "text": "Tipo de Hora",
+     "type": "select",
+     "action": "{handleHourTypeChange}",
+     "options": [
+      "Seleccione tipo de hora",
+      "(lista) {ht.display_name}"
+     ],
+     "hook": {
+      "id": "hour-type-select",
+      "idUsed": true
+     }
+    },
+    {
+     "kind": "label",
+     "line": 187,
+     "in": "SessionCreateClasico",
+     "when": "showHourTypeSelects",
+     "text": "Contrato",
+     "for": "contrato-select"
+    },
+    {
+     "kind": "field",
+     "line": 190,
+     "in": "SessionCreateClasico",
+     "when": "showHourTypeSelects",
+     "text": "Contrato",
+     "type": "select",
+     "disabled": "{contratoSelectDisabled()}",
+     "action": "{handleContratoChange}",
+     "options": [
+      "Seleccione un contrato",
+      "(lista) {c.nombre}"
+     ],
+     "hook": {
+      "id": "contrato-select",
+      "idUsed": true
+     }
+    },
+    {
+     "kind": "text",
+     "line": 206,
+     "in": "SessionCreateClasico",
+     "when": "showHourTypeSelects && showNoContratos()",
+     "text": "No hay contratos activos para este colegio."
+    },
+    {
+     "kind": "text",
+     "line": 218,
+     "in": "SessionCreateClasico",
+     "when": "showHoursChip && availableHoursLoading",
+     "text": "Cargando horas disponibles..."
+    },
+    {
+     "kind": "list",
+     "line": 227,
+     "in": "SessionCreateClasico",
+     "when": "showHoursChip && !(availableHoursLoading) && hasHoursBucket()",
+     "text": "badgeText",
+     "items": [
+      "Sin horas disponibles en este tipo (se registrará como sobrepresupuesto) / {(availableHours as number).…} horas disponibles en este tipo — ¡Quedan menos del 25%! / {(availableHours as number).…} horas disponibles en este tipo"
+     ]
+    },
+    {
+     "kind": "value",
+     "line": 233,
+     "in": "SessionCreateClasico",
+     "when": "showHoursChip && !(availableHoursLoading) && hasHoursBucket()",
+     "text": "{badgeText}"
+    },
+    {
+     "kind": "text",
+     "line": 239,
+     "in": "SessionCreateClasico",
+     "when": "showHoursChip && !(availableHoursLoading) && !(hasHoursBucket())",
+     "text": "No hay asignación de horas para este tipo en el contrato seleccionado"
+    },
+    {
+     "kind": "label",
+     "line": 248,
+     "in": "SessionCreateClasico",
+     "when": "showConsultants",
+     "text": "Consultor(es) asignados *"
+    },
+    {
+     "kind": "text",
+     "line": 252,
+     "in": "SessionCreateClasico",
+     "when": "showConsultants",
+     "text": "Debe asignar al menos un consultor antes de crear la sesión."
+    },
+    {
+     "kind": "text",
+     "line": 259,
+     "in": "SessionCreateClasico",
+     "when": "showConsultants && showConsultantsLoading()",
+     "text": "Cargando consultores..."
+    },
+    {
+     "kind": "heading",
+     "line": 268,
+     "in": "SessionCreateClasico",
+     "when": "showConsultants && showConsultantsError()",
+     "text": "Error al cargar consultores",
+     "level": 4
+    },
+    {
+     "kind": "value",
+     "line": 269,
+     "in": "SessionCreateClasico",
+     "when": "showConsultants && showConsultantsError()",
+     "text": "{consultantsError}"
+    },
+    {
+     "kind": "button",
+     "line": 271,
+     "in": "SessionCreateClasico",
+     "when": "showConsultants && showConsultantsError()",
+     "text": "Reintentar",
+     "action": "{retryConsultants}"
+    },
+    {
+     "kind": "text",
+     "line": 286,
+     "in": "SessionCreateClasico",
+     "when": "showConsultants && showConsultantsEmpty()",
+     "text": "No hay consultores disponibles para este colegio. Verifique que existan usuarios con rol activo de consultor."
+    },
+    {
+     "kind": "gate",
+     "line": 296,
+     "in": "SessionCreateClasico",
+     "when": "showConsultants && showFacilitators() && each facilitators",
+     "text": "!consultant"
+    },
+    {
+     "kind": "value",
+     "line": 304,
+     "in": "SessionCreateClasico",
+     "when": "showConsultants && showFacilitators() && each facilitators",
+     "text": "{consultant.first_name} {consultant.last_name}"
+    },
+    {
+     "kind": "value",
+     "line": 307,
+     "in": "SessionCreateClasico",
+     "when": "showConsultants && showFacilitators() && each facilitators",
+     "text": "{consultant.email}"
+    },
+    {
+     "kind": "button",
+     "line": 311,
+     "in": "SessionCreateClasico",
+     "when": "showConsultants && showFacilitators() && each facilitators",
+     "text": "{facilitatorRoleLabel(facilitator)}",
+     "action": "{() => handleToggleRole(facilitator.user_id)}"
+    },
+    {
+     "kind": "label",
+     "line": 319,
+     "in": "SessionCreateClasico",
+     "when": "showConsultants && showFacilitators() && each facilitators",
+     "text": "Consultor principal"
+    },
+    {
+     "kind": "field",
+     "line": 320,
+     "in": "SessionCreateClasico",
+     "when": "showConsultants && showFacilitators() && each facilitators",
+     "text": "Consultor principal",
+     "type": "checkbox",
+     "action": "{() => handleToggleLead(facilitator.user_id)}"
+    },
+    {
+     "kind": "button",
+     "line": 329,
+     "in": "SessionCreateClasico",
+     "when": "showConsultants && showFacilitators() && each facilitators",
+     "text": "Quitar",
+     "action": "{() => handleRemoveFacilitator(facilitator.user_id)}",
+     "aria": "{`Quitar consultor ${consultant.first_name} ${consultant.last_name}`}"
+    },
+    {
+     "kind": "field",
+     "line": 346,
+     "in": "SessionCreateClasico",
+     "when": "showConsultants && showConsultantSelector()",
+     "text": "Consultor(es) asignados *",
+     "type": "select",
+     "disabled": "{consultantSelectorDisabled()}",
+     "action": "{handleConsultantSelect}",
+     "options": [
+      "Agregar consultor...",
+      "(lista) {consultant.first_name} {consultant.last_name} ( {consultant.email} )"
+     ]
+    },
+    {
+     "kind": "label",
+     "line": 365,
+     "in": "SessionCreateClasico",
+     "text": "Título de la Sesión *"
+    },
+    {
+     "kind": "field",
+     "line": 368,
+     "in": "SessionCreateClasico",
+     "text": "Título de la Sesión *",
+     "type": "text",
+     "name": "title",
+     "placeholder": "Ej: Sesión de planificación trimestral",
+     "required": "true",
+     "limits": "maxLength={200}",
+     "action": "{handleInputChange}"
+    },
+    {
+     "kind": "label",
+     "line": 382,
+     "in": "SessionCreateClasico",
+     "text": "Descripción"
+    },
+    {
+     "kind": "field",
+     "line": 385,
+     "in": "SessionCreateClasico",
+     "text": "Descripción",
+     "type": "textarea",
+     "name": "description",
+     "placeholder": "Descripción de la sesión...",
+     "limits": "",
+     "action": "{handleInputChange}"
+    },
+    {
+     "kind": "label",
+     "line": 397,
+     "in": "SessionCreateClasico",
+     "text": "Objetivos"
+    },
+    {
+     "kind": "field",
+     "line": 400,
+     "in": "SessionCreateClasico",
+     "text": "Objetivos",
+     "type": "textarea",
+     "name": "objectives",
+     "placeholder": "Objetivos de la sesión...",
+     "limits": "",
+     "action": "{handleInputChange}"
+    },
+    {
+     "kind": "label",
+     "line": 413,
+     "in": "SessionCreateClasico",
+     "text": "Fecha *"
+    },
+    {
+     "kind": "field",
+     "line": 416,
+     "in": "SessionCreateClasico",
+     "text": "Fecha *",
+     "type": "date",
+     "name": "session_date",
+     "required": "true",
+     "limits": "min={earliestDate}",
+     "action": "{handleInputChange}"
+    },
+    {
+     "kind": "label",
+     "line": 428,
+     "in": "SessionCreateClasico",
+     "text": "Hora de inicio (hora Chile) *"
+    },
+    {
+     "kind": "field",
+     "line": 432,
+     "in": "SessionCreateClasico",
+     "text": "Hora de inicio (hora Chile) *",
+     "type": "time",
+     "name": "start_time",
+     "required": "true",
+     "action": "{handleInputChange}"
+    },
+    {
+     "kind": "label",
+     "line": 443,
+     "in": "SessionCreateClasico",
+     "text": "Hora de término (hora Chile) *"
+    },
+    {
+     "kind": "field",
+     "line": 447,
+     "in": "SessionCreateClasico",
+     "text": "Hora de término (hora Chile) *",
+     "type": "time",
+     "name": "end_time",
+     "required": "true",
+     "action": "{handleInputChange}"
+    },
+    {
+     "kind": "hook",
+     "line": 466,
+     "in": "SessionCreateClasico",
+     "when": "spainTimePreview",
+     "text": "testid=create-session-spain-preview",
+     "type": "mark",
+     "tag": "p"
+    },
+    {
+     "kind": "text",
+     "line": 470,
+     "in": "SessionCreateClasico",
+     "when": "spainTimePreview",
+     "text": "En España:"
+    },
+    {
+     "kind": "value",
+     "line": 470,
+     "in": "SessionCreateClasico",
+     "when": "spainTimePreview",
+     "text": "{spainTimePreview}"
+    },
+    {
+     "kind": "label",
+     "line": 476,
+     "in": "SessionCreateClasico",
+     "text": "Tipo de sesión"
+    },
+    {
+     "kind": "label",
+     "line": 480,
+     "in": "SessionCreateClasico",
+     "text": "Sesión única"
+    },
+    {
+     "kind": "field",
+     "line": 481,
+     "in": "SessionCreateClasico",
+     "text": "Sesión única",
+     "type": "radio",
+     "action": "{chooseSingleSession}"
+    },
+    {
+     "kind": "label",
+     "line": 489,
+     "in": "SessionCreateClasico",
+     "text": "Serie recurrente"
+    },
+    {
+     "kind": "field",
+     "line": 490,
+     "in": "SessionCreateClasico",
+     "text": "Serie recurrente",
+     "type": "radio",
+     "action": "{chooseRecurringSeries}"
+    },
+    {
+     "kind": "heading",
+     "line": 504,
+     "in": "SessionCreateClasico",
+     "when": "showRecurrence",
+     "text": "Configuración de recurrencia",
+     "level": 4
+    },
+    {
+     "kind": "label",
+     "line": 508,
+     "in": "SessionCreateClasico",
+     "when": "showRecurrence",
+     "text": "Frecuencia"
+    },
+    {
+     "kind": "field",
+     "line": 511,
+     "in": "SessionCreateClasico",
+     "when": "showRecurrence",
+     "text": "Frecuencia",
+     "type": "select",
+     "action": "{handleFrequencyChange}",
+     "options": [
+      "Semanal",
+      "Quincenal",
+      "Mensual",
+      "Fechas personalizadas"
+     ]
+    },
+    {
+     "kind": "label",
+     "line": 526,
+     "in": "SessionCreateClasico",
+     "when": "showRecurrence && showRecurrenceCount()",
+     "text": "Número de sesiones (2-52)"
+    },
+    {
+     "kind": "field",
+     "line": 529,
+     "in": "SessionCreateClasico",
+     "when": "showRecurrence && showRecurrenceCount()",
+     "text": "Número de sesiones (2-52)",
+     "type": "number",
+     "limits": "min={2} max={52}",
+     "action": "{handleCountChange}"
+    },
+    {
+     "kind": "label",
+     "line": 543,
+     "in": "SessionCreateClasico",
+     "when": "showRecurrence && showCustomDates()",
+     "text": "Fechas personalizadas"
+    },
+    {
+     "kind": "field",
+     "line": 549,
+     "in": "SessionCreateClasico",
+     "when": "showRecurrence && showCustomDates() && each customDates",
+     "text": "Fechas personalizadas",
+     "type": "date",
+     "limits": "min={customDateEarliest[index]}",
+     "action": "{(e) => handleCustomDateInput(index, e)}"
+    },
+    {
+     "kind": "button",
+     "line": 557,
+     "in": "SessionCreateClasico",
+     "when": "showRecurrence && showCustomDates() && each customDates && canRemoveCustomDate()",
+     "text": "[icon X]",
+     "action": "{() => handleRemoveCustomDate(index)}",
+     "aria": "Eliminar fecha"
+    },
+    {
+     "kind": "button",
+     "line": 569,
+     "in": "SessionCreateClasico",
+     "when": "showRecurrence && showCustomDates()",
+     "text": "Agregar fecha",
+     "action": "{handleAddCustomDate}"
+    },
+    {
+     "kind": "heading",
+     "line": 583,
+     "in": "SessionCreateClasico",
+     "when": "showRecurrence && showPreview()",
+     "text": "Vista previa ( {previewDates.length} sesiones)",
+     "level": 5
+    },
+    {
+     "kind": "text",
+     "line": 597,
+     "in": "SessionCreateClasico",
+     "when": "showRecurrence && showPreview() && each previewDates",
+     "text": "Sesión {index + 1}"
+    },
+    {
+     "kind": "value",
+     "line": 598,
+     "in": "SessionCreateClasico",
+     "when": "showRecurrence && showPreview() && each previewDates",
+     "text": "{format(parsedDate, 'EEEE, dd MMMM y…}"
+    },
+    {
+     "kind": "text",
+     "line": 604,
+     "in": "SessionCreateClasico",
+     "when": "showRecurrence && showPreview() && each previewDates && isWeekend",
+     "text": "Fin de semana"
+    },
+    {
+     "kind": "label",
+     "line": 618,
+     "in": "SessionCreateClasico",
+     "text": "Modalidad *"
+    },
+    {
+     "kind": "label",
+     "line": 623,
+     "in": "SessionCreateClasico",
+     "when": "each (['presencial', 'online', 'hibrida'] as const)",
+     "text": "{mod}"
+    },
+    {
+     "kind": "field",
+     "line": 624,
+     "in": "SessionCreateClasico",
+     "when": "each (['presencial', 'online', 'hibrida'] as const)",
+     "text": "{mod}",
+     "type": "radio",
+     "name": "modality",
+     "action": "{() => handleModalityChange(mod)}"
+    },
+    {
+     "kind": "label",
+     "line": 643,
+     "in": "SessionCreateClasico",
+     "when": "showMeetingFields && zoomManagedAvailable",
+     "text": "Generar reunión Zoom"
+    },
+    {
+     "kind": "field",
+     "line": 644,
+     "in": "SessionCreateClasico",
+     "when": "showMeetingFields && zoomManagedAvailable",
+     "text": "Generar reunión Zoom",
+     "type": "checkbox",
+     "name": "is_zoom_managed",
+     "action": "{handleZoomManagedChange}",
+     "hook": {
+      "testid": "session-zoom-managed"
+     }
+    },
+    {
+     "kind": "hook",
+     "line": 657,
+     "in": "SessionCreateClasico",
+     "when": "showMeetingFields && zoomManagedAvailable && showZoomManagedHelp()",
+     "text": "testid=session-zoom-managed-help",
+     "type": "mark",
+     "tag": "p"
+    },
+    {
+     "kind": "text",
+     "line": 661,
+     "in": "SessionCreateClasico",
+     "when": "showMeetingFields && zoomManagedAvailable && showZoomManagedHelp()",
+     "text": "GENERA crea la reunión y su enlace cuando se apruebe la sesión."
+    },
+    {
+     "kind": "label",
+     "line": 670,
+     "in": "SessionCreateClasico",
+     "when": "showMeetingFields && showManualMeetingFields()",
+     "text": "Enlace de reunión *"
+    },
+    {
+     "kind": "field",
+     "line": 673,
+     "in": "SessionCreateClasico",
+     "when": "showMeetingFields && showManualMeetingFields()",
+     "text": "Enlace de reunión *",
+     "type": "url",
+     "name": "meeting_link",
+     "placeholder": "https://zoom.us/j/123456789",
+     "action": "{handleInputChange}"
+    },
+    {
+     "kind": "label",
+     "line": 684,
+     "in": "SessionCreateClasico",
+     "when": "showMeetingFields && showManualMeetingFields()",
+     "text": "Proveedor de reunión"
+    },
+    {
+     "kind": "field",
+     "line": 687,
+     "in": "SessionCreateClasico",
+     "when": "showMeetingFields && showManualMeetingFields()",
+     "text": "Proveedor de reunión",
+     "type": "select",
+     "name": "meeting_provider",
+     "action": "{handleInputChange}",
+     "options": [
+      "Auto-detectar",
+      "Zoom",
+      "Google Meet",
+      "Microsoft Teams",
+      "Otro"
+     ]
+    },
+    {
+     "kind": "label",
+     "line": 708,
+     "in": "SessionCreateClasico",
+     "when": "showLocation",
+     "text": "Ubicación *"
+    },
+    {
+     "kind": "field",
+     "line": 711,
+     "in": "SessionCreateClasico",
+     "when": "showLocation",
+     "text": "Ubicación *",
+     "type": "text",
+     "name": "location",
+     "placeholder": "Ej: Sala de profesores",
+     "action": "{handleInputChange}"
+    },
+    {
+     "kind": "button",
+     "line": 725,
+     "in": "SessionCreateClasico",
+     "text": "Guardar serie como borrador ({previewDates.length} sesiones) / Guardar borrador",
+     "action": "{handleSaveDraft}",
+     "disabled": "{draftDisabled}"
+    },
+    {
+     "kind": "button",
+     "line": 736,
+     "in": "SessionCreateClasico",
+     "text": "Programar serie ({previewDates.length} sesiones) / Programar sesión",
+     "action": "{handleScheduleSession}",
+     "disabled": "{scheduleDisabled}"
+    }
+   ],
+   "db": []
+  },
+  "components/sessions/SessionDetailClasico.tsx": {
+   "usedBy": [
+    "/consultor/sessions/[id]"
+   ],
+   "lines": 913,
+   "rows": [
+    {
+     "kind": "heading",
+     "line": 126,
+     "in": "renderTabContent",
+     "when": "activeTab === 'details'",
+     "text": "Descripción",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 127,
+     "in": "renderTabContent",
+     "when": "activeTab === 'details'",
+     "text": "{session.description} / Sin descripción"
+    },
+    {
+     "kind": "heading",
+     "line": 132,
+     "in": "renderTabContent",
+     "when": "activeTab === 'details'",
+     "text": "Objetivos",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 133,
+     "in": "renderTabContent",
+     "when": "activeTab === 'details'",
+     "text": "{session.objectives} / Sin objetivos definidos"
+    },
+    {
+     "kind": "heading",
+     "line": 138,
+     "in": "renderTabContent",
+     "when": "activeTab === 'details'",
+     "text": "Facilitadores",
+     "level": 3
+    },
+    {
+     "kind": "value",
+     "line": 143,
+     "in": "renderTabContent",
+     "when": "activeTab === 'details' && each session.facilitators",
+     "text": "{f.profiles?.first_name} {f.profiles?.last_name}"
+    },
+    {
+     "kind": "text",
+     "line": 148,
+     "in": "renderTabContent",
+     "when": "activeTab === 'details' && each session.facilitators && f.is_lead",
+     "text": "Líder"
+    },
+    {
+     "kind": "value",
+     "line": 151,
+     "in": "renderTabContent",
+     "when": "activeTab === 'details' && each session.facilitators",
+     "text": "( {f.facilitator_role.replace(/_/g, ' …} )"
+    },
+    {
+     "kind": "piece",
+     "line": 164,
+     "in": "renderTabContent",
+     "when": "activeTab === 'details'",
+     "text": "",
+     "tag": "AttendanceSuggestionsPanel"
+    },
+    {
+     "kind": "heading",
+     "line": 169,
+     "in": "renderTabContent",
+     "when": "activeTab === 'details'",
+     "text": "Asistencia ( {attendeeCount()} )",
+     "level": 3
+    },
+    {
+     "kind": "button",
+     "line": 174,
+     "in": "renderTabContent",
+     "when": "activeTab === 'details' && canChange()",
+     "text": "Marcar todos presentes",
+     "action": "{handleMarkAllPresent}"
+    },
+    {
+     "kind": "button",
+     "line": 180,
+     "in": "renderTabContent",
+     "when": "activeTab === 'details' && canChange()",
+     "text": "Guardando... / Guardar asistencia",
+     "action": "{handleSaveAttendance}",
+     "disabled": "{savingAttendance}"
+    },
+    {
+     "kind": "text",
+     "line": 196,
+     "in": "renderTabContent",
+     "when": "activeTab === 'details'",
+     "text": "Presentes:"
+    },
+    {
+     "kind": "text",
+     "line": 200,
+     "in": "renderTabContent",
+     "when": "activeTab === 'details'",
+     "text": "Ausentes:"
+    },
+    {
+     "kind": "text",
+     "line": 202,
+     "in": "renderTabContent",
+     "when": "activeTab === 'details'",
+     "text": "Sin marcar: {unmarkedCount()}"
+    },
+    {
+     "kind": "column",
+     "line": 212,
+     "in": "renderTabContent",
+     "when": "activeTab === 'details'",
+     "screen": "hidden md:block",
+     "text": "Nombre"
+    },
+    {
+     "kind": "column",
+     "line": 213,
+     "in": "renderTabContent",
+     "when": "activeTab === 'details'",
+     "screen": "hidden md:block",
+     "text": "Esperado"
+    },
+    {
+     "kind": "column",
+     "line": 214,
+     "in": "renderTabContent",
+     "when": "activeTab === 'details'",
+     "screen": "hidden md:block",
+     "text": "Asistió"
+    },
+    {
+     "kind": "column",
+     "line": 215,
+     "in": "renderTabContent",
+     "when": "activeTab === 'details'",
+     "screen": "hidden md:block",
+     "text": "Estado de llegada"
+    },
+    {
+     "kind": "column",
+     "line": 216,
+     "in": "renderTabContent",
+     "when": "activeTab === 'details'",
+     "screen": "hidden md:block",
+     "text": "Notas"
+    },
+    {
+     "kind": "value",
+     "line": 233,
+     "in": "renderTabContent",
+     "when": "activeTab === 'details' && each session.attendees",
+     "screen": "hidden md:block",
+     "text": "{fullName}"
+    },
+    {
+     "kind": "field",
+     "line": 251,
+     "in": "renderTabContent",
+     "when": "activeTab === 'details' && each session.attendees && !(readMode())",
+     "screen": "hidden md:block",
+     "text": "",
+     "type": "checkbox",
+     "action": "{(e) => handleAttendanceChange(attendee.user_id, 'attended', e.target.checked)}"
+    },
+    {
+     "kind": "value",
+     "line": 263,
+     "in": "renderTabContent",
+     "when": "activeTab === 'details' && each session.attendees && readMode()",
+     "screen": "hidden md:block",
+     "text": "{attendee.arrival_status?.replace(/_…} / —"
+    },
+    {
+     "kind": "field",
+     "line": 267,
+     "in": "renderTabContent",
+     "when": "activeTab === 'details' && each session.attendees && !(readMode())",
+     "screen": "hidden md:block",
+     "text": "",
+     "type": "select",
+     "action": "{(e) => handleAttendanceChange( attendee.user_id, 'arrival_status', e.target.val…}",
+     "options": [
+      "—",
+      "A tiempo",
+      "Tarde",
+      "Salió temprano"
+     ]
+    },
+    {
+     "kind": "value",
+     "line": 287,
+     "in": "renderTabContent",
+     "when": "activeTab === 'details' && each session.attendees && readMode()",
+     "screen": "hidden md:block",
+     "text": "{attendee.notes} / —"
+    },
+    {
+     "kind": "field",
+     "line": 289,
+     "in": "renderTabContent",
+     "when": "activeTab === 'details' && each session.attendees && !(readMode())",
+     "screen": "hidden md:block",
+     "text": "Notas opcionales",
+     "type": "text",
+     "placeholder": "Notas opcionales",
+     "action": "{(e) => handleAttendanceChange(attendee.user_id, 'notes', e.target.value || null)}"
+    },
+    {
+     "kind": "text",
+     "line": 308,
+     "in": "renderTabContent",
+     "when": "activeTab === 'details'",
+     "screen": "md:hidden",
+     "text": "Lista de asistencia",
+     "attr": "aria-label"
+    },
+    {
+     "kind": "hook",
+     "line": 308,
+     "in": "renderTabContent",
+     "when": "activeTab === 'details'",
+     "screen": "md:hidden",
+     "text": "role=list",
+     "type": "role",
+     "tag": "ul",
+     "aria": "Lista de asistencia"
+    },
+    {
+     "kind": "heading",
+     "line": 320,
+     "in": "renderTabContent",
+     "when": "activeTab === 'details' && each session.attendees",
+     "screen": "md:hidden",
+     "text": "{fullName}",
+     "level": 4
+    },
+    {
+     "kind": "text",
+     "line": 322,
+     "in": "renderTabContent",
+     "when": "activeTab === 'details' && each session.attendees && attendee.expected",
+     "screen": "md:hidden",
+     "text": "Esperado"
+    },
+    {
+     "kind": "text",
+     "line": 324,
+     "in": "renderTabContent",
+     "when": "activeTab === 'details' && each session.attendees && !(attendee.expected)",
+     "screen": "md:hidden",
+     "text": "No esperado"
+    },
+    {
+     "kind": "label",
+     "line": 330,
+     "in": "renderTabContent",
+     "when": "activeTab === 'details' && each session.attendees",
+     "screen": "md:hidden",
+     "text": "— Asistió"
+    },
+    {
+     "kind": "field",
+     "line": 340,
+     "in": "renderTabContent",
+     "when": "activeTab === 'details' && each session.attendees && !(readMode())",
+     "screen": "md:hidden",
+     "text": "— Asistió",
+     "type": "checkbox",
+     "action": "{(e) => handleAttendanceChange(attendee.user_id, 'attended', e.target.checked)}"
+    },
+    {
+     "kind": "label",
+     "line": 355,
+     "in": "renderTabContent",
+     "when": "activeTab === 'details' && each session.attendees",
+     "screen": "md:hidden",
+     "text": "Estado de llegada"
+    },
+    {
+     "kind": "value",
+     "line": 357,
+     "in": "renderTabContent",
+     "when": "activeTab === 'details' && each session.attendees && readMode()",
+     "screen": "md:hidden",
+     "text": "{attendee.arrival_status?.replace(/_…} / —"
+    },
+    {
+     "kind": "field",
+     "line": 361,
+     "in": "renderTabContent",
+     "when": "activeTab === 'details' && each session.attendees && !(readMode())",
+     "screen": "md:hidden",
+     "text": "Estado de llegada",
+     "type": "select",
+     "action": "{(e) => handleAttendanceChange( attendee.user_id, 'arrival_status', e.target.val…}",
+     "options": [
+      "—",
+      "A tiempo",
+      "Tarde",
+      "Salió temprano"
+     ]
+    },
+    {
+     "kind": "label",
+     "line": 382,
+     "in": "renderTabContent",
+     "when": "activeTab === 'details' && each session.attendees",
+     "screen": "md:hidden",
+     "text": "Notas"
+    },
+    {
+     "kind": "value",
+     "line": 384,
+     "in": "renderTabContent",
+     "when": "activeTab === 'details' && each session.attendees && readMode()",
+     "screen": "md:hidden",
+     "text": "{attendee.notes} / —"
+    },
+    {
+     "kind": "field",
+     "line": 386,
+     "in": "renderTabContent",
+     "when": "activeTab === 'details' && each session.attendees && !(readMode())",
+     "screen": "md:hidden",
+     "text": "Notas",
+     "type": "text",
+     "placeholder": "Notas opcionales",
+     "action": "{(e) => handleAttendanceChange(attendee.user_id, 'notes', e.target.value || null)}"
+    },
+    {
+     "kind": "text",
+     "line": 410,
+     "in": "renderTabContent",
+     "when": "activeTab === 'planning'",
+     "text": "Notas de planificación disponibles próximamente"
+    },
+    {
+     "kind": "label",
+     "line": 420,
+     "in": "renderTabContent",
+     "when": "activeTab === 'materials' && canChange()",
+     "text": "Subiendo... / Subir material"
+    },
+    {
+     "kind": "field",
+     "line": 423,
+     "in": "renderTabContent",
+     "when": "activeTab === 'materials' && canChange()",
+     "screen": "hidden",
+     "text": "Subiendo... / Subir material",
+     "type": "file",
+     "disabled": "{uploadingMaterial}",
+     "action": "{handleUploadMaterial}"
+    },
+    {
+     "kind": "text",
+     "line": 437,
+     "in": "renderTabContent",
+     "when": "activeTab === 'materials' && materials.length === 0",
+     "text": "No hay materiales subidos"
+    },
+    {
+     "kind": "column",
+     "line": 444,
+     "in": "renderTabContent",
+     "when": "activeTab === 'materials' && !(materials.length === 0)",
+     "text": "Archivo"
+    },
+    {
+     "kind": "column",
+     "line": 445,
+     "in": "renderTabContent",
+     "when": "activeTab === 'materials' && !(materials.length === 0)",
+     "text": "Tipo"
+    },
+    {
+     "kind": "column",
+     "line": 446,
+     "in": "renderTabContent",
+     "when": "activeTab === 'materials' && !(materials.length === 0)",
+     "text": "Tamaño"
+    },
+    {
+     "kind": "column",
+     "line": 447,
+     "in": "renderTabContent",
+     "when": "activeTab === 'materials' && !(materials.length === 0)",
+     "text": "Subido por"
+    },
+    {
+     "kind": "column",
+     "line": 448,
+     "in": "renderTabContent",
+     "when": "activeTab === 'materials' && !(materials.length === 0)",
+     "text": "Fecha"
+    },
+    {
+     "kind": "column",
+     "line": 449,
+     "in": "renderTabContent",
+     "when": "activeTab === 'materials' && !(materials.length === 0)",
+     "text": "Acciones"
+    },
+    {
+     "kind": "value",
+     "line": 458,
+     "in": "renderTabContent",
+     "when": "activeTab === 'materials' && !(materials.length === 0) && each materials",
+     "text": "{material.file_name}"
+    },
+    {
+     "kind": "value",
+     "line": 459,
+     "in": "renderTabContent",
+     "when": "activeTab === 'materials' && !(materials.length === 0) && each materials",
+     "text": "{material.file_type}"
+    },
+    {
+     "kind": "value",
+     "line": 460,
+     "in": "renderTabContent",
+     "when": "activeTab === 'materials' && !(materials.length === 0) && each materials",
+     "text": "{formatFileSize(material.file_size)}"
+    },
+    {
+     "kind": "value",
+     "line": 461,
+     "in": "renderTabContent",
+     "when": "activeTab === 'materials' && !(materials.length === 0) && each materials",
+     "text": "{uploaderNameText}"
+    },
+    {
+     "kind": "value",
+     "line": 462,
+     "in": "renderTabContent",
+     "when": "activeTab === 'materials' && !(materials.length === 0) && each materials",
+     "text": "{format(parseISO(material.created_at…}"
+    },
+    {
+     "kind": "link",
+     "line": 468,
+     "in": "renderTabContent",
+     "when": "activeTab === 'materials' && !(materials.length === 0) && each materials && material.download_url",
+     "text": "[icon ExternalLink]",
+     "target": "{material.download_url}",
+     "newTab": true
+    },
+    {
+     "kind": "button",
+     "line": 478,
+     "in": "renderTabContent",
+     "when": "activeTab === 'materials' && !(materials.length === 0) && each materials && canDeleteMaterial(material)",
+     "text": "[icon Trash2]",
+     "action": "{() => handleDeleteMaterial(material.id, material.file_name)}"
+    },
+    {
+     "kind": "text",
+     "line": 502,
+     "in": "renderTabContent",
+     "when": "activeTab === 'report' && onlyFacilitatorsReport()",
+     "text": "Solo los facilitadores pueden crear informes"
+    },
+    {
+     "kind": "piece",
+     "line": 511,
+     "in": "renderTabContent",
+     "when": "activeTab === 'report' && showAudioUploader()",
+     "text": "",
+     "tag": "AudioReportUploader"
+    },
+    {
+     "kind": "button",
+     "line": 519,
+     "in": "renderTabContent",
+     "when": "activeTab === 'report' && showCreateReportButton()",
+     "text": "Crear Informe",
+     "action": "{startEditingReport}"
+    },
+    {
+     "kind": "button",
+     "line": 528,
+     "in": "renderTabContent",
+     "when": "activeTab === 'report' && showEditReportButton()",
+     "text": "Editar Informe",
+     "action": "{startEditingReport}"
+    },
+    {
+     "kind": "label",
+     "line": 539,
+     "in": "renderTabContent",
+     "when": "activeTab === 'report' && showReportEditor()",
+     "text": "Contenido del informe"
+    },
+    {
+     "kind": "field",
+     "line": 540,
+     "in": "renderTabContent",
+     "when": "activeTab === 'report' && showReportEditor()",
+     "text": "Contenido del informe",
+     "type": "textarea",
+     "placeholder": "Escriba el informe de la sesión...",
+     "limits": "",
+     "action": "{changeReportContent}"
+    },
+    {
+     "kind": "label",
+     "line": 549,
+     "in": "renderTabContent",
+     "when": "activeTab === 'report' && showReportEditor()",
+     "text": "Visibilidad"
+    },
+    {
+     "kind": "field",
+     "line": 550,
+     "in": "renderTabContent",
+     "when": "activeTab === 'report' && showReportEditor()",
+     "text": "Visibilidad",
+     "type": "select",
+     "action": "{changeReportVisibility}",
+     "options": [
+      "Solo facilitadores",
+      "Todos los participantes"
+     ]
+    },
+    {
+     "kind": "button",
+     "line": 560,
+     "in": "renderTabContent",
+     "when": "activeTab === 'report' && showReportEditor()",
+     "text": "Guardando... / Actualizar / Crear",
+     "action": "{handleSaveReport}",
+     "disabled": "{savingReport || !reportContent.trim()}"
+    },
+    {
+     "kind": "button",
+     "line": 568,
+     "in": "renderTabContent",
+     "when": "activeTab === 'report' && showReportEditor() && editingReport",
+     "text": "Cancelar",
+     "action": "{cancelEditingReport}"
+    },
+    {
+     "kind": "piece",
+     "line": 581,
+     "in": "renderTabContent",
+     "when": "activeTab === 'report' && !(showReportEditor()) && existingReport && signedAudioUrl",
+     "text": "",
+     "tag": "AudioPlayer"
+    },
+    {
+     "kind": "value",
+     "line": 590,
+     "in": "renderTabContent",
+     "when": "activeTab === 'report' && !(showReportEditor()) && existingReport",
+     "text": "{format(parseISO(existingReport.crea…}"
+    },
+    {
+     "kind": "text",
+     "line": 593,
+     "in": "renderTabContent",
+     "when": "activeTab === 'report' && !(showReportEditor()) && existingReport",
+     "text": "Todos los participantes / Solo facilitadores"
+    },
+    {
+     "kind": "value",
+     "line": 606,
+     "in": "renderTabContent",
+     "when": "activeTab === 'report' && !(showReportEditor()) && existingReport",
+     "text": "{existingReport.content}"
+    },
+    {
+     "kind": "text",
+     "line": 614,
+     "in": "renderTabContent",
+     "when": "activeTab === 'report' && !(showReportEditor()) && !(existingReport)",
+     "text": "No hay informe creado"
+    },
+    {
+     "kind": "text",
+     "line": 624,
+     "in": "renderTabContent",
+     "when": "activeTab === 'communications'",
+     "text": "Comunicaciones disponibles próximamente"
+    },
+    {
+     "kind": "value",
+     "line": 636,
+     "in": "renderTabContent",
+     "when": "activeTab === 'activity' && hasActivity() && each session.activity_log",
+     "text": "{log.profiles?.first_name} {log.profiles?.last_name}"
+    },
+    {
+     "kind": "value",
+     "line": 639,
+     "in": "renderTabContent",
+     "when": "activeTab === 'activity' && hasActivity() && each session.activity_log",
+     "text": "{log.action.replace(/_/g, ' ')}"
+    },
+    {
+     "kind": "value",
+     "line": 642,
+     "in": "renderTabContent",
+     "when": "activeTab === 'activity' && hasActivity() && each session.activity_log",
+     "text": "{format(parseISO(log.created_at), 'd…}"
+    },
+    {
+     "kind": "text",
+     "line": 650,
+     "in": "renderTabContent",
+     "when": "activeTab === 'activity' && !(hasActivity())",
+     "text": "No hay actividad registrada"
+    },
+    {
+     "kind": "hook",
+     "line": 665,
+     "in": "SessionDetailClasico",
+     "when": "conflictVisible",
+     "text": "role=alert",
+     "type": "role",
+     "tag": "div"
+    },
+    {
+     "kind": "text",
+     "line": 671,
+     "in": "SessionDetailClasico",
+     "when": "conflictVisible",
+     "text": "Otra persona editó esta sesión mientras trabajabas en ella. Recarga para ver los últimos cambios."
+    },
+    {
+     "kind": "button",
+     "line": 673,
+     "in": "SessionDetailClasico",
+     "when": "conflictVisible",
+     "text": "Recargar",
+     "action": "{reload}"
+    },
+    {
+     "kind": "text",
+     "line": 686,
+     "in": "SessionDetailClasico",
+     "when": "showReadOnlyBand",
+     "text": "Está viendo esta sesión en modo lectura. No está asignado como facilitador."
+    },
+    {
+     "kind": "heading",
+     "line": 695,
+     "in": "SessionDetailClasico",
+     "text": "{session.title}",
+     "level": 1
+    },
+    {
+     "kind": "value",
+     "line": 697,
+     "in": "SessionDetailClasico",
+     "text": "{badge.label}"
+    },
+    {
+     "kind": "text",
+     "line": 703,
+     "in": "SessionDetailClasico",
+     "when": "seriesNumberShown",
+     "text": "Sesión {session.session_number}"
+    },
+    {
+     "kind": "link",
+     "line": 713,
+     "in": "SessionDetailClasico",
+     "when": "showCalendarLink",
+     "text": "Agregar al Calendario",
+     "target": "/api/sessions/[*]/ical",
+     "download": true
+    },
+    {
+     "kind": "download",
+     "line": 713,
+     "in": "SessionDetailClasico",
+     "when": "showCalendarLink",
+     "text": "<a download> Agregar al Calendario",
+     "how": "link with download"
+    },
+    {
+     "kind": "button",
+     "line": 726,
+     "in": "SessionDetailClasico",
+     "when": "showEditRequestButton",
+     "text": "Solicitar Cambios",
+     "action": "{openEditRequest}",
+     "disabled": "{hasPendingEditRequest()}"
+    },
+    {
+     "kind": "text",
+     "line": 740,
+     "in": "SessionDetailClasico",
+     "when": "showEditRequestButton && hasPendingEditRequest()",
+     "text": "Ya existe una solicitud de cambio pendiente para esta sesión."
+    },
+    {
+     "kind": "button",
+     "line": 749,
+     "in": "SessionDetailClasico",
+     "when": "showFinalizeButton",
+     "text": "Finalizar Sesión",
+     "action": "{openFinalize}",
+     "disabled": "{!finalizeCheck.can}"
+    },
+    {
+     "kind": "text",
+     "line": 763,
+     "in": "SessionDetailClasico",
+     "when": "showFinalizeButton && !finalizeCheck.can",
+     "text": "Condiciones faltantes:"
+    },
+    {
+     "kind": "value",
+     "line": 766,
+     "in": "SessionDetailClasico",
+     "when": "showFinalizeButton && !finalizeCheck.can && each finalizeCheck.reasons",
+     "text": "{reason}"
+    },
+    {
+     "kind": "value",
+     "line": 779,
+     "in": "SessionDetailClasico",
+     "text": "{format(parseISO(session.session_dat…}"
+    },
+    {
+     "kind": "text",
+     "line": 786,
+     "in": "SessionDetailClasico",
+     "text": "(hora Chile)"
+    },
+    {
+     "kind": "value",
+     "line": 788,
+     "in": "SessionDetailClasico",
+     "text": "{formatSessionTimeForConsultant(sess…} - {formatSessionTimeForConsultant(sess…}"
+    },
+    {
+     "kind": "value",
+     "line": 795,
+     "in": "SessionDetailClasico",
+     "text": "{session.modality}"
+    },
+    {
+     "kind": "link",
+     "line": 797,
+     "in": "SessionDetailClasico",
+     "when": "showJoinLink",
+     "text": "Enlace",
+     "target": "{session.join_path}",
+     "hook": {
+      "testid": "session-join-link"
+     }
+    },
+    {
+     "kind": "value",
+     "line": 808,
+     "in": "SessionDetailClasico",
+     "when": "session.schools",
+     "text": "{session.schools.name}"
+    },
+    {
+     "kind": "value",
+     "line": 811,
+     "in": "SessionDetailClasico",
+     "when": "session.growth_communities",
+     "text": "{session.growth_communities.name}"
+    },
+    {
+     "kind": "value",
+     "line": 817,
+     "in": "SessionDetailClasico",
+     "when": "helperText",
+     "text": "{helperText}"
+    },
+    {
+     "kind": "heading",
+     "line": 832,
+     "in": "SessionDetailClasico",
+     "when": "showEditRequests",
+     "text": "Historial de Solicitudes de Cambio",
+     "level": 3
+    },
+    {
+     "kind": "value",
+     "line": 847,
+     "in": "SessionDetailClasico",
+     "when": "showEditRequests && each session.edit_requests",
+     "text": "{statusLabel}"
+    },
+    {
+     "kind": "value",
+     "line": 850,
+     "in": "SessionDetailClasico",
+     "when": "showEditRequests && each session.edit_requests",
+     "text": "{format(parseISO(request.created_at)…}"
+    },
+    {
+     "kind": "value",
+     "line": 861,
+     "in": "SessionDetailClasico",
+     "when": "showEditRequests && each session.edit_requests && each Object.keys(request.changes)",
+     "text": "{fieldLabel} :"
+    },
+    {
+     "kind": "value",
+     "line": 862,
+     "in": "SessionDetailClasico",
+     "when": "showEditRequests && each session.edit_requests && each Object.keys(request.changes)",
+     "text": "{String(change.old)}"
+    },
+    {
+     "kind": "value",
+     "line": 863,
+     "in": "SessionDetailClasico",
+     "when": "showEditRequests && each session.edit_requests && each Object.keys(request.changes)",
+     "text": "{String(change.new)}"
+    },
+    {
+     "kind": "text",
+     "line": 870,
+     "in": "SessionDetailClasico",
+     "when": "showEditRequests && each session.edit_requests && request.reason",
+     "text": "Razón:"
+    },
+    {
+     "kind": "text",
+     "line": 875,
+     "in": "SessionDetailClasico",
+     "when": "showEditRequests && each session.edit_requests && showReviewNotes(request)",
+     "text": "Nota del revisor:"
+    },
+    {
+     "kind": "button",
+     "line": 892,
+     "in": "SessionDetailClasico",
+     "when": "each tabs",
+     "text": "{tab.label}",
+     "action": "{() => selectTab(tab.id)}"
+    },
+    {
+     "kind": "value",
+     "line": 908,
+     "in": "SessionDetailClasico",
+     "text": "{renderTabContent()}"
+    }
+   ],
+   "db": []
+  },
   "components/sessions/SessionStartControl.tsx": {
    "usedBy": [
     "/admin/sessions/[id]"
@@ -12760,6 +11507,273 @@
      "in": "SessionStartControl",
      "when": "waitingForZoom",
      "text": "La reunión terminó o fue cancelada. Cancela o reprograma la sesión. / No pudimos verificar la reunión. Reintentaremos automáticamente. / La sesión se podrá iniciar cuando Zoom confirme la reunión."
+    }
+   ],
+   "db": []
+  },
+  "components/sessions/SessionsListClasico.tsx": {
+   "usedBy": [
+    "/consultor/sessions"
+   ],
+   "lines": 276,
+   "rows": [
+    {
+     "kind": "clickable",
+     "line": 52,
+     "in": "renderSessionCard",
+     "text": "{session.title} [# {session.session_number}] {formatTime(session.start_time)} - {formatTime(session.end_time)} (Chile) …",
+     "tag": "div",
+     "action": "{() => openSession(session.id)}",
+     "aria": "{`Ver detalles de ${session.title}`}"
+    },
+    {
+     "kind": "heading",
+     "line": 65,
+     "in": "renderSessionCard",
+     "text": "{session.title}",
+     "level": 3
+    },
+    {
+     "kind": "value",
+     "line": 69,
+     "in": "renderSessionCard",
+     "when": "seriesNumberShown(session)",
+     "text": "# {session.session_number}"
+    },
+    {
+     "kind": "text",
+     "line": 78,
+     "in": "renderSessionCard",
+     "text": "(Chile)"
+    },
+    {
+     "kind": "value",
+     "line": 83,
+     "in": "renderSessionCard",
+     "text": "{session.modality}"
+    },
+    {
+     "kind": "value",
+     "line": 88,
+     "in": "renderSessionCard",
+     "text": "{badge.label}"
+    },
+    {
+     "kind": "piece",
+     "line": 110,
+     "in": "SessionsListClasico",
+     "text": "title: Mis Sesiones · subtitle: Vista de sesiones de consultoría asignadas",
+     "tag": "ResponsiveFunctionalPageHeader"
+    },
+    {
+     "kind": "piece",
+     "line": 115,
+     "in": "SessionsListClasico",
+     "text": "sectionId: mis-sesiones",
+     "tag": "HelpButton"
+    },
+    {
+     "kind": "text",
+     "line": 121,
+     "in": "SessionsListClasico",
+     "text": "Total Sesiones"
+    },
+    {
+     "kind": "value",
+     "line": 122,
+     "in": "SessionsListClasico",
+     "text": "{totalSessions}"
+    },
+    {
+     "kind": "text",
+     "line": 125,
+     "in": "SessionsListClasico",
+     "text": "Informes Pendientes"
+    },
+    {
+     "kind": "value",
+     "line": 126,
+     "in": "SessionsListClasico",
+     "text": "{pendingReportsCount}"
+    },
+    {
+     "kind": "text",
+     "line": 129,
+     "in": "SessionsListClasico",
+     "text": "Próxima Sesión"
+    },
+    {
+     "kind": "value",
+     "line": 130,
+     "in": "SessionsListClasico",
+     "text": "{nextSessionCountdown}"
+    },
+    {
+     "kind": "heading",
+     "line": 138,
+     "in": "SessionsListClasico",
+     "text": "Filtros",
+     "level": 3
+    },
+    {
+     "kind": "label",
+     "line": 142,
+     "in": "SessionsListClasico",
+     "text": "Filtrar por colegio"
+    },
+    {
+     "kind": "field",
+     "line": 143,
+     "in": "SessionsListClasico",
+     "text": "Filtrar por colegio",
+     "type": "select",
+     "action": "{changeSchoolFilter}",
+     "options": [
+      "Todos",
+      "(lista) {school.name}"
+     ]
+    },
+    {
+     "kind": "label",
+     "line": 157,
+     "in": "SessionsListClasico",
+     "text": "Filtrar por estado"
+    },
+    {
+     "kind": "field",
+     "line": 158,
+     "in": "SessionsListClasico",
+     "text": "Filtrar por estado",
+     "type": "select",
+     "action": "{changeStatusFilter}",
+     "options": [
+      "Todos",
+      "Borrador",
+      "Pendiente Aprobación",
+      "Programada",
+      "En Progreso",
+      "Pendiente Informe",
+      "Completada",
+      "Cancelada"
+     ]
+    },
+    {
+     "kind": "label",
+     "line": 174,
+     "in": "SessionsListClasico",
+     "text": "Fecha desde"
+    },
+    {
+     "kind": "field",
+     "line": 175,
+     "in": "SessionsListClasico",
+     "text": "Fecha desde",
+     "type": "date",
+     "action": "{changeDateFromFilter}"
+    },
+    {
+     "kind": "label",
+     "line": 183,
+     "in": "SessionsListClasico",
+     "text": "Fecha hasta"
+    },
+    {
+     "kind": "field",
+     "line": 184,
+     "in": "SessionsListClasico",
+     "text": "Fecha hasta",
+     "type": "date",
+     "action": "{changeDateToFilter}"
+    },
+    {
+     "kind": "button",
+     "line": 193,
+     "in": "SessionsListClasico",
+     "text": "Limpiar filtros",
+     "action": "{handleClearFilters}"
+    },
+    {
+     "kind": "link",
+     "line": 201,
+     "in": "SessionsListClasico",
+     "when": "showExportCalendar",
+     "text": "Exportar Calendario",
+     "target": "{icalHref()}",
+     "download": true
+    },
+    {
+     "kind": "download",
+     "line": 201,
+     "in": "SessionsListClasico",
+     "when": "showExportCalendar",
+     "text": "<a download> Exportar Calendario",
+     "how": "link with download"
+    },
+    {
+     "kind": "heading",
+     "line": 217,
+     "in": "SessionsListClasico",
+     "text": "Mis Sesiones",
+     "level": 2
+    },
+    {
+     "kind": "text",
+     "line": 220,
+     "in": "SessionsListClasico",
+     "when": "noMySessions",
+     "text": "No está asignado como facilitador en ninguna sesión"
+    },
+    {
+     "kind": "heading",
+     "line": 226,
+     "in": "SessionsListClasico",
+     "when": "!(noMySessions) && each sortedMyDates",
+     "text": "{format(parseISO(date), 'EEEE, dd MM…}",
+     "level": 3
+    },
+    {
+     "kind": "value",
+     "line": 229,
+     "in": "SessionsListClasico",
+     "when": "!(noMySessions) && each sortedMyDates",
+     "text": "{mySessionsByDate[date].map((session…}"
+    },
+    {
+     "kind": "heading",
+     "line": 240,
+     "in": "SessionsListClasico",
+     "text": "Otras Sesiones en Mis Colegios",
+     "level": 2
+    },
+    {
+     "kind": "text",
+     "line": 243,
+     "in": "SessionsListClasico",
+     "when": "noOtherSessions",
+     "text": "No hay otras sesiones en sus colegios asignados"
+    },
+    {
+     "kind": "heading",
+     "line": 249,
+     "in": "SessionsListClasico",
+     "when": "!(noOtherSessions) && each sortedOtherDates",
+     "text": "{format(parseISO(date), 'EEEE, dd MM…}",
+     "level": 3
+    },
+    {
+     "kind": "value",
+     "line": 252,
+     "in": "SessionsListClasico",
+     "when": "!(noOtherSessions) && each sortedOtherDates",
+     "text": "{otherSessionsByDate[date].map((sess…}"
+    },
+    {
+     "kind": "button",
+     "line": 265,
+     "in": "SessionsListClasico",
+     "when": "showLoadMore",
+     "text": "Cargar más",
+     "action": "{handleLoadMore}"
     }
    ],
    "db": []
@@ -12931,6 +11945,1017 @@
     }
    ],
    "db": []
+  },
+  "hooks/useSessionCreate.ts": {
+   "usedBy": [
+    "/admin/sessions/create"
+   ],
+   "lines": 898,
+   "rows": [
+    {
+     "kind": "nav",
+     "line": 159,
+     "in": "initializeAuth",
+     "when": "!session?.user",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "access",
+     "line": 164,
+     "in": "initializeAuth",
+     "text": "userRole = await getUserPrimaryRole(session.user.id)",
+     "via": "getUserPrimaryRole"
+    },
+    {
+     "kind": "nav",
+     "line": 169,
+     "in": "initializeAuth",
+     "when": "!isAdminUser",
+     "text": "/dashboard",
+     "via": "router.push"
+    },
+    {
+     "kind": "nav",
+     "line": 174,
+     "in": "initializeAuth",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "toast",
+     "line": 191,
+     "in": "fetchSchools",
+     "text": "Error al cargar colegios",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 207,
+     "in": "fetchCommunities",
+     "text": "Error al cargar comunidades",
+     "variant": "error"
+    },
+    {
+     "kind": "list",
+     "line": 219,
+     "in": "fetchConsultants",
+     "when": "!session?.access_token",
+     "text": "errorMsg",
+     "items": [
+      "Error de autenticación"
+     ]
+    },
+    {
+     "kind": "toast",
+     "line": 221,
+     "in": "fetchConsultants",
+     "when": "!session?.access_token",
+     "text": "{errorMsg}",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 236,
+     "in": "fetchConsultants",
+     "when": "!response.ok",
+     "text": "{errorMsg}",
+     "variant": "error"
+    },
+    {
+     "kind": "list",
+     "line": 246,
+     "in": "fetchConsultants",
+     "text": "errorMsg",
+     "items": [
+      "Error al cargar consultores"
+     ]
+    },
+    {
+     "kind": "toast",
+     "line": 248,
+     "in": "fetchConsultants",
+     "text": "{errorMsg}",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 371,
+     "in": "handleAddFacilitator",
+     "when": "facilitators.find((f) => f.user_id === consultantId)",
+     "text": "Este consultor ya está asignado",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 383,
+     "in": "handleAddFacilitator",
+     "text": "Facilitador agregado",
+     "variant": "success"
+    },
+    {
+     "kind": "toast",
+     "line": 429,
+     "in": "validateForm",
+     "when": "formData.school_id <= 0",
+     "text": "Debe seleccionar un colegio",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 434,
+     "in": "validateForm",
+     "when": "!formData.growth_community_id",
+     "text": "Debe seleccionar una comunidad de crecimiento",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 439,
+     "in": "validateForm",
+     "when": "!formData.title.trim()",
+     "text": "Debe ingresar un título",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 444,
+     "in": "validateForm",
+     "when": "!formData.session_date",
+     "text": "Debe seleccionar una fecha",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 449,
+     "in": "validateForm",
+     "when": "!formData.start_time || !formData.end_time",
+     "text": "Debe ingresar hora de inicio y término",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 456,
+     "in": "validateForm",
+     "when": "endHour * 60 + endMin <= startHour * 60 + startMin",
+     "text": "La hora de término debe ser posterior a la hora de inicio",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 468,
+     "in": "validateForm",
+     "when": "(formData.modality === 'online' || formData.modality === 'hibrida') && !formData.is_zoom_managed && !formData.meeting_link",
+     "text": "Debe ingresar un enlace de reunión para modalidad online o híbrida",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 476,
+     "in": "validateForm",
+     "when": "(formData.modality === 'presencial' || formData.modality === 'hibrida') && !formData.location",
+     "text": "Debe ingresar una ubicación para modalidad presencial o híbrida",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 482,
+     "in": "validateForm",
+     "when": "facilitators.length === 0",
+     "text": "Debe asignar al menos un facilitador a la sesión",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 489,
+     "in": "validateForm",
+     "when": "leadCount !== 1",
+     "text": "Debe haber exactamente un facilitador principal",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 498,
+     "in": "validateForm",
+     "when": "isRecurring && recurrenceFrequency === 'custom' && validDates.length < 2",
+     "text": "Debe ingresar al menos 2 fechas personalizadas",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 503,
+     "in": "validateForm",
+     "when": "isRecurring && !(recurrenceFrequency === 'custom') && (recurrenceCount < 2 || recurrenceCount > 52)",
+     "text": "El número de sesiones debe estar entre 2 y 52",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 521,
+     "in": "handleSaveDraft",
+     "when": "!session?.access_token",
+     "text": "Error de autenticación",
+     "variant": "error"
+    },
+    {
+     "kind": "message",
+     "line": 564,
+     "in": "handleSaveDraft",
+     "when": "!response.ok",
+     "text": "Error al crear sesión",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "toast",
+     "line": 569,
+     "in": "handleSaveDraft",
+     "text": "{sessionCount} sesiones guardadas como borrador / Sesión guardada como borrador",
+     "variant": "success"
+    },
+    {
+     "kind": "nav",
+     "line": 576,
+     "in": "handleSaveDraft",
+     "when": "isRecurring",
+     "text": "/admin/sessions",
+     "via": "router.push"
+    },
+    {
+     "kind": "nav",
+     "line": 579,
+     "in": "handleSaveDraft",
+     "when": "!(isRecurring)",
+     "text": "/admin/sessions/[*]",
+     "via": "router.push"
+    },
+    {
+     "kind": "toast",
+     "line": 583,
+     "in": "handleSaveDraft",
+     "text": "Error al guardar borrador",
+     "variant": "error"
+    },
+    {
+     "kind": "confirm",
+     "line": 599,
+     "in": "handleScheduleSession",
+     "text": "{scheduleConfirmText(sessionCount)}"
+    },
+    {
+     "kind": "toast",
+     "line": 611,
+     "in": "handleScheduleSession",
+     "when": "!session?.access_token",
+     "text": "Error de autenticación",
+     "variant": "error"
+    },
+    {
+     "kind": "message",
+     "line": 655,
+     "in": "handleScheduleSession",
+     "when": "!createResponse.ok",
+     "text": "Error al crear sesión",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "message",
+     "line": 673,
+     "in": "handleScheduleSession",
+     "when": "isRecurring && createResult.data.recurrence_group_id && !approveResponse.ok",
+     "text": "Error al aprobar sesiones",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "toast",
+     "line": 676,
+     "in": "handleScheduleSession",
+     "when": "isRecurring && createResult.data.recurrence_group_id",
+     "text": "{sessionCount} sesiones programadas exitosamente",
+     "variant": "success"
+    },
+    {
+     "kind": "nav",
+     "line": 677,
+     "in": "handleScheduleSession",
+     "when": "isRecurring && createResult.data.recurrence_group_id",
+     "text": "/admin/sessions",
+     "via": "router.push"
+    },
+    {
+     "kind": "message",
+     "line": 693,
+     "in": "handleScheduleSession",
+     "when": "!(isRecurring && createResult.data.recurrence_group_id) && !approveResponse.ok",
+     "text": "Error al aprobar sesión",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "toast",
+     "line": 696,
+     "in": "handleScheduleSession",
+     "when": "!(isRecurring && createResult.data.recurrence_group_id)",
+     "text": "Sesión programada exitosamente",
+     "variant": "success"
+    },
+    {
+     "kind": "nav",
+     "line": 697,
+     "in": "handleScheduleSession",
+     "when": "!(isRecurring && createResult.data.recurrence_group_id)",
+     "text": "/admin/sessions/[*]",
+     "via": "router.push"
+    },
+    {
+     "kind": "toast",
+     "line": 701,
+     "in": "handleScheduleSession",
+     "text": "Error al programar sesión",
+     "variant": "error"
+    },
+    {
+     "kind": "nav",
+     "line": 709,
+     "in": "handleLogout",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "string",
+     "line": 228,
+     "in": "useSessionCreate",
+     "text": "Bearer {session.access_token}"
+    },
+    {
+     "kind": "string",
+     "line": 592,
+     "in": "useSessionCreate",
+     "text": "¿Está seguro de que desea programar estas {sessionCount} sesiones? Se notificará a los participantes."
+    },
+    {
+     "kind": "string",
+     "line": 593,
+     "in": "useSessionCreate",
+     "text": "¿Está seguro de que desea programar esta sesión? Se notificará a los participantes."
+    },
+    {
+     "kind": "string",
+     "line": 797,
+     "in": "useSessionCreate",
+     "text": "Externo"
+    },
+    {
+     "kind": "string",
+     "line": 798,
+     "in": "useSessionCreate",
+     "text": "Interno"
+    }
+   ],
+   "db": [
+    {
+     "what": "rpc:get_bucket_summary",
+     "ops": []
+    },
+    {
+     "what": "table:contratos",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:growth_communities",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:schools",
+     "ops": [
+      "select"
+     ]
+    }
+   ]
+  },
+  "hooks/useSessionDetail.ts": {
+   "usedBy": [
+    "/consultor/sessions/[id]"
+   ],
+   "lines": 818,
+   "rows": [
+    {
+     "kind": "nav",
+     "line": 87,
+     "in": "loadSessionPage",
+     "when": "!authSession?.user || !authSession.access_token",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "access",
+     "line": 94,
+     "in": "loadSessionPage",
+     "text": "role = await getUserPrimaryRole(authSession.user.id)",
+     "via": "getUserPrimaryRole"
+    },
+    {
+     "kind": "nav",
+     "line": 101,
+     "in": "loadSessionPage",
+     "when": "!allowed",
+     "text": "/dashboard",
+     "via": "router.push"
+    },
+    {
+     "kind": "nav",
+     "line": 109,
+     "in": "loadSessionPage",
+     "when": "!cancelled",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "nav",
+     "line": 137,
+     "in": "fetchSessionData",
+     "when": "response.status === 401",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "message",
+     "line": 152,
+     "in": "fetchSessionData",
+     "when": "!response.ok",
+     "text": "Error al cargar sesión",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "nav",
+     "line": 206,
+     "in": "fetchSession",
+     "when": "!authSession?.access_token",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "toast",
+     "line": 213,
+     "in": "fetchSession",
+     "text": "Error al cargar sesión",
+     "variant": "error"
+    },
+    {
+     "kind": "nav",
+     "line": 261,
+     "in": "handleLogout",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "list",
+     "line": 265,
+     "in": "getStatusHelperText",
+     "text": "texts",
+     "items": [
+      "Esta sesión está en borrador. El administrador debe aprobarla.",
+      "Esta sesión está pendiente de aprobación por el administrador.",
+      "Sesión programada para {format(parseISO(session.ses…}. [if session]",
+      "Sesión programada. [if not session]",
+      "Sesión en curso.",
+      "Sesión finalizada. Debe completar el informe y la asistencia.",
+      "Sesión completada.",
+      "Esta sesión fue cancelada. Razón: {session.cancellation_reason} [if session?.cancellation_reason]",
+      "Esta sesión fue cancelada. [if not session?.cancellation_reason]"
+     ]
+    },
+    {
+     "kind": "toast",
+     "line": 303,
+     "in": "handleSaveAttendance",
+     "when": "!authSession?.access_token",
+     "text": "Error de autenticación",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 318,
+     "in": "handleSaveAttendance",
+     "when": "response.status === 409",
+     "text": "Otra persona editó esta sesión. Recarga para ver los últimos cambios.",
+     "variant": "error"
+    },
+    {
+     "kind": "message",
+     "line": 324,
+     "in": "handleSaveAttendance",
+     "when": "!response.ok",
+     "text": "Error al guardar asistencia",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "toast",
+     "line": 327,
+     "in": "handleSaveAttendance",
+     "text": "Asistencia guardada correctamente",
+     "variant": "success"
+    },
+    {
+     "kind": "toast",
+     "line": 331,
+     "in": "handleSaveAttendance",
+     "text": "Error al guardar asistencia",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 339,
+     "in": "handleSaveReport",
+     "when": "!session || !reportContent.trim()",
+     "text": "El contenido del informe es requerido",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 349,
+     "in": "handleSaveReport",
+     "when": "!authSession?.access_token",
+     "text": "Error de autenticación",
+     "variant": "error"
+    },
+    {
+     "kind": "list",
+     "line": 357,
+     "in": "handleSaveReport",
+     "text": "method",
+     "items": [
+      "PUT / POST"
+     ]
+    },
+    {
+     "kind": "toast",
+     "line": 375,
+     "in": "handleSaveReport",
+     "when": "response.status === 409",
+     "text": "Otra persona editó esta sesión. Recarga para ver los últimos cambios.",
+     "variant": "error"
+    },
+    {
+     "kind": "message",
+     "line": 381,
+     "in": "handleSaveReport",
+     "when": "!response.ok",
+     "text": "Error al guardar informe",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "toast",
+     "line": 384,
+     "in": "handleSaveReport",
+     "text": "Informe actualizado correctamente / Informe creado correctamente",
+     "variant": "success"
+    },
+    {
+     "kind": "toast",
+     "line": 389,
+     "in": "handleSaveReport",
+     "text": "Error al guardar informe",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 404,
+     "in": "handleUploadMaterial",
+     "when": "file.size > 25 * 1024 * 1024",
+     "text": "El archivo excede el tamaño máximo de 25 MB",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 414,
+     "in": "handleUploadMaterial",
+     "when": "!authSession?.access_token",
+     "text": "Error de autenticación",
+     "variant": "error"
+    },
+    {
+     "kind": "message",
+     "line": 432,
+     "in": "handleUploadMaterial",
+     "when": "!response.ok",
+     "text": "Error al subir material",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "toast",
+     "line": 435,
+     "in": "handleUploadMaterial",
+     "text": "Material subido correctamente",
+     "variant": "success"
+    },
+    {
+     "kind": "toast",
+     "line": 439,
+     "in": "handleUploadMaterial",
+     "text": "Error al subir material",
+     "variant": "error"
+    },
+    {
+     "kind": "confirm",
+     "line": 449,
+     "in": "handleDeleteMaterial",
+     "text": "¿Está seguro que desea eliminar \"{fileName}\"?"
+    },
+    {
+     "kind": "toast",
+     "line": 458,
+     "in": "handleDeleteMaterial",
+     "when": "!authSession?.access_token",
+     "text": "Error de autenticación",
+     "variant": "error"
+    },
+    {
+     "kind": "message",
+     "line": 471,
+     "in": "handleDeleteMaterial",
+     "when": "!response.ok",
+     "text": "Error al eliminar material",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "toast",
+     "line": 474,
+     "in": "handleDeleteMaterial",
+     "text": "Material eliminado correctamente",
+     "variant": "success"
+    },
+    {
+     "kind": "toast",
+     "line": 478,
+     "in": "handleDeleteMaterial",
+     "text": "Error al eliminar material",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 491,
+     "in": "handleFinalize",
+     "when": "!authSession?.access_token",
+     "text": "Error de autenticación",
+     "variant": "error"
+    },
+    {
+     "kind": "message",
+     "line": 505,
+     "in": "handleFinalize",
+     "when": "!response.ok",
+     "text": "Error al finalizar sesión",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "toast",
+     "line": 508,
+     "in": "handleFinalize",
+     "text": "Sesión finalizada correctamente",
+     "variant": "success"
+    },
+    {
+     "kind": "toast",
+     "line": 513,
+     "in": "handleFinalize",
+     "text": "Error al finalizar sesión",
+     "variant": "error"
+    },
+    {
+     "kind": "message",
+     "line": 525,
+     "in": "canFinalizeSession",
+     "when": "session.status !== 'pendiente_informe'",
+     "text": "La sesión debe estar en estado \"Pendiente de Informe\"",
+     "via": "reasons.push"
+    },
+    {
+     "kind": "message",
+     "line": 532,
+     "in": "canFinalizeSession",
+     "when": "sessionReports.length === 0",
+     "text": "Falta informe de sesión",
+     "via": "reasons.push"
+    },
+    {
+     "kind": "message",
+     "line": 538,
+     "in": "canFinalizeSession",
+     "when": "unmarkedCount > 0",
+     "text": "Hay {unmarkedCount} asistente(s) sin marcar",
+     "via": "reasons.push"
+    },
+    {
+     "kind": "toast",
+     "line": 556,
+     "in": "handleSubmitEditRequest",
+     "when": "!authSession?.access_token",
+     "text": "Error de autenticación",
+     "variant": "error"
+    },
+    {
+     "kind": "message",
+     "line": 571,
+     "in": "handleSubmitEditRequest",
+     "when": "!response.ok",
+     "text": "Error al crear solicitud de cambio",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "toast",
+     "line": 574,
+     "in": "handleSubmitEditRequest",
+     "text": "Solicitud de cambio enviada correctamente",
+     "variant": "success"
+    },
+    {
+     "kind": "toast",
+     "line": 579,
+     "in": "handleSubmitEditRequest",
+     "text": "Error al crear solicitud de cambio",
+     "variant": "error"
+    },
+    {
+     "kind": "access",
+     "line": 599,
+     "in": "useSessionDetail",
+     "text": "canEdit = isFacilitator || userRole === 'admin'",
+     "via": "declaration"
+    },
+    {
+     "kind": "list",
+     "line": 632,
+     "in": "decide",
+     "text": "tabs",
+     "items": [
+      "Detalles",
+      "Planificación [if canEdit]",
+      "Materiales",
+      "Informe",
+      "Comunicaciones",
+      "Actividad"
+     ]
+    },
+    {
+     "kind": "access",
+     "line": 645,
+     "in": "decide",
+     "text": "isReadOnly = session!.status === 'completada' || session!.status === 'cancelada'",
+     "via": "declaration"
+    },
+    {
+     "kind": "string",
+     "line": 129,
+     "in": "useSessionDetail",
+     "text": "Bearer {accessToken}"
+    },
+    {
+     "kind": "string",
+     "line": 224,
+     "in": "useSessionDetail",
+     "text": "Bearer {authSession.access_token}"
+    },
+    {
+     "kind": "string",
+     "line": 520,
+     "in": "useSessionDetail",
+     "text": "Sesión no cargada"
+    },
+    {
+     "kind": "string",
+     "line": 665,
+     "in": "useSessionDetail",
+     "text": "Aprobada"
+    },
+    {
+     "kind": "string",
+     "line": 666,
+     "in": "useSessionDetail",
+     "text": "Rechazada"
+    },
+    {
+     "kind": "string",
+     "line": 669,
+     "in": "useSessionDetail",
+     "text": "Fecha"
+    },
+    {
+     "kind": "string",
+     "line": 671,
+     "in": "useSessionDetail",
+     "text": "Hora inicio"
+    },
+    {
+     "kind": "string",
+     "line": 673,
+     "in": "useSessionDetail",
+     "text": "Hora término"
+    },
+    {
+     "kind": "string",
+     "line": 675,
+     "in": "useSessionDetail",
+     "text": "Modalidad"
+    },
+    {
+     "kind": "string",
+     "line": 689,
+     "in": "useSessionDetail",
+     "text": "Usuario desconocido"
+    },
+    {
+     "kind": "list",
+     "line": 687,
+     "in": "attendeeName",
+     "text": "attendeeName()",
+     "items": [
+      "Usuario desconocido"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 696,
+     "in": "uploaderName",
+     "text": "uploaderName()",
+     "items": [
+      "Usuario desconocido"
+     ]
+    },
+    {
+     "kind": "hook",
+     "line": 1,
+     "text": "?id",
+     "type": "address value"
+    }
+   ],
+   "db": []
+  },
+  "hooks/useSessionsList.ts": {
+   "usedBy": [
+    "/consultor/sessions"
+   ],
+   "lines": 370,
+   "rows": [
+    {
+     "kind": "nav",
+     "line": 115,
+     "in": "useSessionsList",
+     "text": "{{ pathname: router.pathname, query }}",
+     "via": "router.replace"
+    },
+    {
+     "kind": "nav",
+     "line": 124,
+     "in": "initializeAuth",
+     "when": "!session?.user",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "access",
+     "line": 129,
+     "in": "initializeAuth",
+     "text": "userRole = await getUserPrimaryRole(session.user.id)",
+     "via": "getUserPrimaryRole"
+    },
+    {
+     "kind": "nav",
+     "line": 134,
+     "in": "initializeAuth",
+     "when": "!allowed",
+     "text": "/dashboard",
+     "via": "router.push"
+    },
+    {
+     "kind": "nav",
+     "line": 139,
+     "in": "initializeAuth",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "message",
+     "line": 169,
+     "in": "fetchSessions",
+     "when": "!response.ok",
+     "text": "Error al cargar sesiones",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "list",
+     "line": 191,
+     "in": "fetchSessions",
+     "text": "errorMessage",
+     "items": [
+      "Error al cargar sesiones"
+     ]
+    },
+    {
+     "kind": "toast",
+     "line": 192,
+     "in": "fetchSessions",
+     "text": "{errorMessage}",
+     "variant": "error"
+    },
+    {
+     "kind": "nav",
+     "line": 198,
+     "in": "handleLogout",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "nav",
+     "line": 326,
+     "in": "openSession",
+     "text": "/consultor/sessions/[*]",
+     "via": "router.push"
+    },
+    {
+     "kind": "string",
+     "line": 164,
+     "in": "useSessionsList",
+     "text": "Bearer {authSession.access_token}"
+    },
+    {
+     "kind": "string",
+     "line": 275,
+     "in": "useSessionsList",
+     "text": "Sin sesiones próximas"
+    },
+    {
+     "kind": "string",
+     "line": 283,
+     "in": "useSessionsList",
+     "text": "Hoy"
+    },
+    {
+     "kind": "string",
+     "line": 284,
+     "in": "useSessionsList",
+     "text": "Hoy a las {formatTime(next.start_time)}"
+    },
+    {
+     "kind": "string",
+     "line": 286,
+     "in": "useSessionsList",
+     "text": "Mañana"
+    },
+    {
+     "kind": "string",
+     "line": 287,
+     "in": "useSessionsList",
+     "text": "En {diffDays} días"
+    },
+    {
+     "kind": "list",
+     "line": 275,
+     "in": "getNextSessionCountdown",
+     "text": "getNextSessionCountdown()",
+     "items": [
+      "Sin sesiones próximas",
+      "Hoy",
+      "Hoy a las {formatTime(next.start_time)}",
+      "Mañana",
+      "En {diffDays} días"
+     ]
+    },
+    {
+     "kind": "hook",
+     "line": 1,
+     "text": "?date_from",
+     "type": "address value"
+    },
+    {
+     "kind": "hook",
+     "line": 1,
+     "text": "?date_to",
+     "type": "address value"
+    },
+    {
+     "kind": "hook",
+     "line": 1,
+     "text": "?school_id",
+     "type": "address value"
+    },
+    {
+     "kind": "hook",
+     "line": 1,
+     "text": "?status",
+     "type": "address value"
+    }
+   ],
+   "db": [
+    {
+     "what": "table:contract_hours_ledger",
+     "ops": [
+      "select"
+     ]
+    }
+   ]
   },
   "lib/api-auth.ts": {
    "usedBy": [
@@ -13926,8 +13951,9 @@
     "__tests__/api/admin/consultants.test.ts",
     "__tests__/pages/admin/sessions/create-timezone.test.tsx",
     "__tests__/pages/admin/sessions/create-zoom-managed.test.tsx",
+    "__tests__/pages/admin/sessions/create.clasico.test.tsx",
+    "hooks/useSessionCreate.ts",
     "pages/admin/sessions/[id].tsx",
-    "pages/admin/sessions/create.tsx",
     "pages/admin/sessions/index.tsx"
    ]
   },
@@ -14038,8 +14064,9 @@
     "__tests__/api/sessions/session-approve-facilitators.test.ts",
     "__tests__/api/sessions/session-approve-zoom-provision.test.ts",
     "__tests__/api/sessions/session-lifecycle-notifications.test.ts",
+    "__tests__/pages/admin/sessions/create.clasico.test.tsx",
+    "hooks/useSessionCreate.ts",
     "pages/admin/sessions/[id].tsx",
-    "pages/admin/sessions/create.tsx",
     "pages/admin/sessions/index.tsx"
    ]
   },
@@ -14079,9 +14106,10 @@
    ],
    "referencedIn": [
     "__tests__/api/sessions/attendees.test.ts",
+    "__tests__/pages/consultor/sessions/detail.clasico.test.tsx",
     "__tests__/pages/consultor/sessions/detail.test.tsx",
     "components/sessions/AttendanceSuggestionsPanel.tsx",
-    "pages/consultor/sessions/[id].tsx",
+    "hooks/useSessionDetail.ts",
     "tests/e2e/session-disclosure.spec.ts"
    ]
   },
@@ -14146,7 +14174,8 @@
     "__tests__/api/sessions/edit-requests.test.ts",
     "__tests__/api/sessions/session-notification-recipients.test.ts",
     "__tests__/api/sessions/session-notifications.test.ts",
-    "pages/consultor/sessions/[id].tsx"
+    "__tests__/pages/consultor/sessions/detail.clasico.test.tsx",
+    "hooks/useSessionDetail.ts"
    ]
   },
   {
@@ -14184,7 +14213,8 @@
    "referencedIn": [
     "__tests__/api/sessions/finalize.test.ts",
     "__tests__/api/sessions/session-notification-recipients.test.ts",
-    "pages/consultor/sessions/[id].tsx"
+    "__tests__/pages/consultor/sessions/detail.clasico.test.tsx",
+    "hooks/useSessionDetail.ts"
    ]
   },
   {
@@ -14207,8 +14237,8 @@
     "__tests__/api/sessions/ical-attendee-disclosure.test.ts",
     "__tests__/api/sessions/ical-sequence.test.ts",
     "__tests__/api/sessions/session-ical-export.test.ts",
+    "components/sessions/SessionDetailClasico.tsx",
     "pages/admin/sessions/[id].tsx",
-    "pages/consultor/sessions/[id].tsx",
     "tests/e2e/session-disclosure.spec.ts",
     "tests/e2e/session-ical.spec.ts"
    ]
@@ -14250,11 +14280,12 @@
     "__tests__/lib/email/notification-worker.test.ts",
     "__tests__/middleware.forced-password-change.test.ts",
     "__tests__/pages/admin/sessions/zoom-entry-workflow.test.ts",
+    "__tests__/pages/consultor/sessions/detail.clasico.test.tsx",
     "__tests__/pages/consultor/sessions/detail.test.tsx",
     "__tests__/stress/consultor-session-concurrency.test.ts",
+    "hooks/useSessionDetail.ts",
     "lib/utils/session-start-workflow.ts",
     "pages/admin/sessions/[id].tsx",
-    "pages/consultor/sessions/[id].tsx",
     "scripts/redesign/harness/seed/30-sesiones-horas.mjs",
     "supabase/migrations/20260910120000_zoom_explicit_roster.sql",
     "supabase/tests/081-zoom-explicit-roster.sql",
@@ -14279,7 +14310,8 @@
    ],
    "referencedIn": [
     "__tests__/api/sessions/materials.test.ts",
-    "pages/consultor/sessions/[id].tsx",
+    "__tests__/pages/consultor/sessions/detail.clasico.test.tsx",
+    "hooks/useSessionDetail.ts",
     "tests/e2e/session-disclosure.spec.ts"
    ]
   },
@@ -14299,7 +14331,8 @@
    ],
    "referencedIn": [
     "__tests__/api/sessions/materials-detail.test.ts",
-    "pages/consultor/sessions/[id].tsx"
+    "__tests__/pages/consultor/sessions/detail.clasico.test.tsx",
+    "hooks/useSessionDetail.ts"
    ]
   },
   {
@@ -14319,7 +14352,8 @@
    ],
    "referencedIn": [
     "__tests__/api/sessions/reports.test.ts",
-    "pages/consultor/sessions/[id].tsx",
+    "__tests__/pages/consultor/sessions/detail.clasico.test.tsx",
+    "hooks/useSessionDetail.ts",
     "tests/e2e/session-disclosure.spec.ts"
    ]
   },
@@ -14342,7 +14376,8 @@
     "__tests__/api/sessions/cached-roles-never-authorize.test.ts",
     "__tests__/api/sessions/report-detail-disclosure.test.ts",
     "__tests__/api/sessions/reports-detail.test.ts",
-    "pages/consultor/sessions/[id].tsx",
+    "__tests__/pages/consultor/sessions/detail.clasico.test.tsx",
+    "hooks/useSessionDetail.ts",
     "tests/e2e/session-disclosure.spec.ts"
    ]
   },
@@ -14364,7 +14399,8 @@
     "__tests__/api/sessions/session-bulk-approve-facilitators.test.ts",
     "__tests__/api/sessions/session-bulk-approve-zoom-provision.test.ts",
     "__tests__/api/sessions/session-lifecycle-notifications.test.ts",
-    "pages/admin/sessions/create.tsx"
+    "__tests__/pages/admin/sessions/create.clasico.test.tsx",
+    "hooks/useSessionCreate.ts"
    ]
   },
   {
@@ -14446,8 +14482,8 @@
     "__tests__/api/sessions/ical-sequence.test.ts",
     "__tests__/api/sessions/session-ical-export.test.ts",
     "__tests__/lib/utils/session-scope.test.ts",
+    "hooks/useSessionsList.ts",
     "pages/admin/sessions/index.tsx",
-    "pages/consultor/sessions/index.tsx",
     "tests/e2e/session-ical.spec.ts"
    ]
   },
@@ -14482,13 +14518,15 @@
     "__tests__/lib/utils/session-scope.test.ts",
     "__tests__/middleware.forced-password-change.test.ts",
     "__tests__/pages/admin/sessions/create-zoom-managed.test.tsx",
+    "__tests__/pages/admin/sessions/create.clasico.test.tsx",
     "__tests__/pages/consultor/sessions/detail.test.tsx",
+    "__tests__/pages/consultor/sessions/list.clasico.test.tsx",
     "__tests__/pages/consultor/sessions/list.test.tsx",
     "components/dashboard/unified/UpcomingSessionsCard.tsx",
     "components/workspace/WorkspaceSessionsTab.tsx",
-    "pages/admin/sessions/create.tsx",
+    "hooks/useSessionCreate.ts",
+    "hooks/useSessionsList.ts",
     "pages/admin/sessions/index.tsx",
-    "pages/consultor/sessions/index.tsx",
     "supabase/migrations-archive/20260423120000_drop_duplicate_consultor_sessions_school_fk.sql",
     "tests/e2e/meeting-finalize-email-outcome.spec.ts"
    ]

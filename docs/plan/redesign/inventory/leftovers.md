@@ -1,6 +1,6 @@
 # Leftover pages — for Brent to decide
 
-Written by `scripts/redesign/inventory.mjs` from commit `d701100d0`. The marks are in `areas.json`. Brent's answers are recorded in the redesign ledger and, once given, in the column "Decision".
+Written by `scripts/redesign/inventory.mjs` from commit `ca9dad512`. The marks are in `areas.json`. Brent's answers are recorded in the redesign ledger and, once given, in the column "Decision".
 
 ## Vías de Transformación (to be deleted)
 
@@ -24,7 +24,7 @@ Written by `scripts/redesign/inventory.mjs` from commit `d701100d0`. The marks a
 | `/registro-tractor` | `pages/registro-tractor.tsx` | Sign-up form reached from outside (a link people receive). | not covered; signed-out: not stopped by the middleware | `lib/look.ts:100` | none |  |
 | `/registro` | `pages/registro.tsx` | Sign-up form reached from outside (a link people receive). The sign-in screen does not link to it. | not covered; signed-out: not stopped by the middleware | `lib/look.ts:99` | `tests/e2e/registro.spec.ts`, `__tests__/components/RegistroPage.generation.test.tsx` |  |
 | `/course-manager` | `pages/course-manager.tsx` | A redirect to /mi-aprendizaje. Old notifications still point at it (components/notifications/NotificationDropdown.tsx). | no role rule; signed-out: not stopped by the middleware | `components/notifications/NotificationDropdown.tsx:138`, `components/notifications/NotificationDropdown.tsx:148`, `lib/auth/forced-password-change.ts:139` | none |  |
-| `/my-paths` | `pages/my-paths.tsx` | A redirect to /mi-aprendizaje. The route page sends people to it. | no role rule; signed-out: not stopped by the middleware | `components/DynamicFavicon.tsx:32`, `lib/auth/forced-password-change.ts:154`, `middleware.ts:349` | none |  |
+| `/my-paths` | `pages/my-paths.tsx` | A redirect to /mi-aprendizaje. The route page sends people to it. | no role rule; signed-out: not stopped by the middleware | `components/DynamicFavicon.tsx:32`, `lib/auth/forced-password-change.ts:154`, `middleware.ts:355` | none |  |
 | `/meet/diag` | `pages/meet/diag.tsx` | «Diagnóstico del equipo»: camera, microphone and connection test for video sessions. No link inside the platform; it has four unit tests and is given to people as an address. | signed-in only; signed-out: sent to /login; the page has its own check | nothing | `__tests__/lib/api-auth.server-side-user.test.ts`, `__tests__/pages/meet-diag-join-section.test.ts`, `__tests__/pages/meet/diag-join-passcode.test.tsx`, `__tests__/pages/meet/diag-ssr.test.ts` |  |
 | `/demo/assessments/[templateId]` | `pages/demo/assessments/[templateId]/index.tsx` | Practice mode of Gestor de Cambio: a live feature. | not covered; signed-out: not stopped by the middleware; the page has its own check | `pages/admin/assessment-builder/[templateId]/index.tsx:1751`, `pages/demo/assessments/[templateId]/results.tsx:181`, `pages/demo/assessments/[templateId]/results.tsx:192` | none |  |
 | `/demo/assessments/[templateId]/results` | `pages/demo/assessments/[templateId]/results.tsx` | Practice mode of Gestor de Cambio: a live feature. | not covered; signed-out: not stopped by the middleware; the page has its own check | `pages/demo/assessments/[templateId]/index.tsx:224` | `__tests__/pages/demo/results-adapter.test.ts` |  |
@@ -63,7 +63,7 @@ Found by following imports. 16 files are used by these screens only and can go w
 
 **Shared with screens that stay (do not delete)**
 
-- `lib/api-auth.ts` — also used by 16 other screens, for example `/admin/growth-communities/[id]/members`, `/admin/growth-communities`, `/admin/pasantia-leads`
+- `lib/api-auth.ts` — also used by 17 other screens, for example `/admin/growth-communities/[id]/members`, `/admin/growth-communities`, `/admin/pasantia-leads`
 
 **API files of the area**
 

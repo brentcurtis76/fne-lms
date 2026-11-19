@@ -1,7 +1,7 @@
 # Horas, tarifas y gastos
 
 Area `17-horas-gastos`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `d701100d0` (2026-11-18).
+Read from commit `ca9dad512` (2026-11-19).
 
 4 screen files, 10 API files, 16 pieces.
 
@@ -212,7 +212,7 @@ File `pages/expense-reports.tsx` · 852 lines · frame: MainLayout
   - l.142 `router.push → /dashboard  (when !hasAccess)`
   - l.155 `router.push → /login`
   - l.204 `router.push → /login`
-- Linked from: `components/DynamicFavicon.tsx:40`, `components/layout/Sidebar.tsx:579`, `lib/auth/forced-password-change.ts:149`, `middleware.ts:344`
+- Linked from: `components/DynamicFavicon.tsx:40`, `components/layout/Sidebar.tsx:579`, `lib/auth/forced-password-change.ts:149`, `middleware.ts:350`
 - Tests: no browser test that CI runs; unit tests of the page: `__tests__/pages/expense-reports.access.test.tsx`, `__tests__/pages/expense-reports.review.test.tsx`.
 - QA scenarios that name this address: admin 1, community_manager 1.
 
@@ -430,7 +430,7 @@ File `pages/mis-horas.tsx` · 113 lines · frame: MainLayout
   - l.52 `userRole = await getUserPrimaryRole(session.user.id)`
   - l.59 `router.push → /dashboard  (when !isAdminUser && !isConsultor)`
   - l.63 `router.push → /login`
-- Linked from: `components/layout/Sidebar.tsx:196`, `lib/auth/forced-password-change.ts:153`, `middleware.ts:348`
+- Linked from: `components/layout/Sidebar.tsx:196`, `lib/auth/forced-password-change.ts:153`, `middleware.ts:354`
 - Tests: no browser test that CI runs.
 - QA scenarios that name this address: consultor 5.
 
@@ -1297,5 +1297,5 @@ Used by: `/admin/consultant-earnings`, `/admin/consultant-rates`, `/expense-repo
 | `/api/expense-reports/receipt-link` | `pages/api/expense-reports/receipt-link.ts` | GET | `/expense-reports` | `__tests__/api/expense-reports/receipt-link.test.ts`, `components/expenses/ExpenseReportDetails.tsx`, `components/expenses/ExpenseReportForm.tsx` |
 | `/api/fx-rates/latest` | `pages/api/fx-rates/latest.ts` | GET | **no screen** | `__tests__/api/hour-tracking/fx-rates.test.ts`, `tests/e2e/fx-rates.spec.ts` |
 | `/api/fx-rates/refresh` | `pages/api/fx-rates/refresh.ts` | POST | **no screen** | `__tests__/api/hour-tracking/fx-rates.test.ts`, `tests/e2e/fx-rates.spec.ts` |
-| `/api/hour-types` | `pages/api/hour-types/index.ts` | GET | `/admin/bulk-tag-sessions`, `/admin/consultant-rates`, `/admin/sessions/create` | `__tests__/pages/admin/sessions/create-timezone.test.tsx`, `__tests__/pages/admin/sessions/create-zoom-managed.test.tsx`, `components/admin/ConsultantRateManager.tsx`, `pages/admin/bulk-tag-sessions.tsx`, `pages/admin/sessions/create.tsx` |
+| `/api/hour-types` | `pages/api/hour-types/index.ts` | GET | `/admin/bulk-tag-sessions`, `/admin/consultant-rates`, `/admin/sessions/create` | `__tests__/pages/admin/sessions/create-timezone.test.tsx`, `__tests__/pages/admin/sessions/create-zoom-managed.test.tsx`, `__tests__/pages/admin/sessions/create.clasico.test.tsx`, `components/admin/ConsultantRateManager.tsx`, `hooks/useSessionCreate.ts` +1 |
 

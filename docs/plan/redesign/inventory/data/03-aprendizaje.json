@@ -4,8 +4,8 @@
  "note": "Course system: the Course Review session owns this area's structure and its own checklist (docs/planning/courses/inventory.md, not yet on main). This file is the redesign's list of what is on screen today.",
  "routesOnly": false,
  "readFrom": {
-  "commit": "d701100d014e948bec5766fb68836675e13355b6",
-  "date": "2026-11-18T15:21:06-03:00"
+  "commit": "ca9dad512fc0b65bf1db627e23a6d84edd80dd28",
+  "date": "2026-11-19T14:41:10-03:00"
  },
  "screens": [
   {
@@ -67,7 +67,7 @@
      "components/notifications/NotificationDropdown.tsx:138",
      "components/notifications/NotificationDropdown.tsx:148",
      "lib/auth/forced-password-change.ts:139",
-     "middleware.ts:334"
+     "middleware.ts:340"
     ],
     "qaScenarios": {},
     "tests": {
@@ -123,8 +123,8 @@
      }
     ],
     "middleware": {
-     "rule": "no role rule",
-     "signedOut": "not stopped by the middleware",
+     "rule": "signed-in only",
+     "signedOut": "sent to /login",
      "passwordChangeHold": true
     },
     "roles": {
@@ -193,6 +193,7 @@
      "components/panel/PanelClasico.tsx:563",
      "components/panel/PanelNuevo.tsx:130",
      "lib/auth/forced-password-change.ts:152",
+     "lib/auth/forced-password-change.ts:182",
      "lib/notificationEvents.ts:248",
      "lib/notificationEvents.ts:262",
      "lib/notificationEvents.ts:275",
@@ -202,13 +203,13 @@
      "lib/notifications/catalog.ts:285",
      "lib/notifications/catalog.ts:286",
      "lib/notifications/catalog.ts:317",
-     "middleware.ts:347",
+     "middleware.ts:353",
      "pages/api/qa/seed-codebase-index.ts:231",
      "pages/course-manager.tsx:10",
      "pages/mi-aprendizaje/ruta/[id].tsx:253",
      "pages/my-paths.tsx:10",
-     "pages/notifications.tsx:267",
-     "pages/notifications.tsx:277"
+     "pages/notifications.tsx:270",
+     "pages/notifications.tsx:280"
     ],
     "qaScenarios": {
      "admin": [
@@ -573,8 +574,8 @@
    "reach": {
     "menu": [],
     "middleware": {
-     "rule": "no role rule",
-     "signedOut": "not stopped by the middleware",
+     "rule": "signed-in only",
+     "signedOut": "sent to /login",
      "passwordChangeHold": true
     },
     "roles": {
@@ -1032,8 +1033,8 @@
      }
     ],
     "middleware": {
-     "rule": "no role rule",
-     "signedOut": "not stopped by the middleware",
+     "rule": "signed-in only",
+     "signedOut": "sent to /login",
      "passwordChangeHold": true
     },
     "roles": {
@@ -1079,7 +1080,7 @@
      "components/layout/Sidebar.tsx:156",
      "lib/notifications/catalog.ts:296",
      "pages/api/assignments/collaborative-submit.ts:126",
-     "pages/community/workspace.tsx:273",
+     "pages/community/workspace.tsx:274",
      "pages/community/workspace/assignments/[id]/discussion.tsx:150",
      "pages/community/workspace/assignments/[id]/discussion.tsx:279",
      "pages/community/workspace/assignments/[id]/discussion.tsx:289",
@@ -1601,7 +1602,7 @@
     "linkedFrom": [
      "components/DynamicFavicon.tsx:32",
      "lib/auth/forced-password-change.ts:154",
-     "middleware.ts:349",
+     "middleware.ts:355",
      "pages/mi-aprendizaje/ruta/[id].tsx:231"
     ],
     "qaScenarios": {},
@@ -1640,8 +1641,8 @@
    "reach": {
     "menu": [],
     "middleware": {
-     "rule": "no role rule",
-     "signedOut": "not stopped by the middleware",
+     "rule": "signed-in only",
+     "signedOut": "sent to /login",
      "passwordChangeHold": true
     },
     "roles": {
@@ -2027,8 +2028,8 @@
    "reach": {
     "menu": [],
     "middleware": {
-     "rule": "no role rule",
-     "signedOut": "not stopped by the middleware",
+     "rule": "signed-in only",
+     "signedOut": "sent to /login",
      "passwordChangeHold": true
     },
     "roles": {

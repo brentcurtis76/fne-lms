@@ -1,7 +1,7 @@
 # Personas (users, schools, networks, roles, profile)
 
 Area `14-personas`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `d701100d0` (2026-11-18).
+Read from commit `ca9dad512` (2026-11-19).
 
 7 screen files, 33 API files, 24 pieces.
 
@@ -15,7 +15,7 @@ Read from commit `d701100d0` (2026-11-18).
 | `/admin/schools` | `pages/admin/schools.tsx` | 1544 | Personas › Escuelas |  |
 | `/admin/tractor-signups` | `pages/admin/tractor-signups.tsx` | 776 | Personas › Registros |  |
 | `/admin/user-management` | `pages/admin/user-management.tsx` | 1028 | Personas › Usuarios |  |
-| `/profile` | `pages/profile.tsx` | 816 | Mi Perfil |  |
+| `/profile` | `pages/profile.tsx` | 819 | Mi Perfil |  |
 
 ## /admin/network-management
 
@@ -429,7 +429,7 @@ File `pages/admin/school-users.tsx` · 821 lines · frame: MainLayout · getServ
   - l.54 `if (await isGlobalAdmin(service, user.id)) { return { redirect: { destination: '/admin/user-management', permanent: false } }; }`
   - l.60 `server redirect → /dashboard  (when schoolId === null)`
   - l.268 `router.push → /login`
-- Linked from: `components/layout/Sidebar.tsx:392`, `middleware.ts:234`
+- Linked from: `components/layout/Sidebar.tsx:392`, `middleware.ts:235`
 - Tests: no browser test that CI runs; unit tests of the page: `__tests__/lib/api-auth.server-side-user.test.ts`.
 
 | Role | Sees it in the menu | Middleware |
@@ -1107,7 +1107,7 @@ File `pages/admin/user-management.tsx` · 1028 lines · frame: MainLayout
   - l.340 `router.push → /dashboard  (when !adminRole)`
   - l.676 `router.push → /login`
   - l.741 `Solo administradores pueden acceder a la gestión de usuarios.`
-- Linked from: `components/layout/Sidebar.tsx:406`, `components/notifications/ModernNotificationCenter.tsx:316`, `components/notifications/NotificationDropdown.tsx:145`, `pages/admin/qa/index.tsx:875`, `pages/admin/qa/index.tsx:876`, `pages/admin/qa/index.tsx:893`, `pages/admin/qa/index.tsx:894`, `pages/admin/school-users.tsx:55`, `pages/api/qa/seed-codebase-index.ts:18`, `pages/notifications.tsx:274`
+- Linked from: `components/layout/Sidebar.tsx:406`, `components/notifications/ModernNotificationCenter.tsx:316`, `components/notifications/NotificationDropdown.tsx:145`, `pages/admin/qa/index.tsx:875`, `pages/admin/qa/index.tsx:876`, `pages/admin/qa/index.tsx:893`, `pages/admin/qa/index.tsx:894`, `pages/admin/school-users.tsx:55`, `pages/api/qa/seed-codebase-index.ts:18`, `pages/notifications.tsx:277`
 - Tests: browser tests that CI runs: `tests/e2e/auth-lifecycle.spec.ts`; unit tests of the page: `__tests__/pages/admin/user-management.expense-access.test.tsx`.
 - QA scenarios that name this address: admin 2, community_manager 1, consultor 1, equipo_directivo 1, lider_comunidad 1, lider_generacion 1, supervisor_de_red 1.
 
@@ -1338,19 +1338,19 @@ File `pages/admin/user-management.tsx` · 1028 lines · frame: MainLayout
 
 ## /profile
 
-File `pages/profile.tsx` · 816 lines · frame: MainLayout
+File `pages/profile.tsx` · 819 lines · frame: MainLayout
 
 ### Who reaches it
 
 - Menu: «Mi Perfil» → `/profile` — everyone signed in (`Sidebar.tsx` l.124)
 - Middleware: no role rule. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: yes.
 - In the page:
-  - l.80 `router.push → /login  (when !session?.user)`
-  - l.92 `adminRole = metadataHasRole(userData?.user?.user_metadata, 'admin')`
-  - l.460 `router.push → /pending-approval  (when !(updateError) && isNewUser)`
-  - l.472 `router.push → /login`
-- Linked from: `components/DynamicFavicon.tsx:18`, `components/layout/MainLayout.tsx:391`, `components/layout/Sidebar.tsx:127`, `components/layout/Sidebar.tsx:1309`, `components/layout/TopBarNuevo.tsx:109`, `components/panel/PanelClasico.tsx:86`, `components/panel/PanelClasico.tsx:87`, `components/panel/PanelNuevo.tsx:88`, `components/panel/PanelNuevo.tsx:89`, `hooks/usePanel.ts:248`, `lib/auth/forced-password-change.ts:156`, `lib/frontend-auth-utils.ts:143` and 3 more
-- Tests: browser tests that CI runs: `tests/e2e/look-frame.spec.ts`, `tests/e2e/look-panel.spec.ts`, `tests/e2e/notification-settings.spec.ts`; browser tests CI skips: `tests/e2e/panel-pin.spec.ts`, `tests/qa/auth-redirects.spec.ts`; unit tests of the page: `__tests__/notifications/entry-points.test.tsx`.
+  - l.83 `router.push → /login?next=[*]  (when !session?.user)`
+  - l.95 `adminRole = metadataHasRole(userData?.user?.user_metadata, 'admin')`
+  - l.463 `router.push → /pending-approval  (when !(updateError) && isNewUser)`
+  - l.475 `router.push → /login`
+- Linked from: `components/DynamicFavicon.tsx:18`, `components/layout/MainLayout.tsx:391`, `components/layout/Sidebar.tsx:127`, `components/layout/Sidebar.tsx:1309`, `components/layout/TopBarNuevo.tsx:109`, `components/panel/PanelClasico.tsx:86`, `components/panel/PanelClasico.tsx:87`, `components/panel/PanelNuevo.tsx:88`, `components/panel/PanelNuevo.tsx:89`, `hooks/usePanel.ts:248`, `lib/auth/forced-password-change.ts:156`, `lib/frontend-auth-utils.ts:143` and 4 more
+- Tests: browser tests that CI runs: `tests/e2e/look-frame.spec.ts`, `tests/e2e/look-panel.spec.ts`, `tests/e2e/notification-settings.spec.ts`; browser tests CI skips: `tests/e2e/panel-pin.spec.ts`, `tests/qa/auth-redirects.spec.ts`; unit tests of the page: `__tests__/notifications/entry-points.test.tsx`, `__tests__/pages/profile.direct-open.test.tsx`.
 - QA scenarios that name this address: admin 1, community_manager 2.
 
 | Role | Sees it in the menu | Middleware |
@@ -1371,140 +1371,140 @@ File `pages/profile.tsx` · 816 lines · frame: MainLayout
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «Error de Sesión» | h2 | `!session && router.query.from === 'login'` | ProfilePage · l.496 |
-| «Vista previa del avatar» | h3 | `showAvatarModal` | ProfilePage · l.780 |
+| «Error de Sesión» | h2 | `!session && router.query.from === 'login'` | ProfilePage · l.499 |
+| «Vista previa del avatar» | h3 | `showAvatarModal` | ProfilePage · l.783 |
 
 **Buttons** (4)
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «Cerrar sesión» | `{handleLogout}` |  |  |  | ProfilePage · l.759 |
-| «Guardar perfil» (submits the form) |  |  |  |  | ProfilePage · l.766 |
-| «Cancelar» | `{closeAvatarModal}` | `showAvatarModal` |  |  | ProfilePage · l.794 |
-| «Confirmar» | `{confirmAvatar}` | `showAvatarModal` |  |  | ProfilePage · l.800 |
+| «Cerrar sesión» | `{handleLogout}` |  |  |  | ProfilePage · l.762 |
+| «Guardar perfil» (submits the form) |  |  |  |  | ProfilePage · l.769 |
+| «Cancelar» | `{closeAvatarModal}` | `showAvatarModal` |  |  | ProfilePage · l.797 |
+| «Confirmar» | `{confirmAvatar}` | `showAvatarModal` |  |  | ProfilePage · l.803 |
 
 **Links** (2)
 
 | Text | Goes to | Shown when | Hook | Where |
 |---|---|---|---|---|
-| «Volver a Iniciar Sesión» | `/login` | `!session && router.query.from === 'login'` |  | ProfilePage · l.500 |
-| «Notificaciones por correo Elige qué notificaciones recibes por correo» | `/configuracion/notificaciones` |  | `testid=profile-notification-settings` | ProfilePage · l.743 |
+| «Volver a Iniciar Sesión» | `/login` | `!session && router.query.from === 'login'` |  | ProfilePage · l.503 |
+| «Notificaciones por correo Elige qué notificaciones recibes por correo» | `/configuracion/notificaciones` |  | `testid=profile-notification-settings` | ProfilePage · l.746 |
 
 **Other things that react to a click** (1)
 
 | Element | Text | Does | Shown when | Where |
 |---|---|---|---|---|
-| `div` |  | `{() => document.getElementById('avatar-input')?.click()}` |  | ProfilePage · l.583 |
+| `div` |  | `{() => document.getElementById('avatar-input')?.click()}` |  | ProfilePage · l.586 |
 
 **Fields** (10)
 
 | Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
 |---|---|---|---|---|---|---|
-|  | file | accepts `image/png,image/jpeg,image/gif,image/webp` |  | hidden by its class (`hidden`); another control opens it or it is for screen readers | `id=avatar-input (id used by code)` | ProfilePage · l.590 |
-| «Nombre» | text | required |  |  | `id=firstName (id used by code)` | ProfilePage · l.605 |
-| «Segundo nombre (opcional)» | text |  |  |  | `id=middleName (id used by code)` | ProfilePage · l.618 |
-| «Apellidos» | text | required |  |  | `id=lastName (id used by code)` | ProfilePage · l.630 |
-| «Correo electrónico» | email | `readOnly=true` |  |  |  | ProfilePage · l.643 |
-| «Escuela» | text | `readOnly=true` |  | `!isAdmin && schools.length <= 1` | `id=school (id used by code)` | ProfilePage · l.655 |
-| «Escuela» | select |  | «Selecciona una escuela», «(lista) {schoolItem.name} [- {schoolItem.location}] [({schoolItem.type})]» | `!(!isAdmin && schools.length <= 1)` | `id=school (id used by code)` | ProfilePage · l.663 |
-| «Escuela externa (afiliación)» | text | `readOnly=true` |  | `isConsultant && profile?.external_school_affiliation` |  | ProfilePage · l.688 |
-| «Comunidades de crecimiento / Comunidad de crecimiento» | text | `readOnly=true` |  | `!(growthCommunities.length > 0)` |  | ProfilePage · l.717 |
-| «Descripción» | textarea | «Cuéntanos sobre ti...» |  |  | `id=description (id used by code)` | ProfilePage · l.729 |
+|  | file | accepts `image/png,image/jpeg,image/gif,image/webp` |  | hidden by its class (`hidden`); another control opens it or it is for screen readers | `id=avatar-input (id used by code)` | ProfilePage · l.593 |
+| «Nombre» | text | required |  |  | `id=firstName (id used by code)` | ProfilePage · l.608 |
+| «Segundo nombre (opcional)» | text |  |  |  | `id=middleName (id used by code)` | ProfilePage · l.621 |
+| «Apellidos» | text | required |  |  | `id=lastName (id used by code)` | ProfilePage · l.633 |
+| «Correo electrónico» | email | `readOnly=true` |  |  |  | ProfilePage · l.646 |
+| «Escuela» | text | `readOnly=true` |  | `!isAdmin && schools.length <= 1` | `id=school (id used by code)` | ProfilePage · l.658 |
+| «Escuela» | select |  | «Selecciona una escuela», «(lista) {schoolItem.name} [- {schoolItem.location}] [({schoolItem.type})]» | `!(!isAdmin && schools.length <= 1)` | `id=school (id used by code)` | ProfilePage · l.666 |
+| «Escuela externa (afiliación)» | text | `readOnly=true` |  | `isConsultant && profile?.external_school_affiliation` |  | ProfilePage · l.691 |
+| «Comunidades de crecimiento / Comunidad de crecimiento» | text | `readOnly=true` |  | `!(growthCommunities.length > 0)` |  | ProfilePage · l.720 |
+| «Descripción» | textarea | «Cuéntanos sobre ti...» |  |  | `id=description (id used by code)` | ProfilePage · l.732 |
 
 **Embedded media** (3)
 
 | What | Shown when | Hook | Where |
 |---|---|---|---|
-| img · alt Profile avatar · {previewUrl} | `previewUrl` | `id=avatar-preview` | ProfilePage · l.565 |
-| img · alt Profile avatar · {avatarUrl} | `!(previewUrl) && avatarUrl` | `id=avatar-preview` | ProfilePage · l.572 |
-| img · alt Avatar Preview · {previewUrl} | `showAvatarModal` |  | ProfilePage · l.784 |
+| img · alt Profile avatar · {previewUrl} | `previewUrl` | `id=avatar-preview` | ProfilePage · l.568 |
+| img · alt Profile avatar · {avatarUrl} | `!(previewUrl) && avatarUrl` | `id=avatar-preview` | ProfilePage · l.575 |
+| img · alt Avatar Preview · {previewUrl} | `showAvatarModal` |  | ProfilePage · l.787 |
 
 **Forms** (1)
 
 | On submit | Shown when | Where |
 |---|---|---|
-| `{(e) => { e.preventDefault(); handleSave(); }}` |  | ProfilePage · l.600 |
+| `{(e) => { e.preventDefault(); handleSave(); }}` |  | ProfilePage · l.603 |
 
 **Pop-ups** (1)
 
 | Name or title | How | Opens when | Texts passed to it | Where |
 |---|---|---|---|---|
-| «Vista previa del avatar» | written in this file | `showAvatarModal` |  | ProfilePage · l.778 |
+| «Vista previa del avatar» | written in this file | `showAvatarModal` |  | ProfilePage · l.781 |
 
 **Toasts** (5)
 
 | Kind | Text | When | Where |
 |---|---|---|---|
-| error | «{TOAST_MESSAGES.USER.PROFILE_ERROR + ': ' + updateError.message}» | `updateError` | handleSave · l.406 |
-| success | «{TOAST_MESSAGES.USER.PROFILE_UPDATED}» | `!(updateError) && avatarUploadFailed` | handleSave · l.451 |
-| error | «{avatarErrorMessage}» | `!(updateError) && avatarUploadFailed` | handleSave · l.452 |
-| success | «{TOAST_MESSAGES.USER.PROFILE_UPDATED}» | `!(updateError) && !(avatarUploadFailed)` | handleSave · l.454 |
-| error | «{TOAST_MESSAGES.NETWORK.UNEXPECTED_ERROR}» |  | handleSave · l.466 |
+| error | «{TOAST_MESSAGES.USER.PROFILE_ERROR + ': ' + updateError.message}» | `updateError` | handleSave · l.409 |
+| success | «{TOAST_MESSAGES.USER.PROFILE_UPDATED}» | `!(updateError) && avatarUploadFailed` | handleSave · l.454 |
+| error | «{avatarErrorMessage}» | `!(updateError) && avatarUploadFailed` | handleSave · l.455 |
+| success | «{TOAST_MESSAGES.USER.PROFILE_UPDATED}» | `!(updateError) && !(avatarUploadFailed)` | handleSave · l.457 |
+| error | «{TOAST_MESSAGES.NETWORK.UNEXPECTED_ERROR}» |  | handleSave · l.469 |
 
 **Moves to another page from code** (3)
 
 | Goes to | How | When | Where |
 |---|---|---|---|
-| `/login` | `router.push` | `!session?.user` | getSessionAndProfile · l.80 |
-| `/pending-approval` | `router.push` | `!(updateError) && isNewUser` | handleSave · l.460 |
-| `/login` | `router.push` |  | handleLogout · l.472 |
+| `/login?next=[*]` | `router.push` | `!session?.user` | getSessionAndProfile · l.83 |
+| `/pending-approval` | `router.push` | `!(updateError) && isNewUser` | handleSave · l.463 |
+| `/login` | `router.push` |  | handleLogout · l.475 |
 
 **Access checks in the code** (1)
 
 | Line of code | Where |
 |---|---|
-| `adminRole = metadataHasRole(userData?.user?.user_metadata, 'admin')` | getSessionAndProfile · l.92 |
+| `adminRole = metadataHasRole(userData?.user?.user_metadata, 'admin')` | getSessionAndProfile · l.95 |
 
 **Pieces placed here, with the texts and settings handed to them** (4)
 
 | Piece | Texts and settings | Shown when | Hook | Where |
 |---|---|---|---|---|
-| `MainLayout` |  |  |  | ProfilePage · l.509 |
-| `ResponsiveFunctionalPageHeader` | title: Mi Perfil · subtitle: Completa tu información personal para acceder a la plataforma / Actualiza tu información personal · primaryAction: Editar Perfil |  |  | ProfilePage · l.518 |
-| `PasswordChangeSection` |  |  |  | ProfilePage · l.740 |
-| `Bell` | aria-hidden: true |  |  | ProfilePage · l.749 |
+| `MainLayout` |  |  |  | ProfilePage · l.512 |
+| `ResponsiveFunctionalPageHeader` | title: Mi Perfil · subtitle: Completa tu información personal para acceder a la plataforma / Actualiza tu información personal · primaryAction: Editar Perfil |  |  | ProfilePage · l.521 |
+| `PasswordChangeSection` |  |  |  | ProfilePage · l.743 |
+| `Bell` | aria-hidden: true |  |  | ProfilePage · l.752 |
 
 **Other texts written in the code (safety net: not tied to an element by the script)** (2)
 
 | Text | Where |
 |---|---|
-| «El almacenamiento para avatares no está configurado. Tu perfil se guardará sin la imagen.» | ProfilePage · l.332 |
-| «Error inesperado al subir la imagen. Tu perfil se guardará sin la imagen.» | ProfilePage · l.348 |
+| «El almacenamiento para avatares no está configurado. Tu perfil se guardará sin la imagen.» | ProfilePage · l.335 |
+| «Error inesperado al subir la imagen. Tu perfil se guardará sin la imagen.» | ProfilePage · l.351 |
 
 **Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (8)
 
 | Kind | What | Where |
 |---|---|---|
-| timer | `setTimeout(…, 1500)` | handleSave · l.459 |
-| lookup | `getElementById('profile-form')` | ProfilePage · l.526 |
-| scroll | `formElement.scrollIntoView()` | ProfilePage · l.528 |
-| mark | `id=profile-page` | ProfilePage · l.535 |
-| mark | `id=success-alert` | ProfilePage · l.538 |
-| mark | `id=profile-form` | ProfilePage · l.559 |
-| lookup | `getElementById('avatar-input')` | ProfilePage · l.585 |
+| timer | `setTimeout(…, 1500)` | handleSave · l.462 |
+| lookup | `getElementById('profile-form')` | ProfilePage · l.529 |
+| scroll | `formElement.scrollIntoView()` | ProfilePage · l.531 |
+| mark | `id=profile-page` | ProfilePage · l.538 |
+| mark | `id=success-alert` | ProfilePage · l.541 |
+| mark | `id=profile-form` | ProfilePage · l.562 |
+| lookup | `getElementById('avatar-input')` | ProfilePage · l.588 |
 | address value | `?from` | l.1 |
 
 **Values shown from data** (1)
 
-- `{community.name}` — ProfilePage · l.708, when `growthCommunities.length > 0 && each growthCommunities`
+- `{community.name}` — ProfilePage · l.711, when `growthCommunities.length > 0 && each growthCommunities`
 
 **Other texts on screen** (15)
 
-- «Cargando...» — ProfilePage · l.480, when `loading`
-- «Hubo un problema al establecer tu sesión. Por favor, intenta iniciar sesión nuevamente.» — ProfilePage · l.498, when `!session && router.query.from === 'login'`
-- «Perfil cargado exitosamente» — ProfilePage · l.540, when `dataLoaded`
-- «@keyframes fadeIn { 0% { opacity: 0; transform: translate(-50%, -20px); } 100% { opacity: 1; transform: translate(-50%, 0); } } @keyframes fadeOut { 0% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; transform: translate(…» — ProfilePage · l.541, when `dataLoaded`
-- «PNG, JPG, GIF o WEBP (max. 10MB)» — ProfilePage · l.597
-- «Nombre» (label) — ProfilePage · l.604
-- «Segundo nombre (opcional)» (label) — ProfilePage · l.617
-- «Apellidos» (label) — ProfilePage · l.629
-- «Correo electrónico» (label) — ProfilePage · l.642
-- «Escuela» (label) — ProfilePage · l.653
-- «Escuela externa (afiliación)» (label) — ProfilePage · l.684, when `isConsultant && profile?.external_school_affiliation`
-- «Esta información es gestionada por los administradores» — ProfilePage · l.695, when `isConsultant && profile?.external_school_affiliation`
-- «Comunidades de crecimiento / Comunidad de crecimiento» (label) — ProfilePage · l.702
-- «Descripción» (label) — ProfilePage · l.728
-- «Esta es la apariencia que tendrá tu avatar» — ProfilePage · l.790, when `showAvatarModal`
+- «Cargando...» — ProfilePage · l.483, when `loading`
+- «Hubo un problema al establecer tu sesión. Por favor, intenta iniciar sesión nuevamente.» — ProfilePage · l.501, when `!session && router.query.from === 'login'`
+- «Perfil cargado exitosamente» — ProfilePage · l.543, when `dataLoaded`
+- «@keyframes fadeIn { 0% { opacity: 0; transform: translate(-50%, -20px); } 100% { opacity: 1; transform: translate(-50%, 0); } } @keyframes fadeOut { 0% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; transform: translate(…» — ProfilePage · l.544, when `dataLoaded`
+- «PNG, JPG, GIF o WEBP (max. 10MB)» — ProfilePage · l.600
+- «Nombre» (label) — ProfilePage · l.607
+- «Segundo nombre (opcional)» (label) — ProfilePage · l.620
+- «Apellidos» (label) — ProfilePage · l.632
+- «Correo electrónico» (label) — ProfilePage · l.645
+- «Escuela» (label) — ProfilePage · l.656
+- «Escuela externa (afiliación)» (label) — ProfilePage · l.687, when `isConsultant && profile?.external_school_affiliation`
+- «Esta información es gestionada por los administradores» — ProfilePage · l.698, when `isConsultant && profile?.external_school_affiliation`
+- «Comunidades de crecimiento / Comunidad de crecimiento» (label) — ProfilePage · l.705
+- «Descripción» (label) — ProfilePage · l.731
+- «Esta es la apariencia que tendrá tu avatar» — ProfilePage · l.793, when `showAvatarModal`
 
 **Reads and writes the database directly:** `bucket:avatars` (getPublicUrl, upload), `table:generations` (select), `table:profiles` (insert, select, update), `table:red_escuelas` (select), `table:schools` (select), `table:user_roles` (insert, select)
 

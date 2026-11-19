@@ -1,12 +1,12 @@
 # API files that no screen calls
 
-Written by `scripts/redesign/inventory.mjs` from commit `d701100d0`. An API file is listed here when no screen, and no piece a screen draws, names its address. "Named in" shows where else the address appears (scheduled jobs in `vercel.json`, server code, tests). Nothing here is a verdict: an address can be called from outside the platform (a webhook, a link in an email).
+Written by `scripts/redesign/inventory.mjs` from commit `ca9dad512`. An API file is listed here when no screen, and no piece a screen draws, names its address. "Named in" shows where else the address appears (scheduled jobs in `vercel.json`, server code, tests). Nothing here is a verdict: an address can be called from outside the platform (a webhook, a link in an email).
 
 ## Marco (the frame around every screen)
 
 | Address | File | Methods | Named in |
 |---|---|---|---|
-| `/api/feedback/notify-admins` | `pages/api/feedback/notify-admins.ts` | POST | `__tests__/api/feedback/notify-admins.test.ts`, `components/feedback/FeedbackModal.tsx`, `tests/e2e/feedback-notify-admins.spec.ts` |
+| `/api/feedback/notify-admins` | `pages/api/feedback/notify-admins.ts` | POST | `__tests__/api/feedback/notify-admins.test.ts`, `__tests__/components/feedback/FeedbackModal.reportes-link.test.tsx`, `components/feedback/FeedbackModal.tsx`, `tests/e2e/feedback-notify-admins.spec.ts` |
 
 ## Acceso (sign-in, sign-up, passwords)
 
@@ -60,8 +60,8 @@ Written by `scripts/redesign/inventory.mjs` from commit `d701100d0`. An API file
 
 | Address | File | Methods | Named in |
 |---|---|---|---|
-| `/api/admin/assessment-builder/templates/[templateId]/expectations/[indicatorId]` | `pages/api/admin/assessment-builder/templates/[templateId]/expectations/[indicatorId].ts` | DELETE, GET, PUT | `__tests__/api/assessment-builder/expectations-concurrent-rules.test.ts`, `__tests__/api/assessment-builder/expectations-level-descriptors.test.ts`, `__tests__/api/assessment-builder/expectations-put-validation.test.ts`, `__tests__/api/assessment-builder/expectations.test.ts`, `__tests__/api/assessment-builder/per-year-weights.test.ts`, `__tests__/api/assessment-builder/weight-distributor.test.ts` |
-| `/api/admin/assessment-builder/templates/[templateId]/snapshots/[snapshotId]` | `pages/api/admin/assessment-builder/templates/[templateId]/snapshots/[snapshotId].ts` | GET | **nothing** |
+| `/api/admin/assessment-builder/templates/[templateId]/expectations/[indicatorId]` | `pages/api/admin/assessment-builder/templates/[templateId]/expectations/[indicatorId].ts` | DELETE, GET, PUT | `__tests__/api/assessment-builder/consultor-reads-by-rule.test.ts`, `__tests__/api/assessment-builder/expectations-concurrent-rules.test.ts`, `__tests__/api/assessment-builder/expectations-level-descriptors.test.ts`, `__tests__/api/assessment-builder/expectations-put-validation.test.ts`, `__tests__/api/assessment-builder/expectations.test.ts`, `__tests__/api/assessment-builder/per-year-weights.test.ts` +1 |
+| `/api/admin/assessment-builder/templates/[templateId]/snapshots/[snapshotId]` | `pages/api/admin/assessment-builder/templates/[templateId]/snapshots/[snapshotId].ts` | GET | `__tests__/api/assessment-builder/consultor-reads-by-rule.test.ts` |
 
 ## Vías de Transformación (to be deleted)
 
@@ -179,7 +179,7 @@ Written by `scripts/redesign/inventory.mjs` from commit `d701100d0`. An API file
 | `/api/test-bucket` | `pages/api/test-bucket.js` |  | **nothing** |
 | `/api/test/notification-triggers` | `pages/api/test/notification-triggers.ts` |  | **nothing** |
 
-87 of 369 API files.
+87 of 371 API files.
 
 ## Addresses the code names that have no file
 
@@ -189,5 +189,5 @@ Written by `scripts/redesign/inventory.mjs` from commit `d701100d0`. An API file
 | `components/qa/QAFloatingWidget.tsx:137` | `/api/auth` | url.includes(…) |
 | `lib/auth/recovery-cookie.ts:28` | `/api/auth/recovery` | only named (may be a prefix test, not a call) |
 | `lib/pushNotifications.js:218` | `/api/notifications/test-push` | fetch(…) |
-| `lib/uf-service.ts:242` | `/api/uf` | fetch(…) |
+| `lib/uf-service.ts:422` | `/api/uf` | fetchWithTimeout(…) |
 

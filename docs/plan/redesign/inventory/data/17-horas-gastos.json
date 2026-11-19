@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "d701100d014e948bec5766fb68836675e13355b6",
-  "date": "2026-11-18T15:21:06-03:00"
+  "commit": "ca9dad512fc0b65bf1db627e23a6d84edd80dd28",
+  "date": "2026-11-19T14:41:10-03:00"
  },
  "screens": [
   {
@@ -596,7 +596,7 @@
      "components/DynamicFavicon.tsx:40",
      "components/layout/Sidebar.tsx:579",
      "lib/auth/forced-password-change.ts:149",
-     "middleware.ts:344"
+     "middleware.ts:350"
     ],
     "qaScenarios": {
      "admin": [
@@ -1462,7 +1462,7 @@
     "linkedFrom": [
      "components/layout/Sidebar.tsx:196",
      "lib/auth/forced-password-change.ts:153",
-     "middleware.ts:348"
+     "middleware.ts:354"
     ],
     "qaScenarios": {
      "consultor": [
@@ -4622,9 +4622,10 @@
    "referencedIn": [
     "__tests__/pages/admin/sessions/create-timezone.test.tsx",
     "__tests__/pages/admin/sessions/create-zoom-managed.test.tsx",
+    "__tests__/pages/admin/sessions/create.clasico.test.tsx",
     "components/admin/ConsultantRateManager.tsx",
-    "pages/admin/bulk-tag-sessions.tsx",
-    "pages/admin/sessions/create.tsx"
+    "hooks/useSessionCreate.ts",
+    "pages/admin/bulk-tag-sessions.tsx"
    ]
   }
  ]

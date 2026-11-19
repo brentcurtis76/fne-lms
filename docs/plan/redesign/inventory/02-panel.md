@@ -1,7 +1,7 @@
 # Panel (Mi Panel)
 
 Area `02-panel`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `d701100d0` (2026-11-18).
+Read from commit `ca9dad512` (2026-11-19).
 
 1 screen files, 6 API files, 56 pieces.
 
@@ -146,7 +146,7 @@ File `pages/dashboard.tsx` · 100 lines · frame: MainLayout
 
 | Address | Method | Called from |
 |---|---|---|
-| `/api/community/ensure-workspace` | POST | `utils/workspaceUtils.ts:386` |
+| `/api/community/ensure-workspace` | POST | `utils/workspaceUtils.ts:390` |
 | `/api/community/members` | GET | `utils/roleUtils.ts:1015` |
 | `/api/course-proposals` | GET, POST | `components/course-proposals/useCourseProposals.ts:25`, `components/course-proposals/useCourseProposals.ts:70` |
 | `/api/course-proposals/[id]` | DELETE, PUT | `components/course-proposals/useCourseProposals.ts:106`, `components/course-proposals/useCourseProposals.ts:48` |
@@ -403,50 +403,51 @@ Used by: `/dashboard`
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «Configuración de la Comunidad» | h3 |  | WorkspaceSettingsModal · l.49 |
+| «Configuración de la Comunidad» | h3 |  | WorkspaceSettingsModal · l.52 |
 
 **Buttons** (4)
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «[icon X]» | `{onClose}` |  | `{isLoading}` |  | WorkspaceSettingsModal · l.52 |
-| «[icon X]» | `{handleRemoveImage}` | `imagePreview` |  |  | WorkspaceSettingsModal · l.96 |
-| «Cancelar» | `{onClose}` |  | `{isLoading}` |  | WorkspaceSettingsModal · l.138 |
-| «Guardando... / Guardar cambios» | `{handleSave}` |  | `{saveDisabled}` |  | WorkspaceSettingsModal · l.145 |
+| «[icon X]» | `{onClose}` |  | `{isLoading}` |  | WorkspaceSettingsModal · l.55 |
+| «[icon X]» | `{handleRemoveImage}` | `canChangePicture && imagePreview` |  |  | WorkspaceSettingsModal · l.100 |
+| «Cancelar» | `{onClose}` |  | `{isLoading}` |  | WorkspaceSettingsModal · l.146 |
+| «Guardando... / Guardar cambios» | `{handleSave}` |  | `{saveDisabled}` |  | WorkspaceSettingsModal · l.153 |
 
 **Fields** (2)
 
 | Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
 |---|---|---|---|---|---|---|
-| «Nombre de la Comunidad» | text | «Ingresa un nombre personalizado» · `maxLength={100}` |  |  |  | WorkspaceSettingsModal · l.67 |
-| «Subir imagen» | file | accepts `image/jpeg,image/jpg,image/png,image/webp` |  | hidden by its class (`hidden`); another control opens it or it is for screen readers | `id=community-image-upload (id used by code)` | WorkspaceSettingsModal · l.113 |
+| «Nombre de la Comunidad» | text | «Ingresa un nombre personalizado» · `maxLength={100}` |  |  |  | WorkspaceSettingsModal · l.70 |
+| «Subir imagen» | file | accepts `image/jpeg,image/jpg,image/png,image/webp` |  | `canChangePicture` · hidden by its class (`hidden`); another control opens it or it is for screen readers | `id=community-image-upload (id used by code)` | WorkspaceSettingsModal · l.117 |
 
 **Embedded media** (1)
 
 | What | Shown when | Hook | Where |
 |---|---|---|---|
-| img · alt Vista previa · {imagePreview} | `imagePreview` |  | WorkspaceSettingsModal · l.91 |
+| img · alt Vista previa · {imagePreview} | `canChangePicture && imagePreview` |  | WorkspaceSettingsModal · l.95 |
 
 **Pop-ups** (2)
 
 | Name or title | How | Opens when | Texts passed to it | Where |
 |---|---|---|---|---|
-| `WorkspaceSettingsNuevo` | component | `{isOpen}` |  | WorkspaceSettingsModal · l.41 |
-| «Configuración de la Comunidad» | written in this file |  |  | WorkspaceSettingsModal · l.46 |
+| `WorkspaceSettingsNuevo` | component | `{isOpen}` |  | WorkspaceSettingsModal · l.44 |
+| «Configuración de la Comunidad» | written in this file |  |  | WorkspaceSettingsModal · l.49 |
 
 **Draws nothing when** (1)
 
 | Condition | Where |
 |---|---|
-| `!isOpen` | WorkspaceSettingsModal · l.43 |
+| `!isOpen` | WorkspaceSettingsModal · l.46 |
 
-**Other texts on screen** (5)
+**Other texts on screen** (6)
 
-- «Nombre de la Comunidad» (label) — WorkspaceSettingsModal · l.64
-- «Cualquier miembro puede cambiar el nombre del grupo» — WorkspaceSettingsModal · l.76
-- «Imagen de la Comunidad» (label) — WorkspaceSettingsModal · l.82
-- «Subir imagen» (label) — WorkspaceSettingsModal · l.121
-- «Máx. 5MB (JPEG, PNG, WebP)» — WorkspaceSettingsModal · l.129
+- «Nombre de la Comunidad» (label) — WorkspaceSettingsModal · l.67
+- «Cualquier miembro puede cambiar el nombre del grupo» — WorkspaceSettingsModal · l.79
+- «Imagen de la Comunidad» (label) — WorkspaceSettingsModal · l.86, when `canChangePicture`
+- «Subir imagen» (label) — WorkspaceSettingsModal · l.125, when `canChangePicture`
+- «Máx. 5MB (JPEG, PNG, WebP)» — WorkspaceSettingsModal · l.133, when `canChangePicture`
+- «La imagen la cambian los administradores y el gestor de la comunidad.» — WorkspaceSettingsModal · l.138, when `canChangePicture`
 
 ### components/community/WorkspaceSettingsNuevo.tsx
 
@@ -456,49 +457,50 @@ Used by: `/dashboard`
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «Cancelar» | `{onClose}` |  | `{isLoading}` | `testid=workspace-settings-cancel` | WorkspaceSettingsNuevo · l.46 |
-| «Guardando... / Guardar cambios» | `{handleSave}` |  | `{saveDisabled}` | `testid=workspace-settings-save` | WorkspaceSettingsNuevo · l.49 |
-| «[icon X]» · tooltip «Quitar imagen» · aria «Quitar imagen» | `{handleRemoveImage}` | `imagePreview` |  | `testid=workspace-settings-remove-image` | WorkspaceSettingsNuevo · l.74 |
-| «Subir imagen» | `{() => fileInputRef.current?.click()}` |  |  | `testid=workspace-settings-upload` | WorkspaceSettingsNuevo · l.99 |
+| «Cancelar» | `{onClose}` |  | `{isLoading}` | `testid=workspace-settings-cancel` | WorkspaceSettingsNuevo · l.48 |
+| «Guardando... / Guardar cambios» | `{handleSave}` |  | `{saveDisabled}` | `testid=workspace-settings-save` | WorkspaceSettingsNuevo · l.51 |
+| «[icon X]» · tooltip «Quitar imagen» · aria «Quitar imagen» | `{handleRemoveImage}` | `canChangePicture && imagePreview` |  | `testid=workspace-settings-remove-image` | WorkspaceSettingsNuevo · l.77 |
+| «Subir imagen» | `{() => fileInputRef.current?.click()}` | `canChangePicture` |  | `testid=workspace-settings-upload` | WorkspaceSettingsNuevo · l.102 |
 
 **Fields** (2)
 
 | Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
 |---|---|---|---|---|---|---|
-| «Ingresa un nombre personalizado» | text | «Ingresa un nombre personalizado» · `maxLength={100}` |  |  | `testid=workspace-settings-name` | WorkspaceSettingsNuevo · l.56 |
-|  | file | accepts `image/jpeg,image/jpg,image/png,image/webp` |  | hidden by its class (`hidden`); another control opens it or it is for screen readers | `id=community-image-upload` | WorkspaceSettingsNuevo · l.91 |
+| «Ingresa un nombre personalizado» | text | «Ingresa un nombre personalizado» · `maxLength={100}` |  |  | `testid=workspace-settings-name` | WorkspaceSettingsNuevo · l.58 |
+|  | file | accepts `image/jpeg,image/jpg,image/png,image/webp` |  | `canChangePicture` · hidden by its class (`hidden`); another control opens it or it is for screen readers | `id=community-image-upload` | WorkspaceSettingsNuevo · l.94 |
 
 **Embedded media** (1)
 
 | What | Shown when | Hook | Where |
 |---|---|---|---|
-| img · alt Vista previa · {imagePreview} | `imagePreview` |  | WorkspaceSettingsNuevo · l.73 |
+| img · alt Vista previa · {imagePreview} | `canChangePicture && imagePreview` |  | WorkspaceSettingsNuevo · l.76 |
 
 **Pop-ups** (1)
 
 | Name or title | How | Opens when | Texts passed to it | Where |
 |---|---|---|---|---|
-| `Dialog` | component | `{isOpen}` | eyebrow: Mi Comunidad de Crecimiento · title: Configuración de la Comunidad | WorkspaceSettingsNuevo · l.37 |
+| `Dialog` | component | `{isOpen}` | eyebrow: Mi Comunidad de Crecimiento · title: Configuración de la Comunidad | WorkspaceSettingsNuevo · l.39 |
 
 **Pieces placed here, with the texts and settings handed to them** (4)
 
 | Piece | Texts and settings | Shown when | Hook | Where |
 |---|---|---|---|---|
-| `Field` | label: Nombre de la Comunidad · help: Cualquier miembro puede cambiar el nombre del grupo |  |  | WorkspaceSettingsNuevo · l.55 |
-| `X` | aria-hidden: true | `imagePreview` |  | WorkspaceSettingsNuevo · l.82 |
-| `Camera` | aria-hidden: true | `!(imagePreview)` |  | WorkspaceSettingsNuevo · l.87 |
-| `Upload` | aria-hidden: true |  |  | WorkspaceSettingsNuevo · l.100 |
+| `Field` | label: Nombre de la Comunidad · help: Cualquier miembro puede cambiar el nombre del grupo |  |  | WorkspaceSettingsNuevo · l.57 |
+| `X` | aria-hidden: true | `canChangePicture && imagePreview` |  | WorkspaceSettingsNuevo · l.85 |
+| `Camera` | aria-hidden: true | `canChangePicture && !(imagePreview)` |  | WorkspaceSettingsNuevo · l.90 |
+| `Upload` | aria-hidden: true | `canChangePicture` |  | WorkspaceSettingsNuevo · l.103 |
 
 **Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (1)
 
 | Kind | What | Where |
 |---|---|---|
-| role | `role=group` | WorkspaceSettingsNuevo · l.66 |
+| role | `role=group` | WorkspaceSettingsNuevo · l.69 |
 
-**Other texts on screen** (2)
+**Other texts on screen** (3)
 
-- «Imagen de la Comunidad» — WorkspaceSettingsNuevo · l.68
-- «Máx. 5MB (JPEG, PNG, WebP)» — WorkspaceSettingsNuevo · l.104
+- «Imagen de la Comunidad» — WorkspaceSettingsNuevo · l.71, when `canChangePicture`
+- «Máx. 5MB (JPEG, PNG, WebP)» — WorkspaceSettingsNuevo · l.107, when `canChangePicture`
+- «La imagen la cambian los administradores y el gestor de la comunidad.» — WorkspaceSettingsNuevo · l.112, when `canChangePicture`
 
 ### components/community/memberProfileText.ts
 
@@ -521,14 +523,15 @@ Used by: `/dashboard`
 
 Used by: `/dashboard`
 
-**Toasts** (4)
+**Toasts** (5)
 
 | Kind | Text | When | Where |
 |---|---|---|---|
-| error | «La imagen debe ser menor a 5MB» | `file.size > 5 * 1024 * 1024` | handleImageSelect · l.45 |
-| error | «Solo se permiten imágenes (JPEG, PNG, WebP)» | `!allowedTypes.includes(file.type)` | handleImageSelect · l.52 |
-| success | «Configuración actualizada exitosamente» |  | handleSave · l.102 |
-| error | «Error al guardar la configuración» |  | handleSave · l.110 |
+| error | «La imagen debe ser menor a 5MB» | `file.size > 5 * 1024 * 1024` | handleImageSelect · l.53 |
+| error | «Solo se permiten imágenes (JPEG, PNG, WebP)» | `!allowedTypes.includes(file.type)` | handleImageSelect · l.60 |
+| error | «{renameError}» | `nameChanged && renameError` | handleSave · l.147 |
+| success | «Configuración actualizada exitosamente» |  | handleSave · l.155 |
+| error | «Error al guardar la configuración» |  | handleSave · l.160 |
 
 ### components/course-proposals/ConfirmDialog.tsx
 
@@ -2053,27 +2056,29 @@ Used by: `/dashboard`
 
 Used by: `/dashboard`
 
-**Messages set on the page** (3)
+**Messages set on the page** (4)
 
 | Text | Set by | When | Where |
 |---|---|---|---|
-| «No se proporcionó ningún archivo» | `throw (shown by whoever catches it)` | `!file` | uploadCommunityImage · l.54 |
-| «El archivo debe ser menor a 5MB» | `throw (shown by whoever catches it)` | `file.size > maxSize` | uploadCommunityImage · l.60 |
-| «Solo se permiten imágenes (JPEG, PNG, WebP)» | `throw (shown by whoever catches it)` | `!allowedTypes.includes(file.type)` | uploadCommunityImage · l.66 |
+| «workspace not found» | `throw (shown by whoever catches it)` | `!data` | getWorkspaceSettings · l.70 |
+| «No se proporcionó ningún archivo» | `throw (shown by whoever catches it)` | `!file` | uploadCommunityImage · l.114 |
+| «El archivo debe ser menor a 5MB» | `throw (shown by whoever catches it)` | `file.size > maxSize` | uploadCommunityImage · l.120 |
+| «Solo se permiten imágenes (JPEG, PNG, WebP)» | `throw (shown by whoever catches it)` | `!allowedTypes.includes(file.type)` | uploadCommunityImage · l.126 |
 
 **Access checks in the code** (1)
 
 | Line of code | Where |
 |---|---|
-| `canEdit = canEditWorkspaceWithRoles(roles, workspace.community_id)` | canEditWorkspace · l.173 |
+| `canEdit = canEditWorkspaceWithRoles(roles, workspace.community_id)` | canEditWorkspace · l.233 |
 
-**Texts kept in lists and helpers in the code (labels, options, status names)** (1)
+**Texts kept in lists and helpers in the code (labels, options, status names)** (2)
 
 | Name | Texts | Where |
 |---|---|---|
-| `communityWorkspaceService` | «No se proporcionó ningún archivo», «El archivo debe ser menor a 5MB», «Solo se permiten imágenes (JPEG, PNG, WebP)», «Error al subir la imagen» | l.21 |
+| `WORKSPACE_RENAME_MESSAGES` | «Solo los miembros de la comunidad pueden cambiar su nombre.», «El nombre debe tener entre 1 y 100 caracteres, con al menos una letra o un número, sin caracteres invisibles.», «No se pudo guardar. Inténtalo de nuevo.» | l.25 |
+| `communityWorkspaceService` | «workspace not found», «No se proporcionó ningún archivo», «El archivo debe ser menor a 5MB», «Solo se permiten imágenes (JPEG, PNG, WebP)», «Error al subir la imagen» | l.31 |
 
-**Reads and writes the database directly:** `bucket:community-images` (getPublicUrl, remove, upload), `table:community_workspaces` (select, update), `table:user_roles` (select)
+**Reads and writes the database directly:** `bucket:community-images` (getPublicUrl, remove, upload), `rpc:rename_community_workspace`, `table:community_workspaces` (select, update), `table:user_roles` (select)
 
 ### types/roles.ts
 

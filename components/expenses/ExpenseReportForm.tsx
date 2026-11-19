@@ -275,14 +275,11 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
       const storedPlace = `${RECEIPTS_BUCKET}/${fileName}`;
       localReceiptUrls.current.set(storedPlace, URL.createObjectURL(file));
       
-      // Update the form state in a single update to avoid race conditions
-      const updatedItems = [...expenseItems];
-      updatedItems[index] = {
-        ...updatedItems[index],
-        receipt_url: storedPlace,
-        receipt_filename: file.name
-      };
-      setExpenseItems(updatedItems);
+      // GES-3.29: set only this row's receipt on the LATEST state, so text
+      // typed during the upload and a second upload's link are both kept.
+      setExpenseItems(prev => prev.map((it, i) => (
+        i === index ? { ...it, receipt_url: storedPlace, receipt_filename: file.name } : it
+      )));
       
       toast.success(`✅ Boleta subida exitosamente: ${file.name}`);
       

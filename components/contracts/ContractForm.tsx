@@ -9,6 +9,7 @@ import { reconcileCuotas, attachExistingCuotaIds } from '@/lib/utils/reconcileCu
 import { buildClientRow } from '@/lib/contracts/client-row';
 import { splitEvenly, sumsMatch, difference, decimalsFor, hasCurrencyPrecision, precisionMessage } from '@/lib/contracts/cuotas-math';
 import { parseEsCl } from '@/lib/money/parse-es-cl';
+import { formatRut, validateRut } from '@/utils/rutValidation';
 
 interface Programa {
   id: string;
@@ -119,6 +120,11 @@ const unreadableMessage = (target: { cuota: number } | 'total'): string => {
   const subject = target === 'total' ? 'el precio total' : `el monto de la cuota ${target.cuota}`;
   return `No se entiende ${subject}. Escríbalo con punto de miles y coma decimal, por ejemplo 1.200,50.`;
 };
+
+// A client's RUT is formatted as typed and checked with utils/rutValidation.ts (GES-3.11)
+const RUT_INVALID_MESSAGE = 'El RUT del cliente no es válido. Revise los números y el dígito verificador.';
+// An imported contract's new client: the escritura date is asked for, never made up (GES-3.6)
+const ASK_ESCRITURA_DATE_MESSAGE = 'El PDF no indica la fecha de la escritura pública. Escríbala para crear el cliente.';
 
 const DUPLICATE_DRAFT_NUMBER_MESSAGE = 'Ya existe un contrato con este número. Por favor use un número diferente.';
 
@@ -291,18 +297,17 @@ export default function ContractForm({ programas, clientes, editingContract, pre
       });
       
       // Populate client form
-      // Use defaults for required fields
-      const today = new Date().toISOString().split('T')[0];
+      // Use defaults for required fields; the escritura date is not made up (GES-3.6)
       setClienteForm({
         nombre_legal: extractedData.client?.nombre_legal || '',
         nombre_fantasia: extractedData.client?.nombre_fantasia || extractedData.client?.nombre_legal || '',
-        rut: extractedData.client?.rut || '',
+        rut: formatRut(extractedData.client?.rut || ''),
         direccion: extractedData.client?.direccion || '',
         comuna: extractedData.client?.comuna || '',
         ciudad: extractedData.client?.ciudad || '',
         nombre_representante: extractedData.client?.nombre_representante || '',
         rut_representante: extractedData.client?.rut_representante || '11.111.111-1',
-        fecha_escritura: extractedData.client?.fecha_escritura || today,
+        fecha_escritura: extractedData.client?.fecha_escritura || '',
         nombre_notario: extractedData.client?.nombre_notario || 'Notario Público',
         comuna_notaria: extractedData.client?.comuna_notaria || '',
         nombre_encargado_proyecto: '',
@@ -323,9 +328,10 @@ export default function ContractForm({ programas, clientes, editingContract, pre
         })));
       }
       
-      // Check if client exists by RUT
+      // Check if client exists by RUT, compared formatted (GES-3.11)
       if (extractedData.client?.rut) {
-        const existingClient = clientes.find(c => c.rut === extractedData.client.rut);
+        const extractedRut = formatRut(extractedData.client.rut);
+        const existingClient = clientes.find(c => formatRut(c.rut || '') === extractedRut);
         if (existingClient) {
           setSelectedClienteId(existingClient.id);
           // Update form with existing client data
@@ -548,6 +554,14 @@ export default function ContractForm({ programas, clientes, editingContract, pre
     setClienteForm(prev => ({ ...prev, [field]: value }));
   };
 
+  // The client RUT is checked wherever it is written from this form: a new
+  // client, or a changed RUT when editing (an unchanged stored RUT is left alone)
+  const rutIsWritten = !clientReadOnly && (!editingContract || clienteForm.rut !== (editingContract.clientes?.rut || ''));
+  const rutInvalid = rutIsWritten && clienteForm.rut.trim() !== '' && !validateRut(clienteForm.rut);
+  // An imported contract with a new client and no escritura date: asked for (GES-3.6)
+  const importedNewClient = !!extractedData && !editingContract && !selectedClienteId;
+  const escrituraDateMissing = importedNewClient && !clienteForm.fecha_escritura;
+
   // Handle client selection
   const handleClienteSelection = (clienteId: string) => {
     const cliente = clientes.find(c => c.id === clienteId);
@@ -720,10 +734,12 @@ export default function ContractForm({ programas, clientes, editingContract, pre
     const today = new Date().toISOString().split('T')[0]; // Get today's date in YYYY-MM-DD format
     return {
       ...buildClientRow(clienteForm, selectedSchoolId),
+      rut: formatRut(clienteForm.rut), // the product's format (GES-3.11)
       // Required fields with defaults
       nombre_fantasia: clienteForm.nombre_fantasia || clienteForm.nombre_legal, // Use legal name if no fantasy name
       rut_representante: clienteForm.rut_representante || '11.111.111-1', // Default RUT if not provided
-      fecha_escritura: clienteForm.fecha_escritura || today, // Use today's date if not provided
+      // An imported contract's date is never made up: the form asks for it (GES-3.6)
+      fecha_escritura: extractedData ? (clienteForm.fecha_escritura || null) : (clienteForm.fecha_escritura || today),
       nombre_notario: clienteForm.nombre_notario || 'Notario Público', // Default notary name
       // Optional fields can be null
       comuna_notaria: clienteForm.comuna_notaria || null,
@@ -746,6 +762,15 @@ export default function ContractForm({ programas, clientes, editingContract, pre
     try {
       setSavingAsDraft(true);
       
+      if (rutInvalid) {
+        toast.error(RUT_INVALID_MESSAGE);
+        return;
+      }
+      if (escrituraDateMissing) {
+        toast.error(ASK_ESCRITURA_DATE_MESSAGE);
+        return;
+      }
+
       // Validate minimum required fields for draft
       if (!contractForm.numero_contrato) {
         toast.error('Por favor ingrese un número de contrato antes de guardar como borrador.');
@@ -778,7 +803,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
           const { data: existingCliente } = await supabase
             .from('clientes')
             .select('id')
-            .eq('rut', clienteForm.rut)
+            .eq('rut', formatRut(clienteForm.rut))
             .single();
             
           if (existingCliente) {
@@ -1054,7 +1079,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
           const { data: existingCliente, error: checkError } = await supabase
             .from('clientes')
             .select('*')
-            .eq('rut', clienteForm.rut)
+            .eq('rut', formatRut(clienteForm.rut))
             .single();
             
           if (checkError && checkError.code !== 'PGRST116') {
@@ -1280,6 +1305,9 @@ export default function ContractForm({ programas, clientes, editingContract, pre
     switch (step) {
       case 'cliente':
         // For manual contracts, require less information
+        // A RUT that fails its check digit, or an imported new client without its
+        // escritura date, cannot go on (GES-3.11, GES-3.6)
+        if (rutInvalid || escrituraDateMissing) return false;
         if (esManual) {
           return clienteForm.nombre_legal && clienteForm.rut && 
                  clienteForm.nombre_contacto_administrativo && clienteForm.email_contacto_administrativo;
@@ -1614,10 +1642,13 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                   type="text"
                   value={clienteForm.rut}
                   readOnly={clientReadOnly}
-                  onChange={(e) => editCliente('rut', e.target.value)}
+                  onChange={(e) => editCliente('rut', formatRut(e.target.value))}
                   className={`w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent ${clientReadOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                   placeholder="12.345.678-9"
                 />
+                {rutInvalid && (
+                  <p className="text-sm text-red-600 mt-1">{RUT_INVALID_MESSAGE}</p>
+                )}
               </div>
               
               <div>
@@ -1691,6 +1722,25 @@ export default function ContractForm({ programas, clientes, editingContract, pre
               </div>
             </div>
 
+            {/* An imported contract's new client: its escritura date is asked for (GES-3.6) */}
+            {esManual && importedNewClient && (
+            <div className="border-t pt-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Fecha Escritura Pública *
+              </label>
+              <input
+                type="date"
+                data-testid="client-fecha-escritura-input"
+                value={clienteForm.fecha_escritura}
+                onChange={(e) => editCliente('fecha_escritura', e.target.value)}
+                className="w-full md:w-1/3 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
+              />
+              {escrituraDateMissing && (
+                <p className="text-sm text-red-600 mt-1">{ASK_ESCRITURA_DATE_MESSAGE}</p>
+              )}
+            </div>
+            )}
+
             {/* Additional Legal Information - Hide for manual contracts */}
             {!esManual && (
             <div className="border-t pt-6">
@@ -1707,6 +1757,9 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                     onChange={(e) => editCliente('fecha_escritura', e.target.value)}
                     className={`w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent ${clientReadOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                   />
+                  {escrituraDateMissing && (
+                    <p className="text-sm text-red-600 mt-1">{ASK_ESCRITURA_DATE_MESSAGE}</p>
+                  )}
                 </div>
                 
                 <div>

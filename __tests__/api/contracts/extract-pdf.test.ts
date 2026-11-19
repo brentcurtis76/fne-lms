@@ -112,3 +112,50 @@ describe('extract-pdf body size (GES-2.3)', () => {
     expect(config?.api?.bodyParser?.sizeLimit).toBe('4mb');
   });
 });
+
+/**
+ * F21b (GES-3.11): the import finds a known client by its RUT formatted the
+ * product's way (utils/rutValidation.ts formatRut), so «761234560» finds the
+ * client stored as «76.123.456-0». Before the fix the lookup compared the
+ * exact text read from the PDF.
+ */
+describe('extract-pdf client lookup by formatted RUT (GES-3.11)', () => {
+  const STORED = { id: 'cliente-1', nombre_legal: 'Colegio Sintético', rut: '76.123.456-0' };
+
+  function recordingSupabase(ruts: string[]) {
+    return {
+      from: (table: string) => {
+        const filters: Record<string, unknown> = {};
+        const q: any = {};
+        for (const m of ['select', 'gte']) q[m] = () => q;
+        q.eq = (col: string, value: unknown) => {
+          filters[col] = value;
+          return q;
+        };
+        q.single = () => {
+          if (table === 'clientes') {
+            ruts.push(String(filters.rut));
+            return Promise.resolve(
+              filters.rut === STORED.rut ? { data: STORED, error: null } : { data: null, error: { code: 'PGRST116' } },
+            );
+          }
+          return Promise.resolve({ data: { role_type: 'admin' }, error: null });
+        };
+        q.then = (resolve: (v: unknown) => unknown) => Promise.resolve({ data: [], count: 0, error: null }).then(resolve);
+        return q;
+      },
+    };
+  }
+
+  it.each(['761234560', '76123456-0', '76.123.456-0'])('a PDF RUT «%s» finds the client stored as «76.123.456-0»', async (rut) => {
+    const ruts: string[] = [];
+    mocks.client.mockResolvedValue(recordingSupabase(ruts));
+    mocks.create.mockResolvedValue({
+      content: [{ type: 'text', text: JSON.stringify({ ...EXTRACTED, client: { ...EXTRACTED.client, rut } }) }],
+    });
+    const res = await post({ pdfBase64: Buffer.from('%PDF-1.4 synthetic').toString('base64'), fileName: 'contrato.pdf' });
+    expect(res._getStatusCode()).toBe(200);
+    expect(ruts).toEqual(['76.123.456-0']);
+    expect(res._getJSONData().existingClient).toEqual(STORED);
+  });
+});

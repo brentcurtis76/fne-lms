@@ -2,6 +2,7 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import Anthropic from '@anthropic-ai/sdk';
 import pdfParse from 'pdf-parse';
 import { createApiSupabaseClient, requireVerifiedCaller } from '@/lib/api-auth';
+import { formatRut } from '@/utils/rutValidation';
 
 // Types for extracted data
 interface ExtractedContract {
@@ -333,13 +334,14 @@ export default async function handler(
       }
     }
 
-    // Check for existing client by RUT
+    // Check for existing client by RUT, compared formatted the product's way
+    // (formatRut), so «761234567» finds «76.123.456-7» (GES-3.11)
     let existingClient = null;
     if (extractedData.client.rut) {
       const { data: clientData } = await supabase
         .from('clientes')
         .select('*')
-        .eq('rut', extractedData.client.rut)
+        .eq('rut', formatRut(extractedData.client.rut))
         .single();
       
       existingClient = clientData;

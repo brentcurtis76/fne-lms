@@ -46,6 +46,8 @@ interface Activity {
   id: string;
   message: string;
   is_system_message: boolean;
+  /** F15e: true for a reply the person who reported reads; false for an internal note. */
+  visible_to_reporter?: boolean;
   created_at: string;
   created_by: string;
   profiles?: {
@@ -65,6 +67,9 @@ export default function FeedbackDetail({
   const supabase = useSupabaseClient();
   const [activities, setActivities] = useState<Activity[]>([]);
   const [newComment, setNewComment] = useState('');
+  // F15e (GES-2.18): each comment is an internal note (only admins read it) or
+  // a reply for the person who reported; the choice starts on the note.
+  const [commentKind, setCommentKind] = useState<'note' | 'reply'>('note');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showFullScreenshot, setShowFullScreenshot] = useState(false);
 
@@ -102,6 +107,10 @@ export default function FeedbackDetail({
 
   const addComment = async () => {
     if (!newComment.trim()) return;
+    if (commentKind === 'reply') {
+      await sendReply();
+      return;
+    }
 
     setIsSubmitting(true);
     try {
@@ -120,14 +129,51 @@ export default function FeedbackDetail({
       if (error) throw error;
 
       setNewComment('');
+      setCommentKind('note');
       await loadActivities();
-      toast.success('Comentario agregado');
+      toast.success('Nota interna guardada');
     } catch (error: any) {
       console.error('Error adding comment:', error);
       toast.error('Error al agregar comentario');
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  // A reply is written by the server route, which marks it for the reporter.
+  const sendReply = async () => {
+    setIsSubmitting(true);
+    try {
+      const response = await fetch('/api/feedback/reply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ feedback_id: feedback.id, message: newComment.trim() }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        toast.error(typeof body?.error === 'string' ? body.error : 'No se pudo enviar la respuesta');
+        return;
+      }
+      setNewComment('');
+      setCommentKind('note');
+      await loadActivities();
+      toast.success('Respuesta enviada al usuario');
+    } catch (error) {
+      console.error('Error sending reply');
+      toast.error('No se pudo enviar la respuesta');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const activityLabel = (activity: Activity) => {
+    if (activity.created_by === feedback.created_by) {
+      return { text: 'Comentario del usuario', className: 'bg-green-100 text-green-700' };
+    }
+    if (activity.visible_to_reporter === true) {
+      return { text: 'Respuesta al usuario', className: 'bg-blue-100 text-blue-700' };
+    }
+    return { text: 'Nota interna', className: 'bg-gray-100 text-gray-700' };
   };
 
   const getTypeIcon = (type: string) => {
@@ -427,6 +473,9 @@ ${feedback.resolution_notes ? `\nResolution Notes: ${feedback.resolution_notes}`
                                 <p className="font-medium text-sm text-gray-900">
                                   {activity.profiles?.first_name} {activity.profiles?.last_name}
                                 </p>
+                                <span className={`px-2 py-0.5 rounded text-xs ${activityLabel(activity).className}`}>
+                                  {activityLabel(activity).text}
+                                </span>
                                 <p className="text-xs text-gray-500">
                                   {formatDate(activity.created_at)}
                                 </p>
@@ -443,6 +492,37 @@ ${feedback.resolution_notes ? `\nResolution Notes: ${feedback.resolution_notes}`
 
                   {/* Comment Input - Fixed at bottom */}
                   <div className="p-4 border-t bg-white flex-shrink-0">
+                    <div role="radiogroup" aria-label="Tipo de comentario" className="flex gap-4 mb-1 text-sm text-gray-700">
+                      <label className="flex items-center gap-1 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="feedback-comment-kind"
+                          value="note"
+                          checked={commentKind === 'note'}
+                          onChange={() => setCommentKind('note')}
+                          disabled={isSubmitting}
+                          data-testid="comment-kind-note"
+                        />
+                        Nota interna
+                      </label>
+                      <label className="flex items-center gap-1 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="feedback-comment-kind"
+                          value="reply"
+                          checked={commentKind === 'reply'}
+                          onChange={() => setCommentKind('reply')}
+                          disabled={isSubmitting}
+                          data-testid="comment-kind-reply"
+                        />
+                        Responder al usuario
+                      </label>
+                    </div>
+                    <p className="text-xs text-gray-500 mb-2">
+                      {commentKind === 'reply'
+                        ? 'La persona que reportó la verá en «Mis reportes».'
+                        : 'Solo la ven los administradores.'}
+                    </p>
                     <div className="flex gap-2">
                       <input
                         type="text"
@@ -458,9 +538,11 @@ ${feedback.resolution_notes ? `\nResolution Notes: ${feedback.resolution_notes}`
                         disabled={isSubmitting || !newComment.trim()}
                         className="px-3 py-2 bg-[#0a0a0a] text-white rounded-lg hover:bg-legacy-00243a transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         data-testid="send-comment-button"
-                        aria-label="Send comment"
                       >
-                        <Send className="w-4 h-4" />
+                        <span className="flex items-center gap-1 text-sm">
+                          <Send className="w-4 h-4" />
+                          {commentKind === 'reply' ? 'Enviar respuesta' : 'Guardar nota'}
+                        </span>
                       </button>
                     </div>
                   </div>

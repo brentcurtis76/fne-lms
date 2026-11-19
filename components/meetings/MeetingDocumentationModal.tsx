@@ -113,6 +113,51 @@ const FINALIZED_STATE_LOCKED_MESSAGE = 'Esta reunión ya fue finalizada: su esta
 const SAVE_CONFLICT_MESSAGE =
   'Otra persona guardó esta reunión mientras editabas. Recarga para ver sus cambios; lo que escribiste no se guardó.';
 
+// EC-R8: closing the form with unsaved changes asks first.
+const UNSAVED_CLOSE_QUESTION = 'Tienes cambios sin guardar. ¿Cerrar y descartarlos?';
+
+const emptyMeetingForm = (): MeetingDocumentationInput => ({
+  meeting_info: {
+    title: '',
+    meeting_date: '',
+    duration_minutes: 60,
+    location: '',
+    attendee_ids: [],
+    reader_ids: []
+  },
+  summary_info: {
+    summary: '',
+    summary_doc: emptyDoc(),
+    notes: '',
+    notes_doc: emptyDoc(),
+    status: 'borrador'
+  },
+  agreements: [],
+  commitments: [],
+  tasks: []
+});
+
+/**
+ * EC-R8: what a full save writes, as one comparable string: the form without
+ * the client-only item keys (client_key, and the row id a save adopts), plus
+ * how many files are chosen and how many attachments are marked for removal.
+ */
+function formSnapshot(form: MeetingDocumentationInput, selectedFileCount: number, removalCount: number): string {
+  const withoutClientKeys = <T extends { client_key?: string; id?: string }>(items: T[]) =>
+    items.map(({ client_key: _clientKey, id: _id, ...rest }) => rest);
+  return JSON.stringify({
+    meeting_info: form.meeting_info,
+    summary_info: form.summary_info,
+    agreements: withoutClientKeys(form.agreements),
+    commitments: withoutClientKeys(form.commitments),
+    tasks: withoutClientKeys(form.tasks),
+    selectedFileCount,
+    removalCount,
+  });
+}
+
+const EMPTY_FORM_SNAPSHOT = formSnapshot(emptyMeetingForm(), 0, 0);
+
 const MEMBERS_LOAD_ERROR_TOAST_ID = 'meeting-members-load-error';
 const MEMBERS_LOAD_ERROR_MESSAGE =
   'No se pudieron cargar los miembros de la comunidad. Intenta nuevamente.';
@@ -257,6 +302,10 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
     commitments: [],
     tasks: []
   });
+
+  // EC-R8: snapshot of what was last loaded or saved (see formSnapshot); the
+  // form is "dirty" while the current form differs from it.
+  const [savedSnapshot, setSavedSnapshot] = useState<string>(EMPTY_FORM_SNAPSHOT);
 
   // Track original row IDs loaded in edit mode so we can diff on save
   const originalAgreementIdsRef = useRef<Set<string>>(new Set());
@@ -490,7 +539,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
         originalTaskIdsRef.current = new Set(loadedTasks.map(t => t.id).filter((id): id is string => !!id));
 
         // Populate form with existing data
-        setFormData({
+        const loadedForm: MeetingDocumentationInput = {
           meeting_info: {
             title: meetingDetails.title,
             meeting_date: meetingDateLocal,
@@ -509,7 +558,9 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
           agreements: loadedAgreements,
           commitments: loadedCommitments,
           tasks: loadedTasks,
-        });
+        };
+        setFormData(loadedForm);
+        setSavedSnapshot(formSnapshot(loadedForm, 0, 0));
 
         // Load existing attachments so they render alongside any new uploads
         const { data: attachments } = await supabase
@@ -631,13 +682,15 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
     if (storedStatusRef.current !== MEETING_STATUS.BORRADOR) return;
     autosaveInFlightRef.current = true;
     setSavingIndicator('saving');
+    const sentSummaryDoc = formData.summary_info.summary_doc;
+    const sentNotesDoc = formData.summary_info.notes_doc;
     try {
       const res = await fetch(`/api/meetings/${id}/autosave`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          summary_doc: formData.summary_info.summary_doc ?? emptyDoc(),
-          notes_doc: formData.summary_info.notes_doc ?? emptyDoc(),
+          summary_doc: sentSummaryDoc ?? emptyDoc(),
+          notes_doc: sentNotesDoc ?? emptyDoc(),
           version: meetingVersion,
           work_session_id: workSessionId ?? undefined,
         }),
@@ -690,6 +743,13 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
         workSessionEndedRef.current = false;
         setWorkSessionId(next.work_session_id);
       }
+      // EC-R8: the summary and the notes as sent are stored now; the rest of
+      // the snapshot is unchanged (the background save writes only these two).
+      setSavedSnapshot((prev) => {
+        const parsed = JSON.parse(prev);
+        parsed.summary_info = { ...parsed.summary_info, summary_doc: sentSummaryDoc, notes_doc: sentNotesDoc };
+        return JSON.stringify(parsed);
+      });
       const stamp = next?.updated_at ? new Date(next.updated_at) : new Date();
       setLastSavedAt(stamp);
       setSavingIndicator('idle');
@@ -710,8 +770,15 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
     }, AUTOSAVE_DEBOUNCE_MS);
   }, [currentMeetingId, runAutosave]);
 
-  const handleClose = () => {
+  const isDirty = formSnapshot(formData, selectedFiles.length, attachmentsToDelete.length) !== savedSnapshot;
+
+  // `afterSave`: called right after a successful finalise, so nothing typed
+  // is at risk and no question is asked (EC-R8).
+  const closeForm = (afterSave: boolean) => {
     if (isSubmitting || isSavingDraft || saveInFlightRef.current) return;
+    if (!afterSave && isDirty && typeof window !== 'undefined' && !window.confirm(UNSAVED_CLOSE_QUESTION)) {
+      return;
+    }
 
     // End any open work-session before we clear it from state.
     if (currentMeetingId && workSessionId) {
@@ -761,12 +828,15 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
     storedStatusRef.current = null;
     setSavingIndicator('idle');
     setWorkSessions([]);
+    setSavedSnapshot(EMPTY_FORM_SNAPSHOT);
     if (autosaveTimerRef.current) {
       clearTimeout(autosaveTimerRef.current);
       autosaveTimerRef.current = null;
     }
     onClose();
   };
+
+  const handleClose = () => closeForm(false);
 
   // "Guardar borrador" — persists the current form state with status='borrador'
   // and bypasses the summary-required validation from validateStep. On the
@@ -810,6 +880,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
       return { success: false };
     }
 
+    const formAtStart = formData;
     const effectiveStatus: MeetingStatus = isFinalized
       ? MEETING_STATUS.COMPLETADA
       : status ?? formData.summary_info.status;
@@ -962,6 +1033,17 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
       return { success: false, meetingId: savedMeetingId, version: createdVersion };
     }
 
+    // EC-R8: what this save wrote is now the saved state. The form as it was
+    // when the save started, with the state the form shows after it (a draft
+    // save sets the select to borrador); every chosen file was uploaded and
+    // every marked attachment removed.
+    setSavedSnapshot(
+      formSnapshot(
+        { ...formAtStart, summary_info: { ...formAtStart.summary_info, status: status ?? formAtStart.summary_info.status } },
+        0,
+        0,
+      ),
+    );
     return { success: true, meetingId: savedMeetingId, version: createdVersion };
   };
 
@@ -1430,9 +1512,17 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                   )}
                 </div>
               )}
+              {/* EC-R8: the background save covers only the summary and the
+                  notes; anything else typed is unsaved until a full save. */}
+              {isDirty && (
+                <span className="text-xs text-amber-700" data-testid="meeting-unsaved-changes">
+                  · Cambios sin guardar
+                </span>
+              )}
               <button
                 onClick={handleClose}
                 disabled={isSubmitting}
+                data-testid="meeting-modal-close"
                 className="p-2 text-gray-400 hover:text-gray-600 disabled:opacity-50"
               >
                 <XIcon className="h-5 w-5" />
@@ -2106,7 +2196,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
           onOpenChange={setFinalizeOpen}
           meetingId={meetingId!}
           meetingTitle={formData.meeting_info.title}
-          onFinalized={() => { onSuccess(); handleClose(); }}
+          onFinalized={() => { onSuccess(); closeForm(true); }}
         />
       )}
     </div>

@@ -58,6 +58,7 @@ vi.mock('next/router', () => ({ useRouter: () => mocks.router }));
 vi.mock('@supabase/auth-helpers-react', () => ({
   useSupabaseClient: () => mocks.supabase,
   useSession: () => mocks.session.current,
+  useSessionContext: () => ({ session: mocks.session.current, isLoading: false, error: null, supabaseClient: mocks.supabase }),
 }));
 vi.mock('../../lib/supabase', () => ({ supabase: mocks.supabase }));
 vi.mock('../../lib/supabase-wrapper', () => ({ supabase: mocks.supabase }));

@@ -475,8 +475,9 @@ test.describe.serial('FNE-ANON-01 signed-in and public journeys', () => {
       await shot(page, `8-${key}-document-uploaded`);
       const stored = await query<{ storage_path: string }>(`SELECT storage_path FROM public.community_documents WHERE file_name = $1`, [file.name]);
       expect(stored).toHaveLength(1);
-      expect(await query(`SELECT 1 FROM storage.objects WHERE bucket_id = 'resources' AND name = $1`, [stored[0].storage_path])).toHaveLength(1);
-      note('8', `${key} uploaded a workspace document into resources; listed after reload`);
+      // F12d: new documents go to the private store community-documents
+      expect(await query(`SELECT 1 FROM storage.objects WHERE bucket_id = 'community-documents' AND name = $1`, [stored[0].storage_path])).toHaveLength(1);
+      note('8', `${key} uploaded a workspace document into community-documents; listed after reload`);
       await context.close();
     });
   }
@@ -484,10 +485,15 @@ test.describe.serial('FNE-ANON-01 signed-in and public journeys', () => {
   test('8c workspace document preview/download — repaired acceptance', async ({ browser }) => {
     const { context, page } = await signedIn(browser, 'gcLeader');
     await page.goto(`/community/workspace?section=documents`);
-    const response = page.waitForResponse((r) => r.url().includes('/api/storage/download'), { timeout: 15_000 });
+    // F12d: preview and download ask the application's link route (download=1 for «Descargar»)
+    const response = page.waitForResponse((r) => r.url().includes('/api/community/documents/') && r.url().includes('/link?download=1'), { timeout: 15_000 });
     await page.getByText('fneanon-doc-gcLeader', { exact: true }).first().click();
+    const downloadPromise = page.waitForEvent('download');
     await page.getByRole('button', { name: /Descargar/ }).first().click();
     expect((await response).status()).toBe(200);
+    // the file really arrives through the signed link: the bytes uploaded in test 8
+    const download = await downloadPromise;
+    expect(readFileSync((await download.path()) as string).equals(PDF.buffer)).toBe(true);
     await context.close();
   });
 

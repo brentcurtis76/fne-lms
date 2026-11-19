@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
 import { requireVerifiedCaller } from '../../../lib/api-auth';
+import { cleanQuoteDate, defaultValidUntil } from '../../../lib/quotes/valid-until';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -96,6 +97,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
+    // «Válido hasta» is a date or nothing; a quote sent without one is valid
+    // for 30 days from today in Chile.
+    let validUntil = cleanQuoteDate(valid_until);
+    if ((status || 'draft') === 'sent' && validUntil === null) {
+      validUntil = defaultValidUntil(new Date());
+    }
+
     // Start a transaction-like operation
     let quoteId;
 
@@ -109,11 +117,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       notes,
       internal_notes,
       status: status || 'draft',
-      valid_until,
+      valid_until: validUntil,
       use_groups: use_groups || false,
       created_by: caller.user.id,
       updated_by: caller.user.id
     };
+
+    // The early-payment discount and the viáticos, when the editor sends
+    // them; otherwise the table's defaults apply.
+    for (const field of [
+      'apply_early_bird_discount', 'early_bird_payment_date', 'viaticos_type',
+      'viaticos_amount', 'viaticos_total', 'viaticos_display_amount',
+    ] as const) {
+      if (Object.prototype.hasOwnProperty.call(req.body, field)) {
+        quoteData[field] = field === 'early_bird_payment_date'
+          ? cleanQuoteDate(req.body[field])
+          : req.body[field];
+      }
+    }
 
     // If not using groups, include legacy fields
     if (!use_groups) {

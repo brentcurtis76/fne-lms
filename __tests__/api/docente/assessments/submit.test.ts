@@ -32,9 +32,18 @@ const {
   mockCalculateAndSaveScores: vi.fn(),
 }));
 
+const sharedTestClient = vi.hoisted(() => ({ current: null as any }));
+
 vi.mock('@/lib/api-auth', () => ({
   getApiUser: mockGetApiUser,
-  createApiSupabaseClient: mockCreateApiSupabaseClient,
+  // N1 part 1: the routes read the stored version and the expected levels with
+  // the service client after the assignee gate; here it sees the same data as
+  // the caller's client of the test.
+  createApiSupabaseClient: async (...args: unknown[]) => {
+    sharedTestClient.current = await (mockCreateApiSupabaseClient as any)(...args);
+    return sharedTestClient.current;
+  },
+  createServiceRoleClient: () => sharedTestClient.current,
   sendAuthError: vi.fn((res: any, msg?: string) => {
     res.status(401).json({ error: msg || 'Autenticación requerida' });
   }),
@@ -153,6 +162,15 @@ function buildSubmitClient(options: {
 
       if (table === 'assessment_responses') {
         return buildChainableQuery(responses, null);
+      }
+
+      if (table === 'assessment_template_snapshots') {
+        // N1 part 1: the stored version is read on its own (service client).
+        const inst = instance as any;
+        return buildChainableQuery(
+          inst.assessment_template_snapshots ? { id: inst.template_snapshot_id, ...inst.assessment_template_snapshots } : null,
+          null
+        );
       }
 
       if (table === 'assessment_year_expectations') {

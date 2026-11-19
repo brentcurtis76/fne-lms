@@ -62,6 +62,9 @@ let likeCalls: unknown[];
 let workspaceAccess: Record<string, boolean>;
 let eqCalls: Array<[string, unknown]>;
 let attachmentRows: Array<Record<string, unknown>>;
+/** community_documents rows the CALLER may read (the table's read rule: active, workspace they enter). */
+let documentRows: Array<Record<string, unknown>>;
+let tablesAsked: string[];
 
 /**
  * The mocked message_attachments query honours its filters: a stored row is
@@ -69,6 +72,7 @@ let attachmentRows: Array<Record<string, unknown>>;
  * not carry a filtered column at all is not excluded by that filter.
  */
 function makeUserClient() {
+  let table = '';
   const eqFilters: Array<[string, unknown]> = [];
   const inFilters: Array<[string, unknown[]]> = [];
   const matches = (row: Record<string, unknown>) =>
@@ -95,14 +99,19 @@ function makeUserClient() {
       return chain;
     },
     limit: () => chain,
-    then: (resolve: (v: unknown) => void) => resolve({ data: attachmentRows.filter(matches), error: null }),
+    then: (resolve: (v: unknown) => void) =>
+      resolve({ data: (table === 'community_documents' ? documentRows : attachmentRows).filter(matches), error: null }),
   };
   return {
     rpc: vi.fn(async (fn: string, args: { p_workspace_id: string }) => {
       rpcCalls.push([fn, args]);
       return { data: workspaceAccess[args.p_workspace_id] === true, error: null };
     }),
-    from: vi.fn(() => chain),
+    from: vi.fn((name: string) => {
+      table = name;
+      tablesAsked.push(name);
+      return chain;
+    }),
   };
 }
 
@@ -139,6 +148,12 @@ beforeEach(() => {
   likeCalls = [];
   workspaceAccess = { [WS_MEMBER]: true };
   attachmentRows = [];
+  tablesAsked = [];
+  // F12d: the member's active documents that the tests below ask for
+  documentRows = [
+    { id: 'doc-plan', workspace_id: WS_MEMBER, storage_path: `documents/${WS_MEMBER}/plan.pdf`, storage_bucket: null, is_active: true },
+    { id: 'doc-f', workspace_id: WS_MEMBER, storage_path: `documents/${WS_MEMBER}/f.pdf`, storage_bucket: null, is_active: true },
+  ];
   mockRequireVerifiedCaller.mockResolvedValue({ user: { id: USER_ID }, status: null, body: null });
   mockCreateApiSupabaseClient.mockImplementation(async () => makeUserClient());
   // The pre-fix routes check the token themselves with the service client.
@@ -320,7 +335,8 @@ describe('download-url.ts still signs allowed files, with the decoded path', () 
   it('a member\'s community document → 200', async () => {
     const res = await callDownloadUrl(`${PUBLIC}/resources/documents/${WS_MEMBER}/plan.pdf`);
     expect(res._getStatusCode()).toBe(200);
-    expect(mockCreateSignedUrl).toHaveBeenCalledWith(`documents/${WS_MEMBER}/plan.pdf`, 3600);
+    // send-back 1: a document is signed for five minutes, like the link route
+    expect(mockCreateSignedUrl).toHaveBeenCalledWith(`documents/${WS_MEMBER}/plan.pdf`, 300);
   });
 
   it('a readable message attachment → 200 in its own store', async () => {
@@ -523,5 +539,111 @@ describe('message attachments are served by the message in their path (EC-S1c)',
     const res = await callDownload(stored);
     expect(res._getStatusCode()).toBe(403);
     expect(storageWasTouched()).toBe(false);
+  });
+});
+
+// F12d (EC-S3, N162): a document path is served only for a document record the
+// caller may read (asked with the caller's session, so the table's read rule
+// decides: hidden, foreign and missing are all "no row"), in the store the
+// record names; community-documents serves document paths only.
+describe('document paths follow the document record (F12d, N162)', () => {
+  const CD = `${PUBLIC}/community-documents`;
+  const RS = `${PUBLIC}/resources`;
+
+  it.each(['download', 'download-url'])('%s: a hidden document in resources (no readable row) → 403, storage never called', async (route) => {
+    documentRows = []; // the row exists but is_active = false: the read rule hides it
+    const url = `${RS}/documents/${WS_MEMBER}/plan.pdf`;
+    const res = route === 'download' ? await callDownload(url) : await callDownloadUrl(url);
+    expect(res._getStatusCode()).toBe(403);
+    expect(storageWasTouched()).toBe(false);
+  });
+
+  it.each(['download', 'download-url'])('%s: a file in the member\'s workspace with no record at all → 403', async (route) => {
+    const url = `${RS}/documents/${WS_MEMBER}/sin-registro.pdf`;
+    const res = route === 'download' ? await callDownload(url) : await callDownloadUrl(url);
+    expect(res._getStatusCode()).toBe(403);
+    expect(storageWasTouched()).toBe(false);
+  });
+
+  it.each(['download', 'download-url'])('%s: an active document of the member in community-documents → 200 from that store', async (route) => {
+    documentRows = [{ id: 'doc-new', workspace_id: WS_MEMBER, storage_path: `documents/${WS_MEMBER}/root/1-acta.pdf`, storage_bucket: 'community-documents', is_active: true }];
+    const url = `${CD}/documents/${WS_MEMBER}/root/1-acta.pdf`;
+    const res = route === 'download' ? await callDownload(url) : await callDownloadUrl(url);
+    expect(res._getStatusCode()).toBe(200);
+    expect(mockStorageFrom).toHaveBeenCalledWith('community-documents');
+    if (route === 'download') expect(mockDownload).toHaveBeenCalledWith(`documents/${WS_MEMBER}/root/1-acta.pdf`);
+    else expect(mockCreateSignedUrl).toHaveBeenCalledWith(`documents/${WS_MEMBER}/root/1-acta.pdf`, 300); // send-back 1: five minutes
+  });
+
+  it.each(['download', 'download-url'])('%s: a hidden document in community-documents → 403', async (route) => {
+    documentRows = [];
+    const url = `${CD}/documents/${WS_MEMBER}/root/1-oculto.pdf`;
+    const res = route === 'download' ? await callDownload(url) : await callDownloadUrl(url);
+    expect(res._getStatusCode()).toBe(403);
+    expect(storageWasTouched()).toBe(false);
+  });
+
+  it.each(['download', 'download-url'])('%s: another community\'s document in community-documents → 403', async (route) => {
+    documentRows = [{ id: 'doc-b', workspace_id: WS_OTHER, storage_path: `documents/${WS_OTHER}/root/b.pdf`, storage_bucket: 'community-documents', is_active: true }];
+    const url = `${CD}/documents/${WS_OTHER}/root/b.pdf`;
+    const res = route === 'download' ? await callDownload(url) : await callDownloadUrl(url);
+    expect(res._getStatusCode()).toBe(403);
+    expect(storageWasTouched()).toBe(false);
+  });
+
+  it('a record that says community-documents does not open the same path in resources (and the reverse)', async () => {
+    documentRows = [{ id: 'doc-new', workspace_id: WS_MEMBER, storage_path: `documents/${WS_MEMBER}/root/1-acta.pdf`, storage_bucket: 'community-documents', is_active: true }];
+    expect((await callDownload(`${RS}/documents/${WS_MEMBER}/root/1-acta.pdf`))._getStatusCode()).toBe(403);
+    documentRows = [{ id: 'doc-old', workspace_id: WS_MEMBER, storage_path: `documents/${WS_MEMBER}/root/0-plan.pdf`, storage_bucket: null, is_active: true }];
+    expect((await callDownload(`${CD}/documents/${WS_MEMBER}/root/0-plan.pdf`))._getStatusCode()).toBe(403);
+    expect(storageWasTouched()).toBe(false);
+  });
+
+  it('an old record holding the full public address of its file → 200', async () => {
+    const stored = `${RS}/documents/${WS_MEMBER}/root/Gu%C3%ADa%20uno.pdf`;
+    documentRows = [{ id: 'doc-addr', workspace_id: WS_MEMBER, storage_path: stored, storage_bucket: null, is_active: true }];
+    const res = await callDownload(stored);
+    expect(res._getStatusCode()).toBe(200);
+    expect(mockDownload).toHaveBeenCalledWith(`documents/${WS_MEMBER}/root/Guía uno.pdf`);
+  });
+
+  it.each([
+    ['a path outside documents/', 'images/a.png'],
+    ['a documents path without a workspace uuid', 'documents/not-a-uuid/f.pdf'],
+    ['a lesson download path', `downloads/${COURSE_ID}/f.pdf`],
+    ['a capital-D Documents path', `Documents/${WS_MEMBER}/f.pdf`],
+  ])('community-documents with %s → 403 without asking the database', async (_l, path) => {
+    const client = makeUserClient();
+    const decision = await authorizeStorageDownload(client as any, USER_ID, 'community-documents', path);
+    expect(decision).toEqual({ allowed: false, status: 403, error: 'No tienes acceso a este archivo' });
+    expect(client.rpc).not.toHaveBeenCalled();
+    expect(client.from).not.toHaveBeenCalled();
+  });
+
+  it('the record is looked up with the caller\'s session, by its workspace and stored path, active only', async () => {
+    const client = makeUserClient();
+    const decision = await authorizeStorageDownload(client as any, USER_ID, 'resources', `documents/${WS_MEMBER}/plan.pdf`);
+    expect(decision).toEqual({ allowed: true });
+    expect(tablesAsked).toEqual(['community_documents']);
+    expect(eqCalls).toEqual(expect.arrayContaining([['workspace_id', WS_MEMBER], ['is_active', true]]));
+    expect(inCalls[0][0]).toBe('storage_path');
+    expect(inCalls[0][1]).toContain(`documents/${WS_MEMBER}/plan.pdf`);
+    expect(inCalls[0][1]).toContain(`${RS}/documents/${WS_MEMBER}/plan.pdf`);
+  });
+
+  // Pinned: every non-document path of resources behaves exactly as before.
+  it.each([
+    ['a lesson image', `${RS}/images/${COURSE_ID}/foto.png`, `images/${COURSE_ID}/foto.png`],
+    ['a lesson download', `${RS}/downloads/${COURSE_ID}/guia.pdf`, `downloads/${COURSE_ID}/guia.pdf`],
+    ['a news picture', `${RS}/news-images/n1.png`, 'news-images/n1.png'],
+  ])('resources: %s → 200 for any signed-in person, no document lookup', async (_l, url, path) => {
+    documentRows = [];
+    const res = await callDownload(url);
+    expect(res._getStatusCode()).toBe(200);
+    expect(mockDownload).toHaveBeenCalledWith(path);
+    expect(tablesAsked).toEqual([]);
+    expect(rpcCalls).toEqual([]);
+    const signed = await callDownloadUrl(url);
+    expect(signed._getStatusCode()).toBe(200);
   });
 });

@@ -1,3 +1,10 @@
 {
-  "checks": []
+  "checks": [],
+  "functions_that_delete_rows": [
+    {
+      "path": "supabase/migrations/20261118104000_quote_groups_save.sql",
+      "function": "public.save_quote_with_groups(uuid, jsonb, jsonb)",
+      "label": "Saves a quote with its travel groups in one step and removes the groups that are no longer in the list"
+    }
+  ]
 }

@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { getApiUser, createApiSupabaseClient, sendAuthError, handleMethodNotAllowed } from '@/lib/api-auth';
+import { getApiUser, createApiSupabaseClient, createServiceRoleClient, sendAuthError, handleMethodNotAllowed } from '@/lib/api-auth';
+import { assertInstanceAssignee, loadSnapshotForInstance } from '@/lib/services/assessment-builder/registroAccess';
 import type { SaveResponseRequest } from '@/types/assessment-builder';
 import { validateFrequencyResponse } from '@/lib/services/assessment-builder/frequencyConfig';
 
@@ -29,15 +30,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const supabaseClient = await createApiSupabaseClient(req, res);
 
   try {
-    // Verify the user is assigned to this instance and can edit
-    const { data: assignee, error: assigneeError } = await supabaseClient
-      .from('assessment_instance_assignees')
-      .select('*')
-      .eq('instance_id', instanceId)
-      .eq('user_id', user.id)
-      .single();
+    // Verify the user is assigned to this instance and can edit (caller's own session)
+    const assignee = await assertInstanceAssignee(supabaseClient, instanceId, user.id);
 
-    if (assigneeError || !assignee) {
+    if (!assignee) {
       return res.status(403).json({
         error: 'No tienes permiso para completar este registro'
       });
@@ -74,12 +70,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: 'Se requiere un array de respuestas' });
     }
 
-    // Get snapshot to validate indicator IDs exist
-    const { data: snapshot, error: snapshotError } = await supabaseClient
-      .from('assessment_template_snapshots')
-      .select('snapshot_data')
-      .eq('id', instance.template_snapshot_id)
-      .single();
+    // Get snapshot to validate indicator IDs exist (N1: service client, after the gate)
+    const { snapshot, error: snapshotError } = await loadSnapshotForInstance(createServiceRoleClient(), instance);
 
     if (snapshotError || !snapshot) {
       return res.status(500).json({ error: 'Error al obtener plantilla' });

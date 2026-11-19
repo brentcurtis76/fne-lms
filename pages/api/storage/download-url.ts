@@ -94,9 +94,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(decision.status).json({ error: decision.error });
     }
 
+    // A community document (documents/<workspace uuid>/..., either store) is
+    // signed for five minutes, as the documents' own link route does
+    // (F12d send-back 1); every other file keeps its one hour.
+    const expiresIn = /^documents\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\//.test(decodedPath)
+      ? 300
+      : 3600;
     const { data, error } = await supabaseService.storage
       .from(targetBucket)
-      .createSignedUrl(decodedPath, 3600); // 1 hour expiry
+      .createSignedUrl(decodedPath, expiresIn);
 
     if (error) {
       console.error('Error creating signed URL:', error);

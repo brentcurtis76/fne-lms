@@ -1,6 +1,8 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
-import { createApiSupabaseClient, createServiceRoleClient, getApiUser, getForcedPasswordChangeVerdict, requireVerifiedCaller } from '../../../lib/api-auth';
+import { createApiSupabaseClient, createServiceRoleClient, getApiUser, getForcedPasswordChangeVerdict, loggableError, requireVerifiedCaller } from '../../../lib/api-auth';
+import { cleanQuoteDate, defaultValidUntil } from '../../../lib/quotes/valid-until';
+import { EDITABLE_GROUP_FIELDS } from '../../../lib/quotes/group-fields';
 
 const EDITABLE_QUOTE_FIELDS = [
   'client_name', 'client_email', 'client_phone', 'client_institution',
@@ -210,7 +212,7 @@ async function handleUpdate(supabase: any, id: string, req: NextApiRequest, res:
     // Check if the quote exists and user can access it using service role
     const { data: existingQuote, error: checkError } = await serviceSupabase
       .from('pasantias_quotes')
-      .select('id, created_by, status')
+      .select('id, created_by, status, valid_until, use_groups')
       .eq('id', id)
       .single();
     
@@ -227,15 +229,6 @@ async function handleUpdate(supabase: any, id: string, req: NextApiRequest, res:
       console.error('[UPDATE] User does not own quote and is not admin');
       return res.status(403).json({ 
         error: 'Solo puedes editar tus propias cotizaciones'
-      });
-    }
-
-    // Travel groups live in pasantias_quote_groups and are not saved by this
-    // route. Saying so beats reporting success while dropping the edit (before
-    // the field allowlist, such a save failed on the unknown column).
-    if (Array.isArray(req.body?.groups)) {
-      return res.status(400).json({
-        error: 'Por ahora no se pueden editar cotizaciones con grupos de viaje'
       });
     }
 
@@ -260,38 +253,88 @@ async function handleUpdate(supabase: any, id: string, req: NextApiRequest, res:
         updateData[field] = req.body[field];
       }
     }
+    // The two dates are a real date or nothing; a quote that is sent after
+    // this save and has no «válido hasta» is valid for 30 days from today in
+    // Chile.
+    for (const field of ['valid_until', 'early_bird_payment_date'] as const) {
+      if (Object.prototype.hasOwnProperty.call(updateData, field)) {
+        updateData[field] = cleanQuoteDate(updateData[field]);
+      }
+    }
+    const statusAfter = Object.prototype.hasOwnProperty.call(updateData, 'status')
+      ? updateData.status
+      : existingQuote.status;
+    const validUntilAfter = Object.prototype.hasOwnProperty.call(updateData, 'valid_until')
+      ? updateData.valid_until
+      : existingQuote.valid_until;
+    if (statusAfter === 'sent' && (validUntilAfter === null || validUntilAfter === undefined)) {
+      updateData.valid_until = defaultValidUntil(new Date());
+    }
     updateData.updated_by = userId;
     updateData.updated_at = new Date().toISOString();
 
-    console.log('[UPDATE] Updating with data keys:', Object.keys(updateData));
-    
-    // Update the quote using service role to bypass RLS
-    const { data: quote, error } = await serviceSupabase
-      .from('pasantias_quotes')
-      .update(updateData)
-      .eq('id', id)
-      .select()
-      .single();
+    // A group-mode quote's travel groups and its own fields are saved together
+    // by one database function (update listed, add new, remove unlisted).
+    const useGroupsAfter = Object.prototype.hasOwnProperty.call(updateData, 'use_groups')
+      ? updateData.use_groups
+      : existingQuote.use_groups;
+    let quote: unknown;
+    if (Array.isArray(req.body?.groups) && useGroupsAfter === true) {
+      const { error: saveError } = await serviceSupabase.rpc('save_quote_with_groups', {
+        p_quote_id: id,
+        p_fields: updateData,
+        p_groups: (req.body.groups as unknown[]).map(reduceGroup),
+      });
+      if (saveError) {
+        console.error('[UPDATE] Error saving groups:', loggableError(saveError));
+        const message = String(saveError.message);
+        if (Object.prototype.hasOwnProperty.call(GROUP_SAVE_ERRORS, message)) {
+          const answer = GROUP_SAVE_ERRORS[message];
+          return res.status(answer.status).json(answer.body);
+        }
+        return res.status(500).json({ error: 'Error al guardar los grupos de viaje' });
+      }
+      const { data: saved, error: readError } = await serviceSupabase
+        .from('pasantias_quotes')
+        .select()
+        .eq('id', id)
+        .single();
+      if (readError) {
+        console.error('[UPDATE] Error reading the saved quote:', loggableError(readError));
+      }
+      quote = saved ?? null;
+    } else {
+      console.log('[UPDATE] Updating with data keys:', Object.keys(updateData));
 
-    if (error) {
-      console.error('[UPDATE] Error updating quote:', error);
-      console.error('[UPDATE] Error details:', {
-        code: error.code,
-        message: error.message,
-        details: error.details,
-        hint: error.hint
-      });
-      return res.status(500).json({ 
-        error: 'Error al actualizar la cotización',
-        details: error.message 
-      });
-    }
-    
-    if (!quote) {
-      console.error('[UPDATE] No quote was updated');
-      return res.status(404).json({ 
-        error: 'No se pudo actualizar la cotización'
-      });
+      // Update the quote using service role to bypass RLS
+      const { data: updated, error } = await serviceSupabase
+        .from('pasantias_quotes')
+        .update(updateData)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('[UPDATE] Error updating quote:', error);
+        console.error('[UPDATE] Error details:', {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint
+        });
+        return res.status(500).json({ 
+          error: 'Error al actualizar la cotización',
+          details: error.message 
+        });
+      }
+      
+      if (!updated) {
+        console.error('[UPDATE] No quote was updated');
+        return res.status(404).json({ 
+          error: 'No se pudo actualizar la cotización'
+        });
+      }
+      quote = updated;
     }
     
     console.log('[UPDATE] Quote updated successfully');
@@ -321,6 +364,31 @@ async function handleUpdate(supabase: any, id: string, req: NextApiRequest, res:
       details: error instanceof Error ? error.message : 'Unknown error'
     });
   }
+}
+
+// The answers to the refusals of public.save_quote_with_groups, by message.
+const GROUP_SAVE_ERRORS: Record<string, { status: number; body: { error: string } }> = {
+  groups_empty: { status: 400, body: { error: 'Debe incluir al menos un grupo de viaje' } },
+  group_foreign: { status: 400, body: { error: 'Un grupo de viaje no pertenece a esta cotización' } },
+  group_duplicate: { status: 400, body: { error: 'Un grupo de viaje no pertenece a esta cotización' } },
+  group_malformed: { status: 400, body: { error: 'Los grupos de viaje no son válidos' } },
+  quote_not_found: { status: 404, body: { error: 'Cotización no encontrada' } },
+};
+
+// A listed group reduced to its id (when it has one) and the editable
+// columns it carries; anything that is not an object is passed on as it is,
+// so the database function refuses it.
+function reduceGroup(group: unknown): unknown {
+  if (!group || typeof group !== 'object' || Array.isArray(group)) return group;
+  const source = group as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+  if (source.id !== undefined && source.id !== null) out.id = source.id;
+  for (const field of EDITABLE_GROUP_FIELDS) {
+    if (Object.prototype.hasOwnProperty.call(source, field)) {
+      out[field] = source[field];
+    }
+  }
+  return out;
 }
 
 async function handleDelete(supabase: any, id: string, req: NextApiRequest, res: NextApiResponse) {

@@ -47,8 +47,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
-    // Get instance to check status
-    const { data: instance, error: instanceError } = await supabaseClient
+    // Get instance to check status (its own row only: N1, the stored version
+    // is readable to the teacher only once the registro is sent)
+    const { data: instanceRow, error: instanceError } = await supabaseClient
       .from('assessment_instances')
       .select(
         `
@@ -59,27 +60,37 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         generation_type,
         school_id,
         course_structure_id,
-        template_snapshot_id,
-        assessment_template_snapshots!inner (
-          version,
-          snapshot_data
-        )
+        template_snapshot_id
       `
       )
       .eq('id', instanceId)
       .single();
 
-    if (instanceError || !instance) {
+    if (instanceError || !instanceRow) {
       return res.status(404).json({ error: 'Registro no encontrado' });
     }
 
     // Only show results for completed instances
-    if (instance.status !== 'completed') {
+    if (instanceRow.status !== 'completed') {
       return res.status(400).json({
         error: 'Los resultados solo están disponibles para registros completados',
-        status: instance.status,
+        status: instanceRow.status,
       });
     }
+
+    // The stored version, with the teacher's own client (allowed once sent);
+    // a missing one is the same 404 the former inner join gave.
+    const { data: storedVersion, error: storedVersionError } = await supabaseClient
+      .from('assessment_template_snapshots')
+      .select('version, snapshot_data')
+      .eq('id', instanceRow.template_snapshot_id)
+      .single();
+
+    if (storedVersionError || !storedVersion) {
+      return res.status(404).json({ error: 'Registro no encontrado' });
+    }
+
+    const instance = { ...instanceRow, assessment_template_snapshots: storedVersion };
 
     // Try to get existing results
     let summary = await getInstanceResults(supabaseClient, instanceId);

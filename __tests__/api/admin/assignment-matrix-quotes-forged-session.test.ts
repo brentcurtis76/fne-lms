@@ -462,11 +462,38 @@ describe('quote status and travel groups on PUT', () => {
     expect(update).toMatchObject({ status });
   });
 
-  it('a save carrying travel groups is refused instead of silently dropping them', async () => {
+  it('a save carrying travel groups saves them (F15c GES-2.12, send-back 1): one call of save_quote_with_groups, then the activity log', async () => {
     verifiedUser = { id: CONSULTOR };
-    const res = await call(quoteById, 'PUT', { id: 'q-consultor' }, { client_name: 'X', use_groups: true, groups: [{ name: 'g' }] });
-    expect(res.statusCode).toBe(400);
-    expect(writes()).toEqual([]);
+    // The service client of this file, which also answers the one save of a
+    // group-mode quote (every other rpc as callerRpc).
+    const { createClient } = await import('@supabase/supabase-js');
+    vi.mocked(createClient).mockImplementation((() => ({
+      auth: {
+        getUser: vi.fn(async (token?: string) =>
+          token === BEARER_TOKEN && verifiedUser
+            ? { data: { user: verifiedUser }, error: null }
+            : { data: { user: null }, error: { message: 'invalid token' } }
+        ),
+      },
+      rpc: vi.fn(async (fn: string, rpcArgs: unknown) => {
+        if (fn !== 'save_quote_with_groups') return callerRpc(fn);
+        serviceLog.push({ table: `rpc:${fn}`, ops: [['rpc', rpcArgs]] });
+        return { data: null, error: null };
+      }),
+      from: vi.fn((table: string) => recordingChain(table)),
+    })) as unknown as typeof createClient);
+    try {
+      const res = await call(quoteById, 'PUT', { id: 'q-consultor' }, { client_name: 'X', use_groups: true, groups: [{ name: 'g' }] });
+      expect(res.statusCode).toBe(200);
+      const saves = serviceLog.filter((e) => e.table === 'rpc:save_quote_with_groups');
+      expect(saves).toHaveLength(1);
+      expect(saves[0].ops[0][1]).toMatchObject({ p_quote_id: 'q-consultor', p_groups: [{}] });
+      expect(writes().map(([t, o]) => `${t}.${o}`)).toEqual(['activity_logs.insert']);
+      const order = serviceLog.map((e) => e.table);
+      expect(order.indexOf('rpc:save_quote_with_groups')).toBeLessThan(order.indexOf('activity_logs'));
+    } finally {
+      vi.mocked(createClient).mockRestore();
+    }
   });
 });
 

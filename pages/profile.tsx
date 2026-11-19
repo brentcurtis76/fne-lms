@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
-import { useSupabaseClient, useSession } from '@supabase/auth-helpers-react';
+import { useSupabaseClient, useSessionContext } from '@supabase/auth-helpers-react';
 import { supabase } from '../lib/supabase';
 import { Session, User } from '@supabase/supabase-js';
 import Head from 'next/head';
@@ -45,7 +45,7 @@ type GrowthCommunity = {
 export default function ProfilePage() {
   const router = useRouter();
   const supabase = useSupabaseClient();
-  const session = useSession();
+  const { session, isLoading } = useSessionContext();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [dataLoaded, setDataLoaded] = useState(false);
@@ -67,6 +67,9 @@ export default function ProfilePage() {
 
   useEffect(() => {
     const getSessionAndProfile = async () => {
+      // Decide nothing until the session has finished loading: a reload or a
+      // typed address starts with no session yet (F15b, RD-a).
+      if (isLoading) return;
       // Check if user is authenticated
       if (!session?.user) {
         // Check if we're coming from login to prevent redirect loop
@@ -77,7 +80,7 @@ export default function ProfilePage() {
           // Show an error state instead of redirecting
           return;
         }
-        router.push('/login');
+        router.push(`/login?next=${encodeURIComponent('/profile')}`);
         return;
       }
       setUser(session.user);
@@ -268,7 +271,7 @@ export default function ProfilePage() {
     };
 
     getSessionAndProfile();
-  }, [router]);
+  }, [router, isLoading]);
 
   // Handle file selection for avatar preview
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {

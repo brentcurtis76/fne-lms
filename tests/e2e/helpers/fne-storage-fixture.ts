@@ -17,6 +17,11 @@ export async function prepareFneStorageFixture(): Promise<void> {
     await client.query(`INSERT INTO storage.buckets (id, name, public) VALUES
       ('facturas','facturas',true), ('resources','resources',true), ('fneanon-other','fneanon-other',true)
       ON CONFLICT (id) DO NOTHING`);
+    // `community-documents` exists in Production (private, no permissive rule of
+    // its own); no migration creates it. Private here too, and kept out of the
+    // permissive model rules below: only the migration's upload rule applies.
+    await client.query(`INSERT INTO storage.buckets (id, name, public) VALUES
+      ('community-documents','community-documents',false) ON CONFLICT (id) DO NOTHING`);
     // Do not replace production policies: these names exist only in the disposable model.
     for (const bucket of ['facturas', 'resources', 'fneanon-other']) {
       const name = `FNE CI model ${bucket}`;

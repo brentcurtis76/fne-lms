@@ -1,5 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { getApiUser, createApiSupabaseClient, sendAuthError, handleMethodNotAllowed } from '@/lib/api-auth';
+import { getApiUser, createApiSupabaseClient, createServiceRoleClient, sendAuthError, handleMethodNotAllowed } from '@/lib/api-auth';
 
 /**
  * GET /api/demo/assessments/[templateId]?year=N&generationType=GT|GI
@@ -54,8 +54,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(403).json({ error: 'No tienes acceso demo a este template' });
     }
 
+    // N1: only after the check above (caller's session), the instrument's
+    // content is read with the service client.
+    const serviceClient = createServiceRoleClient();
+
     // Fetch the latest snapshot for this published template
-    const { data: snapshot, error: snapError } = await supabaseClient
+    const { data: snapshot, error: snapError } = await serviceClient
       .from('assessment_template_snapshots')
       .select('id, template_id, version, snapshot_data, created_at')
       .eq('template_id', templateId)
@@ -71,7 +75,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Fetch year expectations for isActiveThisYear
     const yearKey = `year_${year}_expected`;
-    const { data: expData } = await supabaseClient
+    const { data: expData } = await serviceClient
       .from('assessment_year_expectations')
       .select('*')
       .eq('template_id', templateId)

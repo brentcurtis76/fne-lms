@@ -691,6 +691,17 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
     if (stepBodyRef.current) stepBodyRef.current.scrollTop = 0;
   }, [currentStep]);
 
+  // Browser pass: the latest summary and notes documents. The editors'
+  // change handlers write them synchronously, so the scheduled background
+  // save (whose callback was created a render earlier) sends what is in the
+  // editor when it fires, not the content before the last keystroke.
+  const latestSummaryDocRef = useRef(formData.summary_info.summary_doc);
+  const latestNotesDocRef = useRef(formData.summary_info.notes_doc);
+  useEffect(() => {
+    latestSummaryDocRef.current = formData.summary_info.summary_doc;
+    latestNotesDocRef.current = formData.summary_info.notes_doc;
+  }, [formData.summary_info.summary_doc, formData.summary_info.notes_doc]);
+
   // Best-effort autosave — skips when we have no meetingId yet (user hasn't
   // clicked "Guardar borrador" from the create flow) or when another autosave
   // is already in flight. 409 conflicts prompt a reload.
@@ -705,8 +716,8 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
     let finishAutosave!: () => void;
     autosavePromiseRef.current = new Promise<void>((resolve) => { finishAutosave = resolve; });
     setSavingIndicator('saving');
-    const sentSummaryDoc = formData.summary_info.summary_doc;
-    const sentNotesDoc = formData.summary_info.notes_doc;
+    const sentSummaryDoc = latestSummaryDocRef.current;
+    const sentNotesDoc = latestNotesDocRef.current;
     try {
       const res = await fetch(`/api/meetings/${id}/autosave`, {
         method: 'POST',
@@ -785,7 +796,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
       autosavePromiseRef.current = null;
       finishAutosave();
     }
-  }, [currentMeetingId, formData.summary_info.summary_doc, formData.summary_info.notes_doc, workSessionId, setMeetingVersion]);
+  }, [currentMeetingId, workSessionId, setMeetingVersion]);
 
   const scheduleAutosave = useCallback(() => {
     if (!currentMeetingId) return;
@@ -1849,6 +1860,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                   <TipTapEditor
                     initialContent={formData.summary_info.summary_doc ?? emptyDoc()}
                     onChange={(json) => {
+                      latestSummaryDocRef.current = json;
                       updateSummaryInfo('summary_doc', json);
                       scheduleAutosave();
                     }}
@@ -1868,6 +1880,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                   <TipTapEditor
                     initialContent={formData.summary_info.notes_doc ?? emptyDoc()}
                     onChange={(json) => {
+                      latestNotesDocRef.current = json;
                       updateSummaryInfo('notes_doc', json);
                       scheduleAutosave();
                     }}

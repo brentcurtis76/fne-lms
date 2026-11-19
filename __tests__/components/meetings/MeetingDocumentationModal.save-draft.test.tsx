@@ -1125,3 +1125,71 @@ describe('MeetingDocumentationModal — the full save waits at most ten seconds 
     expect(toastSuccess).not.toHaveBeenCalled();
   });
 });
+
+describe('MeetingDocumentationModal — the background save sends what is in the editor when it fires (browser pass)', () => {
+  const loadedDraft = () => ({
+    id: 'meeting-1',
+    title: 'Existing meeting',
+    meeting_date: new Date('2026-04-21T12:00:00Z').toISOString(),
+    duration_minutes: 60,
+    location: '',
+    status: 'borrador',
+    summary: 'summary text',
+    summary_doc: richDoc('summary text'),
+    notes: 'notes text',
+    notes_doc: richDoc('notes text'),
+    attendees: [{ user_id: ANA.id, role: 'participant' }],
+    agreements: [],
+    commitments: [],
+    tasks: [],
+    version: 4,
+    finalized_at: null,
+    updated_at: new Date().toISOString(),
+  });
+  const autosaves = () => vi.mocked(global.fetch).mock.calls.filter(([input]) => String(input).endsWith('/autosave'));
+  let consoleError: ReturnType<typeof vi.spyOn>;
+  beforeEach(() => { consoleError = vi.spyOn(console, 'error').mockImplementation(() => {}); });
+  afterEach(() => { consoleError.mockRestore(); vi.useRealTimers(); });
+
+  async function openOnStep2() {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const plainFetch = global.fetch;
+    // @ts-expect-error override global fetch for test
+    global.fetch = vi.fn(async (input: RequestInfo, init?: RequestInit) => {
+      if (String(input).endsWith('/autosave')) {
+        return new Response(JSON.stringify({ data: { version: 5, updated_at: new Date().toISOString() } }), { status: 200 });
+      }
+      return (plainFetch as any)(input, init);
+    });
+    mockGetMeetingDetails.mockResolvedValue(loadedDraft());
+    seedRows('meeting_attendees', [{ id: 'att-ana', meeting_id: 'meeting-1', user_id: ANA.id, role: 'participant' }]);
+    const utils = render(<MeetingDocumentationModal {...defaultProps} meetingId="meeting-1" mode="edit" />);
+    await waitFor(() => {
+      const titleInput = utils.container.querySelector('input[type="text"]') as HTMLInputElement | null;
+      expect(titleInput?.value).toBe('Existing meeting');
+    });
+    await click(utils.getByRole('button', { name: /Siguiente/i }));
+    await waitFor(() => expect(editorOnChange.get('Resumen de la reunión…')).toBeDefined());
+    return utils;
+  }
+
+  for (const [label, placeholder, field] of [
+    ['summary', 'Resumen de la reunión…', 'summary_doc'],
+    ['notes', 'Notas adicionales, observaciones…', 'notes_doc'],
+  ] as const) {
+    it(`three changes in a row to the ${label}: one background save, carrying the last content, and nothing is left unsaved`, async () => {
+      const utils = await openOnStep2();
+      for (const text of ['a', 'ab', 'abc']) {
+        await act(async () => { editorOnChange.get(placeholder)!(richDoc(text)); });
+      }
+      expect(utils.getByTestId('meeting-unsaved-changes')).toBeDefined();
+      await act(async () => { vi.advanceTimersByTime(2_500); });
+      await waitFor(() => expect(autosaves()).toHaveLength(1));
+      const body = JSON.parse(String((autosaves()[0][1] as RequestInit).body));
+      expect(body[field]).toEqual(richDoc('abc'));
+      await waitFor(() => expect(utils.queryByTestId('meeting-unsaved-changes')).toBeNull());
+      await act(async () => { vi.advanceTimersByTime(5_000); });
+      expect(autosaves()).toHaveLength(1);
+    });
+  }
+});

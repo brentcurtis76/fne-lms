@@ -67,7 +67,7 @@ describe('ContractForm — the client RUT', () => {
     finishAndSave(container);
     clickButton(/Guardar Contrato/);
     await waitFor(() => expect(onSuccess).toHaveBeenCalled());
-    expect(currentClient.__reads).toContainEqual({ table: 'clientes', filters: { rut: '76.123.456-0' } });
+    expect(currentClient.__reads).toContainEqual({ table: 'clientes', filters: { rut: ['76.123.456-0', '76123456-0', '761234560'] } });
     expect(currentClient.__writes.filter((w: any) => w.table === 'clientes' && w.op === 'insert')).toHaveLength(0);
     expect(currentClient.__writes.find((w: any) => w.table === 'contratos').payload[0].cliente_id).toBe('cliente-existente');
     confirmSpy.mockRestore();
@@ -95,7 +95,7 @@ describe('ContractForm — the client RUT', () => {
     finishAndSave(container);
     clickButton(/Guardar Borrador/);
     await waitFor(() => expect(onSuccess).toHaveBeenCalled());
-    expect(currentClient.__reads).toContainEqual({ table: 'clientes', filters: { rut: '76.123.456-0' } });
+    expect(currentClient.__reads).toContainEqual({ table: 'clientes', filters: { rut: ['76.123.456-0', '76123456-0', '761234560'] } });
     expect(currentClient.__writes.filter((w: any) => w.table === 'clientes')).toHaveLength(0);
   });
 
@@ -197,5 +197,83 @@ describe('ContractForm — a contract imported from a PDF', () => {
       />,
     );
     expect(screen.queryByText(ASK_DATE)).toBeNull();
+  });
+});
+
+/**
+ * F21b send-back 2: a client is found by RUT however the STORED value is
+ * written; no second client is inserted and no stored row is rewritten.
+ */
+describe('ContractForm — the client found by RUT whatever its stored spelling', () => {
+  const stored = (rut: string) => ({ id: 'cliente-guardado', rut, nombre_legal: 'Colegio Guardado SpA', nombre_fantasia: 'X', ciudad: 'X', nombre_representante: 'Y' });
+
+  it.each(['761234560', '76123456-0'])('full save: a client stored as «%s» is found when «76.123.456-0» is typed', async (storedRut) => {
+    currentClient = createFakeSupabase({ clientesStored: [stored(storedRut)] });
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const onSuccess = vi.fn();
+    const { container } = render(<ContractForm programas={PROGRAMAS} clientes={[]} onSuccess={onSuccess} onCancel={vi.fn()} />);
+    fillNewClientStep();
+    typeInto(clientRut(), '76.123.456-0');
+    finishAndSave(container);
+    clickButton(/Guardar Contrato/);
+    await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+    expect(confirmSpy).toHaveBeenCalled();
+    expect(currentClient.__writes.filter((w: any) => w.table === 'clientes')).toHaveLength(0);
+    expect(currentClient.__writes.find((w: any) => w.table === 'contratos').payload[0].cliente_id).toBe('cliente-guardado');
+  });
+
+  it.each(['761234560', '76123456-0'])('draft save: a client stored as «%s» is found when «76.123.456-0» is typed', async (storedRut) => {
+    currentClient = createFakeSupabase({ clientesStored: [stored(storedRut)] });
+    const onSuccess = vi.fn();
+    const { container } = render(<ContractForm programas={PROGRAMAS} clientes={[]} onSuccess={onSuccess} onCancel={vi.fn()} />);
+    fillNewClientStep();
+    typeInto(clientRut(), '76.123.456-0');
+    finishAndSave(container);
+    clickButton(/Guardar Borrador/);
+    await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+    expect(currentClient.__writes.filter((w: any) => w.table === 'clientes')).toHaveLength(0);
+    expect(currentClient.__writes.find((w: any) => w.table === 'contratos').payload[0].cliente_id).toBe('cliente-guardado');
+  });
+
+  it('a K check letter: «12.345.670-K» typed finds the client stored «12345670-k»', async () => {
+    currentClient = createFakeSupabase({ clientesStored: [stored('12345670-k')] });
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const onSuccess = vi.fn();
+    const { container } = render(<ContractForm programas={PROGRAMAS} clientes={[]} onSuccess={onSuccess} onCancel={vi.fn()} />);
+    fillNewClientStep();
+    typeInto(clientRut(), '12.345.670-K');
+    finishAndSave(container);
+    clickButton(/Guardar Contrato/);
+    await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+    expect(currentClient.__writes.filter((w: any) => w.table === 'clientes')).toHaveLength(0);
+  });
+
+  it('nothing stored under any spelling: one new client is inserted, as before', async () => {
+    currentClient = createFakeSupabase({ clientesStored: [stored('99.999.999-9')] });
+    const onSuccess = vi.fn();
+    const { container } = render(<ContractForm programas={PROGRAMAS} clientes={[]} onSuccess={onSuccess} onCancel={vi.fn()} />);
+    fillNewClientStep();
+    finishAndSave(container);
+    clickButton(/Guardar Contrato/);
+    await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+    expect(currentClient.__writes.filter((w: any) => w.table === 'clientes' && w.op === 'insert')).toHaveLength(1);
+  });
+
+  it('the PDF import matches a client stored «761234560» from a PDF RUT «76.123.456-0»', () => {
+    currentClient = createFakeSupabase();
+    const { container } = render(
+      <ContractForm
+        programas={PROGRAMAS}
+        clientes={[{ ...stored('761234560'), id: 'cliente-1' } as any]}
+        extractedData={{
+          contract: { numero_contrato: 'SYN-IMP-2', fecha_contrato: '2026-01-01' },
+          client: { nombre_legal: 'Colegio Importado SpA', rut: '76.123.456-0' },
+          financial: { precio_total: 100, moneda: 'UF' },
+        }}
+        onSuccess={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
+    expect((container.querySelector('select') as HTMLSelectElement).value).toBe('cliente-1');
   });
 });

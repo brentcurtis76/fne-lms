@@ -2,7 +2,7 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import Anthropic from '@anthropic-ai/sdk';
 import pdfParse from 'pdf-parse';
 import { createApiSupabaseClient, requireVerifiedCaller } from '@/lib/api-auth';
-import { formatRut } from '@/utils/rutValidation';
+import { rutSpellings } from '@/lib/contracts/rut-spellings';
 
 // Types for extracted data
 interface ExtractedContract {
@@ -334,15 +334,17 @@ export default async function handler(
       }
     }
 
-    // Check for existing client by RUT, compared formatted the product's way
-    // (formatRut), so «761234567» finds «76.123.456-7» (GES-3.11)
+    // Check for existing client by RUT, however the PDF and the stored row write
+    // it: the usual spellings are asked for at once (GES-3.11)
     let existingClient = null;
     if (extractedData.client.rut) {
       const { data: clientData } = await supabase
         .from('clientes')
         .select('*')
-        .eq('rut', formatRut(extractedData.client.rut))
-        .single();
+        .in('rut', rutSpellings(extractedData.client.rut))
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .maybeSingle();
       
       existingClient = clientData;
     }

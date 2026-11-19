@@ -114,48 +114,67 @@ describe('extract-pdf body size (GES-2.3)', () => {
 });
 
 /**
- * F21b (GES-3.11): the import finds a known client by its RUT formatted the
- * product's way (utils/rutValidation.ts formatRut), so «761234560» finds the
- * client stored as «76.123.456-0». Before the fix the lookup compared the
- * exact text read from the PDF.
+ * F21b (GES-3.11, send-back 2): the import finds a known client by its RUT
+ * however the PDF and the stored row write it: the lookup asks for the usual
+ * spellings of the same RUT at once (lib/contracts/rut-spellings.ts). Before the
+ * fix it compared the exact text read from the PDF. No stored row is rewritten.
  */
-describe('extract-pdf client lookup by formatted RUT (GES-3.11)', () => {
-  const STORED = { id: 'cliente-1', nombre_legal: 'Colegio Sintético', rut: '76.123.456-0' };
-
-  function recordingSupabase(ruts: string[]) {
+describe('extract-pdf client lookup by RUT, any spelling (GES-3.11)', () => {
+  function recordingSupabase(stored: Array<Record<string, unknown>>, asked: unknown[], writes: string[]) {
     return {
       from: (table: string) => {
         const filters: Record<string, unknown> = {};
         const q: any = {};
-        for (const m of ['select', 'gte']) q[m] = () => q;
-        q.eq = (col: string, value: unknown) => {
-          filters[col] = value;
-          return q;
-        };
-        q.single = () => {
+        for (const m of ['select', 'gte', 'order', 'limit']) q[m] = () => q;
+        for (const m of ['insert', 'update', 'upsert', 'delete']) q[m] = () => { writes.push(`${m}:${table}`); return q; };
+        q.eq = (col: string, value: unknown) => { filters[col] = value; return q; };
+        q.in = (col: string, value: unknown) => { filters[col] = value; return q; };
+        const answer = () => {
           if (table === 'clientes') {
-            ruts.push(String(filters.rut));
-            return Promise.resolve(
-              filters.rut === STORED.rut ? { data: STORED, error: null } : { data: null, error: { code: 'PGRST116' } },
-            );
+            asked.push(filters.rut);
+            const list = Array.isArray(filters.rut) ? filters.rut : [filters.rut];
+            const row = stored.find((r) => list.includes(r.rut)) ?? null;
+            return Promise.resolve({ data: row, error: null });
           }
           return Promise.resolve({ data: { role_type: 'admin' }, error: null });
         };
+        q.single = answer;
+        q.maybeSingle = answer;
         q.then = (resolve: (v: unknown) => unknown) => Promise.resolve({ data: [], count: 0, error: null }).then(resolve);
         return q;
       },
     };
   }
 
-  it.each(['761234560', '76123456-0', '76.123.456-0'])('a PDF RUT «%s» finds the client stored as «76.123.456-0»', async (rut) => {
-    const ruts: string[] = [];
-    mocks.client.mockResolvedValue(recordingSupabase(ruts));
+  const importWith = async (pdfRut: string, stored: Array<Record<string, unknown>>) => {
+    const asked: unknown[] = [];
+    const writes: string[] = [];
+    mocks.client.mockResolvedValue(recordingSupabase(stored, asked, writes));
     mocks.create.mockResolvedValue({
-      content: [{ type: 'text', text: JSON.stringify({ ...EXTRACTED, client: { ...EXTRACTED.client, rut } }) }],
+      content: [{ type: 'text', text: JSON.stringify({ ...EXTRACTED, client: { ...EXTRACTED.client, rut: pdfRut } }) }],
     });
     const res = await post({ pdfBase64: Buffer.from('%PDF-1.4 synthetic').toString('base64'), fileName: 'contrato.pdf' });
+    return { res, asked, writes };
+  };
+
+  it.each(['761234560', '76123456-0', '76.123.456-0'])('a PDF RUT «%s» finds the client stored as «76.123.456-0»', async (rut) => {
+    const STORED = { id: 'cliente-1', rut: '76.123.456-0' };
+    const { res, asked } = await importWith(rut, [STORED]);
     expect(res._getStatusCode()).toBe(200);
-    expect(ruts).toEqual(['76.123.456-0']);
+    expect(asked).toEqual([['76.123.456-0', '76123456-0', '761234560']]);
+    expect(res._getJSONData().existingClient).toEqual(STORED);
+  });
+
+  it.each(['761234560', '76123456-0'])('a client STORED as «%s» is found from a PDF RUT «76.123.456-0»; nothing is written', async (storedRut) => {
+    const STORED = { id: 'cliente-1', rut: storedRut };
+    const { res, writes } = await importWith('76.123.456-0', [STORED]);
+    expect(res._getJSONData().existingClient).toEqual(STORED);
+    expect(writes).toEqual([]);
+  });
+
+  it('«12.345.678-K» finds a client stored «12345678-k»', async () => {
+    const STORED = { id: 'cliente-k', rut: '12345678-k' };
+    const { res } = await importWith('12.345.678-K', [STORED]);
     expect(res._getJSONData().existingClient).toEqual(STORED);
   });
 });

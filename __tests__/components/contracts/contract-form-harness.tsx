@@ -23,6 +23,11 @@ export interface FakeWrite {
 export interface FakeOptions {
   /** Row returned by `clientes … eq('rut', x).single()`; null = no client with that RUT. */
   clienteByRut?: Row | null;
+  /**
+   * Stored clients, matched by their exact stored `rut` against the RUT(s) the
+   * lookup asks for (`eq` or `in`); takes precedence over clienteByRut (F21b send-back 2).
+   */
+  clientesStored?: Row[];
   /** Error returned by an insert into clientes. */
   clienteInsertError?: { message: string; code?: string } | null;
   /** Error returned by an insert into contratos. */
@@ -83,6 +88,11 @@ export function createFakeSupabase(options: FakeOptions = {}) {
       reads.push({ table, filters: { ...ctx.filters } });
       if (table === 'schools') return { data: [], error: null };
       if (table === 'clientes' && 'rut' in ctx.filters) {
+        if (options.clientesStored) {
+          const asked = Array.isArray(ctx.filters.rut) ? ctx.filters.rut : [ctx.filters.rut];
+          const found = options.clientesStored.find((r) => asked.includes(r.rut)) ?? null;
+          return found ? { data: found, error: null } : { data: null, error: { code: 'PGRST116', message: 'no rows' } };
+        }
         const row = options.clienteByRut ?? null;
         return row ? { data: row, error: null } : { data: null, error: { code: 'PGRST116', message: 'no rows' } };
       }

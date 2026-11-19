@@ -20,6 +20,12 @@
  *   sign, two commas, thousands groups that are not three digits («1.2.3,4»).
  *
  * It never guesses: an amount that can be read two ways has no value.
+ *
+ * DECIDED by the lead (19 Nov 2026, send-back 2), not an oversight — in the
+ * contract form: UF amounts: a single dot with three digits is refused; pesos:
+ * it is thousands. The form reads a UF amount with room for more decimals, so
+ * «1.200» or «49.995» in UF is 'ambiguous' and refused with a sentence (until
+ * then a number input silently read «1.200» as 1,2 UF); in pesos «15.990» → 15990.
  */
 export type ParseEsClProblem = 'ambiguous' | 'invalid' | 'too_many_decimals';
 export interface ParseEsClResult {

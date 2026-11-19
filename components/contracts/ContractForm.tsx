@@ -10,6 +10,7 @@ import { buildClientRow } from '@/lib/contracts/client-row';
 import { splitEvenly, sumsMatch, difference, decimalsFor, hasCurrencyPrecision, precisionMessage } from '@/lib/contracts/cuotas-math';
 import { parseEsClDetailed } from '@/lib/money/parse-es-cl';
 import { formatRut, validateRut } from '@/utils/rutValidation';
+import { rutSpellings } from '@/lib/contracts/rut-spellings';
 
 interface Programa {
   id: string;
@@ -99,7 +100,8 @@ interface ContractFormState {
 // instead of being taken as zero; the currency's own reading decides the problem.
 // In a field that takes decimals (UF), a text that could mean three decimals or
 // thousands («49.995», «1.200») is refused as ambiguous, never guessed (send-back 1);
-// in pesos it can only be thousands («15.990» → 15990).
+// in pesos it can only be thousands («15.990» → 15990). DECIDED (lead, send-back 2):
+// UF amounts: a single dot with three digits is refused; pesos: it is thousands.
 const LOOSE_DECIMALS = 10;
 type AmountProblem = 'precision' | 'unreadable' | 'ambiguous' | null;
 
@@ -339,10 +341,10 @@ export default function ContractForm({ programas, clientes, editingContract, pre
         })));
       }
       
-      // Check if client exists by RUT, compared formatted (GES-3.11)
+      // Check if client exists by RUT, however the stored value is written (GES-3.11)
       if (extractedData.client?.rut) {
-        const extractedRut = formatRut(extractedData.client.rut);
-        const existingClient = clientes.find(c => formatRut(c.rut || '') === extractedRut);
+        const spellings = rutSpellings(extractedData.client.rut);
+        const existingClient = clientes.find(c => spellings.includes(c.rut));
         if (existingClient) {
           setSelectedClienteId(existingClient.id);
           // Update form with existing client data
@@ -825,8 +827,11 @@ export default function ContractForm({ programas, clientes, editingContract, pre
           const { data: existingCliente } = await supabase
             .from('clientes')
             .select('id')
-            .eq('rut', formatRut(clienteForm.rut))
-            .single();
+            // however the stored RUT is written; the oldest such client (GES-3.11)
+            .in('rut', rutSpellings(clienteForm.rut))
+            .order('created_at', { ascending: true })
+            .limit(1)
+            .maybeSingle();
             
           if (existingCliente) {
             clienteId = existingCliente.id;
@@ -1101,8 +1106,11 @@ export default function ContractForm({ programas, clientes, editingContract, pre
           const { data: existingCliente, error: checkError } = await supabase
             .from('clientes')
             .select('*')
-            .eq('rut', formatRut(clienteForm.rut))
-            .single();
+            // however the stored RUT is written; the oldest such client (GES-3.11)
+            .in('rut', rutSpellings(clienteForm.rut))
+            .order('created_at', { ascending: true })
+            .limit(1)
+            .maybeSingle();
             
           if (checkError && checkError.code !== 'PGRST116') {
             // PGRST116 means no rows found, which is expected for new clients

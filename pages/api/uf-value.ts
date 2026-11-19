@@ -25,7 +25,9 @@ export default async function handler(
     // Fetch from SII UF page for current year
     const siiUrl = `https://www.sii.cl/valores_y_fechas/uf/uf${year}.htm`;
     
+    // N89: never wait on the SII for more than 5 seconds.
     const response = await fetch(siiUrl, {
+      signal: AbortSignal.timeout(5000),
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
       }
@@ -59,12 +61,10 @@ export default async function handler(
   } catch (error) {
     console.error('Error fetching UF from SII:', error);
     
-    // Return fallback value
+    // N89: say honestly that today's value could not be read; give no value.
     return res.status(200).json({
       success: false,
-      valor: 39184, // Fallback to known current value
-      fecha: new Date().toISOString().split('T')[0],
-      error: 'Using fallback value - SII fetch failed'
+      error: 'No se pudo obtener la UF de hoy'
     });
   }
 }

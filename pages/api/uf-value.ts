@@ -134,43 +134,52 @@ export function extractUFFromSII(html: string, month: string, day: number): numb
 }
 
 /**
- * The inside of the month's own table, or null. First the month's block
- * (id «mes_<month>», read up to the next «mes_» block) and the first table in
- * it; otherwise a table whose heading holds exactly the month's name as
- * «<h2>Name</h2>», either inside the table or standing right before it with
- * nothing but blanks between. Never «the first table after the name».
+ * The inside of the month's own table, or null. A table is the month's table
+ * only if it says so itself: its FIRST row holds a heading cell (th) whose
+ * text, tags removed and trimmed, is exactly the month's name (case and
+ * accents ignored), as the real page's «<th colspan='6'><h2>Noviembre</h2></th>».
+ * With a «mes_<month>» block, the candidate is the first table after the
+ * block's id and before the next «mes_» id; there is no fallback when the
+ * block exists. Without it, the candidate is the first table on the page that
+ * says so itself. Only a plain table is read: a candidate holding another
+ * «<table» before its first closing table tag gives null.
  */
 function findMonthTable(html: string, monthId: string, monthName: string): string | null {
-  const firstTable = (text: string): string | null => {
-    const open = text.match(/<table\b[^>]*>/i);
-    if (!open) return null;
+  const fold = (text: string) => text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const wanted = fold(monthName);
+
+  // The text between a table's opening tag and its first closing table tag.
+  const tableAt = (text: string, open: RegExpMatchArray): string | null => {
     const from = open.index! + open[0].length;
     const close = text.slice(from).search(/<\/table\s*>/i);
     return close < 0 ? null : text.slice(from, from + close);
+  };
+
+  const saysSoItself = (inner: string): boolean => {
+    const firstRow = inner.match(/<tr\b[^>]*>([\s\S]*?)<\/tr\s*>/i);
+    if (!firstRow) return false;
+    return Array.from(firstRow[1].matchAll(/<th\b[^>]*>([\s\S]*?)<\/th\s*>/gi))
+      .some((m) => fold(m[1].replace(/<[^>]*>/g, '').trim()) === wanted);
+  };
+
+  const readable = (inner: string | null): string | null => {
+    if (inner === null) return null;
+    if (/<table\b/i.test(inner)) return null; // not a plain table
+    return saysSoItself(inner) ? inner : null;
   };
 
   const block = html.match(new RegExp(`id\\s*=\\s*['"]mes_${monthId}['"][^>]*>`, 'i'));
   if (block) {
     const from = block.index! + block[0].length;
     const next = html.slice(from).search(/id\s*=\s*['"]mes_/i);
-    return firstTable(next < 0 ? html.slice(from) : html.slice(from, from + next));
+    const segment = next < 0 ? html.slice(from) : html.slice(from, from + next);
+    const open = segment.match(/<table\b[^>]*>/i);
+    return open ? readable(tableAt(segment, open)) : null;
   }
 
-  const heading = new RegExp(`<h2\\b[^>]*>\\s*${monthName}\\s*<\\/h2\\s*>`, 'gi');
-  for (const m of Array.from(html.matchAll(heading))) {
-    const before = html.slice(0, m.index!);
-    const opens = Array.from(before.matchAll(/<table\b[^>]*>/gi));
-    const opened = opens.length ? opens[opens.length - 1].index! : -1;
-    if (opened >= 0 && !/<\/table\s*>/i.test(before.slice(opened))) {
-      // The heading stands inside a table: that table.
-      const table = firstTable(html.slice(opened));
-      if (table !== null) return table;
-    }
-    const after = html.slice(m.index! + m[0].length);
-    if (/^\s*<table\b/i.test(after)) {
-      // The heading stands right before a table: that table.
-      return firstTable(after);
-    }
+  for (const open of Array.from(html.matchAll(/<table\b[^>]*>/gi))) {
+    const inner = tableAt(html, open);
+    if (inner !== null && saysSoItself(inner)) return readable(inner);
   }
   return null;
 }

@@ -26,6 +26,7 @@ const NOW = new Date(`${TODAY}T15:00:00Z`);
 // today's day. Derived by reading the parser's three regular expressions
 // (month name …<table>, </table>, and the day/value pair). Value invented.
 const SII_PAGE = `<html><body><h2>Noviembre</h2><table>
+<tr><th colspan='6'><h2>Noviembre</h2></th></tr>
 <tr><td>17</td><td>40.111,11</td></tr>
 <tr><td>18</td><td>40.123,45</td></tr>
 </table></body></html>`;
@@ -116,7 +117,7 @@ describe('/api/uf-value', () => {
   describe("send-back 1: today is Chile's day, and only today's row is a success", () => {
     // Invented values; the 18th's row is the one asked for at 22:30 in Chile.
     const row = (day: string, value: string) => `<tr><td>${day}</td><td>${value}</td></tr>`;
-    const page = (...rows: string[]) => `<html><body><h2>Noviembre</h2><table>\n${rows.join('\n')}\n</table></body></html>`;
+    const page = (...rows: string[]) => `<html><body><h2>Noviembre</h2><table>\n<tr><th colspan='6'><h2>Noviembre</h2></th></tr>\n${rows.join('\n')}\n</table></body></html>`;
 
     it("at 2026-11-19T01:30:00Z (22:30 on the 18th in Chile) the route asks for the 18th's row", async () => {
       vi.setSystemTime(new Date('2026-11-19T01:30:00Z'));
@@ -146,7 +147,7 @@ describe('/api/uf-value', () => {
   describe("send-back 2: the requested day is matched as a number, and only that row's value is returned", () => {
     // Invented values. Noon in Chile on 2 November: the 2nd's row is asked for.
     const row = (day: string, value: string) => `<tr><td>${day}</td><td>${value}</td></tr>`;
-    const page = (...rows: string[]) => `<html><body><h2>Noviembre</h2><table>\n${rows.join('\n')}\n</table></body></html>`;
+    const page = (...rows: string[]) => `<html><body><h2>Noviembre</h2><table>\n<tr><th colspan='6'><h2>Noviembre</h2></th></tr>\n${rows.join('\n')}\n</table></body></html>`;
     const SECOND = new Date('2026-11-02T15:00:00Z');
 
     it.each([
@@ -251,12 +252,12 @@ describe('N187: the route reads the real SII page (fixture of 18 Nov 2026)', () 
   describe('(6b) the staged pages of the blind test of 18 Nov', () => {
     // Clock: 18 Nov 2026 at noon in Chile. Values invented (as in the blind test).
     const valuePage = (value: string) =>
-      `<h2>Noviembre</h2><table><tr><td>18</td><td>${value}</td></tr></table>`;
+      `<h2>Noviembre</h2><table><tr><th colspan='6'><h2>Noviembre</h2></th></tr><tr><td>18</td><td>${value}</td></tr></table>`;
 
     it("a list of month names before October's table → November never gets October's value", async () => {
       const page = `<nav>Noviembre</nav>
-<h2>Octubre</h2><table><tr><td>18</td><td>40.000,00</td></tr></table>
-<h2>Noviembre</h2><table><tr><td>18</td><td>41.357,30</td></tr></table>`;
+<h2>Octubre</h2><table><tr><th colspan='6'><h2>Octubre</h2></th></tr><tr><td>18</td><td>40.000,00</td></tr></table>
+<h2>Noviembre</h2><table><tr><th colspan='6'><h2>Noviembre</h2></th></tr><tr><td>18</td><td>41.357,30</td></tr></table>`;
       const res = await callOn('2026-11-18', page);
       expect(res._getJSONData()).not.toHaveProperty('valor', 40000);
       expect(res._getJSONData()).toEqual({ success: true, valor: 41357.3, fecha: '2026-11-18' });
@@ -288,6 +289,60 @@ describe('N187: the route reads the real SII page (fixture of 18 Nov 2026)', () 
     ])('the value written %s (the Chilean way) → %s', async (value, valor) => {
       const res = await callOn('2026-11-18', valuePage(value));
       expect(res._getJSONData()).toEqual({ success: true, valor, fecha: '2026-11-18' });
+    });
+  });
+
+  describe("send-back 1: a table is the month's only if its own first row names the month, and only a plain table is read", () => {
+    // The three pages of the second reading's "Changes needed", exactly as written there.
+    const BLOCK_WITHOUT_TABLE = `<div id='mes_noviembre'></div>
+<h2>Octubre</h2>
+<table><tr><td>18</td><td>41.178,64</td></tr></table>`;
+    const HEADING_IN_A_DATA_CELL = `<div id='mes_octubre'>
+  <table>
+    <tr><th>Octubre</th></tr>
+    <tr><td><h2>Noviembre</h2></td></tr>
+    <tr><td>18</td><td>41.178,64</td></tr>
+  </table>
+</div>`;
+    const NESTED_TABLE = `<div id='mes_noviembre'>
+  <table>
+    <tr><td><table>
+      <tr><td>18</td><td>40.000,00</td></tr>
+    </table></td></tr>
+    <tr><th>18</th><td>41.357,30</td></tr>
+  </table>
+</div>`;
+
+    it("(1) the month's block holds no table → null (never the next table, another month's)", () => {
+      expect(extractUFFromSII(BLOCK_WITHOUT_TABLE, '11', 18)).toBeNull();
+    });
+
+    it('(1) the same page through the route → success false, no value', async () => {
+      const res = await callOn('2026-11-18', BLOCK_WITHOUT_TABLE);
+      expect(res._getJSONData()).toEqual(NO_VALUE);
+      expect(res.getHeader('Cache-Control')).toBeUndefined();
+    });
+
+    it("(2) no block for the month, its name only in a data cell of another month's table → null", () => {
+      expect(extractUFFromSII(HEADING_IN_A_DATA_CELL, '11', 18)).toBeNull();
+    });
+
+    it("(3) a table nested inside the month's table → null (never the inner table's value)", () => {
+      expect(extractUFFromSII(NESTED_TABLE, '11', 18)).toBeNull();
+    });
+
+    it("a block whose table's first-row heading names ANOTHER month → null", () => {
+      const page = `<div class='meses' id='mes_noviembre'><table>
+<tr><th colspan='6'><h2>Octubre</h2></th></tr>
+<tr><th width='40'><strong>18</strong></th> <td width='200'>41.178,64</td></tr>
+</table></div>`;
+      expect(extractUFFromSII(page, '11', 18)).toBeNull();
+    });
+
+    it("a page without blocks whose table's first row is <th>Noviembre</th> (no h2) → read", () => {
+      const page = `<table><tr><th>Noviembre</th></tr>
+<tr><td>18</td><td>41.357,30</td></tr></table>`;
+      expect(extractUFFromSII(page, '11', 18)).toBe(41357.3);
     });
   });
 });

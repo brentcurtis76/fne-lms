@@ -21,6 +21,7 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { LicitacionDetail } from '@/types/licitaciones';
+import { formatMonto } from '@/lib/licitaciones/formato';
 
 interface Step7ContratoProps {
   licitacion: LicitacionDetail;
@@ -282,7 +283,7 @@ export default function Step7Contrato({
             <div>
               <span className="text-gray-500">Monto adjudicado:</span>
               <span className="ml-2 text-gray-900 font-medium">
-                {licitacion.tipo_moneda} {licitacion.monto_adjudicado_uf.toLocaleString('es-CL')}
+                {formatMonto(licitacion.monto_adjudicado_uf, licitacion.tipo_moneda)}
               </span>
             </div>
           )}
@@ -409,7 +410,7 @@ export default function Step7Contrato({
             <div>
               <span className="text-gray-500">Monto adjudicado:</span>
               <span className="ml-2 text-gray-900 font-medium">
-                {licitacion.tipo_moneda} {licitacion.monto_adjudicado_uf.toLocaleString('es-CL')}
+                {formatMonto(licitacion.monto_adjudicado_uf, licitacion.tipo_moneda)}
               </span>
             </div>
           )}

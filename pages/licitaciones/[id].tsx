@@ -13,6 +13,7 @@ import DocumentCenter from '@/components/licitaciones/DocumentCenter';
 import ProposalConfigPanel from '@/components/licitaciones/ProposalConfigPanel';
 import ArchiveView from '@/components/licitaciones/ArchiveView';
 import { buildPublicacionText, isPublicacionConfirmada } from '@/lib/licitaciones/publicacionText';
+import { formatMonto } from '@/lib/licitaciones/formato';
 
 // ============================================================
 // STEPPER DEFINITION
@@ -569,8 +570,8 @@ export default function LicitacionDetailPage() {
               </div>
               <div>
                 <h3 className="text-sm font-semibold text-gray-700 mb-3">Presupuesto y Plazos</h3>
-                <InfoRow label="Monto minimo" value={`${licitacion.monto_minimo} ${licitacion.tipo_moneda}`} />
-                <InfoRow label="Monto maximo" value={`${licitacion.monto_maximo} ${licitacion.tipo_moneda}`} />
+                <InfoRow label="Monto minimo" value={formatMonto(licitacion.monto_minimo, licitacion.tipo_moneda, '-')} />
+                <InfoRow label="Monto maximo" value={formatMonto(licitacion.monto_maximo, licitacion.tipo_moneda, '-')} />
                 <InfoRow label="Duracion minima" value={licitacion.duracion_minima} />
                 <InfoRow label="Duracion maxima" value={licitacion.duracion_maxima} />
                 <InfoRow label="Peso tecnico" value={`${licitacion.peso_evaluacion_tecnica}%`} />

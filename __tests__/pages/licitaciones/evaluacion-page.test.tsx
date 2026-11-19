@@ -76,3 +76,21 @@ describe('evaluation screen — the evaluation date (LIC-B3)', () => {
     await waitFor(() => expect(dateInput().value).toBe('2026-11-05'));
   });
 });
+
+describe('evaluation screen — the amount field names the tender\'s currency (LIC-B2)', () => {
+  it('a UF tender: «Monto propuesto (UF)», cents allowed, a UF example', async () => {
+    await renderPage();
+    const input = screen.getByLabelText('Monto propuesto (UF)') as HTMLInputElement;
+    expect(input.getAttribute('step')).toBe('0.01');
+    expect(input.getAttribute('placeholder')).toBe('450');
+    expect(screen.queryByText(/Monto propuesto \(CLP\)/)).not.toBeInTheDocument();
+  });
+
+  it('a tender in pesos: «Monto propuesto (CLP)», whole pesos, a peso example', async () => {
+    h.detail = tender({ tipo_moneda: 'CLP' });
+    await renderPage();
+    const input = screen.getByLabelText('Monto propuesto (CLP)') as HTMLInputElement;
+    expect(input.getAttribute('step')).toBe('1');
+    expect(input.getAttribute('placeholder')).toBe('15000000');
+  });
+});

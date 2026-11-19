@@ -972,13 +972,13 @@ export default function EvaluacionPage() {
                             htmlFor={`monto-${ate.id}`}
                             className="block text-xs font-medium text-gray-600 mb-1"
                           >
-                            Monto propuesto (CLP)
+                            {`Monto propuesto (${licitacion.tipo_moneda})`}
                           </label>
                           <input
                             id={`monto-${ate.id}`}
                             type="number"
                             min={1}
-                            step={1000}
+                            step={licitacion.tipo_moneda === 'UF' ? 0.01 : 1}
                             value={montos[ate.id] || ''}
                             disabled={!isEditable}
                             onChange={e =>
@@ -988,7 +988,7 @@ export default function EvaluacionPage() {
                               }))
                             }
                             className={INPUT_CLASS}
-                            placeholder="15000000"
+                            placeholder={licitacion.tipo_moneda === 'UF' ? '450' : '15000000'}
                           />
                         </div>
                         <div className="w-40 bg-white rounded-lg border border-gray-200 px-3 py-2 text-center">

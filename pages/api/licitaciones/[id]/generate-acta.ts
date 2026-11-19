@@ -152,6 +152,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         numero_licitacion: licitacion.numero_licitacion,
         peso_evaluacion_tecnica: licitacion.peso_evaluacion_tecnica,
         peso_evaluacion_economica: licitacion.peso_evaluacion_economica,
+        tipo_moneda: licitacion.tipo_moneda,
       },
       fechaEvaluacion,
       horaInicio: licitacion.hora_inicio_evaluacion || '09:00',

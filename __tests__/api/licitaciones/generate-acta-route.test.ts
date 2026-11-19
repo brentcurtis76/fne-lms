@@ -106,3 +106,20 @@ describe('generate-acta — the evaluation date (LIC-B3)', () => {
     expect(xml).not.toContain('20 de noviembre de 2026');
   });
 });
+
+describe('generate-acta — amounts in the tender\'s currency (LIC-B2)', () => {
+  it('passes the currency: a UF tender\'s Acta reads «UF 450,00», never «$»', async () => {
+    const r = await call();
+    expect(r.status).toBe(200);
+    const xml = await storedXml();
+    expect(xml).toContain('UF 450,00');
+    expect(xml).not.toContain('$');
+  });
+
+  it('a tender in pesos reads «$15.000.000»', async () => {
+    h.db = seed('CLP');
+    const r = await call();
+    expect(r.status).toBe(200);
+    expect(await storedXml()).toContain('$15.000.000');
+  });
+});

@@ -45,7 +45,7 @@ const CLIENTE = {
   school_id: null,
 };
 
-const amountInputs = (container: HTMLElement) => container.querySelectorAll('input[type="number"]');
+const amountInputs = (container: HTMLElement) => container.querySelectorAll('[data-testid="cuota-amount-input"]');
 const dateInputs = (container: HTMLElement) => container.querySelectorAll('input[type="date"]');
 
 /** Up to step 3 with two cuotas, nothing filled in step 3. */
@@ -176,7 +176,7 @@ describe('ContractForm — «Guardar Borrador»', () => {
     toStep3(container, false);
     dateInputs(container).forEach((el) => typeInto(el, '2099-06-30'));
     typeInto(amountInputs(container)[0], '50');
-    typeInto(amountInputs(container)[1], '49.995');
+    typeInto(amountInputs(container)[1], '49,995');
     clickButton(/Guardar Borrador/);
     await waitFor(() =>
       expect(toast.error).toHaveBeenCalledWith('Los montos en CLP no llevan decimales; en UF, hasta dos. Corrija la cuota 2.'),

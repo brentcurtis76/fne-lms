@@ -49,7 +49,7 @@ describe('ContractForm — new contract with a brand-new client', () => {
     clickButton('Siguiente');
     fillCuotaDates(container);
     // one cuota of the full amount
-    const amount = container.querySelector('input[type="number"]') as HTMLInputElement;
+    const amount = container.querySelector('[data-testid="cuota-amount-input"]') as HTMLInputElement;
     typeInto(amount, '100');
     clickButton(/Guardar Contrato/);
 
@@ -90,7 +90,7 @@ describe('ContractForm — new contract with a brand-new client', () => {
     fillContractStep(container, { programaId: 'prog-a', total: 100 });
     clickButton('Siguiente');
     fillCuotaDates(container);
-    const amount = container.querySelector('input[type="number"]') as HTMLInputElement;
+    const amount = container.querySelector('[data-testid="cuota-amount-input"]') as HTMLInputElement;
     typeInto(amount, '100');
     clickButton(/Guardar Contrato/);
 

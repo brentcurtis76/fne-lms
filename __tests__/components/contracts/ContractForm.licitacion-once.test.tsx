@@ -58,7 +58,7 @@ const saveTenderContract = async () => {
   typeInto(dates[1], '2099-12-31');
   clickButton('Siguiente');
   fillCuotaDates(container);
-  typeInto(container.querySelector('input[type="number"]') as Element, '100');
+  typeInto(container.querySelector('[data-testid="cuota-amount-input"]') as Element, '100');
   clickButton(/Guardar Contrato/);
   await waitFor(() => expect(onSuccess).toHaveBeenCalled());
   return onSuccess;

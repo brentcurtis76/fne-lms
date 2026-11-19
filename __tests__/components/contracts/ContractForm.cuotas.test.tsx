@@ -39,7 +39,7 @@ const goToCuotas = (container: HTMLElement, total: number, currency: 'UF' | 'CLP
 };
 
 const amounts = (container: HTMLElement) =>
-  Array.from(container.querySelectorAll('input[type="number"]')).map((el) => (el as HTMLInputElement).value);
+  Array.from(container.querySelectorAll('[data-testid="cuota-amount-input"]')).map((el) => (el as HTMLInputElement).value);
 
 describe('ContractForm — «Calcular Automático»', () => {
   it('100 UF in three cuotas: the step is valid after Calcular Automático', () => {
@@ -81,7 +81,7 @@ describe('ContractForm — «Calcular Automático»', () => {
     goToCuotas(container, 100);
     clickButton(/Agregar Cuota/);
     clickButton(/Agregar Cuota/);
-    const inputs = container.querySelectorAll('input[type="number"]');
+    const inputs = container.querySelectorAll('[data-testid="cuota-amount-input"]');
     inputs.forEach((el) => typeInto(el, '33.33'));
     fillCuotaDates(container);
 
@@ -102,7 +102,7 @@ describe('ContractForm — «Calcular Automático»', () => {
     goToCuotas(container, 1000000, 'CLP');
     clickButton(/Agregar Cuota/);
     clickButton(/Agregar Cuota/);
-    container.querySelectorAll('input[type="number"]').forEach((el) => typeInto(el, '333333'));
+    container.querySelectorAll('[data-testid="cuota-amount-input"]').forEach((el) => typeInto(el, '333333'));
     fillCuotaDates(container);
 
     expect(screen.getByText(/La suma de las cuotas no coincide/)).toHaveTextContent(/Diferencia: CLP 1$/);
@@ -120,7 +120,7 @@ describe('ContractForm — «Calcular Automático»', () => {
       if ((add as HTMLButtonElement).disabled) break;
       clickButton(/Agregar Cuota/);
     }
-    expect(container.querySelectorAll('input[type="number"]')).toHaveLength(12);
+    expect(container.querySelectorAll('[data-testid="cuota-amount-input"]')).toHaveLength(12);
     expect(screen.getByRole('button', { name: /Agregar Cuota/ })).toBeDisabled();
   });
 
@@ -132,7 +132,7 @@ describe('ContractForm — «Calcular Automático»', () => {
     );
     goToCuotas(container, 100, 'CLP');
     clickButton(/Agregar Cuota/);
-    container.querySelectorAll('input[type="number"]').forEach((el) => typeInto(el, '50.49'));
+    container.querySelectorAll('[data-testid="cuota-amount-input"]').forEach((el) => typeInto(el, '50.49'));
     fillCuotaDates(container);
 
     expect(
@@ -141,7 +141,7 @@ describe('ContractForm — «Calcular Automático»', () => {
     expect(screen.getByRole('button', { name: /Guardar Contrato/ })).toBeDisabled();
 
     // corrected to whole pesos: accepted
-    container.querySelectorAll('input[type="number"]').forEach((el) => typeInto(el, '50'));
+    container.querySelectorAll('[data-testid="cuota-amount-input"]').forEach((el) => typeInto(el, '50'));
     expect(screen.queryByText(/no llevan decimales/)).toBeNull();
     expect(screen.getByRole('button', { name: /Guardar Contrato/ })).toBeEnabled();
   });
@@ -153,9 +153,9 @@ describe('ContractForm — «Calcular Automático»', () => {
     );
     goToCuotas(container, 100);
     clickButton(/Agregar Cuota/);
-    const inputs = container.querySelectorAll('input[type="number"]');
+    const inputs = container.querySelectorAll('[data-testid="cuota-amount-input"]');
     typeInto(inputs[0], '50');
-    typeInto(inputs[1], '49.995');
+    typeInto(inputs[1], '49,995');
     fillCuotaDates(container);
     expect(
       screen.getByText('Los montos en CLP no llevan decimales; en UF, hasta dos. Corrija la cuota 2.'),
@@ -169,7 +169,7 @@ describe('ContractForm — «Calcular Automático»', () => {
       <ContractForm programas={PROGRAMAS} clientes={[]} onSuccess={vi.fn()} onCancel={vi.fn()} />,
     );
     goToCuotas(container, 100.5, 'CLP');
-    typeInto(container.querySelector('input[type="number"]') as Element, '100');
+    typeInto(container.querySelector('[data-testid="cuota-amount-input"]') as Element, '100');
     fillCuotaDates(container);
     expect(
       screen.getByText('Los montos en CLP no llevan decimales; en UF, hasta dos. Corrija el precio total.'),
@@ -184,7 +184,7 @@ describe('ContractForm — «Calcular Automático»', () => {
     );
     goToCuotas(container, 100);
     clickButton(/Agregar Cuota/);
-    const inputs = container.querySelectorAll('input[type="number"]');
+    const inputs = container.querySelectorAll('[data-testid="cuota-amount-input"]');
     typeInto(inputs[0], '49.75');
     typeInto(inputs[1], '50.25');
     fillCuotaDates(container);

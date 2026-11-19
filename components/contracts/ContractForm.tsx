@@ -8,6 +8,7 @@ import { generateContractFromTemplate } from '@/lib/contract-template';
 import { reconcileCuotas, attachExistingCuotaIds } from '@/lib/utils/reconcileCuotas';
 import { buildClientRow } from '@/lib/contracts/client-row';
 import { splitEvenly, sumsMatch, difference, decimalsFor, hasCurrencyPrecision, precisionMessage } from '@/lib/contracts/cuotas-math';
+import { parseEsCl } from '@/lib/money/parse-es-cl';
 
 interface Programa {
   id: string;
@@ -54,6 +55,7 @@ interface CuotaForm {
   numero_cuota: number;
   fecha_vencimiento: string;
   monto: number; // Keep as monto in form, but save as monto_uf to database
+  montoText: string; // what the admin typed, read by parseEsCl (N171)
 }
 
 interface ClienteFormState {
@@ -82,12 +84,41 @@ interface ContractFormState {
   fecha_fin: string;
   programa_id: string;
   precio_total_uf: number;
+  precio_total_text: string; // what the admin typed, read by parseEsCl (N171)
   tipo_moneda: 'UF' | 'CLP';
   descripcion_manual?: string;
   cliente_id?: string;
   contrato_url?: string;
   horas_contratadas: string; // text of the «Horas contratadas» field; '' = no value (GES-2.2)
 }
+
+// Amounts are typed the Chilean way and read by lib/money/parse-es-cl.ts (N171).
+// The value kept is read with room for any decimals, so that an amount with more
+// decimals than its currency still reaches the decimals check (precisionMessage)
+// instead of being taken as zero; the currency's own reading decides the problem.
+const LOOSE_DECIMALS = 10;
+type AmountProblem = 'precision' | 'unreadable' | null;
+
+const readAmount = (text: string, currency: string): { value: number; problem: AmountProblem } => {
+  if (text.trim() === '') return { value: 0, problem: null };
+  const strict = parseEsCl(text, { decimals: decimalsFor(currency) });
+  if (strict !== null) return { value: strict, problem: null };
+  const loose = parseEsCl(text, { decimals: LOOSE_DECIMALS });
+  return loose !== null ? { value: loose, problem: 'precision' } : { value: 0, problem: 'unreadable' };
+};
+
+// The text shown for an amount the form sets itself (loaded, computed, imported):
+// read back by readAmount to the same number.
+const amountText = (amount: number): string => {
+  if (!Number.isFinite(amount)) return '';
+  const text = String(amount);
+  return hasCurrencyPrecision(amount, 2) ? text : text.replace('.', ',');
+};
+
+const unreadableMessage = (target: { cuota: number } | 'total'): string => {
+  const subject = target === 'total' ? 'el precio total' : `el monto de la cuota ${target.cuota}`;
+  return `No se entiende ${subject}. Escríbalo con punto de miles y coma decimal, por ejemplo 1.200,50.`;
+};
 
 const DUPLICATE_DRAFT_NUMBER_MESSAGE = 'Ya existe un contrato con este número. Por favor use un número diferente.';
 
@@ -172,6 +203,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
     fecha_fin: '',
     programa_id: '',
     precio_total_uf: 0,
+    precio_total_text: '0',
     tipo_moneda: 'UF',
     descripcion_manual: '',
     cliente_id: '',
@@ -186,7 +218,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
   
   // Installments form
   const [cuotas, setCuotas] = useState<CuotaForm[]>([
-    { numero_cuota: 1, fecha_vencimiento: '', monto: 0 }
+    { numero_cuota: 1, fecha_vencimiento: '', monto: 0, montoText: '0' }
   ]);
 
   // Fetch schools on component mount
@@ -251,6 +283,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
         fecha_fin: extractedData.contract?.fecha_fin || '',
         programa_id: '', // Will be selected manually or kept empty for manual contracts
         precio_total_uf: extractedData.financial?.precio_total || 0,
+        precio_total_text: amountText(extractedData.financial?.precio_total || 0),
         tipo_moneda: extractedData.financial?.moneda || 'UF',
         descripcion_manual: `Contrato importado desde PDF - ${extractedData.contract?.numero_contrato || 'Sin número'}`,
         contrato_url: extractedData.contrato_url || '',
@@ -285,7 +318,8 @@ export default function ContractForm({ programas, clientes, editingContract, pre
         setCuotas(extractedData.payment_schedule.map((payment: any) => ({
           numero_cuota: payment.numero_cuota,
           fecha_vencimiento: payment.fecha_vencimiento,
-          monto: payment.monto
+          monto: payment.monto,
+          montoText: amountText(Number(payment.monto) || 0)
         })));
       }
       
@@ -350,6 +384,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
         fecha_fin: editingContract.fecha_fin || '',
         programa_id: editingContract.programa_id || '',
         precio_total_uf: editingContract.precio_total_uf || 0,
+        precio_total_text: amountText(editingContract.precio_total_uf || 0),
         tipo_moneda: editingContract.tipo_moneda || 'UF',
         descripcion_manual: editingContract.descripcion_manual || '',
         cliente_id: editingContract.cliente_id || '',
@@ -370,7 +405,8 @@ export default function ContractForm({ programas, clientes, editingContract, pre
           id: cuota.id,
           numero_cuota: cuota.numero_cuota,
           fecha_vencimiento: cuota.fecha_vencimiento,
-          monto: cuota.monto_uf || 0
+          monto: cuota.monto_uf || 0,
+          montoText: amountText(cuota.monto_uf || 0)
         }));
         setCuotas(cuotasData);
       }
@@ -385,6 +421,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
     setContractForm(prev => ({
       ...prev,
       precio_total_uf: licitacionData.precio_total_uf ?? prev.precio_total_uf,
+      precio_total_text: licitacionData.precio_total_uf != null ? amountText(licitacionData.precio_total_uf) : prev.precio_total_text,
       tipo_moneda: licitacionData.tipo_moneda ?? prev.tipo_moneda,
       fecha_contrato: licitacionData.fecha_adjudicacion ?? prev.fecha_contrato,
       programa_id: licitacionData.programa_id ?? prev.programa_id,
@@ -539,7 +576,8 @@ export default function ContractForm({ programas, clientes, editingContract, pre
       const amounts = splitEvenly(totalAmount, numCuotas, decimalsFor(contractForm.tipo_moneda));
       const updatedCuotas = cuotas.map((cuota, index) => ({
         ...cuota,
-        monto: amounts[index]
+        monto: amounts[index],
+        montoText: amountText(amounts[index])
       }));
       setCuotas(updatedCuotas);
     }
@@ -551,7 +589,8 @@ export default function ContractForm({ programas, clientes, editingContract, pre
       setCuotas([...cuotas, {
         numero_cuota: cuotas.length + 1,
         fecha_vencimiento: '',
-        monto: 0
+        monto: 0,
+        montoText: '0'
       }]);
     }
   };
@@ -570,6 +609,13 @@ export default function ContractForm({ programas, clientes, editingContract, pre
   const updateCuota = (index: number, field: keyof CuotaForm, value: string | number) => {
     const updatedCuotas = [...cuotas];
     updatedCuotas[index] = { ...updatedCuotas[index], [field]: value };
+    setCuotas(updatedCuotas);
+  };
+
+  // A cuota's amount as typed: the text is kept, the number is read from it (N171)
+  const updateCuotaAmount = (index: number, text: string) => {
+    const updatedCuotas = [...cuotas];
+    updatedCuotas[index] = { ...updatedCuotas[index], montoText: text, monto: readAmount(text, contractForm.tipo_moneda).value };
     setCuotas(updatedCuotas);
   };
 
@@ -643,6 +689,19 @@ export default function ContractForm({ programas, clientes, editingContract, pre
   const horasReadOnly = hourAllocationState !== 'none';
   const horasToSave = horasText === '' || !horasValid ? null : Number(horasText);
 
+  // What is wrong with a typed amount under the chosen currency, if anything (N171)
+  function amountProblemOf(text: string, value: number): AmountProblem {
+    const { problem } = readAmount(text, contractForm.tipo_moneda);
+    if (problem) return problem;
+    return hasCurrencyPrecision(value, decimalsFor(contractForm.tipo_moneda)) ? null : 'precision';
+  }
+  function cuotaProblem(cuota: CuotaForm): AmountProblem {
+    return amountProblemOf(cuota.montoText, cuota.monto);
+  }
+  function totalAmountProblem(): AmountProblem {
+    return amountProblemOf(contractForm.precio_total_text, contractForm.precio_total_uf);
+  }
+
   // Row for a brand-new client: only clientes columns (buildClientRow, GES-2.1),
   // with the defaults the database still needs for its obligatory legal columns.
   const newClientRow = () => {
@@ -683,7 +742,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
           toast.error(`La cuota ${cuota.numero_cuota} necesita una fecha de vencimiento para guardar el borrador.`);
           return;
         }
-        if (!(cuota.monto > 0)) {
+        if (!(cuota.monto > 0) && !cuotaProblem(cuota)) {
           toast.error(`La cuota ${cuota.numero_cuota} necesita un monto mayor que cero para guardar el borrador.`);
           return;
         }
@@ -1186,14 +1245,18 @@ export default function ContractForm({ programas, clientes, editingContract, pre
   const cuotasMatchTotal = sumsMatch(contractForm.precio_total_uf, cuotaAmounts, moneyDecimals);
   // The amounts that are checked are the amounts that are saved: a total or a cuota
   // with more decimals than its currency is refused, never rounded (send-back 1).
-  const badPrecisionCuota = cuotas.find(c => !hasCurrencyPrecision(c.monto, moneyDecimals));
-  const amountPrecisionError = !hasCurrencyPrecision(contractForm.precio_total_uf, moneyDecimals)
-    ? precisionMessage('total')
+  // A typed amount the currency does not accept, or that is not an amount at all (N171).
+  const amountMessage = (problem: AmountProblem, target: { cuota: number } | 'total') =>
+    problem === 'unreadable' ? unreadableMessage(target) : precisionMessage(target);
+  const totalProblem = totalAmountProblem();
+  const badPrecisionCuota = cuotas.find(c => cuotaProblem(c) !== null);
+  const amountPrecisionError = totalProblem
+    ? amountMessage(totalProblem, 'total')
     : badPrecisionCuota
-      ? precisionMessage({ cuota: badPrecisionCuota.numero_cuota })
+      ? amountMessage(cuotaProblem(badPrecisionCuota), { cuota: badPrecisionCuota.numero_cuota })
       : null;
   // A cuota whose amount is not above zero cannot be saved: say which (send-back 2)
-  const zeroAmountCuota = cuotas.find(c => !(c.monto > 0));
+  const zeroAmountCuota = cuotas.find(c => !(c.monto > 0) && !cuotaProblem(c));
 
   // Validation
   const isStepValid = () => {
@@ -1212,11 +1275,11 @@ export default function ContractForm({ programas, clientes, editingContract, pre
         if (esManual) {
           return contractForm.numero_contrato && contractForm.fecha_contrato && 
                  contractForm.fecha_fin && contractForm.descripcion_manual && contractForm.precio_total_uf > 0 &&
-                 horasValid;
+                 totalProblem !== 'unreadable' && horasValid;
         }
         return contractForm.numero_contrato && contractForm.fecha_contrato && 
                contractForm.fecha_fin && contractForm.programa_id && contractForm.precio_total_uf > 0 &&
-               horasValid;
+               totalProblem !== 'unreadable' && horasValid;
       case 'cuotas':
         return cuotas.every(c => c.fecha_vencimiento && c.monto > 0) &&
                cuotasMatchTotal && !amountPrecisionError;
@@ -1941,15 +2004,23 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Precio Total ({contractForm.tipo_moneda}) *
                 </label>
+                {/* Typed the Chilean way: «1.200,50», «15.990» (N171) */}
                 <input
-                  type="number"
-                  step={contractForm.tipo_moneda === 'UF' ? '0.01' : '1'}
-                  min="0"
-                  value={contractForm.precio_total_uf}
-                  onChange={(e) => setContractForm({ ...contractForm, precio_total_uf: parseFloat(e.target.value) || 0 })}
+                  type="text"
+                  inputMode="decimal"
+                  data-testid="contract-total-input"
+                  value={contractForm.precio_total_text}
+                  onChange={(e) => setContractForm({
+                    ...contractForm,
+                    precio_total_text: e.target.value,
+                    precio_total_uf: readAmount(e.target.value, contractForm.tipo_moneda).value
+                  })}
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
                   placeholder="0.00"
                 />
+                {totalProblem && (
+                  <p className="text-sm text-red-600 mt-1">{amountMessage(totalProblem, 'total')}</p>
+                )}
               </div>
             </div>
 
@@ -2025,11 +2096,11 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                       Monto ({contractForm.tipo_moneda})
                     </label>
                     <input
-                      type="number"
-                      step={contractForm.tipo_moneda === 'UF' ? '0.01' : '1'}
-                      min="0"
-                      value={cuota.monto}
-                      onChange={(e) => updateCuota(index, 'monto', parseFloat(e.target.value) || 0)}
+                      type="text"
+                      inputMode="decimal"
+                      data-testid="cuota-amount-input"
+                      value={cuota.montoText}
+                      onChange={(e) => updateCuotaAmount(index, e.target.value)}
                       className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-brand_accent focus:border-transparent text-sm"
                     />
                   </div>

@@ -12,8 +12,9 @@
  */
 
 export interface PricingForTotal {
-  mode: 'per_hour' | 'fixed';
-  precioUf: number | string | null | undefined;
+  // Optional only for the route's inferred body type; anything but 'per_hour' is a fixed price.
+  mode?: 'per_hour' | 'fixed';
+  precioUf?: number | string | null;
   totalHours: number | string | null | undefined;
   fixedUf?: number | string | null;
 }

@@ -158,6 +158,12 @@ function formSnapshot(form: MeetingDocumentationInput, selectedFileCount: number
 
 const EMPTY_FORM_SNAPSHOT = formSnapshot(emptyMeetingForm(), 0, 0);
 
+// Send-back 2: how long a full save waits for an in-flight background save,
+// and what it says when that save has not answered by then.
+const AUTOSAVE_WAIT_LIMIT_MS = 10_000;
+const AUTOSAVE_STILL_RUNNING_MESSAGE =
+  'No se pudo guardar: el guardado automático sigue en curso. Inténtalo de nuevo en unos segundos.';
+
 const MEMBERS_LOAD_ERROR_TOAST_ID = 'meeting-members-load-error';
 const MEMBERS_LOAD_ERROR_MESSAGE =
   'No se pudieron cargar los miembros de la comunidad. Intenta nuevamente.';
@@ -275,9 +281,10 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
   const autosaveInFlightRef = useRef<boolean>(false);
   // Send-back 1: the background save in flight, so a full save can wait for it.
   const autosavePromiseRef = useRef<Promise<void> | null>(null);
-  // True when the background save the full save waited for was refused with
-  // 409 (someone else saved, or the meeting is no longer a draft).
-  const autosaveConflictRef = useRef<boolean>(false);
+  // True only when the last background save stored its write (send-back 2):
+  // after any other outcome a waiting full save writes nothing, and says
+  // nothing of its own (the background save's handling already told).
+  const autosaveSucceededRef = useRef<boolean>(false);
   // Holds the latest startWorkSession so our open-effect can call it without
   // listing the useCallback in its deps (the useCallback is declared later).
   const startWorkSessionRef = useRef<((id: string) => Promise<void>) | null>(null);
@@ -694,7 +701,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
     if (saveInFlightRef.current) return;
     if (storedStatusRef.current !== MEETING_STATUS.BORRADOR) return;
     autosaveInFlightRef.current = true;
-    autosaveConflictRef.current = false;
+    autosaveSucceededRef.current = false;
     let finishAutosave!: () => void;
     autosavePromiseRef.current = new Promise<void>((resolve) => { finishAutosave = resolve; });
     setSavingIndicator('saving');
@@ -713,7 +720,6 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
       });
 
       if (res.status === 409) {
-        autosaveConflictRef.current = true;
         const body = await res.json().catch(() => ({}));
         setSavingIndicator('error');
         // Both codes mean "the server already considers the draft closed —
@@ -770,6 +776,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
       const stamp = next?.updated_at ? new Date(next.updated_at) : new Date();
       setLastSavedAt(stamp);
       setSavingIndicator('idle');
+      autosaveSucceededRef.current = true;
     } catch (err) {
       console.error('Autosave error:', err);
       setSavingIndicator('error');
@@ -925,14 +932,26 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
       clearTimeout(autosaveTimerRef.current);
       autosaveTimerRef.current = null;
     }
-    if (autosavePromiseRef.current) {
-      await autosavePromiseRef.current;
-      if (autosaveConflictRef.current) {
-        // That background save already told the person (and offered to
-        // reload); the form may hold reloaded data now, so nothing is written.
-        autosaveConflictRef.current = false;
-        setSaveProblems([{ kind: 'meeting', message: SAVE_CONFLICT_MESSAGE }]);
-        toast.error(SAVE_CONFLICT_MESSAGE);
+    const inFlightAutosave = autosavePromiseRef.current;
+    if (inFlightAutosave) {
+      // Send-back 2: wait at most AUTOSAVE_WAIT_LIMIT_MS. Without an answer
+      // the version is not trustworthy, so nothing is written.
+      let waitTimer: ReturnType<typeof setTimeout> | undefined;
+      const answered = await Promise.race([
+        inFlightAutosave.then(() => true),
+        new Promise<boolean>((resolve) => {
+          waitTimer = setTimeout(() => resolve(false), AUTOSAVE_WAIT_LIMIT_MS);
+        }),
+      ]);
+      if (waitTimer) clearTimeout(waitTimer);
+      if (!answered) {
+        setSaveProblems([{ kind: 'meeting', message: AUTOSAVE_STILL_RUNNING_MESSAGE }]);
+        toast.error(AUTOSAVE_STILL_RUNNING_MESSAGE);
+        return { success: false, meetingId: currentMeetingId ?? undefined };
+      }
+      if (!autosaveSucceededRef.current) {
+        // The background save did not store its write (a 409 of any kind or
+        // an error); its own handling has told the person what happened.
         return { success: false, meetingId: currentMeetingId ?? undefined };
       }
     }

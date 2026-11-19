@@ -967,3 +967,120 @@ describe('MeetingDocumentationModal — own background save and lost rights are 
     expect(toastSuccess).not.toHaveBeenCalled();
   });
 });
+
+describe('MeetingDocumentationModal — the full save waits at most ten seconds and never speaks for the background save (send-back 2)', () => {
+  const CONFLICT = 'Otra persona guardó esta reunión mientras editabas. Recarga para ver sus cambios; lo que escribiste no se guardó.';
+  const STILL_RUNNING = 'No se pudo guardar: el guardado automático sigue en curso. Inténtalo de nuevo en unos segundos.';
+  const loadedDraft = () => ({
+    id: 'meeting-1',
+    title: 'Existing meeting',
+    meeting_date: new Date('2026-04-21T12:00:00Z').toISOString(),
+    duration_minutes: 60,
+    location: '',
+    status: 'borrador',
+    summary: 'summary text',
+    summary_doc: richDoc('summary text'),
+    notes: '',
+    notes_doc: null,
+    attendees: [{ user_id: ANA.id, role: 'participant' }],
+    agreements: [],
+    commitments: [],
+    tasks: [],
+    version: 4,
+    finalized_at: null,
+    updated_at: new Date().toISOString(),
+  });
+  let consoleError: ReturnType<typeof vi.spyOn>;
+  let confirmSpy: ReturnType<typeof vi.spyOn>;
+  let alertSpy: ReturnType<typeof vi.spyOn>;
+  beforeEach(() => {
+    consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    confirmSpy = vi.spyOn(window, 'confirm').mockImplementation(() => false);
+    alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+  });
+  afterEach(() => { consoleError.mockRestore(); confirmSpy.mockRestore(); alertSpy.mockRestore(); vi.useRealTimers(); });
+
+  /** Opens the stored draft, types in the summary and lets the background save start; its answer is `answer`. */
+  async function openWithBackgroundSave(answer: Promise<Response>) {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const plainFetch = global.fetch;
+    // @ts-expect-error override global fetch for test
+    global.fetch = vi.fn(async (input: RequestInfo, init?: RequestInit) => {
+      if (String(input).endsWith('/autosave')) return answer;
+      return (plainFetch as any)(input, init);
+    });
+    mockGetMeetingDetails.mockResolvedValue(loadedDraft());
+    seedRows('meeting_attendees', [{ id: 'att-ana', meeting_id: 'meeting-1', user_id: ANA.id, role: 'participant' }]);
+    const utils = render(<MeetingDocumentationModal {...defaultProps} meetingId="meeting-1" mode="edit" />);
+    await waitFor(() => {
+      const titleInput = utils.container.querySelector('input[type="text"]') as HTMLInputElement | null;
+      expect(titleInput?.value).toBe('Existing meeting');
+    });
+    await click(utils.getByRole('button', { name: /Siguiente/i }));
+    await waitFor(() => expect(editorOnChange.get('Resumen de la reunión…')).toBeDefined());
+    await act(async () => { editorOnChange.get('Resumen de la reunión…')!(richDoc('Mi resumen')); });
+    await act(async () => { vi.advanceTimersByTime(2_500); });
+    await waitFor(() =>
+      expect(vi.mocked(global.fetch).mock.calls.filter(([input]) => String(input).endsWith('/autosave'))).toHaveLength(1),
+    );
+    return utils;
+  }
+
+  it('a background save that never answers: after ten seconds nothing is written, the person is told, and can save again or close', async () => {
+    const utils = await openWithBackgroundSave(new Promise<Response>(() => {}));
+    await click(utils.getByRole('button', { name: /Guardar borrador/i }));
+    await act(async () => { vi.advanceTimersByTime(9_000); });
+    expect(toastError).not.toHaveBeenCalledWith(STILL_RUNNING);
+    await act(async () => { vi.advanceTimersByTime(1_500); });
+
+    await waitFor(() => expect(toastError).toHaveBeenCalledWith(STILL_RUNNING));
+    expect(utils.getByTestId('meeting-save-problems').textContent).toContain(STILL_RUNNING);
+    expect(mockUpdateMeeting).not.toHaveBeenCalled();
+    expect(toastSuccess).not.toHaveBeenCalled();
+
+    // The save lock is released: a second «Guardar borrador» runs (and waits again).
+    await waitFor(() => expect(utils.getByRole('button', { name: /Guardar borrador/i })).toBeDefined());
+    await click(utils.getByRole('button', { name: /Guardar borrador/i }));
+    await act(async () => { vi.advanceTimersByTime(10_500); });
+    await waitFor(() => expect(toastError.mock.calls.filter(([m]) => m === STILL_RUNNING)).toHaveLength(2));
+    expect(mockUpdateMeeting).not.toHaveBeenCalled();
+
+    // And the form can be closed (unsaved changes: it asks first).
+    confirmSpy.mockImplementation(() => true);
+    await click(utils.getByRole('button', { name: /Cancelar/i }));
+    expect(confirmSpy).toHaveBeenCalledWith('Tienes cambios sin guardar. ¿Cerrar y descartarlos?');
+    expect(defaultProps.onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('the awaited background save answers 409 "finalised": the full save sends nothing and says nothing of its own', async () => {
+    const gate = makeGate();
+    const answer = gate.promise.then(() => new Response(JSON.stringify({ code: 'meeting_finalized_concurrently' }), { status: 409 }));
+    const utils = await openWithBackgroundSave(answer);
+    await click(utils.getByRole('button', { name: /Guardar borrador/i }));
+    await act(async () => { gate.release(); });
+
+    await waitFor(() => expect(alertSpy).toHaveBeenCalledWith('Esta reunión fue finalizada mientras editabas. Recargando…'));
+    await act(async () => { await Promise.resolve(); });
+    expect(mockUpdateMeeting).not.toHaveBeenCalled();
+    expect(toastError).not.toHaveBeenCalledWith(CONFLICT);
+    expect(utils.queryByTestId('meeting-save-problems')).toBeNull();
+    expect(toastSuccess).not.toHaveBeenCalled();
+  });
+
+  it('the awaited background save answers a version conflict: only its own message, once', async () => {
+    const gate = makeGate();
+    const answer = gate.promise.then(() => new Response(JSON.stringify({ code: 'version_conflict', updated_by_name: 'Bruno Dos' }), { status: 409 }));
+    const utils = await openWithBackgroundSave(answer);
+    await click(utils.getByRole('button', { name: /Guardar borrador/i }));
+    await act(async () => { gate.release(); });
+
+    await waitFor(() => expect(confirmSpy).toHaveBeenCalledTimes(1));
+    await act(async () => { await Promise.resolve(); });
+    expect(String(confirmSpy.mock.calls[0][0])).toContain('por Bruno Dos');
+    expect(confirmSpy).toHaveBeenCalledTimes(1);
+    expect(mockUpdateMeeting).not.toHaveBeenCalled();
+    expect(toastError).not.toHaveBeenCalledWith(CONFLICT);
+    expect(utils.queryByTestId('meeting-save-problems')).toBeNull();
+    expect(toastSuccess).not.toHaveBeenCalled();
+  });
+});

@@ -1,15 +1,14 @@
 import { FileText } from 'lucide-react';
 import type { SnapshotPricing } from '@/lib/propuestas-web/snapshot';
+import { totalUf as computeTotalUf } from '@/lib/propuestas-web/pricing';
 
 interface PricingSectionProps {
   pricing: SnapshotPricing;
 }
 
 export default function PricingSection({ pricing }: PricingSectionProps) {
-  const totalUf =
-    pricing.mode === 'fixed' && pricing.fixedUf
-      ? pricing.fixedUf
-      : pricing.precioUf * pricing.totalHours;
+  // The ONE price, shared with the panel and the PDF (LIC-E6).
+  const totalUf = computeTotalUf(pricing);
 
   return (
     <section id="propuesta-economica" className="pw-section pw-section--dark pw-pricing">

@@ -43,6 +43,7 @@ import {
 } from '@/lib/propuestas/validation';
 import { ProposalPreview } from './ProposalPreview';
 import { buildProposalSnapshot, type ProposalSnapshot } from '@/lib/propuestas-web/snapshot';
+import { totalUf as computeTotalUf } from '@/lib/propuestas-web/pricing';
 import type { HourBucket } from '@/lib/propuestas/types/hours';
 import BucketConfigSection from './BucketConfigSection';
 
@@ -315,8 +316,13 @@ export default function ProposalConfigPanel({
 
   const precioUfNum = parseFloat(precioUf) || 0;
   const fixedUfNum = parseFloat(fixedUf) || 0;
-  const totalUf =
-    precioModelo === 'per_hour' ? precioUfNum * totalHoras : fixedUfNum;
+  // The ONE price, shared with the PDF and the public page (LIC-E6).
+  const totalUf = computeTotalUf({
+    mode: precioModelo,
+    precioUf: precioUfNum,
+    totalHours: totalHoras,
+    fixedUf: precioModelo === 'fixed' ? fixedUfNum : undefined,
+  });
 
   // ============================================================
   // Preview snapshot — full-fidelity, matches handleGenerate payload
@@ -1222,7 +1228,10 @@ export default function ProposalConfigPanel({
                           <label className="block text-xs font-medium text-gray-700 mb-1">
                             Total calculado
                           </label>
-                          <div className="border border-gray-200 rounded-lg px-3 py-2 bg-gray-50 text-sm font-medium text-gray-900">
+                          <div
+                            data-testid="proposal-total-uf"
+                            className="border border-gray-200 rounded-lg px-3 py-2 bg-gray-50 text-sm font-medium text-gray-900"
+                          >
                             {totalUf.toFixed(2)} UF
                             <span className="text-xs text-gray-400 ml-1">
                               ({precioUfNum} × {totalHoras}h)
@@ -1250,8 +1259,11 @@ export default function ProposalConfigPanel({
                           <label className="block text-xs font-medium text-gray-700 mb-1">
                             Total
                           </label>
-                          <div className="border border-gray-200 rounded-lg px-3 py-2 bg-gray-50 text-sm font-medium text-gray-900">
-                            {fixedUfNum.toFixed(2)} UF
+                          <div
+                            data-testid="proposal-total-uf"
+                            className="border border-gray-200 rounded-lg px-3 py-2 bg-gray-50 text-sm font-medium text-gray-900"
+                          >
+                            {totalUf.toFixed(2)} UF
                           </div>
                         </div>
                       </div>

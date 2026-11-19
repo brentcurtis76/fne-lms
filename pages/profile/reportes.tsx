@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import type { GetServerSideProps } from 'next';
+import { useRouter } from 'next/router';
 import { useSessionContext, useSupabaseClient } from '@supabase/auth-helpers-react';
 import MainLayout from '../../components/layout/MainLayout';
 import { createServiceRoleClient, getForcedPasswordChangeVerdict, getServerSideUser } from '../../lib/api-auth';
@@ -73,7 +74,13 @@ const TYPE_LABELS: Record<string, string> = {
   feedback: 'Comentario',
 };
 
+const UNKNOWN_STATUS = 'Estado desconocido';
+const UNKNOWN_TYPE = 'Reporte';
+
 const READ_ERROR = 'No se pudieron cargar tus reportes. Inténtalo de nuevo.';
+
+// Where a person whose session has ended is sent (the same destination getServerSideProps gives a visitor).
+const LOGIN_PATH = `/login?next=${encodeURIComponent('/profile/reportes')}`;
 
 /** DD-MM-YYYY in Chile's time. */
 function formatDate(value: string): string {
@@ -98,13 +105,26 @@ const button =
 export default function MyReportsPage({ ownerId }: ReportsProps) {
   const supabase = useSupabaseClient();
   const { isLoading: sessionLoading, session } = useSessionContext();
+  const router = useRouter();
+  // The router is read through a ref so that a new router object does not start a new read.
+  const routerRef = useRef(router);
+  routerRef.current = router;
+  const hasSession = !!session;
   const [status, setStatus] = useState<Status>('loading');
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [activity, setActivity] = useState<Activity[]>([]);
   // The latest request; an answer to any earlier one is dropped.
   const request = useRef(0);
 
+  // Every read, the first one and «Reintentar», goes through this guard: nothing is read
+  // while the session is loading, and without a session the person goes to the login.
   const load = useCallback(async () => {
+    if (sessionLoading) return;
+    if (!hasSession) {
+      ++request.current; // an answer still on its way is dropped
+      void routerRef.current.replace(LOGIN_PATH);
+      return;
+    }
     const id = ++request.current;
     setStatus('loading');
     try {
@@ -136,17 +156,12 @@ export default function MyReportsPage({ ownerId }: ReportsProps) {
     } catch {
       if (id === request.current) setStatus('error');
     }
-  }, [supabase, ownerId]);
+  }, [supabase, ownerId, sessionLoading, hasSession]);
 
-  const hasSession = !!session;
+  // load changes when the session's state changes, so this runs again then.
   useEffect(() => {
-    if (sessionLoading) return;
-    if (!hasSession) {
-      setStatus('error');
-      return;
-    }
     void load();
-  }, [sessionLoading, hasSession, load]);
+  }, [load]);
 
   let content: React.ReactNode;
   if (status === 'error') {
@@ -185,11 +200,11 @@ export default function MyReportsPage({ ownerId }: ReportsProps) {
               <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                 <h2 className="font-medium text-gray-900 break-words">{headingOf(ticket)}</h2>
                 <span data-testid="report-status" className="self-start whitespace-nowrap rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-800">
-                  {STATUS_LABELS[ticket.status] ?? ''}
+                  {STATUS_LABELS[ticket.status] ?? UNKNOWN_STATUS}
                 </span>
               </div>
               <p className="mt-1 text-xs text-gray-600">
-                <span>{TYPE_LABELS[ticket.type] ?? ''}</span>
+                <span>{TYPE_LABELS[ticket.type] ?? UNKNOWN_TYPE}</span>
                 <span> · </span>
                 <span>{formatDate(ticket.created_at)}</span>
               </p>

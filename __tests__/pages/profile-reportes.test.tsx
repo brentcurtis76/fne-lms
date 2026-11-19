@@ -27,7 +27,7 @@ const T2 = '22222222-2222-4222-8222-222222222222';
 
 type Query = { table: string; select?: string; eq: Array<[string, unknown]>; in: Array<[string, unknown[]]>; order: Array<[string, unknown]> };
 
-const { auth, db, sessionContext, service } = vi.hoisted(() => ({
+const { auth, db, sessionContext, service, router } = vi.hoisted(() => ({
   auth: { session: null as null | { access_token: string; user: { id: string } }, verified: null as null | { id: string } },
   db: {
     tickets: [] as Array<Record<string, unknown>>,
@@ -40,7 +40,16 @@ const { auth, db, sessionContext, service } = vi.hoisted(() => ({
   },
   sessionContext: { isLoading: false, session: null as null | { user: { id: string } }, error: null },
   service: { calls: 0 },
+  router: { replace: null as any, push: null as any },
 }));
+
+vi.mock('next/router', () => {
+  const instance = {
+    replace: (...args: unknown[]) => router.replace(...args),
+    push: (...args: unknown[]) => router.push(...args),
+  };
+  return { useRouter: () => instance, default: instance };
+});
 
 vi.mock('@supabase/auth-helpers-nextjs', () => ({
   createPagesServerClient: () => ({
@@ -122,7 +131,11 @@ beforeEach(() => {
   service.calls = 0;
   sessionContext.isLoading = false;
   sessionContext.session = { user: { id: OWNER } };
+  router.replace = vi.fn(async () => true);
+  router.push = vi.fn(async () => true);
 });
+
+const LOGIN = '/login?next=%2Fprofile%2Freportes';
 
 describe('(1) getServerSideProps', () => {
   it('a visitor is sent to the login with this page as the destination', async () => {
@@ -253,6 +266,23 @@ describe('(4) replies and own comments', () => {
   });
 });
 
+describe('(4b) rows the person must not see (send-back 1, guard for later changes)', () => {
+  it('another person\'s row not marked for the reporter is not shown; a marked one is «Respuesta de Soporte»', async () => {
+    db.tickets = [ticket(T1, { title: 'Ticket uno' })];
+    db.activity = [
+      row('a1', { message: 'Nota interna sintética', created_by: ADMIN, visible_to_reporter: false, is_system_message: false, created_at: '2026-11-11T15:00:00Z' }),
+      row('a2', { message: 'Respuesta sintética', created_by: ADMIN, visible_to_reporter: true, is_system_message: false, created_at: '2026-11-12T15:00:00Z' }),
+    ];
+    render(<Page ownerId={OWNER} />);
+    const [card] = await screen.findAllByTestId('report-card');
+    const items = within(card).getAllByTestId('report-comment');
+    expect(items).toHaveLength(1);
+    expect(within(items[0]).getByText('Respuesta de Soporte')).toBeInTheDocument();
+    expect(within(items[0]).getByText('Respuesta sintética')).toBeInTheDocument();
+    expect(screen.queryByText('Nota interna sintética')).not.toBeInTheDocument();
+  });
+});
+
 describe('(5)–(7) empty, failure, loading', () => {
   it('no ticket', async () => {
     render(<Page ownerId={OWNER} />);
@@ -277,6 +307,42 @@ describe('(5)–(7) empty, failure, loading', () => {
     render(<Page ownerId={OWNER} />);
     expect(await screen.findByText('No se pudieron cargar tus reportes. Inténtalo de nuevo.')).toBeInTheDocument();
     expect(screen.queryByTestId('report-card')).not.toBeInTheDocument();
+  });
+
+  it('the session ends while the error is shown: «Reintentar» does not read and goes to the login (send-back 1)', async () => {
+    db.ticketsError = true;
+    const { rerender } = render(<Page ownerId={OWNER} />);
+    expect(await screen.findByText('No se pudieron cargar tus reportes. Inténtalo de nuevo.')).toBeInTheDocument();
+    expect(db.queries).toHaveLength(1);
+    sessionContext.session = null;
+    rerender(<Page ownerId={OWNER} />);
+    db.ticketsError = false;
+    await userEvent.click(screen.getByRole('button', { name: 'Reintentar' }));
+    await waitFor(() => expect(router.replace).toHaveBeenCalledWith(LOGIN));
+    expect(db.queries).toHaveLength(1);
+    expect(router.push).not.toHaveBeenCalled();
+  });
+
+  it('no session once loading is over: no read, the login (send-back 1)', async () => {
+    sessionContext.session = null;
+    render(<Page ownerId={OWNER} />);
+    await waitFor(() => expect(router.replace).toHaveBeenCalledWith(LOGIN));
+    expect(db.queries).toEqual([]);
+  });
+
+  it('while the session is still loading, «Reintentar» does nothing (send-back 1)', async () => {
+    db.ticketsError = true;
+    const { rerender } = render(<Page ownerId={OWNER} />);
+    expect(await screen.findByText('No se pudieron cargar tus reportes. Inténtalo de nuevo.')).toBeInTheDocument();
+    sessionContext.isLoading = true;
+    sessionContext.session = null;
+    rerender(<Page ownerId={OWNER} />);
+    db.ticketsError = false;
+    await userEvent.click(screen.getByRole('button', { name: 'Reintentar' }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(db.queries).toHaveLength(1);
+    expect(router.replace).not.toHaveBeenCalled();
+    expect(router.push).not.toHaveBeenCalled();
   });
 
   it('while loading', async () => {
@@ -313,6 +379,16 @@ describe('(8)–(9) plain text, no English state words, no e-mail address', () =
     const text = container.textContent ?? '';
     for (const word of states) expect(text).not.toMatch(new RegExp(`\\b${word}\\b`, 'i'));
     expect(text).not.toMatch(/[^\s@]+@[^\s@]+\.[^\s@]+/);
+  });
+
+  it('an unknown state or type is named plainly, in Spanish (send-back 1)', async () => {
+    db.tickets = [ticket(T1, { title: 'Ticket raro', status: 'archived', type: 'question' })];
+    const { container } = render(<Page ownerId={OWNER} />);
+    const [card] = await screen.findAllByTestId('report-card');
+    expect(within(card).getByTestId('report-status')).toHaveTextContent('Estado desconocido');
+    expect(within(card).getByText('Reporte')).toBeInTheDocument();
+    const text = container.textContent ?? '';
+    expect(text).not.toMatch(/archived|question/i);
   });
 
   it('the frame: title «Mis reportes» and the profile page as current page', async () => {

@@ -115,9 +115,14 @@ export default function ContractDetailsModal({
   const [uploadingInvoice, setUploadingInvoice] = useState<string | null>(null);
   const [deleteInvoiceId, setDeleteInvoiceId] = useState<string | null>(null);
   const [deletingInvoice, setDeletingInvoice] = useState<string | null>(null);
-  // Invoices hidden right after a delete, by cuota id, with the stored value
-  // that was hidden (send-back 1: a replacement must not stay hidden).
+  // Send-back 2: per cuota, the ADDRESS of the invoice deleted in this window.
+  // A cuota reads as having NO invoice exactly while it still carries that
+  // address; once it carries a different one (a replacement really stored and
+  // reloaded) it is shown with it and the memory is dropped. Nothing is
+  // un-hidden because an upload call resolved.
   const [hiddenInvoices, setHiddenInvoices] = useState<Map<string, string | undefined>>(new Map());
+  const isInvoiceHidden = (cuota: { id: string; factura_url?: string | null }) =>
+    hiddenInvoices.has(cuota.id) && hiddenInvoices.get(cuota.id) === cuota.factura_url;
   // GES-1.4: which invoice control is waiting for its link (`view-<id>` / `download-<id>`).
   const [openingInvoice, setOpeningInvoice] = useState<string | null>(null);
   const [showActivateConfirm, setShowActivateConfirm] = useState(false);
@@ -171,8 +176,8 @@ export default function ContractDetailsModal({
     }
   }, [isOpen, contrato?.id]);
 
-  // Send-back 1: a refresh of this contract that brings a cuota WITH an
-  // invoice other than the one hidden on delete shows it again.
+  // Send-back 2: drop the memory of a cuota once it carries an invoice address
+  // other than the deleted one.
   useEffect(() => {
     setHiddenInvoices(prev => {
       if (prev.size === 0) return prev;
@@ -325,13 +330,6 @@ export default function ContractDetailsModal({
       setUploadingInvoice(cuotaId);
       try {
         await onUploadInvoice(cuotaId, file);
-        // Send-back 1: the uploaded invoice replaces one deleted in this window.
-        setHiddenInvoices(prev => {
-          if (!prev.has(cuotaId)) return prev;
-          const next = new Map(prev);
-          next.delete(cuotaId);
-          return next;
-        });
       } finally {
         setUploadingInvoice(null);
         input.value = '';
@@ -800,7 +798,7 @@ export default function ContractDetailsModal({
                         </td>
                         <td className="border border-gray-200 px-4 py-3 text-center">
                           <div className="flex items-center justify-center space-x-2">
-                            {cuota.factura_url && !hiddenInvoices.has(cuota.id) ? (
+                            {cuota.factura_url && !isInvoiceHidden(cuota) ? (
                               <div className="flex items-center space-x-2">
                                 {/* Enhanced file display */}
                                 <div className="flex flex-col items-start">
@@ -885,17 +883,17 @@ export default function ContractDetailsModal({
                           <button
                             type="button"
                             onClick={() => handlePaymentToggle(cuota.id, cuota.factura_pagada || false)}
-                            disabled={!cuota.factura_url || hiddenInvoices.has(cuota.id)}
+                            disabled={!cuota.factura_url || isInvoiceHidden(cuota)}
                             data-testid={`details-paid-toggle-${cuota.id}`}
                             className={`flex items-center justify-center w-8 h-8 rounded-lg transition-colors ${
-                              !cuota.factura_url || hiddenInvoices.has(cuota.id)
+                              !cuota.factura_url || isInvoiceHidden(cuota)
                                 ? 'bg-gray-100 text-gray-300 cursor-not-allowed'
                                 : isPaid(cuota)
                                 ? 'bg-amber-100 hover:bg-amber-200 text-brand_accent'
                                 : 'bg-gray-100 hover:bg-gray-200 text-gray-400'
                             }`}
                             title={
-                              !cuota.factura_url || hiddenInvoices.has(cuota.id)
+                              !cuota.factura_url || isInvoiceHidden(cuota)
                                 ? 'Suba la factura primero'
                                 : isPaid(cuota)
                                 ? 'Marcar como no pagado'

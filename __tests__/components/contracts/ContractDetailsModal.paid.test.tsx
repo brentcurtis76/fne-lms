@@ -192,4 +192,38 @@ describe('ContractDetailsModal — a replaced invoice in the same window (send-b
     expect(await screen.findByText('factura-nueva.pdf')).toBeInTheDocument();
     expect(screen.getByTestId('details-paid-toggle-q1')).toBeEnabled();
   });
+
+  it('send-back 2: delete A, its reload fails (A still in the props), a replacement upload fails → still «Subir factura», paid control off', async () => {
+    const user = userEvent.setup();
+    const contrato = makeContrato([
+      cuota({ id: 'q1', numero_cuota: 1, fecha_vencimiento: '2026-12-15', factura_url: 'invoice_q1_1.pdf', factura_filename: 'factura-vieja.pdf', factura_pagada: false }),
+    ]);
+    const props = {
+      contrato: contrato as any,
+      isOpen: true,
+      onClose: vi.fn(), onEdit: vi.fn(), onDelete: vi.fn(), onToggleCashFlow: vi.fn(), onUploadContract: vi.fn(),
+      onActivateWithoutDocument: vi.fn(async () => true), onMarkSigned: vi.fn(), onGeneratePDF: vi.fn(),
+      // the page's handlers catch their own errors and resolve; nothing is reloaded
+      onUploadInvoice: vi.fn(async () => {}), onTogglePaymentStatus: vi.fn(async () => {}),
+      onDeleteInvoice: vi.fn(async () => {}), isAdmin: true,
+    };
+    const { container } = render(<ContractDetailsModal {...props} />);
+    await user.click(screen.getByTitle('Eliminar factura'));
+    await user.click(screen.getByRole('button', { name: 'Eliminar Factura' }));
+    await waitFor(() => expect(screen.queryByText('factura-vieja.pdf')).toBeNull());
+
+    const input = container.querySelector('input[type="file"][accept=".pdf,.jpg,.jpeg,.png"]') as HTMLInputElement;
+    const file = new File(['%PDF-1.4'], 'factura-nueva.pdf', { type: 'application/pdf' });
+    Object.defineProperty(input, 'files', { value: [file], configurable: true });
+    fireEvent.change(input);
+    await waitFor(() => expect(props.onUploadInvoice).toHaveBeenCalledTimes(1));
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(screen.queryByText('factura-vieja.pdf')).toBeNull();
+    expect(screen.getByTitle('Subir factura')).toBeInTheDocument();
+    const toggle = screen.getByTestId('details-paid-toggle-q1');
+    expect(toggle).toBeDisabled();
+    expect(toggle).toHaveAttribute('title', 'Suba la factura primero');
+  });
 });
+

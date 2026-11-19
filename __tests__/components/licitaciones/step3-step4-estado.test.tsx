@@ -5,7 +5,7 @@
  * as today. Synthetic data only.
  */
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('react-hot-toast', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
@@ -28,6 +28,7 @@ const BASES_DOC = {
 };
 
 const fetchMock = vi.fn();
+let atesServed: any[] = [ATE];
 
 const licitacion = (estado: string) => ({
   id: 'lic-1', numero_licitacion: 'LIC-1-2026-001', nombre_licitacion: 'Licitación inventada', year: 2026,
@@ -37,7 +38,7 @@ const licitacion = (estado: string) => ({
 beforeEach(() => {
   vi.stubGlobal('fetch', fetchMock);
   fetchMock.mockImplementation(async (url: string) => {
-    if (url.endsWith('/ates')) return { ok: true, json: async () => ({ data: { ates: [ATE] } }) };
+    if (url.endsWith('/ates')) return { ok: true, json: async () => ({ data: { ates: atesServed } }) };
     if (url.endsWith('/consultas')) return { ok: true, json: async () => ({ data: { consultas: [] } }) };
     if (url.endsWith('/documentos')) return { ok: true, json: async () => ({ data: { documentos: [BASES_DOC] } }) };
     return { ok: true, json: async () => ({ data: {} }) };
@@ -47,6 +48,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllGlobals();
   fetchMock.mockReset();
+  atesServed = [ATE];
 });
 
 async function step3(estado: string) {
@@ -128,4 +130,41 @@ describe('Step4Propuestas', () => {
     expect(screen.queryByRole('button', { name: /Agregar ATE/ })).toBeNull();
     expect(screen.getByText(MENSAJE_EVALUACION_INICIADA)).toBeTruthy();
   });
+});
+
+// join fix 3a: an «Avanzar a …» button only in the one state it advances from.
+describe('«Avanzar a …» only from the step it advances', () => {
+  // An ATE with its bases sent and its proposal received: both steps could advance.
+  const ATE_LISTA = { ...ATE, fecha_envio_bases: '2026-11-05', propuesta_url: 'licitaciones/lic-1/p.pdf', propuesta_filename: 'p.pdf', fecha_propuesta: '2026-11-10' };
+  const AVANZAR = /Avanzar a /;
+
+  it('recepcion_bases_pendiente: step 3 offers «Avanzar a Recepción de Propuestas» as today', async () => {
+    atesServed = [ATE_LISTA];
+    await step3('recepcion_bases_pendiente');
+    expect(screen.getByRole('button', { name: 'Avanzar a Recepción de Propuestas' })).toBeTruthy();
+  });
+
+  it('propuestas_pendientes: step 4 offers «Avanzar a Evaluación» as today', async () => {
+    atesServed = [ATE_LISTA];
+    await step4('propuestas_pendientes');
+    expect(screen.getByRole('button', { name: 'Avanzar a Evaluación' })).toBeTruthy();
+  });
+
+  it('propuestas_pendientes: step 3 no longer offers its button', async () => {
+    atesServed = [ATE_LISTA];
+    await step3('propuestas_pendientes');
+    expect(screen.queryByRole('button', { name: AVANZAR })).toBeNull();
+  });
+
+  it.each(['evaluacion_pendiente', 'adjudicacion_pendiente', 'contrato_generado', 'cerrada'])(
+    '%s: no «Avanzar a …» button in step 3 nor in step 4',
+    async (estado) => {
+      atesServed = [ATE_LISTA];
+      await step3(estado);
+      expect(screen.queryByRole('button', { name: AVANZAR })).toBeNull();
+      cleanup();
+      await step4(estado);
+      expect(screen.queryByRole('button', { name: AVANZAR })).toBeNull();
+    },
+  );
 });

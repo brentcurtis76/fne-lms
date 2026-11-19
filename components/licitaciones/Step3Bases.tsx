@@ -856,8 +856,9 @@ export default function Step3Bases({ licitacion, isAdmin, onAdvance, onRefresh }
       </div>
 
       {/* ============================
-          Advance State Button
+          Advance State Button — only in the state it advances from
       =============================== */}
+      {licitacion.estado === 'recepcion_bases_pendiente' && (
       <div className="bg-white rounded-lg border border-gray-200 p-5">
         <h3 className="font-semibold text-gray-900 mb-3">Avanzar a Recepción de Propuestas</h3>
         {canAdvance ? (
@@ -880,6 +881,7 @@ export default function Step3Bases({ licitacion, isAdmin, onAdvance, onRefresh }
           </p>
         )}
       </div>
+      )}
     </div>
   );
 }

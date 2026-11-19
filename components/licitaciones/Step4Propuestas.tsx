@@ -547,7 +547,8 @@ export default function Step4Propuestas({ licitacion, onAdvance, onRefresh }: St
       </div>
       )}
 
-      {/* Advance to Evaluacion */}
+      {/* Advance to Evaluacion — only in the state it advances from */}
+      {licitacion.estado === 'propuestas_pendientes' && (
       <div className="bg-white rounded-lg border border-gray-200 p-5">
         <h3 className="font-semibold text-gray-900 mb-3">Avanzar a Evaluación</h3>
         {canAdvance ? (
@@ -570,6 +571,7 @@ export default function Step4Propuestas({ licitacion, onAdvance, onRefresh }: St
           </p>
         )}
       </div>
+      )}
     </div>
   );
 }

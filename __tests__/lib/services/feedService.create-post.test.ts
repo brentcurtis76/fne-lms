@@ -55,6 +55,8 @@ let world: {
   existingPost: Record<string, unknown> | null;
   existingMedia: Array<{ order_index: number }>;
   mediaInsert: Answer;
+  /** The answer to `delete().eq(...).select('id')` on community_posts (the removed rows). */
+  postDelete: Answer;
 };
 
 function install() {
@@ -63,7 +65,7 @@ function install() {
     if (req.target === 'community_posts' && has(req, 'insert')) {
       return world.postInsert((opArgs(req, 'insert')?.[0] ?? {}) as Record<string, unknown>);
     }
-    if (req.target === 'community_posts' && has(req, 'delete')) return { data: null, error: null };
+    if (req.target === 'community_posts' && has(req, 'delete')) return world.postDelete;
     if (req.target === 'community_posts') return { data: world.existingPost, error: null };
     if (req.target === 'post_media' && has(req, 'insert')) return world.mediaInsert;
     if (req.target === 'post_media') return { data: world.existingMedia, error: null };
@@ -88,7 +90,7 @@ beforeEach(() => {
   db.userId = SELF;
   store.uploads.length = 0;
   store.answers = {};
-  world = { postInsert: posted, existingPost: null, existingMedia: [], mediaInsert: { data: null, error: null } };
+  world = { postInsert: posted, existingPost: null, existingMedia: [], mediaInsert: { data: null, error: null }, postDelete: { data: [{ id: COMPOSITION }], error: null } };
   install();
   vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 200 })));
   vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -176,6 +178,41 @@ describe('FeedService.createPost — files first, one post per composition (EC-V
     expect(error.message).toBe('No se pudo guardar la publicación con sus archivos. Inténtalo de nuevo.');
     expect(postDeletes()).toHaveLength(1);
     expect(postDeletes()[0].ops.filter((o) => o.method === 'eq').map((o) => o.args)).toContainEqual(['id', COMPOSITION]);
+  });
+
+  describe('send-back 2: the removal after a failed post_media insert is checked', () => {
+    const SAVED_WITHOUT_FILES = 'La publicación se guardó sin sus archivos. Elimínala desde el feed e inténtalo de nuevo.';
+    const input = () => ({ type: 'image' as const, content: { text: 'Foto' }, media: [image('foto.png')] });
+    beforeEach(() => {
+      world.mediaInsert = { data: null, error: { code: '42501', message: 'SYNTHETIC permission denied for post_media' } };
+    });
+
+    it('the delete returns an error: the person is told the post was saved without its files', async () => {
+      world.postDelete = { data: null, error: { code: 'XX000', message: 'SYNTHETIC delete failure' } };
+
+      const error = await FeedService.createPost(WORKSPACE, input(), COMPOSITION).catch((e) => e);
+
+      expect(error.message).toBe(SAVED_WITHOUT_FILES);
+      expect(error.compositionFinished).toBe(true);
+      expect(postDeletes()).toHaveLength(1);
+    });
+
+    it('the delete removes no row: the same sentence', async () => {
+      world.postDelete = { data: [], error: null };
+
+      const error = await FeedService.createPost(WORKSPACE, input(), COMPOSITION).catch((e) => e);
+
+      expect(error.message).toBe(SAVED_WITHOUT_FILES);
+      expect(error.compositionFinished).toBe(true);
+      expect(postDeletes()[0].ops.some((o) => o.method === 'select')).toBe(true);
+    });
+
+    it('the delete works (one row back): the existing sentence, and the composition is not finished', async () => {
+      const error = await FeedService.createPost(WORKSPACE, input(), COMPOSITION).catch((e) => e);
+
+      expect(error.message).toBe('No se pudo guardar la publicación con sus archivos. Inténtalo de nuevo.');
+      expect(error.compositionFinished).not.toBe(true);
+    });
   });
 
   it('(5) the post insert answers a duplicate key for the composition id: already published, no second insert, media rows not doubled', async () => {

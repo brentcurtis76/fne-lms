@@ -199,6 +199,11 @@ export default function CreatePostModal({
       // the store's or the database's raw text. The next «Publicar» keeps the id.
       const isPublishError = error instanceof Error && error.name === 'FeedPublishError';
       setPublishError(isPublishError ? error.message : 'No se pudo publicar. Inténtalo de nuevo.');
+      // A post was left saved under this id (send-back 2): the composition is
+      // finished, so a further «Publicar» is a new post and cannot collide with it.
+      if (isPublishError && (error as Error & { compositionFinished?: boolean }).compositionFinished) {
+        pendingPostIdRef.current = null;
+      }
     } finally {
       setIsSubmitting(false);
     }

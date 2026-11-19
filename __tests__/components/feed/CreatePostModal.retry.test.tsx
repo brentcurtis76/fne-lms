@@ -179,6 +179,22 @@ describe('CreatePostModal retry (EC-V7)', () => {
     expect(onSubmit.mock.calls[1][1]).not.toBe(onSubmit.mock.calls[0][1]);
   });
 
+  it('send-back 2: after «saved without its files» the next «Publicar» uses a DIFFERENT id', async () => {
+    const savedWithout = publishError('La publicación se guardó sin sus archivos. Elimínala desde el feed e inténtalo de nuevo.');
+    (savedWithout as Error & { compositionFinished?: boolean }).compositionFinished = true;
+    const onSubmit = vi.fn().mockRejectedValueOnce(savedWithout).mockRejectedValue(publishError(UPLOAD_FAILED));
+    const { container } = render(<Harness onSubmit={onSubmit} />);
+    attach(container, new File(['x'], 'acta.pdf', { type: 'application/pdf' }));
+
+    publish();
+    expect(await screen.findByRole('alert')).toHaveTextContent('La publicación se guardó sin sus archivos.');
+    publish();
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(2));
+
+    expect(onSubmit.mock.calls[1][1]).toMatch(/^[0-9a-f-]{36}$/);
+    expect(onSubmit.mock.calls[1][1]).not.toBe(onSubmit.mock.calls[0][1]);
+  });
+
   it('a successful publish clears the id: the next composition gets a new one', async () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined);
     render(<Harness onSubmit={onSubmit} />);

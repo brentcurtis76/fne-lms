@@ -22,9 +22,16 @@ const PUBLISH_FAILED = 'No se pudo publicar. Inténtalo de nuevo.';
 
 /** An error of createPost whose message is a Spanish sentence for the person (EC-V7). */
 export class FeedPublishError extends Error {
-  constructor(message: string) {
+  /**
+   * True when the composition must not be retried under the same id: a post
+   * was left saved (send-back 2), so the window starts a new composition.
+   */
+  compositionFinished: boolean;
+
+  constructor(message: string, options: { compositionFinished?: boolean } = {}) {
     super(message);
     this.name = 'FeedPublishError';
+    this.compositionFinished = options.compositionFinished ?? false;
   }
 }
 
@@ -311,7 +318,21 @@ export class FeedService {
           if (mediaError) {
             console.error('Error inserting media:', mediaError);
             // Whole or nothing: the author's own delete rule removes the post again.
-            await supabase.from('community_posts').delete().eq('id', post.id).eq('author_id', user.id);
+            // The removal is checked (send-back 2): if it failed or removed no
+            // row, the person is told the post stayed without its files.
+            const { data: removed, error: removeError } = await supabase
+              .from('community_posts')
+              .delete()
+              .eq('id', post.id)
+              .eq('author_id', user.id)
+              .select('id');
+            if (removeError || !Array.isArray(removed) || removed.length === 0) {
+              console.error('Error removing a post whose files could not be saved:', removeError);
+              throw new FeedPublishError(
+                'La publicación se guardó sin sus archivos. Elimínala desde el feed e inténtalo de nuevo.',
+                { compositionFinished: true }
+              );
+            }
             throw new FeedPublishError('No se pudo guardar la publicación con sus archivos. Inténtalo de nuevo.');
           }
         }

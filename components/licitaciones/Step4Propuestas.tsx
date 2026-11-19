@@ -3,7 +3,8 @@ import { toast } from 'react-hot-toast';
 import { Upload, Check, AlertTriangle, Plus, FileText } from 'lucide-react';
 import { LicitacionDetail, LicitacionAte } from '@/types/licitaciones';
 import { validateRut, formatRut } from '@/utils/rutValidation';
-import { MENSAJE_EVALUACION_INICIADA, puedeModificarAtes, puedeSubirPropuesta } from '@/lib/licitaciones/estados';
+import { puedeModificarAtes, puedeSubirPropuesta } from '@/lib/licitaciones/estados';
+import { mensajeAtesSoloLectura } from './mensajesEstado';
 
 interface Step4PropuestasProps {
   licitacion: LicitacionDetail;
@@ -445,7 +446,7 @@ export default function Step4Propuestas({ licitacion, onAdvance, onRefresh }: St
 
       {!atesEditables || !propuestasAbiertas ? (
         <p className="text-sm text-amber-700 bg-amber-50 rounded-lg px-3 py-2">
-          {MENSAJE_EVALUACION_INICIADA}
+          {mensajeAtesSoloLectura(licitacion.estado)}
         </p>
       ) : (
       /* Add new ATE */

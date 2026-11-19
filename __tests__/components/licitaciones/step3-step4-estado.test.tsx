@@ -188,3 +188,38 @@ describe('DocumentCenter — delete icon', () => {
     expect(screen.getByTitle('Descargar')).toBeTruthy();
   });
 });
+
+// join fix 3c: the read-only sentences follow the tender's state, in both steps.
+describe('read-only sentences by state', () => {
+  const EVALUACION = 'La licitación ya está en evaluación: no se pueden modificar las ATE ni las propuestas.';
+  const ADJUDICADA = 'La licitación ya fue adjudicada: no se pueden modificar las ATE ni las propuestas.';
+  const CERRADA = 'La licitación está cerrada: no se pueden agregar consultas ni eliminar documentos.';
+  const CONTRATO = 'La licitación ya tiene su contrato: no se pueden agregar consultas ni eliminar documentos.';
+
+  it.each([
+    ['recepcion_bases_pendiente', null, null],
+    ['propuestas_pendientes', null, null],
+    ['evaluacion_pendiente', EVALUACION, null],
+    ['adjudicacion_pendiente', EVALUACION, null],
+    ['contrato_pendiente', ADJUDICADA, null],
+    ['contrato_generado', ADJUDICADA, CONTRATO],
+    ['adjudicada_externo', ADJUDICADA, CERRADA],
+    ['cerrada', ADJUDICADA, CERRADA],
+  ])('%s: step 3 and step 4 read the decided sentences', async (estado, ates, consultas) => {
+    await step3(estado);
+    for (const frase of [EVALUACION, ADJUDICADA]) {
+      if (frase === ates) expect(screen.getByText(frase)).toBeTruthy();
+      else expect(screen.queryByText(frase)).toBeNull();
+    }
+    for (const frase of [CERRADA, CONTRATO]) {
+      if (frase === consultas) expect(screen.getByText(frase)).toBeTruthy();
+      else expect(screen.queryByText(frase)).toBeNull();
+    }
+    cleanup();
+    await step4(estado);
+    for (const frase of [EVALUACION, ADJUDICADA]) {
+      if (frase === ates) expect(screen.getByText(frase)).toBeTruthy();
+      else expect(screen.queryByText(frase)).toBeNull();
+    }
+  });
+});

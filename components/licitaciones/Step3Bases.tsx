@@ -5,13 +5,12 @@ import { LicitacionDetail, LicitacionAte, LicitacionConsulta, LicitacionDocument
 import { validateRut, formatRut } from '@/utils/rutValidation';
 import {
   MENSAJE_BASES_ADJUDICADA,
-  MENSAJE_CERRADA,
-  MENSAJE_EVALUACION_INICIADA,
   puedeAgregarConsulta,
   puedeEliminarDocumento,
   puedeGenerarBases,
   puedeModificarAtes,
 } from '@/lib/licitaciones/estados';
+import { mensajeAtesSoloLectura, mensajeConsultasSoloLectura } from './mensajesEstado';
 
 interface Step3BasesProps {
   licitacion: LicitacionDetail;
@@ -443,7 +442,7 @@ export default function Step3Bases({ licitacion, isAdmin, onAdvance, onRefresh }
 
         {!atesEditables && (
           <p className="text-sm text-amber-700 bg-amber-50 rounded-lg px-3 py-2 mb-4">
-            {MENSAJE_EVALUACION_INICIADA}
+            {mensajeAtesSoloLectura(licitacion.estado)}
           </p>
         )}
 
@@ -743,7 +742,7 @@ export default function Step3Bases({ licitacion, isAdmin, onAdvance, onRefresh }
 
         {!consultasAbiertas && (
           <p className="text-sm text-amber-700 bg-amber-50 rounded-lg px-3 py-2 mb-4">
-            {MENSAJE_CERRADA}
+            {mensajeConsultasSoloLectura(licitacion.estado)}
           </p>
         )}
 

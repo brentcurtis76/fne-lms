@@ -6,6 +6,9 @@ import { toast } from 'react-hot-toast';
 import { getUserPrimaryRole } from '../utils/roleUtils';
 import { RecurrencePattern, RecurrenceFrequency } from '../lib/types/consultor-sessions.types';
 import { generateRecurrenceDates } from '../lib/utils/recurrence';
+import { isFeatureEnabled, FeatureFlags } from '../lib/featureFlags';
+import { formatSessionRangeForConsultant } from '../lib/utils/session-timezone';
+import { parseISO } from 'date-fns';
 import type {
   School,
   GrowthCommunity,
@@ -19,7 +22,9 @@ import type {
  * Everything the admin's «create session» form knows and does: its state, its data calls, its
  * access checks and redirects, its toasts and its handlers. Moved out of
  * `pages/admin/sessions/create.tsx` unchanged (redesign 6, release SA): the same hooks in the same
- * order, the same effects with the same dependency lists, each statement as it was.
+ * order, the same effects with the same dependency lists, each statement as it was. Each decision
+ * the markup made from data or status has one named copy, worked out by `decide()` (called by the
+ * page after its loading and refusal returns, where the markup worked them out before).
  */
 export function useSessionCreate() {
   const router = useRouter();
@@ -581,14 +586,18 @@ export function useSessionCreate() {
     }
   };
 
+  // The text of the browser's confirmation question; asked only once the checks pass.
+  const scheduleConfirmText = (sessionCount: number) =>
+    isRecurring
+      ? `¿Está seguro de que desea programar estas ${sessionCount} sesiones? Se notificará a los participantes.`
+      : '¿Está seguro de que desea programar esta sesión? Se notificará a los participantes.';
+
   const handleScheduleSession = async () => {
     if (!validateForm()) return;
 
     const sessionCount = isRecurring ? previewDates.length : 1;
     const confirmed = window.confirm(
-      isRecurring
-        ? `¿Está seguro de que desea programar estas ${sessionCount} sesiones? Se notificará a los participantes.`
-        : '¿Está seguro de que desea programar esta sesión? Se notificará a los participantes.'
+      scheduleConfirmText(sessionCount)
     );
 
     if (!confirmed) return;
@@ -700,6 +709,110 @@ export function useSessionCreate() {
     router.push('/login');
   };
 
+  // The handlers the markup wrote inline, named; the same bodies.
+  const handleHourTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => setSelectedHourTypeKey(e.target.value);
+  const handleContratoChange = (e: React.ChangeEvent<HTMLSelectElement>) => setSelectedContratoId(e.target.value);
+  const retryConsultants = () => fetchConsultants(formData.school_id);
+  const handleConsultantSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    if (e.target.value) {
+      handleAddFacilitator(e.target.value);
+      e.target.value = '';
+    }
+  };
+  const chooseSingleSession = () => setIsRecurring(false);
+  const chooseRecurringSeries = () => setIsRecurring(true);
+  const handleFrequencyChange = (e: React.ChangeEvent<HTMLSelectElement>) =>
+    setRecurrenceFrequency(e.target.value as RecurrenceFrequency);
+  const handleCountChange = (e: React.ChangeEvent<HTMLInputElement>) => setRecurrenceCount(parseInt(e.target.value, 10));
+  const handleCustomDateInput = (index: number, e: React.ChangeEvent<HTMLInputElement>) =>
+    handleCustomDateChange(index, e.target.value);
+  const handleZoomManagedChange = (e: React.ChangeEvent<HTMLInputElement>) =>
+    setFormData((prev) => ({ ...prev, is_zoom_managed: e.target.checked }));
+
+  /**
+   * One named copy of each decision the form's markup makes from data or status. Called by the
+   * page after its loading and refusal returns, on every render that draws the form, as the
+   * markup worked them out; the clock and the flag are read at that moment, and the pieces the
+   * markup worked out only inside a branch are functions, asked by the view inside that branch.
+   */
+  const decide = () => {
+    // §14 master kill switch. Off ⇒ the box never appears and the form behaves
+    // exactly as it did before this chunk. The modality gate is the enclosing
+    // conditional below (managed intent is online/híbrida only, per POST /api/sessions).
+    const zoomManagedAvailable = isFeatureEnabled(FeatureFlags.ZOOM_MEETINGS);
+
+    // Null until a date and both times are set — see formatSessionRangeForConsultant.
+    const spainTimePreview = formatSessionRangeForConsultant(
+      formData.session_date,
+      formData.start_time,
+      formData.end_time
+    );
+
+    return {
+      zoomManagedAvailable,
+      spainTimePreview,
+      // School, community, contract
+      communitySelectDisabled: formData.school_id === 0,
+      showHourTypesLoading: hourTypesLoading,
+      showHourTypesError: hourTypesError && !hourTypesLoading,
+      showHourTypeSelects: hourTypes.length > 0,
+      contratoSelectDisabled: formData.school_id === 0,
+      showNoContratos: formData.school_id > 0 && contratos.length === 0,
+      // The hours chip (a text when shown, as the markup's `&&` chain gave it)
+      showHoursChip: selectedHourTypeKey && selectedContratoId,
+      hasHoursBucket: availableHours !== null,
+      // Asked by the view only when a bucket was found, where the markup worked it out. The chip's
+      // colours and words stay in the view (this folder is not one Tailwind reads).
+      hoursLevel: (availableHours: number) => {
+        const pctRemaining =
+          allocatedHours && allocatedHours > 0
+            ? (availableHours / allocatedHours) * 100
+            : availableHours > 0 ? 100 : 0;
+        const isExhausted = availableHours <= 0;
+        const isWarning = !isExhausted && pctRemaining < 25;
+        return { isExhausted, isWarning };
+      },
+      // Consultants and facilitators (the error is a text when shown)
+      showConsultants: formData.school_id > 0,
+      showConsultantsLoading: consultantsLoading,
+      showConsultantsError: consultantsError,
+      showConsultantsEmpty: !consultantsLoading && !consultantsError && consultants.length === 0,
+      showFacilitators: facilitators.length > 0,
+      consultantOf: (facilitator: Facilitator) => consultants.find((c) => c.id === facilitator.user_id),
+      facilitatorRoleLabel: (facilitator: Facilitator) =>
+        facilitator.facilitator_role === 'consultor_externo'
+          ? 'Externo'
+          : 'Interno',
+      showConsultantSelector: !consultantsLoading && !consultantsError,
+      consultantSelectorDisabled: consultants.length === 0 && !consultantsError,
+      selectableConsultants: () => consultants
+        .filter((c) => !facilitators.find((f) => f.user_id === c.id)),
+      // The earliest date a date field accepts: the clock, read each time a field is drawn.
+      earliestDate: () => new Date().toISOString().split('T')[0],
+      // Recurrence
+      showRecurrence: isRecurring,
+      showRecurrenceCount: recurrenceFrequency !== 'custom',
+      showCustomDates: recurrenceFrequency === 'custom',
+      canRemoveCustomDate: customDates.length > 1,
+      showPreview: previewDates.length > 0,
+      previewRow: (date: string) => {
+        const parsedDate = parseISO(date);
+        const dayOfWeek = parsedDate.getDay();
+        const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+        return { parsedDate, isWeekend };
+      },
+      // Modality
+      showMeetingFields: formData.modality === 'online' || formData.modality === 'hibrida',
+      showZoomManagedHelp: formData.is_zoom_managed,
+      showManualMeetingFields: !formData.is_zoom_managed,
+      showLocation: formData.modality === 'presencial' || formData.modality === 'hibrida',
+      // Buttons
+      showSeriesCountInButtons: isRecurring && previewDates.length > 0,
+      draftDisabled: submitting,
+      scheduleDisabled: submitting,
+    };
+  };
+
   return {
     // State the views read
     user,
@@ -747,7 +860,24 @@ export function useSessionCreate() {
     handleSaveDraft,
     handleScheduleSession,
     handleLogout,
+    // Step 3: the inline handlers, named
+    retryConsultants,
+    handleConsultantSelect,
+    handleHourTypeChange,
+    handleContratoChange,
+    chooseSingleSession,
+    chooseRecurringSeries,
+    handleFrequencyChange,
+    handleCountChange,
+    handleCustomDateInput,
+    handleZoomManagedChange,
+    // The checks and the confirmation text, one copy each
+    validateForm,
+    scheduleConfirmText,
+    // The decisions, worked out only when called (after the loading and refusal returns)
+    decide,
   };
 }
 
 export type SessionCreate = ReturnType<typeof useSessionCreate>;
+export type SessionCreateDecisions = ReturnType<SessionCreate['decide']>;

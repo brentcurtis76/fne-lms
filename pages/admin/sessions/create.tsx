@@ -27,6 +27,9 @@ const SessionCreatePage: React.FC = () => {
     );
   }
 
+  // Where the form's decisions were worked out before SA: from here on, never while loading or refused.
+  const decisions = sessionCreate.decide();
+
   return (
     <MainLayout
       user={user}
@@ -36,7 +39,7 @@ const SessionCreatePage: React.FC = () => {
       isAdmin={isAdmin}
       onLogout={handleLogout}
     >
-      <SessionCreateClasico sessionCreate={sessionCreate} />
+      <SessionCreateClasico sessionCreate={sessionCreate} decisions={decisions} />
     </MainLayout>
   );
 };

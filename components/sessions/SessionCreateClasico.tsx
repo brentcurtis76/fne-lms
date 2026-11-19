@@ -1,74 +1,98 @@
 import React from 'react';
 import { ResponsiveFunctionalPageHeader } from '../layout/FunctionalPageHeader';
 import { Calendar, Save, Send, Plus, X, AlertTriangle } from 'lucide-react';
-import { RecurrenceFrequency } from '../../lib/types/consultor-sessions.types';
-import { isFeatureEnabled, FeatureFlags } from '../../lib/featureFlags';
-import { formatSessionRangeForConsultant } from '../../lib/utils/session-timezone';
-import { format, parseISO } from 'date-fns';
+import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import type { SessionCreate } from '../../hooks/useSessionCreate';
+import type { SessionCreate, SessionCreateDecisions } from '../../hooks/useSessionCreate';
 
 /**
  * Today's admin form «Programar Sesión», the classic view: the page's body moved out of
  * `pages/admin/sessions/create.tsx` unchanged (redesign 6, release SA). It draws only what
- * `useSessionCreate()` gives it; the frame (`MainLayout`) and the loading and refusal screens stay
- * in the page.
+ * `useSessionCreate()` gives it and the decisions the page worked out with `decide()` after its
+ * loading and refusal returns (each condition has one copy, in the hook); the frame (`MainLayout`)
+ * and the loading and refusal screens stay in the page.
  */
-export default function SessionCreateClasico({ sessionCreate }: { sessionCreate: SessionCreate }) {
+export default function SessionCreateClasico({
+  sessionCreate,
+  decisions,
+}: {
+  sessionCreate: SessionCreate;
+  decisions: SessionCreateDecisions;
+}) {
   const {
     schools,
     communities,
-    consultants,
-    consultantsLoading,
     consultantsError,
     hourTypes,
-    hourTypesLoading,
-    hourTypesError,
     contratos,
     selectedHourTypeKey,
-    setSelectedHourTypeKey,
     selectedContratoId,
-    setSelectedContratoId,
     availableHours,
-    allocatedHours,
     availableHoursLoading,
     formData,
-    setFormData,
     facilitators,
-    submitting,
     isRecurring,
-    setIsRecurring,
     recurrenceFrequency,
-    setRecurrenceFrequency,
     recurrenceCount,
-    setRecurrenceCount,
     customDates,
     previewDates,
-    fetchConsultants,
     handleInputChange,
     handleModalityChange,
-    handleAddFacilitator,
     handleRemoveFacilitator,
     handleToggleLead,
     handleToggleRole,
     handleAddCustomDate,
     handleRemoveCustomDate,
-    handleCustomDateChange,
     handleSaveDraft,
     handleScheduleSession,
+    retryConsultants,
+    handleConsultantSelect,
+    handleHourTypeChange,
+    handleContratoChange,
+    chooseSingleSession,
+    chooseRecurringSeries,
+    handleFrequencyChange,
+    handleCountChange,
+    handleCustomDateInput,
+    handleZoomManagedChange,
   } = sessionCreate;
-
-  // §14 master kill switch. Off ⇒ the box never appears and the form behaves
-  // exactly as it did before this chunk. The modality gate is the enclosing
-  // conditional below (managed intent is online/híbrida only, per POST /api/sessions).
-  const zoomManagedAvailable = isFeatureEnabled(FeatureFlags.ZOOM_MEETINGS);
-
-  // Null until a date and both times are set — see formatSessionRangeForConsultant.
-  const spainTimePreview = formatSessionRangeForConsultant(
-    formData.session_date,
-    formData.start_time,
-    formData.end_time
-  );
+  const {
+    zoomManagedAvailable,
+    spainTimePreview,
+    communitySelectDisabled,
+    showHourTypesLoading,
+    showHourTypesError,
+    showHourTypeSelects,
+    contratoSelectDisabled,
+    showNoContratos,
+    showHoursChip,
+    hasHoursBucket,
+    hoursLevel,
+    showConsultants,
+    showConsultantsLoading,
+    showConsultantsError,
+    showConsultantsEmpty,
+    showFacilitators,
+    consultantOf,
+    facilitatorRoleLabel,
+    showConsultantSelector,
+    consultantSelectorDisabled,
+    selectableConsultants,
+    earliestDate,
+    showRecurrence,
+    showRecurrenceCount,
+    showCustomDates,
+    canRemoveCustomDate,
+    showPreview,
+    previewRow,
+    showMeetingFields,
+    showZoomManagedHelp,
+    showManualMeetingFields,
+    showLocation,
+    showSeriesCountInButtons,
+    draftDisabled,
+    scheduleDisabled,
+  } = decisions;
 
   return (
     <>
@@ -115,7 +139,7 @@ export default function SessionCreateClasico({ sessionCreate }: { sessionCreate:
                   value={formData.growth_community_id}
                   onChange={handleInputChange}
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
-                  disabled={formData.school_id === 0}
+                  disabled={communitySelectDisabled}
                   required
                 >
                   <option value="">Seleccione una comunidad</option>
@@ -129,15 +153,15 @@ export default function SessionCreateClasico({ sessionCreate }: { sessionCreate:
             </div>
 
             {/* Row 1b: Tipo de Hora + Contrato (Hour Tracking) */}
-            {hourTypesLoading && (
+            {showHourTypesLoading && (
               <p className="text-sm text-gray-500">Cargando tipos de hora...</p>
             )}
-            {hourTypesError && !hourTypesLoading && (
+            {showHourTypesError && (
               <p className="text-sm text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2">
                 No se pudieron cargar los tipos de hora. La sesión puede crearse sin seguimiento de horas.
               </p>
             )}
-            {hourTypes.length > 0 && (
+            {showHourTypeSelects && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="hour-type-select" className="block text-sm font-medium text-gray-700 mb-2">
@@ -146,7 +170,7 @@ export default function SessionCreateClasico({ sessionCreate }: { sessionCreate:
                   <select
                     id="hour-type-select"
                     value={selectedHourTypeKey}
-                    onChange={(e) => setSelectedHourTypeKey(e.target.value)}
+                    onChange={handleHourTypeChange}
                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
                   >
                     <option value="">Seleccione tipo de hora</option>
@@ -165,9 +189,9 @@ export default function SessionCreateClasico({ sessionCreate }: { sessionCreate:
                   <select
                     id="contrato-select"
                     value={selectedContratoId}
-                    onChange={(e) => setSelectedContratoId(e.target.value)}
+                    onChange={handleContratoChange}
                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
-                    disabled={formData.school_id === 0}
+                    disabled={contratoSelectDisabled}
                   >
                     <option value="">Seleccione un contrato</option>
                     {contratos.map((c) => (
@@ -176,7 +200,7 @@ export default function SessionCreateClasico({ sessionCreate }: { sessionCreate:
                       </option>
                     ))}
                   </select>
-                  {formData.school_id > 0 && contratos.length === 0 && (
+                  {showNoContratos && (
                     <p className="text-xs text-gray-500 mt-1">
                       No hay contratos activos para este colegio.
                     </p>
@@ -186,19 +210,14 @@ export default function SessionCreateClasico({ sessionCreate }: { sessionCreate:
             )}
 
             {/* Available hours badge — three-state: green (healthy), yellow (<25%), red (0) */}
-            {selectedHourTypeKey && selectedContratoId && (
+            {showHoursChip && (
               <div className="flex items-center gap-2">
                 {availableHoursLoading ? (
                   <span className="inline-flex items-center px-3 py-1 rounded-full text-xs bg-gray-100 text-gray-600">
                     Cargando horas disponibles...
                   </span>
-                ) : availableHours !== null ? (() => {
-                  const pctRemaining =
-                    allocatedHours && allocatedHours > 0
-                      ? (availableHours / allocatedHours) * 100
-                      : availableHours > 0 ? 100 : 0;
-                  const isExhausted = availableHours <= 0;
-                  const isWarning = !isExhausted && pctRemaining < 25;
+                ) : hasHoursBucket ? (() => {
+                  const { isExhausted, isWarning } = hoursLevel(availableHours as number);
                   const badgeClass = isExhausted
                     ? 'bg-red-100 text-red-800'
                     : isWarning
@@ -207,8 +226,8 @@ export default function SessionCreateClasico({ sessionCreate }: { sessionCreate:
                   const badgeText = isExhausted
                     ? 'Sin horas disponibles en este tipo (se registrará como sobrepresupuesto)'
                     : isWarning
-                    ? `${availableHours.toFixed(1)} horas disponibles en este tipo — ¡Quedan menos del 25%!`
-                    : `${availableHours.toFixed(1)} horas disponibles en este tipo`;
+                    ? `${(availableHours as number).toFixed(1)} horas disponibles en este tipo — ¡Quedan menos del 25%!`
+                    : `${(availableHours as number).toFixed(1)} horas disponibles en este tipo`;
                   return (
                     <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${badgeClass}`}>
                       {badgeText}
@@ -223,7 +242,7 @@ export default function SessionCreateClasico({ sessionCreate }: { sessionCreate:
             )}
 
             {/* Row 2 (Moved from Row 9): Consultants */}
-            {formData.school_id > 0 && (
+            {showConsultants && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Consultor(es) asignados <span className="text-red-500">*</span>
@@ -233,7 +252,7 @@ export default function SessionCreateClasico({ sessionCreate }: { sessionCreate:
                 </p>
 
                 {/* Loading state */}
-                {consultantsLoading && (
+                {showConsultantsLoading && (
                   <div className="flex items-center justify-center p-4 bg-gray-50 rounded-lg mb-4">
                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-brand_accent mr-2"></div>
                     <span className="text-sm text-gray-700">Cargando consultores...</span>
@@ -241,7 +260,7 @@ export default function SessionCreateClasico({ sessionCreate }: { sessionCreate:
                 )}
 
                 {/* Error state */}
-                {consultantsError && (
+                {showConsultantsError && (
                   <div className="p-4 bg-red-50 border border-red-200 rounded-lg mb-4">
                     <div className="flex items-start justify-between">
                       <div>
@@ -250,7 +269,7 @@ export default function SessionCreateClasico({ sessionCreate }: { sessionCreate:
                       </div>
                       <button
                         type="button"
-                        onClick={() => fetchConsultants(formData.school_id)}
+                        onClick={retryConsultants}
                         className="ml-2 px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700"
                       >
                         Reintentar
@@ -260,7 +279,7 @@ export default function SessionCreateClasico({ sessionCreate }: { sessionCreate:
                 )}
 
                 {/* Empty state */}
-                {!consultantsLoading && !consultantsError && consultants.length === 0 && (
+                {showConsultantsEmpty && (
                   <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg mb-4">
                     <p className="text-sm text-yellow-800">
                       No hay consultores disponibles para este colegio. Verifique que existan usuarios con rol activo de consultor.
@@ -269,10 +288,10 @@ export default function SessionCreateClasico({ sessionCreate }: { sessionCreate:
                 )}
 
                 {/* Current facilitators list */}
-                {facilitators.length > 0 && (
+                {showFacilitators && (
                   <div className="mb-4 space-y-2">
                     {facilitators.map((facilitator) => {
-                      const consultant = consultants.find((c) => c.id === facilitator.user_id);
+                      const consultant = consultantOf(facilitator);
                       if (!consultant) return null;
 
                       return (
@@ -293,9 +312,7 @@ export default function SessionCreateClasico({ sessionCreate }: { sessionCreate:
                               onClick={() => handleToggleRole(facilitator.user_id)}
                               className="px-2 py-1 text-xs rounded bg-gray-200 hover:bg-gray-300"
                             >
-                              {facilitator.facilitator_role === 'consultor_externo'
-                                ? 'Externo'
-                                : 'Interno'}
+                              {facilitatorRoleLabel(facilitator)}
                             </button>
 
                             <label className="flex items-center text-sm">
@@ -324,20 +341,14 @@ export default function SessionCreateClasico({ sessionCreate }: { sessionCreate:
                 )}
 
                 {/* Consultant selector */}
-                {!consultantsLoading && !consultantsError && (
+                {showConsultantSelector && (
                   <select
-                    onChange={(e) => {
-                      if (e.target.value) {
-                        handleAddFacilitator(e.target.value);
-                        e.target.value = '';
-                      }
-                    }}
+                    onChange={handleConsultantSelect}
                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
-                    disabled={consultants.length === 0 && !consultantsError}
+                    disabled={consultantSelectorDisabled}
                   >
                     <option value="">Agregar consultor...</option>
-                    {consultants
-                      .filter((c) => !facilitators.find((f) => f.user_id === c.id))
+                    {selectableConsultants()
                       .map((consultant) => (
                         <option key={consultant.id} value={consultant.id}>
                           {consultant.first_name} {consultant.last_name} ({consultant.email})
@@ -406,7 +417,7 @@ export default function SessionCreateClasico({ sessionCreate }: { sessionCreate:
                   name="session_date"
                   value={formData.session_date}
                   onChange={handleInputChange}
-                  min={new Date().toISOString().split('T')[0]}
+                  min={earliestDate()}
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
                   required
                 />
@@ -469,7 +480,7 @@ export default function SessionCreateClasico({ sessionCreate }: { sessionCreate:
                   <input
                     type="radio"
                     checked={!isRecurring}
-                    onChange={() => setIsRecurring(false)}
+                    onChange={chooseSingleSession}
                     className="w-4 h-4 text-brand_accent border-gray-300 focus:ring-brand_accent mr-2"
                   />
                   <span>Sesión única</span>
@@ -478,7 +489,7 @@ export default function SessionCreateClasico({ sessionCreate }: { sessionCreate:
                   <input
                     type="radio"
                     checked={isRecurring}
-                    onChange={() => setIsRecurring(true)}
+                    onChange={chooseRecurringSeries}
                     className="w-4 h-4 text-brand_accent border-gray-300 focus:ring-brand_accent mr-2"
                   />
                   <span>Serie recurrente</span>
@@ -487,7 +498,7 @@ export default function SessionCreateClasico({ sessionCreate }: { sessionCreate:
             </fieldset>
 
             {/* Row 7: Recurrence Settings (conditional) */}
-            {isRecurring && (
+            {showRecurrence && (
               <div className="border-l-4 border-blue-500 bg-blue-50 p-4 rounded-lg space-y-4">
                 <h4 className="font-medium text-gray-900">Configuración de recurrencia</h4>
 
@@ -498,7 +509,7 @@ export default function SessionCreateClasico({ sessionCreate }: { sessionCreate:
                   </label>
                   <select
                     value={recurrenceFrequency}
-                    onChange={(e) => setRecurrenceFrequency(e.target.value as RecurrenceFrequency)}
+                    onChange={handleFrequencyChange}
                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
                   >
                     <option value="weekly">Semanal</option>
@@ -509,7 +520,7 @@ export default function SessionCreateClasico({ sessionCreate }: { sessionCreate:
                 </div>
 
                 {/* Count Input (for non-custom) */}
-                {recurrenceFrequency !== 'custom' && (
+                {showRecurrenceCount && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Número de sesiones (2-52)
@@ -519,14 +530,14 @@ export default function SessionCreateClasico({ sessionCreate }: { sessionCreate:
                       min={2}
                       max={52}
                       value={recurrenceCount}
-                      onChange={(e) => setRecurrenceCount(parseInt(e.target.value, 10))}
+                      onChange={handleCountChange}
                       className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
                     />
                   </div>
                 )}
 
                 {/* Custom Dates Input */}
-                {recurrenceFrequency === 'custom' && (
+                {showCustomDates && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Fechas personalizadas
@@ -537,11 +548,11 @@ export default function SessionCreateClasico({ sessionCreate }: { sessionCreate:
                           <input
                             type="date"
                             value={date}
-                            onChange={(e) => handleCustomDateChange(index, e.target.value)}
-                            min={new Date().toISOString().split('T')[0]}
+                            onChange={(e) => handleCustomDateInput(index, e)}
+                            min={earliestDate()}
                             className="flex-1 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
                           />
-                          {customDates.length > 1 && (
+                          {canRemoveCustomDate && (
                             <button
                               type="button"
                               onClick={() => handleRemoveCustomDate(index)}
@@ -566,16 +577,14 @@ export default function SessionCreateClasico({ sessionCreate }: { sessionCreate:
                 )}
 
                 {/* Preview Panel */}
-                {previewDates.length > 0 && (
+                {showPreview && (
                   <div className="bg-white p-4 rounded border border-gray-200">
                     <h5 className="text-sm font-medium text-gray-700 mb-2">
                       Vista previa ({previewDates.length} sesiones)
                     </h5>
                     <div className="max-h-48 overflow-y-auto space-y-1">
                       {previewDates.map((date, index) => {
-                        const parsedDate = parseISO(date);
-                        const dayOfWeek = parsedDate.getDay();
-                        const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+                        const { parsedDate, isWeekend } = previewRow(date);
 
                         return (
                           <div
@@ -626,7 +635,7 @@ export default function SessionCreateClasico({ sessionCreate }: { sessionCreate:
             </fieldset>
 
             {/* Row 7: Conditional - Meeting Link + Provider */}
-            {(formData.modality === 'online' || formData.modality === 'hibrida') && (
+            {showMeetingFields && (
               <div className="space-y-4">
                 {zoomManagedAvailable && (
                   <div>
@@ -636,16 +645,14 @@ export default function SessionCreateClasico({ sessionCreate }: { sessionCreate:
                         name="is_zoom_managed"
                         data-testid="session-zoom-managed"
                         checked={formData.is_zoom_managed}
-                        onChange={(e) =>
-                          setFormData((prev) => ({ ...prev, is_zoom_managed: e.target.checked }))
-                        }
+                        onChange={handleZoomManagedChange}
                         className="w-4 h-4 text-brand_accent border-gray-300 rounded focus:ring-brand_accent mr-2"
                       />
                       <span className="text-sm font-medium text-gray-700">
                         Generar reunión Zoom
                       </span>
                     </label>
-                    {formData.is_zoom_managed && (
+                    {showZoomManagedHelp && (
                       <p
                         data-testid="session-zoom-managed-help"
                         className="mt-2 text-xs text-gray-500"
@@ -656,7 +663,7 @@ export default function SessionCreateClasico({ sessionCreate }: { sessionCreate:
                   </div>
                 )}
 
-                {!formData.is_zoom_managed && (
+                {showManualMeetingFields && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -695,7 +702,7 @@ export default function SessionCreateClasico({ sessionCreate }: { sessionCreate:
             )}
 
             {/* Row 8: Conditional - Location */}
-            {(formData.modality === 'presencial' || formData.modality === 'hibrida') && (
+            {showLocation && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Ubicación <span className="text-red-500">*</span>
@@ -716,22 +723,22 @@ export default function SessionCreateClasico({ sessionCreate }: { sessionCreate:
             <div className="flex flex-col sm:flex-row sm:justify-end space-y-2 sm:space-y-0 sm:space-x-4 pt-6 border-t">
               <button
                 onClick={handleSaveDraft}
-                disabled={submitting}
+                disabled={draftDisabled}
                 className="inline-flex items-center justify-center px-4 py-2 border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors disabled:opacity-50"
               >
                 <Save size={20} className="mr-2" />
-                {isRecurring && previewDates.length > 0
+                {showSeriesCountInButtons
                   ? `Guardar serie como borrador (${previewDates.length} sesiones)`
                   : 'Guardar borrador'}
               </button>
 
               <button
                 onClick={handleScheduleSession}
-                disabled={submitting}
+                disabled={scheduleDisabled}
                 className="inline-flex items-center justify-center px-4 py-2 bg-brand_accent text-brand_primary font-semibold hover:bg-brand_accent_hover rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Send size={20} className="mr-2" />
-                {isRecurring && previewDates.length > 0
+                {showSeriesCountInButtons
                   ? `Programar serie (${previewDates.length} sesiones)`
                   : 'Programar sesión'}
               </button>

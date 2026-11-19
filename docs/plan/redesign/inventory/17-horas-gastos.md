@@ -1,7 +1,7 @@
 # Horas, tarifas y gastos
 
 Area `17-horas-gastos`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `ca9dad512` (2026-11-19).
+Read from commit `6f507a060` (2026-11-19).
 
 4 screen files, 10 API files, 16 pieces.
 
@@ -1297,5 +1297,5 @@ Used by: `/admin/consultant-earnings`, `/admin/consultant-rates`, `/expense-repo
 | `/api/expense-reports/receipt-link` | `pages/api/expense-reports/receipt-link.ts` | GET | `/expense-reports` | `__tests__/api/expense-reports/receipt-link.test.ts`, `components/expenses/ExpenseReportDetails.tsx`, `components/expenses/ExpenseReportForm.tsx` |
 | `/api/fx-rates/latest` | `pages/api/fx-rates/latest.ts` | GET | **no screen** | `__tests__/api/hour-tracking/fx-rates.test.ts`, `tests/e2e/fx-rates.spec.ts` |
 | `/api/fx-rates/refresh` | `pages/api/fx-rates/refresh.ts` | POST | **no screen** | `__tests__/api/hour-tracking/fx-rates.test.ts`, `tests/e2e/fx-rates.spec.ts` |
-| `/api/hour-types` | `pages/api/hour-types/index.ts` | GET | `/admin/bulk-tag-sessions`, `/admin/consultant-rates`, `/admin/sessions/create` | `__tests__/pages/admin/sessions/create-timezone.test.tsx`, `__tests__/pages/admin/sessions/create-zoom-managed.test.tsx`, `__tests__/pages/admin/sessions/create.clasico.test.tsx`, `components/admin/ConsultantRateManager.tsx`, `hooks/useSessionCreate.ts` +1 |
+| `/api/hour-types` | `pages/api/hour-types/index.ts` | GET | `/admin/bulk-tag-sessions`, `/admin/consultant-rates`, `/admin/sessions/create` | `__tests__/pages/admin/sessions/create-earliest-date.test.tsx`, `__tests__/pages/admin/sessions/create-timezone.test.tsx`, `__tests__/pages/admin/sessions/create-zoom-managed.test.tsx`, `__tests__/pages/admin/sessions/create.clasico.test.tsx`, `components/admin/ConsultantRateManager.tsx` +2 |
 

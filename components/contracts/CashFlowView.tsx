@@ -58,6 +58,12 @@ interface CashFlowItem {
 
 interface CashFlowViewProps {
   contratos: Contrato[];
+  /**
+   * GES-3.15: the page's reload of its contracts. Called and awaited after an
+   * invoice upload or a paid mark, so the row shows the new state at once
+   * (the new `contratos` recompute the view through the effect below).
+   */
+  onChanged?: () => Promise<void> | void;
 }
 
 // N89: a UF value is usable only when it is a positive finite number.
@@ -72,7 +78,7 @@ function formatUFDate(fecha: string): string {
   return `${day}-${month}-${year}`;
 }
 
-export default function CashFlowView({ contratos }: CashFlowViewProps) {
+export default function CashFlowView({ contratos, onChanged }: CashFlowViewProps) {
   const supabase = useSupabaseClient();
   const [cashFlow, setCashFlow] = useState<CashFlowItem[]>([]);
   const [selectedPeriod, setSelectedPeriod] = useState<'3m' | '6m' | '12m'>('6m');
@@ -413,6 +419,17 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
     }
   };
 
+  // GES-3.15: after a change, the page reloads its contracts (the new rows
+  // recompute this view); without the page's reload, recompute from the rows
+  // as before.
+  const refreshAfterChange = async () => {
+    if (onChanged) {
+      await onChanged();
+    } else {
+      await loadUFValueAndGenerateCashFlow();
+    }
+  };
+
   // Handle invoice upload
   const handleInvoiceUpload = async (cuotaId: string, file: File) => {
     try {
@@ -436,7 +453,7 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
       if (updateError) throw updateError;
 
       // Refresh cash flow data
-      await loadUFValueAndGenerateCashFlow();
+      await refreshAfterChange();
       
     } catch (error) {
       console.error('Error uploading invoice:', error);
@@ -460,7 +477,7 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
       if (error) throw error;
 
       // Refresh cash flow data
-      await loadUFValueAndGenerateCashFlow();
+      await refreshAfterChange();
       
     } catch (error) {
       console.error('Error updating payment status:', error);

@@ -1003,7 +1003,7 @@ export default function ContractsPage() {
             )}
 
             {activeTab === 'flujo' && (
-              <CashFlowView contratos={contratos} />
+              <CashFlowView contratos={contratos} onChanged={refreshContratos} />
             )}
 
             {/* Delete Confirmation Modal */}

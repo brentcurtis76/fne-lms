@@ -35,6 +35,8 @@ export interface FakeOptions {
   allocations?: Row[];
   /** Error returned by `contract_hour_allocations` reads. */
   allocationsError?: { message: string } | null;
+  /** Row returned by the tender's lookup `contratos … eq('licitacion_id', x)` (a list read); null = none. */
+  contratoByLicitacion?: Row | null;
 }
 
 export function createFakeSupabase(options: FakeOptions = {}) {
@@ -84,6 +86,10 @@ export function createFakeSupabase(options: FakeOptions = {}) {
           return row ? { data: row, error: null } : { data: null, error: { code: 'PGRST116', message: 'no rows' } };
         }
         return { data: null, error: { code: 'PGRST116', message: 'no rows' } };
+      }
+      if (table === 'contratos' && 'licitacion_id' in ctx.filters) {
+        const row = options.contratoByLicitacion ?? null;
+        return { data: row ? [row] : [], error: null };
       }
       if (table === 'cuotas') return { data: options.existingCuotas ?? [], error: null };
       if (table === 'contract_hour_allocations') {

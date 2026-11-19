@@ -877,7 +877,25 @@ export async function linkContractToLicitacion(
     );
   }
 
-  // 3. Validate cliente exists and has required legal fields for contract generation
+  // The contract must exist and belong to this tender: its licitacion_id is this
+  // tender's id, or still empty (LIC-D5, N117). Read before anything is written.
+  const { data: contrato, error: contratoError } = await supabase
+    .from('contratos')
+    .select('id, licitacion_id')
+    .eq('id', contratoId)
+    .maybeSingle();
+
+  if (contratoError) {
+    throw new Error(`Error al leer el contrato: ${contratoError.message}`);
+  }
+  if (!contrato) {
+    throw new Error('El contrato indicado no existe. No se puede vincular a la licitación.');
+  }
+  if (contrato.licitacion_id && contrato.licitacion_id !== licitacionId) {
+    throw new Error('El contrato indicado pertenece a otra licitación. No se puede vincular a esta licitación.');
+  }
+
+  // 3. Validate cliente exists (no legal field is obligatory: not every contract is a SEP contract)
   let clienteId = existing.cliente_id;
 
   if (!clienteId) {
@@ -903,12 +921,12 @@ export async function linkContractToLicitacion(
 
   const { data: cliente } = await supabase
     .from('clientes')
-    .select('nombre_representante, rut_representante, fecha_escritura, nombre_notario')
+    .select('id')
     .eq('id', clienteId)
     .single();
 
-  if (!cliente?.nombre_representante || !cliente?.rut_representante || !cliente?.fecha_escritura || !cliente?.nombre_notario) {
-    throw new Error('El cliente no tiene toda la informacion legal requerida para generar el contrato (representante, RUT, escritura, notario)');
+  if (!cliente) {
+    throw new Error('El cliente de la licitación no existe. Vincule un cliente antes de generar el contrato.');
   }
 
   // 4. Update licitacion

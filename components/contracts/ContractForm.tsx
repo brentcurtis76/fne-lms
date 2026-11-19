@@ -920,7 +920,25 @@ export default function ContractForm({ programas, clientes, editingContract, pre
         
       } else {
         // CREATE MODE
-        
+
+        // A tender has at most one contract (LIC-D5): if one with this
+        // licitacion_id already exists, insert nothing and hand its id to the
+        // parent, which links it (the link is idempotent for the same contract).
+        if (licitacionId) {
+          const { data: tenderContracts, error: tenderLookupError } = await supabase
+            .from('contratos')
+            .select('id')
+            .eq('licitacion_id', licitacionId)
+            .order('created_at', { ascending: true })
+            .limit(1);
+          if (tenderLookupError) throw tenderLookupError;
+          const existingTenderContract = tenderContracts?.[0];
+          if (existingTenderContract?.id) {
+            onSuccess(existingTenderContract.id);
+            return;
+          }
+        }
+
         // First, save or update client
         if (!selectedClienteId) {
           // Prepare client data with school_id if selected (defaults applied by newClientRow)

@@ -102,3 +102,106 @@ describe('ContractForm — new contract with a brand-new client', () => {
     confirmSpy.mockRestore();
   });
 });
+
+/**
+ * F21b (GES-3.10): a new contract for an EXISTING client shows the client's
+ * data read-only, with a line that sends corrections to Clientes. Before the
+ * fix the fields were editable and what was typed was silently thrown away
+ * (the contract prints the stored client).
+ */
+describe('ContractForm — an existing client chosen for a new contract', () => {
+  const EXISTENTE = {
+    id: 'cliente-1',
+    nombre_legal: 'Colegio Existente SpA',
+    nombre_fantasia: 'Colegio Existente',
+    rut: '76.123.456-0',
+    direccion: 'Calle Existente 1',
+    comuna: 'Comuna Existente',
+    ciudad: 'Ciudad Existente',
+    nombre_representante: 'Persona Existente',
+    rut_representante: '',
+    fecha_escritura: '',
+    nombre_notario: '',
+    school_id: null,
+  };
+  const LINE = 'Para corregir los datos del cliente, use Clientes';
+  const clientSelect = (container: HTMLElement) => container.querySelector('select') as HTMLSelectElement;
+  const textInputsOfClient = () => [
+    screen.getByPlaceholderText('Nombre legal de la empresa'),
+    screen.getByPlaceholderText('Nombre comercial'),
+    screen.getAllByPlaceholderText('12.345.678-9')[0],
+    screen.getByPlaceholderText('Calle y número'),
+    screen.getByPlaceholderText('Comuna'),
+    screen.getByPlaceholderText('Ciudad'),
+    screen.getByPlaceholderText('Nombre del representante'),
+    screen.getAllByPlaceholderText('12.345.678-9')[1],
+    screen.getByPlaceholderText('Nombre del notario'),
+    screen.getByPlaceholderText('Santiago, Providencia, etc.'),
+    screen.getByPlaceholderText('encargado@colegio.cl'),
+    screen.getByPlaceholderText('administracion@colegio.cl'),
+  ] as HTMLInputElement[];
+
+  it('the client fields are read-only and the line is shown; typing changes nothing', async () => {
+    currentClient = createFakeSupabase();
+    const onSuccess = vi.fn();
+    const { container } = render(
+      <ContractForm programas={PROGRAMAS} clientes={[EXISTENTE as any]} onSuccess={onSuccess} onCancel={vi.fn()} />,
+    );
+    typeInto(clientSelect(container), 'cliente-1');
+    expect(screen.getByText(LINE)).toBeInTheDocument();
+    for (const input of textInputsOfClient()) expect(input.readOnly).toBe(true);
+    typeInto(screen.getByPlaceholderText('Nombre legal de la empresa'), 'Corrección perdida SpA');
+    expect(screen.getByPlaceholderText('Nombre legal de la empresa')).toHaveValue('Colegio Existente SpA');
+
+    clickButton('Siguiente');
+    fillContractStep(container, { programaId: 'prog-a', total: 100 });
+    clickButton('Siguiente');
+    fillCuotaDates(container);
+    typeInto(container.querySelector('[data-testid="cuota-amount-input"]') as Element, '100');
+    clickButton(/Guardar Contrato/);
+    await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+    // nothing is written into clientes from this form
+    expect(currentClient.__writes.find((w: any) => w.table === 'clientes')).toBeUndefined();
+    const contrato = currentClient.__writes.find((w: any) => w.table === 'contratos');
+    expect(contrato.payload[0].cliente_id).toBe('cliente-1');
+  });
+
+  it('«-- Crear nuevo cliente --» keeps the fields editable and shows no line', () => {
+    currentClient = createFakeSupabase();
+    const { container } = render(
+      <ContractForm programas={PROGRAMAS} clientes={[EXISTENTE as any]} onSuccess={vi.fn()} onCancel={vi.fn()} />,
+    );
+    expect(clientSelect(container).value).toBe('');
+    expect(screen.queryByText(LINE)).toBeNull();
+    for (const input of textInputsOfClient()) expect(input.readOnly).toBe(false);
+    typeInto(screen.getByPlaceholderText('Nombre legal de la empresa'), 'Colegio Nuevo SpA');
+    expect(screen.getByPlaceholderText('Nombre legal de la empresa')).toHaveValue('Colegio Nuevo SpA');
+
+    // choose the existing client, then back to a new one: editable again
+    typeInto(clientSelect(container), 'cliente-1');
+    expect(screen.getByText(LINE)).toBeInTheDocument();
+    typeInto(clientSelect(container), '');
+    expect(screen.queryByText(LINE)).toBeNull();
+    for (const input of textInputsOfClient()) expect(input.readOnly).toBe(false);
+  });
+
+  it('editing a contract keeps the client fields editable (that save updates the client, as before)', () => {
+    currentClient = createFakeSupabase();
+    render(
+      <ContractForm
+        programas={PROGRAMAS}
+        clientes={[EXISTENTE as any]}
+        editingContract={{
+          id: 'contrato-1', numero_contrato: 'FNE-2026-11-777', fecha_contrato: '2026-01-15', fecha_fin: '2026-12-15',
+          cliente_id: 'cliente-1', programa_id: 'prog-a', precio_total_uf: 100, tipo_moneda: 'UF', es_manual: false,
+          estado: 'activo', horas_contratadas: null, clientes: EXISTENTE,
+          cuotas: [{ id: 'cuota-a', numero_cuota: 1, fecha_vencimiento: '2099-06-30', monto_uf: 100 }],
+        }}
+        onSuccess={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
+    expect(screen.queryByText(LINE)).toBeNull();
+    for (const input of textInputsOfClient()) expect(input.readOnly).toBe(false);
+  });
+});

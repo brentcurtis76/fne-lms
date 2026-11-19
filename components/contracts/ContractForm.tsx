@@ -538,6 +538,16 @@ export default function ContractForm({ programas, clientes, editingContract, pre
     }
   }, [editingContract]);
 
+  // A new contract for an EXISTING client shows the client's data read-only:
+  // the contract prints the stored client, and saving corrections from here would
+  // silently change every other contract of that client (GES-3.10). Corrections go
+  // through Clientes. Editing a contract keeps its client fields editable, as before.
+  const clientReadOnly = !editingContract && !!selectedClienteId;
+  const editCliente = (field: keyof ClienteFormState, value: string) => {
+    if (clientReadOnly) return;
+    setClienteForm(prev => ({ ...prev, [field]: value }));
+  };
+
   // Handle client selection
   const handleClienteSelection = (clienteId: string) => {
     const cliente = clientes.find(c => c.id === clienteId);
@@ -657,13 +667,15 @@ export default function ContractForm({ programas, clientes, editingContract, pre
       // Select the newly created school
       setSelectedSchoolId(newSchool.id);
       
-      // Pre-fill client form with school data
-      setClienteForm(prev => ({
-        ...prev,
-        nombre_fantasia: newSchool.name,
-        direccion: newSchool.address || prev.direccion,
-        ciudad: newSchool.region || prev.ciudad
-      }));
+      // Pre-fill client form with school data (not over an existing client's read-only data, GES-3.10)
+      if (!clientReadOnly) {
+        setClienteForm(prev => ({
+          ...prev,
+          nombre_fantasia: newSchool.name,
+          direccion: newSchool.address || prev.direccion,
+          ciudad: newSchool.region || prev.ciudad
+        }));
+      }
       
       setShowNewSchoolForm(false);
       setNewSchoolForm({
@@ -1445,6 +1457,11 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                   Cliente fijado por la licitacion. No se puede cambiar.
                 </p>
               )}
+              {clientReadOnly && (
+                <p className="text-sm text-gray-700 mt-2" data-testid="client-readonly-note">
+                  Para corregir los datos del cliente, use Clientes
+                </p>
+              )}
             </div>
 
             {/* School Selection */}
@@ -1568,8 +1585,9 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                 <input
                   type="text"
                   value={clienteForm.nombre_legal}
-                  onChange={(e) => setClienteForm({ ...clienteForm, nombre_legal: e.target.value })}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
+                  readOnly={clientReadOnly}
+                  onChange={(e) => editCliente('nombre_legal', e.target.value)}
+                  className={`w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent ${clientReadOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                   placeholder="Nombre legal de la empresa"
                 />
               </div>
@@ -1581,8 +1599,9 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                 <input
                   type="text"
                   value={clienteForm.nombre_fantasia}
-                  onChange={(e) => setClienteForm({ ...clienteForm, nombre_fantasia: e.target.value })}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
+                  readOnly={clientReadOnly}
+                  onChange={(e) => editCliente('nombre_fantasia', e.target.value)}
+                  className={`w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent ${clientReadOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                   placeholder="Nombre comercial"
                 />
               </div>
@@ -1594,8 +1613,9 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                 <input
                   type="text"
                   value={clienteForm.rut}
-                  onChange={(e) => setClienteForm({ ...clienteForm, rut: e.target.value })}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
+                  readOnly={clientReadOnly}
+                  onChange={(e) => editCliente('rut', e.target.value)}
+                  className={`w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent ${clientReadOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                   placeholder="12.345.678-9"
                 />
               </div>
@@ -1607,8 +1627,9 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                 <input
                   type="text"
                   value={clienteForm.direccion}
-                  onChange={(e) => setClienteForm({ ...clienteForm, direccion: e.target.value })}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
+                  readOnly={clientReadOnly}
+                  onChange={(e) => editCliente('direccion', e.target.value)}
+                  className={`w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent ${clientReadOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                   placeholder="Calle y número"
                 />
               </div>
@@ -1620,8 +1641,9 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                 <input
                   type="text"
                   value={clienteForm.comuna}
-                  onChange={(e) => setClienteForm({ ...clienteForm, comuna: e.target.value })}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
+                  readOnly={clientReadOnly}
+                  onChange={(e) => editCliente('comuna', e.target.value)}
+                  className={`w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent ${clientReadOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                   placeholder="Comuna"
                 />
               </div>
@@ -1633,8 +1655,9 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                 <input
                   type="text"
                   value={clienteForm.ciudad}
-                  onChange={(e) => setClienteForm({ ...clienteForm, ciudad: e.target.value })}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
+                  readOnly={clientReadOnly}
+                  onChange={(e) => editCliente('ciudad', e.target.value)}
+                  className={`w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent ${clientReadOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                   placeholder="Ciudad"
                 />
               </div>
@@ -1646,8 +1669,9 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                 <input
                   type="text"
                   value={clienteForm.nombre_representante}
-                  onChange={(e) => setClienteForm({ ...clienteForm, nombre_representante: e.target.value })}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
+                  readOnly={clientReadOnly}
+                  onChange={(e) => editCliente('nombre_representante', e.target.value)}
+                  className={`w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent ${clientReadOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                   placeholder="Nombre del representante"
                 />
               </div>
@@ -1659,8 +1683,9 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                 <input
                   type="text"
                   value={clienteForm.rut_representante}
-                  onChange={(e) => setClienteForm({ ...clienteForm, rut_representante: e.target.value })}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
+                  readOnly={clientReadOnly}
+                  onChange={(e) => editCliente('rut_representante', e.target.value)}
+                  className={`w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent ${clientReadOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                   placeholder="12.345.678-9"
                 />
               </div>
@@ -1678,8 +1703,9 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                   <input
                     type="date"
                     value={clienteForm.fecha_escritura}
-                    onChange={(e) => setClienteForm({ ...clienteForm, fecha_escritura: e.target.value })}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
+                    readOnly={clientReadOnly}
+                    onChange={(e) => editCliente('fecha_escritura', e.target.value)}
+                    className={`w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent ${clientReadOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                   />
                 </div>
                 
@@ -1690,8 +1716,9 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                   <input
                     type="text"
                     value={clienteForm.nombre_notario}
-                    onChange={(e) => setClienteForm({ ...clienteForm, nombre_notario: e.target.value })}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
+                    readOnly={clientReadOnly}
+                    onChange={(e) => editCliente('nombre_notario', e.target.value)}
+                    className={`w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent ${clientReadOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                     placeholder="Nombre del notario"
                   />
                 </div>
@@ -1703,8 +1730,9 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                   <input
                     type="text"
                     value={clienteForm.comuna_notaria}
-                    onChange={(e) => setClienteForm({ ...clienteForm, comuna_notaria: e.target.value })}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
+                    readOnly={clientReadOnly}
+                    onChange={(e) => editCliente('comuna_notaria', e.target.value)}
+                    className={`w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent ${clientReadOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                     placeholder="Santiago, Providencia, etc."
                   />
                 </div>
@@ -1724,8 +1752,9 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                   <input
                     type="text"
                     value={clienteForm.nombre_encargado_proyecto}
-                    onChange={(e) => setClienteForm({ ...clienteForm, nombre_encargado_proyecto: e.target.value })}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
+                    readOnly={clientReadOnly}
+                    onChange={(e) => editCliente('nombre_encargado_proyecto', e.target.value)}
+                    className={`w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent ${clientReadOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                     placeholder="Nombre completo"
                   />
                 </div>
@@ -1737,8 +1766,9 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                   <input
                     type="tel"
                     value={clienteForm.telefono_encargado_proyecto}
-                    onChange={(e) => setClienteForm({ ...clienteForm, telefono_encargado_proyecto: e.target.value })}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
+                    readOnly={clientReadOnly}
+                    onChange={(e) => editCliente('telefono_encargado_proyecto', e.target.value)}
+                    className={`w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent ${clientReadOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                     placeholder="+56 9 1234 5678"
                   />
                 </div>
@@ -1750,8 +1780,9 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                   <input
                     type="email"
                     value={clienteForm.email_encargado_proyecto}
-                    onChange={(e) => setClienteForm({ ...clienteForm, email_encargado_proyecto: e.target.value })}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
+                    readOnly={clientReadOnly}
+                    onChange={(e) => editCliente('email_encargado_proyecto', e.target.value)}
+                    className={`w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent ${clientReadOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                     placeholder="encargado@colegio.cl"
                   />
                 </div>
@@ -1787,8 +1818,9 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                   <input
                     type="text"
                     value={clienteForm.nombre_contacto_administrativo}
-                    onChange={(e) => setClienteForm({ ...clienteForm, nombre_contacto_administrativo: e.target.value })}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
+                    readOnly={clientReadOnly}
+                    onChange={(e) => editCliente('nombre_contacto_administrativo', e.target.value)}
+                    className={`w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent ${clientReadOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                     placeholder="Nombre completo"
                   />
                 </div>
@@ -1800,8 +1832,9 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                   <input
                     type="tel"
                     value={clienteForm.telefono_contacto_administrativo}
-                    onChange={(e) => setClienteForm({ ...clienteForm, telefono_contacto_administrativo: e.target.value })}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
+                    readOnly={clientReadOnly}
+                    onChange={(e) => editCliente('telefono_contacto_administrativo', e.target.value)}
+                    className={`w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent ${clientReadOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                     placeholder="+56 2 2345 6789"
                   />
                 </div>
@@ -1813,8 +1846,9 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                   <input
                     type="email"
                     value={clienteForm.email_contacto_administrativo}
-                    onChange={(e) => setClienteForm({ ...clienteForm, email_contacto_administrativo: e.target.value })}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
+                    readOnly={clientReadOnly}
+                    onChange={(e) => editCliente('email_contacto_administrativo', e.target.value)}
+                    className={`w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent ${clientReadOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                     placeholder="administracion@colegio.cl"
                   />
                 </div>

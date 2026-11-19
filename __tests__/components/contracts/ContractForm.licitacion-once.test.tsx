@@ -148,3 +148,27 @@ describe('ContractForm — a tender has one contract', () => {
     expect(currentClient.__writes.filter((w: any) => w.table === 'contratos' && w.op === 'insert')).toHaveLength(0);
   });
 });
+
+// F21b (GES-3.10): the tender's pre-selected client stays as it is, and its data is read-only.
+describe('ContractForm — the tender\'s pre-selected client', () => {
+  it('stays selected and fixed; its fields are read-only with the line to Clientes', () => {
+    currentClient = createFakeSupabase();
+    const { container } = render(
+      <ContractForm
+        programas={PROGRAMAS}
+        clientes={[CLIENTE as any]}
+        licitacionId={LIC_ID}
+        licitacionData={{ cliente_id: 'cliente-1', programa_id: 'prog-b', precio_total_uf: 100, tipo_moneda: 'UF' } as any}
+        onSuccess={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
+    const select = container.querySelector('select') as HTMLSelectElement;
+    expect(select.value).toBe('cliente-1');
+    expect(select.disabled).toBe(true);
+    expect(screen.getByText('Cliente fijado por la licitacion. No se puede cambiar.')).toBeInTheDocument();
+    expect(screen.getByText('Para corregir los datos del cliente, use Clientes')).toBeInTheDocument();
+    expect((screen.getByPlaceholderText('Nombre legal de la empresa') as HTMLInputElement).readOnly).toBe(true);
+    expect(screen.getByPlaceholderText('Nombre legal de la empresa')).toHaveValue('Colegio Inventado SpA');
+  });
+});

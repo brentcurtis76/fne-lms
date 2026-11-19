@@ -757,9 +757,42 @@ describe('/api/meetings/[id]/finalize', () => {
         recipients: twoRecipients,
         summary: { sent: 0, failed: 2, errors: [{ email: 'u1@example.com', error: 'provider_rejected' }] },
       });
+      // N157: changed on purpose from null — the provider refused, so the reason is said.
       expect(data).toMatchObject({
-        ok: true, recipients_count: 2, sent: 0, failed: 2, summary_email_sent: false, summary_email_error: null,
+        ok: true, recipients_count: 2, sent: 0, failed: 2, summary_email_sent: false, summary_email_error: 'provider_failed',
       });
+    });
+
+    it('N157: every send not_configured is reported as mail_not_configured', async () => {
+      const { data } = await finalizeWith({
+        recipients: twoRecipients,
+        summary: {
+          sent: 0,
+          failed: 2,
+          errors: [
+            { email: 'u1@example.com', error: 'not_configured' },
+            { email: 'u2@example.com', error: 'not_configured' },
+          ],
+        },
+      });
+      expect(data).toMatchObject({
+        ok: true, recipients_count: 2, sent: 0, failed: 2, summary_email_sent: false, summary_email_error: 'mail_not_configured',
+      });
+    });
+
+    it('N157: a mix of not_configured and another failure is reported as provider_failed', async () => {
+      const { data } = await finalizeWith({
+        recipients: twoRecipients,
+        summary: {
+          sent: 0,
+          failed: 2,
+          errors: [
+            { email: 'u1@example.com', error: 'not_configured' },
+            { email: 'u2@example.com', error: 'transport_error' },
+          ],
+        },
+      });
+      expect(data).toMatchObject({ sent: 0, failed: 2, summary_email_sent: false, summary_email_error: 'provider_failed' });
     });
 
     it('zero recipients is reported as not sent with no_recipients', async () => {
@@ -789,6 +822,66 @@ describe('/api/meetings/[id]/finalize', () => {
       });
       expect((m.sendMeetingSummary as any).mock.calls[0][2]).toMatchObject({ kind: 'refuse' });
       expect(data).toMatchObject({ ok: true, sent: 0, summary_email_sent: false, summary_email_error: 'tenant_scope_refused' });
+    });
+  });
+
+  describe('N157: a failure after the meeting was made final answers 200 with lookup_failed', () => {
+    async function finalizeBreaking(breakIt: (m: any, client: any) => void) {
+      const m = await loadMocks();
+      (m.getApiUser as any).mockResolvedValue({ user: { id: USER_ID }, error: null });
+      (m.getUserRoles as any).mockResolvedValue([]);
+      (m.getHighestRole as any).mockReturnValue('admin');
+      (m.canFinalizeMeeting as any).mockReturnValue(true);
+      (m.getCommunityRecipients as any).mockResolvedValue([{ id: 'u1', email: 'u1@example.com', name: 'U1' }]);
+      (m.sendMeetingSummary as any).mockResolvedValue({ sent: 1, failed: 0, errors: [] });
+      const client = buildClient({ meetingRow });
+      breakIt(m, client);
+      (m.createServiceRoleClient as any).mockReturnValue(client);
+      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const { req, res } = createMocks({ method: 'POST', query: { id: MEETING_ID }, body: { audience: 'with_access' } });
+      await handler(req as any, res as any);
+      const logged = consoleError.mock.calls.map((c) => String(c[0]));
+      consoleError.mockRestore();
+      return { m, client, res, logged };
+    }
+
+    it('a read of the related content throwing after the commit', async () => {
+      const { m, client, res, logged } = await finalizeBreaking((_m, c) => {
+        const base = c.from;
+        c.from = vi.fn((table: string) => {
+          if (table === 'meeting_agreements') {
+            return {
+              select: vi.fn().mockReturnValue({
+                eq: vi.fn().mockReturnValue({
+                  order: vi.fn().mockRejectedValue(new Error('agreements read down')),
+                }),
+              }),
+            };
+          }
+          return base(table);
+        });
+      });
+      expect((client as any).__meetingUpdateFn).toHaveBeenCalledTimes(1);
+      expect(res._getStatusCode()).toBe(200);
+      expect(JSON.parse(res._getData()).data).toMatchObject({
+        ok: true, summary_email_sent: false, summary_email_error: 'lookup_failed',
+      });
+      expect(m.sendMeetingSummary).not.toHaveBeenCalled();
+      expect(logged.some((l) => l.includes('[meetings-finalize]'))).toBe(true);
+    });
+
+    it('the recipients lookup throwing after the commit', async () => {
+      const { m, client, res } = await finalizeBreaking((mocks) => {
+        (mocks.getCommunityRecipients as any).mockRejectedValue(new Error('meeting_not_found'));
+      });
+      expect((client as any).__meetingUpdateFn).toHaveBeenCalledTimes(1);
+      expect(res._getStatusCode()).toBe(200);
+      expect(JSON.parse(res._getData()).data).toMatchObject({
+        ok: true, recipients_count: 0, summary_email_sent: false, summary_email_error: 'lookup_failed',
+      });
+      expect(m.sendMeetingSummary).not.toHaveBeenCalled();
+      // The bell keeps its own behaviour.
+      expect(m.triggerNotification).toHaveBeenCalledWith('meeting_finalized', expect.objectContaining({ meeting_id: MEETING_ID }));
     });
   });
 });

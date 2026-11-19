@@ -47,6 +47,12 @@ function emailWarning(result: FinalizeResult): string | null {
       return 'Reunión finalizada, pero el resumen no se envió por correo: el envío no está autorizado para esta comunidad.';
     case 'no_recipients':
       return 'Reunión finalizada, pero el resumen no se envió por correo: no hay destinatarios.';
+    // N157: nothing was sent, said with its reason. 'mail_not_configured' and
+    // every unknown code keep the generic sentence below.
+    case 'provider_failed':
+      return 'Reunión finalizada, pero el servicio de correo rechazó todos los envíos: nadie recibió el resumen.';
+    case 'lookup_failed':
+      return 'Reunión finalizada, pero no se pudo preparar el envío del resumen: nadie lo recibió.';
   }
   if (sent > 0 && failed > 0) {
     return `Reunión finalizada, pero el resumen solo se envió a ${sent} de ${recipientLabel(sent + failed)}.`;

@@ -313,6 +313,13 @@ describe('FinalizeMeetingDialog', () => {
         'Reunión finalizada, pero el resumen no se envió por correo: el envío no está autorizado para esta comunidad.'],
       ['zero recipients', { recipients_count: 0, sent: 0, failed: 0, summary_email_sent: false, summary_email_error: 'no_recipients' },
         'Reunión finalizada, pero el resumen no se envió por correo: no hay destinatarios.'],
+      // N157: a total failure says its reason.
+      ['provider refused every send', { recipients_count: 3, sent: 0, failed: 3, summary_email_sent: false, summary_email_error: 'provider_failed' },
+        'Reunión finalizada, pero el servicio de correo rechazó todos los envíos: nadie recibió el resumen.'],
+      ['lookup failed after finalising', { recipients_count: 0, sent: 0, failed: 0, summary_email_sent: false, summary_email_error: 'lookup_failed' },
+        'Reunión finalizada, pero no se pudo preparar el envío del resumen: nadie lo recibió.'],
+      ['mail not configured', { recipients_count: 3, sent: 0, failed: 3, summary_email_sent: false, summary_email_error: 'mail_not_configured' },
+        'Reunión finalizada, pero no se pudo enviar el resumen por correo.'],
     ])('%s: warns instead of claiming the email was sent, closes once, never retries', async (_name, data, warning) => {
       const { posts, onOpenChange, onFinalized } = await finalize(data);
       expect(toastSuccess).not.toHaveBeenCalled();

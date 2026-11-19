@@ -50,7 +50,7 @@ const UF_MAX_CLP = 80_000;
  * A usable UF number: finite and between UF_MIN_CLP and UF_MAX_CLP. Anything
  * else (0, a negative, a text, NaN, 5, 391,844, 5,000,000) is not a UF value.
  */
-function isUsableUFNumber(n: unknown): n is number {
+export function isUsableUFNumber(n: unknown): n is number {
   return typeof n === 'number' && Number.isFinite(n) && n >= UF_MIN_CLP && n <= UF_MAX_CLP;
 }
 

@@ -13,7 +13,9 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createMocks } from 'node-mocks-http';
-import handler from '../../pages/api/uf-value';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import handler, { extractUFFromSII } from '../../pages/api/uf-value';
 
 // Noon UTC on an invented "today": the same calendar day in UTC and in Chile.
 const TODAY = '2026-11-18';
@@ -172,5 +174,120 @@ describe('/api/uf-value', () => {
     const res = await call('POST');
     expect(res._getStatusCode()).toBe(405);
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * N187 — the SII's REAL yearly page. The fixture is a byte-for-byte copy of
+ * https://www.sii.cl/valores_y_fechas/uf/uf2026.htm as it was on 18 Nov 2026
+ * (a public page; no personal data). Each month is a block
+ * `<div class='meses' id='mes_<month>'>` holding one table, newest month
+ * first, after a list of options naming every month; a day is written
+ * `<th width='40'><strong>18</strong></th> <td width='200'>41.357,30</td>`,
+ * three days per row. Every value below is read from the fixture by eye and
+ * written here; none is computed.
+ */
+describe('N187: the route reads the real SII page (fixture of 18 Nov 2026)', () => {
+  const REAL_PAGE = readFileSync(join(__dirname, '..', 'fixtures', 'sii-uf-2026-11-18.htm'), 'utf8');
+  const NO_VALUE = { success: false, error: 'No se pudo obtener la UF de hoy' };
+  // Noon in Chile (UTC-3 in October, November and December 2026).
+  const noonInChile = (date: string) => new Date(`${date}T12:00:00-03:00`);
+
+  async function callOn(date: string, page = REAL_PAGE) {
+    vi.setSystemTime(noonInChile(date));
+    fetchMock.mockResolvedValue(textResponse(page));
+    return call();
+  }
+
+  it("(1) 18 Nov 2026 → success, 41357.3, fecha '2026-11-18', cached ten minutes", async () => {
+    const res = await callOn('2026-11-18');
+    expect(res._getJSONData()).toEqual({ success: true, valor: 41357.3, fecha: '2026-11-18' });
+    expect(res.getHeader('Cache-Control')).toBe('public, s-maxage=600');
+    expect(fetchMock.mock.calls[0][0]).toBe('https://www.sii.cl/valores_y_fechas/uf/uf2026.htm');
+  });
+
+  it.each([
+    ['2026-11-01', 41252.94], // «41.252,94» (first column)
+    ['2026-11-02', 41258.26], // «41.258,26»
+    ['2026-11-10', 41302.33], // «41.302,33» (first column, last row with a value)
+    ['2026-11-20', 41371.05], // «41.371,05» (second column)
+    ['2026-11-30', 41439.89], // «41.439,89» (third column)
+  ])('(2) %s → success with %s', async (date, valor) => {
+    const res = await callOn(date);
+    expect(res._getJSONData()).toEqual({ success: true, valor, fecha: date });
+  });
+
+  it('(3) the reader asked for 31 November (a cell with no value) → null', () => {
+    expect(extractUFFromSII(REAL_PAGE, '11', 31)).toBeNull();
+  });
+
+  it("(4) 1 Dec 2026, a day with a value on the page → December's 41446.78", async () => {
+    const res = await callOn('2026-12-01');
+    expect(res._getJSONData()).toEqual({ success: true, valor: 41446.78, fecha: '2026-12-01' });
+  });
+
+  it('(4) 15 Dec 2026, a day whose value cell is still empty → success false, no value', async () => {
+    const res = await callOn('2026-12-15');
+    expect(res._getJSONData()).toEqual(NO_VALUE);
+    expect(res.getHeader('Cache-Control')).toBeUndefined();
+  });
+
+  it("(5) 15 Oct 2026 → October's 41162.73, not November's 41336.67 nor December's (empty) cell", async () => {
+    const res = await callOn('2026-10-15');
+    expect(res._getJSONData()).toEqual({ success: true, valor: 41162.73, fecha: '2026-10-15' });
+  });
+
+  it("(6) a cut page with no November block → the reader gives null (never another month's value)", () => {
+    const start = REAL_PAGE.indexOf("<div class='meses' id='mes_noviembre'>");
+    const end = REAL_PAGE.indexOf("<div class='meses' id='mes_octubre'>");
+    expect(start).toBeGreaterThan(0);
+    expect(end).toBeGreaterThan(start);
+    const cut = REAL_PAGE.slice(0, start) + REAL_PAGE.slice(end);
+    expect(extractUFFromSII(cut, '11', 18)).toBeNull();
+    // The same cut page still holds October: the reader is not broken by the cut.
+    expect(extractUFFromSII(cut, '10', 15)).toBe(41162.73);
+  });
+
+  describe('(6b) the staged pages of the blind test of 18 Nov', () => {
+    // Clock: 18 Nov 2026 at noon in Chile. Values invented (as in the blind test).
+    const valuePage = (value: string) =>
+      `<h2>Noviembre</h2><table><tr><td>18</td><td>${value}</td></tr></table>`;
+
+    it("a list of month names before October's table → November never gets October's value", async () => {
+      const page = `<nav>Noviembre</nav>
+<h2>Octubre</h2><table><tr><td>18</td><td>40.000,00</td></tr></table>
+<h2>Noviembre</h2><table><tr><td>18</td><td>41.357,30</td></tr></table>`;
+      const res = await callOn('2026-11-18', page);
+      expect(res._getJSONData()).not.toHaveProperty('valor', 40000);
+      expect(res._getJSONData()).toEqual({ success: true, valor: 41357.3, fecha: '2026-11-18' });
+    });
+
+    it.each([
+      ['41357.30', '41357.30'],
+      ['41.357,30,99', '41.357,30,99'],
+      ['41.357,30.99', '41.357,30.99'],
+      ['1', '1'],
+      ['99999999', '99999999'],
+      ['400 nines', '9'.repeat(400)],
+    ])('the value written %s → success false, no value', async (_label, value) => {
+      const res = await callOn('2026-11-18', valuePage(value));
+      expect(res._getJSONData()).toEqual(NO_VALUE);
+      expect(res.getHeader('Cache-Control')).toBeUndefined();
+    });
+
+    it("the value written ' 41.357,30 ' (spaces around) → 41357.3", async () => {
+      const res = await callOn('2026-11-18', valuePage(' 41.357,30 '));
+      expect(res._getJSONData()).toEqual({ success: true, valor: 41357.3, fecha: '2026-11-18' });
+    });
+
+    it.each([
+      ['41.357,30', 41357.3],
+      ['41357,30', 41357.3],
+      ['41357', 41357],
+      ['41.357', 41357],
+    ])('the value written %s (the Chilean way) → %s', async (value, valor) => {
+      const res = await callOn('2026-11-18', valuePage(value));
+      expect(res._getJSONData()).toEqual({ success: true, valor, fecha: '2026-11-18' });
+    });
   });
 });

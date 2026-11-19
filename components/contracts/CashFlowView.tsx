@@ -1,7 +1,7 @@
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { useState, useEffect } from 'react';
 import { Calendar, DollarSign, TrendingUp, AlertCircle, CheckCircle, Upload, Check, X, Filter } from 'lucide-react';
-import UFService from '../../lib/uf-service';
+import UFService, { getFixedUF, type UFSource } from '../../lib/uf-service';
 import { toast } from 'react-hot-toast';
 import { invoiceUploadColumns, invoiceUploadObjectName } from '../../lib/contracts/invoice-path';
 import { openInvoiceInNewTab } from '../../lib/contracts/open-invoice';
@@ -58,6 +58,18 @@ interface CashFlowViewProps {
   contratos: Contrato[];
 }
 
+// N89: a UF value is usable only when it is a positive finite number.
+function isUsableUF(value: number | null | undefined): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0;
+}
+
+// N89: 'YYYY-MM-DD' → 'DD-MM-YYYY' by splitting the text (no Date, so no time
+// zone can move the day).
+function formatUFDate(fecha: string): string {
+  const [year, month, day] = fecha.split('T')[0].split('-');
+  return `${day}-${month}-${year}`;
+}
+
 export default function CashFlowView({ contratos }: CashFlowViewProps) {
   const supabase = useSupabaseClient();
   const [cashFlow, setCashFlow] = useState<CashFlowItem[]>([]);
@@ -65,7 +77,9 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
   const [viewType, setViewType] = useState<'monthly' | 'detailed'>('monthly');
   const [currencyDisplay, setCurrencyDisplay] = useState<'UF' | 'CLP' | 'BOTH'>('BOTH');
   const [loading, setLoading] = useState(false);
-  const [currentUFValue, setCurrentUFValue] = useState<number>(0);
+  // N89: null = not yet known; nothing is computed with the UF until it is.
+  const [currentUFValue, setCurrentUFValue] = useState<number | null>(null);
+  const [ufOrigin, setUfOrigin] = useState<{ source: UFSource; fecha: string } | null>(null);
   const [paymentFilter, setPaymentFilter] = useState<'all' | 'due_unpaid' | 'due_paid'>('all');
   const [uploadingInvoice, setUploadingInvoice] = useState<string | null>(null);
   // GES-1.4: the instalment whose invoice link is being asked for.
@@ -80,13 +94,17 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
     setLoading(true);
     try {
       const ufValue = await UFService.getCurrentUF();
+      if (!isUsableUF(ufValue?.valor)) throw new Error('UF value not usable');
       setCurrentUFValue(ufValue.valor);
+      setUfOrigin({ source: ufValue.source, fecha: ufValue.fecha });
       await generateCashFlow(ufValue.valor);
     } catch (error) {
       console.error('Error loading UF value:', error);
-      // Use fallback UF value
-      setCurrentUFValue(37500);
-      await generateCashFlow(37500);
+      // The service's fixed value, shown as such (never a number of this screen).
+      const fixed = getFixedUF();
+      setCurrentUFValue(fixed.valor);
+      setUfOrigin({ source: fixed.source, fecha: fixed.fecha });
+      await generateCashFlow(fixed.valor);
     }
     setLoading(false);
   };
@@ -188,11 +206,19 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
   const formatCurrency = (amount: number, originalCurrency?: 'UF' | 'CLP', amountCLP?: number) => {
     // Detect if the original amount was in CLP based on size
     const isOriginalClp = originalCurrency === 'CLP' || (!originalCurrency && amount > 1000);
-    
+
+    // N89: a conversion needs a known UF value; without one, show «—».
+    if (!isUsableUF(currentUFValue)) {
+      const needsUF =
+        currencyDisplay === 'UF' ? isOriginalClp : !isOriginalClp && !amountCLP;
+      if (needsUF) return '—';
+    }
+    const uf = currentUFValue ?? 0;
+
     if (currencyDisplay === 'UF') {
       if (isOriginalClp) {
         // Convert CLP to UF for display
-        const ufAmount = amount / currentUFValue;
+        const ufAmount = amount / uf;
         return UFService.formatCurrency(ufAmount, 'UF');
       } else {
         return UFService.formatCurrency(amount, 'UF');
@@ -201,20 +227,24 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
       if (isOriginalClp) {
         return UFService.formatCurrency(amount, 'CLP');
       } else {
-        const clpAmount = amountCLP || (amount * currentUFValue);
+        const clpAmount = amountCLP || (amount * uf);
         return UFService.formatCurrency(clpAmount, 'CLP');
       }
     } else {
       // BOTH - show both currencies
       if (isOriginalClp) {
-        const ufAmount = amount / currentUFValue;
+        const ufAmount = amount / uf;
         return `${UFService.formatCurrency(ufAmount, 'UF')} (${UFService.formatCurrency(amount, 'CLP')})`;
       } else {
-        const clpAmount = amountCLP || (amount * currentUFValue);
+        const clpAmount = amountCLP || (amount * uf);
         return `${UFService.formatCurrency(amount, 'UF')} (${UFService.formatCurrency(clpAmount, 'CLP')})`;
       }
     }
   };
+
+  // N89: a total is shown only once the UF value is known; «—» until then.
+  const formatTotal = (amounts: { uf: number; clp: number } | null) =>
+    amounts && isUsableUF(currentUFValue) ? formatCurrency(amounts.uf, 'UF', amounts.clp) : '—';
 
   const formatMonth = (monthStr: string) => {
     const date = new Date(monthStr + '-01');
@@ -256,6 +286,11 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
   const getAllContractsTotals = () => {
     // Include all contracts with incluir_en_flujo = true
     const includedContratos = contratos.filter(contrato => contrato.incluir_en_flujo);
+
+    // N89: no conversion without a known UF value.
+    if (!isUsableUF(currentUFValue)) {
+      return { total: null, paid: null, pending: null, contractCount: includedContratos.length };
+    }
     
     let totalUF = 0;
     let totalCLP = 0;
@@ -451,10 +486,19 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
               <div className="animate-pulse bg-amber-200 h-6 w-24 rounded"></div>
             ) : (
               <p className="text-xl font-bold text-brand_primary">
-                {UFService.formatCurrency(currentUFValue, 'CLP')}
+                {isUsableUF(currentUFValue) ? UFService.formatCurrency(currentUFValue, 'CLP') : '—'}
               </p>
             )}
-            <p className="text-xs text-brand_accent">Actualizado automáticamente</p>
+            {ufOrigin?.source === 'live' && (
+              <p className="text-xs text-brand_accent">Actualizado automáticamente</p>
+            )}
+            {ufOrigin && ufOrigin.source !== 'live' && (
+              <p role="status" className="text-xs text-brand_accent">
+                {ufOrigin.source === 'last-known'
+                  ? `No se pudo obtener la UF de hoy. Se usa el valor del ${formatUFDate(ufOrigin.fecha)}.`
+                  : `No se pudo obtener la UF de hoy. Se usa un valor de referencia del ${formatUFDate(ufOrigin.fecha)}.`}
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -595,7 +639,7 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-brand_primary">Total de Contratos</p>
-                <p className="text-2xl font-bold text-brand_primary">{formatCurrency(getAllContractsTotals().total.uf, 'UF', getAllContractsTotals().total.clp)}</p>
+                <p className="text-2xl font-bold text-brand_primary">{formatTotal(getAllContractsTotals().total)}</p>
                 <p className="text-xs text-brand_accent mt-1">Valor total de todos los contratos</p>
               </div>
               <TrendingUp className="text-brand_accent" size={24} />
@@ -606,7 +650,7 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-amber-600">Total Pagado</p>
-                <p className="text-2xl font-bold text-amber-900">{formatCurrency(getAllContractsTotals().paid.uf, 'UF', getAllContractsTotals().paid.clp)}</p>
+                <p className="text-2xl font-bold text-amber-900">{formatTotal(getAllContractsTotals().paid)}</p>
                 <p className="text-xs text-amber-600 mt-1">Cuotas ya pagadas</p>
               </div>
               <CheckCircle className="text-brand_accent" size={24} />
@@ -617,7 +661,7 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-yellow-600">Total Pendiente</p>
-                <p className="text-2xl font-bold text-yellow-900">{formatCurrency(getAllContractsTotals().pending.uf, 'UF', getAllContractsTotals().pending.clp)}</p>
+                <p className="text-2xl font-bold text-yellow-900">{formatTotal(getAllContractsTotals().pending)}</p>
                 <p className="text-xs text-yellow-600 mt-1">Cuotas por cobrar</p>
               </div>
               <Calendar className="text-yellow-600" size={24} />
@@ -637,7 +681,7 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-brand_primary">Proyectado ({selectedPeriod === '3m' ? '3' : selectedPeriod === '6m' ? '6' : '12'} meses)</p>
-                <p className="text-2xl font-bold text-brand_primary">{formatCurrency(getTotalProjected().uf, 'UF', getTotalProjected().clp)}</p>
+                <p className="text-2xl font-bold text-brand_primary">{formatTotal(getTotalProjected())}</p>
                 <p className="text-xs text-brand_accent mt-1">Cuotas que vencen en período</p>
               </div>
               <TrendingUp className="text-brand_accent" size={24} />
@@ -648,7 +692,7 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-amber-600">Pagado (período)</p>
-                <p className="text-2xl font-bold text-amber-900">{formatCurrency(getTotalPaid().uf, 'UF', getTotalPaid().clp)}</p>
+                <p className="text-2xl font-bold text-amber-900">{formatTotal(getTotalPaid())}</p>
                 <p className="text-xs text-amber-600 mt-1">Cuotas pagadas en período</p>
               </div>
               <CheckCircle className="text-brand_accent" size={24} />
@@ -659,7 +703,7 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-yellow-600">Pendiente (período)</p>
-                <p className="text-2xl font-bold text-yellow-900">{formatCurrency(getTotalPending().uf, 'UF', getTotalPending().clp)}</p>
+                <p className="text-2xl font-bold text-yellow-900">{formatTotal(getTotalPending())}</p>
                 <p className="text-xs text-yellow-600 mt-1">Cuotas pendientes en período</p>
               </div>
               <Calendar className="text-yellow-600" size={24} />

@@ -22,6 +22,11 @@ export interface UFValue {
  */
 const FIXED_UF: Readonly<UFValue> = { fecha: '2025-05-29', valor: 39184, source: 'fixed' };
 
+/** The fixed UF value (see FIXED_UF), for callers that must show something. */
+export function getFixedUF(): UFValue {
+  return { ...FIXED_UF };
+}
+
 /** Every request for the UF gives up after this long (N89). */
 const UF_FETCH_TIMEOUT_MS = 5000;
 

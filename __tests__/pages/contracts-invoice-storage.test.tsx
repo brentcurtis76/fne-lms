@@ -281,3 +281,22 @@ describe('Contracts page — invoices stored by name, removal reads both forms',
     expect(update).toEqual({ table: 'cuotas', id: CUOTA, payload: CLEARED });
   });
 });
+
+describe('Contracts page — the details window\'s paid mark is the invoice\'s (GES-3.3)', () => {
+  it('with an invoice, the paid control writes factura_pagada (never pagada)', async () => {
+    const { user, client } = await renderAndOpen(NAME);
+    await user.click(screen.getByTestId(`details-paid-toggle-${CUOTA}`));
+    await waitFor(() => expect(client.__updates.filter((u: Row) => u.table === 'cuotas')).toHaveLength(1));
+    const update = client.__updates.find((u: Row) => u.table === 'cuotas');
+    expect(update).toEqual({ table: 'cuotas', id: CUOTA, payload: { factura_pagada: true } });
+  });
+
+  it('without an invoice, the paid control is off with «Suba la factura primero» and writes nothing', async () => {
+    const { user, client } = await renderAndOpen(null);
+    const toggle = screen.getByTestId(`details-paid-toggle-${CUOTA}`);
+    expect(toggle).toBeDisabled();
+    expect(toggle).toHaveAttribute('title', 'Suba la factura primero');
+    await user.click(toggle);
+    expect(client.__updates.filter((u: Row) => u.table === 'cuotas')).toHaveLength(0);
+  });
+});

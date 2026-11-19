@@ -1,10 +1,11 @@
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { useState, useEffect, useRef } from 'react';
 import { Calendar, DollarSign, TrendingUp, AlertCircle, CheckCircle, Upload, Check, X, Filter } from 'lucide-react';
-import UFService, { getFixedUF, projectUF, type UFSource, type UFValue } from '../../lib/uf-service';
+import UFService, { getFixedUF, projectUF, todayInChile, type UFSource, type UFValue } from '../../lib/uf-service';
 import { toast } from 'react-hot-toast';
 import { invoiceUploadColumns, invoiceUploadObjectName } from '../../lib/contracts/invoice-path';
 import { openInvoiceInNewTab } from '../../lib/contracts/open-invoice';
+import { isOverdue, isPaid, isPastDue, monthLabel } from '../../lib/contracts/cuota-status';
 
 interface Cuota {
   id: string;
@@ -12,7 +13,7 @@ interface Cuota {
   numero_cuota: number;
   fecha_vencimiento: string;
   monto_uf: number;
-  pagada: boolean;
+  // The older mark `pagada` is not read (GES-3.3: the invoice decides).
   created_at: string;
   monto_clp?: number;
   factura_url?: string;
@@ -28,6 +29,7 @@ interface Contrato {
   precio_total_uf: number;
   tipo_moneda?: 'UF' | 'CLP';
   incluir_en_flujo?: boolean;
+  estado?: string;
   clientes: {
     nombre_legal: string;
     nombre_fantasia: string;
@@ -190,7 +192,8 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
             flowByMonth[cuotaMonth].total_mes += montoUF;
             flowByMonth[cuotaMonth].total_mes_clp! += montoCLP;
             
-            if (cuota.pagada) {
+            // GES-3.3: the invoice decides what is paid.
+            if (isPaid(cuota)) {
               flowByMonth[cuotaMonth].total_pagado += montoUF;
               flowByMonth[cuotaMonth].total_pagado_clp! += montoCLP;
             } else {
@@ -252,10 +255,8 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
   const formatTotal = (amounts: { uf: number; clp: number } | null) =>
     amounts && isUsableUF(currentUFValue) ? formatCurrency(amounts.uf, 'UF', amounts.clp) : '—';
 
-  const formatMonth = (monthStr: string) => {
-    const date = new Date(monthStr + '-01');
-    return date.toLocaleDateString('es-CL', { year: 'numeric', month: 'long' });
-  };
+  // GES-3.4: built from the parts (lib/contracts/cuota-status.ts).
+  const formatMonth = monthLabel;
 
   const formatDate = (dateString: string) => {
     if (!dateString) return '';
@@ -336,7 +337,7 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
           const cuotaIsClp = contrato.tipo_moneda === 'CLP' || 
                             (!contrato.tipo_moneda && cuota.monto_uf > 1000);
           
-          if (cuota.pagada) {
+          if (isPaid(cuota)) {
             if (cuotaIsClp) {
               paidCLP += cuota.monto_uf;
               paidUF += cuota.monto_uf / currentUFValue;
@@ -373,14 +374,20 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
     };
   };
 
+  // GES-3.12: today's calendar day in Chile, read once per render.
+  const today = todayInChile(new Date());
+
+  // GES-3.12: only contracts in the cash flow that are neither drafts nor
+  // cancelled; overdue by the day in Chile and unpaid by the invoice.
   const getOverdueCuotas = () => {
-    const today = new Date().toISOString().split('T')[0];
     const overdue: Array<{ contrato: Contrato; cuota: Cuota }> = [];
     
-    contratos.forEach(contrato => {
+    contratos
+      .filter(contrato => contrato.incluir_en_flujo && contrato.estado !== 'borrador' && contrato.estado !== 'anulado')
+      .forEach(contrato => {
       if (contrato.cuotas) {
         contrato.cuotas.forEach(cuota => {
-          if (!cuota.pagada && cuota.fecha_vencimiento < today) {
+          if (isOverdue(cuota, today)) {
             overdue.push({ contrato, cuota });
           }
         });
@@ -442,6 +449,7 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
   // Handle payment status toggle
   const handlePaymentStatusToggle = async (cuotaId: string, currentStatus: boolean) => {
     try {
+      // GES-3.3: the button is off without an invoice; this is its only write.
       const { error } = await supabase
         .from('cuotas')
         .update({ 
@@ -464,15 +472,12 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
   const filterCuotas = (cuotas: any[]) => {
     if (paymentFilter === 'all') return cuotas;
     
-    const today = new Date();
+    // GES-3.3 / GES-3.12: due by the day in Chile; paid by the invoice.
     return cuotas.filter(({ cuota }) => {
-      const dueDate = new Date(cuota.fecha_vencimiento);
-      const isDue = dueDate <= today;
-      
       if (paymentFilter === 'due_unpaid') {
-        return isDue && !cuota.factura_pagada;
+        return isOverdue(cuota, today);
       } else if (paymentFilter === 'due_paid') {
-        return isDue && cuota.factura_pagada;
+        return isPastDue(cuota, today) && isPaid(cuota);
       }
       return true;
     });
@@ -871,15 +876,15 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
                           <td className="py-3 px-2 md:px-4 font-medium text-sm">{formatCurrency(cuota.monto_uf, contrato.tipo_moneda, monto_clp)}</td>
                           <td className="py-3 px-2 md:px-4">
                             <span className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
-                              cuota.pagada
+                              isPaid(cuota)
                                 ? 'bg-amber-100 text-amber-800'
-                                : new Date(cuota.fecha_vencimiento) < new Date()
+                                : isOverdue(cuota, today)
                                 ? 'bg-red-100 text-red-800'
                                 : 'bg-yellow-100 text-yellow-800'
                             }`}>
-                              {cuota.pagada 
+                              {isPaid(cuota)
                                 ? 'Pagada' 
-                                : new Date(cuota.fecha_vencimiento) < new Date()
+                                : isOverdue(cuota, today)
                                 ? 'Vencida'
                                 : 'Pendiente'
                               }
@@ -924,9 +929,15 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
                           <td className="py-3 px-2 md:px-4">
                             <div className="flex items-center justify-center">
                               <button
+                                type="button"
                                 onClick={() => handlePaymentStatusToggle(cuota.id, cuota.factura_pagada || false)}
+                                disabled={!cuota.factura_url}
+                                title={!cuota.factura_url ? 'Suba la factura primero' : isPaid(cuota) ? 'Marcar como no pagado' : 'Marcar como pagado'}
+                                data-testid={`cashflow-paid-toggle-${cuota.id}`}
                                 className={`flex items-center justify-center w-8 h-8 rounded-lg transition-colors ${
-                                  cuota.factura_pagada
+                                  !cuota.factura_url
+                                    ? 'bg-gray-100 text-gray-300 cursor-not-allowed'
+                                    : isPaid(cuota)
                                     ? 'bg-amber-100 hover:bg-amber-200 text-brand_accent'
                                     : 'bg-gray-100 hover:bg-gray-200 text-gray-400'
                                 }`}

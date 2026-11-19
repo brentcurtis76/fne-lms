@@ -46,7 +46,9 @@ vi.mock('@supabase/auth-helpers-react', () => {
   };
   return { useSupabaseClient: () => client };
 });
-vi.mock('../../../lib/uf-service', () => ({
+vi.mock('../../../lib/uf-service', async (importOriginal) => ({
+  // F21a: the screen reads today's day in Chile from the service (the real helper).
+  todayInChile: ((await importOriginal()) as any).todayInChile,
   default: {
     getCurrentUF: vi.fn(async () => ({ valor: 37500, fecha: '2026-11-18', source: 'live' })),
     getProjectedUF: vi.fn(async () => ({ valor: 37500 })),

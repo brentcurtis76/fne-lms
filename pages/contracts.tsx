@@ -545,8 +545,10 @@ export default function ContractsPage() {
       
       const { error } = await supabase
         .from('cuotas')
-        .update({ 
-          pagada: !currentStatus
+        // GES-3.3: the invoice decides. The control is off without an invoice;
+        // the older mark `pagada` is no longer written.
+        .update({
+          factura_pagada: !currentStatus
         })
         .eq('id', cuotaId);
 

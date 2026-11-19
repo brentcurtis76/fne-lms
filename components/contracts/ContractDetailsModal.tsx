@@ -4,6 +4,8 @@ import HourAllocationPanel from './HourAllocationPanel';
 import { isFirmaPendiente } from '../../lib/utils/contract-status';
 import { toast } from 'react-hot-toast';
 import { downloadInvoice, openInvoiceInNewTab } from '../../lib/contracts/open-invoice';
+import { isOverdue, isPaid } from '../../lib/contracts/cuota-status';
+import { todayInChile } from '../../lib/uf-service';
 
 interface Programa {
   id: string;
@@ -41,6 +43,8 @@ interface Cuota {
   numero_cuota: number;
   fecha_vencimiento: string;
   monto_uf: number;
+  // The older mark: kept in the type (the page's rows carry it) but never
+  // read or written here (GES-3.3: the invoice decides).
   pagada: boolean;
   created_at: string;
   factura_url?: string;
@@ -170,6 +174,8 @@ export default function ContractDetailsModal({
   const pendingActivation = contrato.estado !== 'activo';
   const firmaPendiente = isFirmaPendiente(contrato);
   const isBorrador = contrato.estado === 'borrador';
+  // GES-3.12: today's calendar day in Chile for «Vencida».
+  const today = todayInChile(new Date());
   // «Horas contratadas» line: not for annexes (their hours are a later phase); at most
   // one per window, in the manual block, the programme block, or else the general
   // contract block (send-back 3)
@@ -749,15 +755,15 @@ export default function ContractDetailsModal({
                         <td className="border border-gray-200 px-4 py-3 font-semibold text-brand_primary">{formatCurrency(cuota.monto_uf)}</td>
                         <td className="border border-gray-200 px-4 py-3">
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                            cuota.pagada
+                            isPaid(cuota)
                               ? 'bg-amber-100 text-amber-800'
-                              : new Date(cuota.fecha_vencimiento) < new Date()
+                              : isOverdue(cuota, today)
                               ? 'bg-red-100 text-red-800'
                               : 'bg-yellow-100 text-yellow-800'
                           }`}>
-                            {cuota.pagada 
+                            {isPaid(cuota)
                               ? 'Pagada' 
-                              : new Date(cuota.fecha_vencimiento) < new Date()
+                              : isOverdue(cuota, today)
                               ? 'Vencida'
                               : 'Pendiente'
                             }
@@ -846,14 +852,26 @@ export default function ContractDetailsModal({
                           </div>
                         </td>
                         <td className="border border-gray-200 px-4 py-3 text-center">
+                          {/* GES-3.3: the invoice decides; no invoice, no paid mark. */}
                           <button
-                            onClick={() => handlePaymentToggle(cuota.id, cuota.pagada || false)}
+                            type="button"
+                            onClick={() => handlePaymentToggle(cuota.id, cuota.factura_pagada || false)}
+                            disabled={!cuota.factura_url || hiddenInvoices.has(cuota.id)}
+                            data-testid={`details-paid-toggle-${cuota.id}`}
                             className={`flex items-center justify-center w-8 h-8 rounded-lg transition-colors ${
-                              cuota.pagada
+                              !cuota.factura_url || hiddenInvoices.has(cuota.id)
+                                ? 'bg-gray-100 text-gray-300 cursor-not-allowed'
+                                : isPaid(cuota)
                                 ? 'bg-amber-100 hover:bg-amber-200 text-brand_accent'
                                 : 'bg-gray-100 hover:bg-gray-200 text-gray-400'
                             }`}
-                            title={cuota.pagada ? 'Marcar como no pagado' : 'Marcar como pagado'}
+                            title={
+                              !cuota.factura_url || hiddenInvoices.has(cuota.id)
+                                ? 'Suba la factura primero'
+                                : isPaid(cuota)
+                                ? 'Marcar como no pagado'
+                                : 'Marcar como pagado'
+                            }
                           >
                             <Check size={16} />
                           </button>

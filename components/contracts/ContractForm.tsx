@@ -571,7 +571,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
   const storedCliente = clientReadOnly ? clientes.find(c => c.id === selectedClienteId) : undefined;
   const clientFieldFillable = (field: keyof ClienteFormState): boolean => {
     if (!clientReadOnly || !requiredClientFields.includes(field)) return false;
-    const stored = (storedCliente as Record<string, unknown> | undefined)?.[field];
+    const stored = storedCliente?.[field as keyof Cliente];
     return stored == null || String(stored).trim() === '';
   };
   const fillableClientFields = requiredClientFields.filter(clientFieldFillable);

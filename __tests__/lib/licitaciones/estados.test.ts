@@ -99,3 +99,21 @@ describe.each(TODOS)('puedeEliminarLicitacion in %s', (estado) => {
     expect(puedeEliminarLicitacion(estado, true)).toBe(true);
   });
 });
+
+// join fix 1: «Generar Bases» only until the tender is awarded
+import { puedeGenerarBases, MENSAJE_BASES_ADJUDICADA } from '@/lib/licitaciones/estados';
+
+describe.each(TODOS)('puedeGenerarBases in %s', (estado) => {
+  it('allowed only before contrato_pendiente', () => {
+    expect(puedeGenerarBases(estado)).toBe(ANTES_DE_ADJUDICAR.includes(estado));
+  });
+});
+
+describe('puedeGenerarBases: a state that is not in the list is never refused', () => {
+  it.each([undefined, null, '', 'desconocido'])('%s', (estado) => {
+    expect(puedeGenerarBases(estado)).toBe(true);
+  });
+  it('the sentence', () => {
+    expect(MENSAJE_BASES_ADJUDICADA).toBe('La licitación ya fue adjudicada: no se pueden generar nuevas Bases.');
+  });
+});

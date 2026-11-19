@@ -4,10 +4,12 @@ import { Plus, Trash2, FileText, Download, Check, X, MessageSquare } from 'lucid
 import { LicitacionDetail, LicitacionAte, LicitacionConsulta, LicitacionDocumento } from '@/types/licitaciones';
 import { validateRut, formatRut } from '@/utils/rutValidation';
 import {
+  MENSAJE_BASES_ADJUDICADA,
   MENSAJE_CERRADA,
   MENSAJE_EVALUACION_INICIADA,
   puedeAgregarConsulta,
   puedeEliminarDocumento,
+  puedeGenerarBases,
   puedeModificarAtes,
 } from '@/lib/licitaciones/estados';
 
@@ -92,6 +94,7 @@ export default function Step3Bases({ licitacion, isAdmin, onAdvance, onRefresh }
   const atesEditables = puedeModificarAtes(licitacion.estado);
   const consultasAbiertas = puedeAgregarConsulta(licitacion.estado);
   const documentosEliminables = puedeEliminarDocumento(licitacion.estado);
+  const basesGenerables = puedeGenerarBases(licitacion.estado);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -645,16 +648,18 @@ export default function Step3Bases({ licitacion, isAdmin, onAdvance, onRefresh }
         </h3>
 
         <div className="flex flex-wrap gap-3 items-center mb-4">
-          <button
-            onClick={handleGenerateBases}
-            disabled={!isAdmin || generatingBases}
-            className={BTN_PRIMARY}
-          >
-            <span className="flex items-center gap-1">
-              <FileText size={14} />
-              {generatingBases ? 'Generando...' : 'Generar Bases (.docx)'}
-            </span>
-          </button>
+          {basesGenerables && (
+            <button
+              onClick={handleGenerateBases}
+              disabled={!isAdmin || generatingBases}
+              className={BTN_PRIMARY}
+            >
+              <span className="flex items-center gap-1">
+                <FileText size={14} />
+                {generatingBases ? 'Generando...' : 'Generar Bases (.docx)'}
+              </span>
+            </button>
+          )}
           {lastGeneratedUrl && (
             // BC-2: fixed colors for download link
             <a
@@ -668,6 +673,12 @@ export default function Step3Bases({ licitacion, isAdmin, onAdvance, onRefresh }
             </a>
           )}
         </div>
+
+        {!basesGenerables && (
+          <p className="text-sm text-amber-700 bg-amber-50 rounded-lg px-3 py-2 mb-4">
+            {MENSAJE_BASES_ADJUDICADA}
+          </p>
+        )}
 
         {/* Previous bases documents */}
         {basesDocumentos.length > 0 && (
@@ -701,7 +712,7 @@ export default function Step3Bases({ licitacion, isAdmin, onAdvance, onRefresh }
           </div>
         )}
 
-        {basesDocumentos.length === 0 && (
+        {basesDocumentos.length === 0 && basesGenerables && (
           <p className="text-xs text-gray-500">
             Estado: Bases no generadas. Haga clic en &ldquo;Generar Bases&rdquo; para crear el documento Word.
           </p>

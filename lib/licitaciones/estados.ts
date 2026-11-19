@@ -47,6 +47,7 @@ export const MENSAJE_ADJUDICADA = 'La licitación ya fue adjudicada: sus datos n
 export const MENSAJE_CERRADA = 'La licitación está cerrada: no se pueden agregar consultas ni eliminar documentos.';
 export const MENSAJE_SOLO_ANEXOS = 'La licitación está cerrada: solo se pueden agregar anexos u otros documentos.';
 export const MENSAJE_NO_ELIMINAR = 'La licitación ya fue adjudicada: no se puede eliminar.';
+export const MENSAJE_BASES_ADJUDICADA = 'La licitación ya fue adjudicada: no se pueden generar nuevas Bases.';
 
 /** True when `estado` is a known state at or after `desde` in the ordered list. */
 function alcanzo(estado: string | null | undefined, desde: LicitacionEstado): boolean {
@@ -80,6 +81,11 @@ export function puedeEditarDatos(estado: string | null | undefined): boolean {
  */
 export function puedeEliminarLicitacion(estado: string | null | undefined, esHistorica: boolean): boolean {
   return esHistorica || !alcanzo(estado, INICIO_ADJUDICADA);
+}
+
+/** Join fix 1: new bases («Generar Bases») may be generated only before the tender is awarded. */
+export function puedeGenerarBases(estado: string | null | undefined): boolean {
+  return !alcanzo(estado, INICIO_ADJUDICADA);
 }
 
 /** Rule 3: a question («consulta») may be added. */

@@ -12,6 +12,7 @@ import {
 import { getUserRoles } from '@/utils/roleUtils';
 import { uuidSchema } from '@/lib/validation/schemas';
 import { generateBasesDocument, BasesDocumentData } from '@/lib/docxGenerator';
+import { MENSAJE_BASES_ADJUDICADA, puedeGenerarBases } from '@/lib/licitaciones/estados';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   logApiRequest(req, 'licitaciones-generate-bases');
@@ -51,6 +52,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (licitError || !licitacion) {
       return sendAuthError(res, 'Licitacion no encontrada', 404);
+    }
+
+    // No new bases once the tender is awarded (lib/licitaciones/estados.ts).
+    if (!puedeGenerarBases(licitacion.estado)) {
+      return sendAuthError(res, MENSAJE_BASES_ADJUDICADA, 409);
     }
 
     // Fetch school

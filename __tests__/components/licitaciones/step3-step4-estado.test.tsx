@@ -93,6 +93,25 @@ describe('Step3Bases', () => {
   });
 });
 
+// join fix 1: no «Generar Bases» once the tender is awarded; the existing bases stay listed.
+describe('Step3Bases — «Generar Bases»', () => {
+  const SENTENCE = 'La licitación ya fue adjudicada: no se pueden generar nuevas Bases.';
+
+  it('propuestas_pendientes: the control as today', async () => {
+    await step3('propuestas_pendientes');
+    const boton = screen.getByRole('button', { name: /Generar Bases/ }) as HTMLButtonElement;
+    expect(boton.disabled).toBe(false);
+    expect(screen.queryByText(SENTENCE)).toBeNull();
+  });
+
+  it.each(['contrato_pendiente', 'cerrada'])('%s: no «Generar Bases» control; the sentence; the bases stay listed', async (estado) => {
+    await step3(estado);
+    expect(screen.queryByRole('button', { name: /Generar Bases/ })).toBeNull();
+    expect(screen.getByText(SENTENCE)).toBeTruthy();
+    await waitFor(() => expect(screen.getByText('Bases_inventadas.docx')).toBeTruthy());
+  });
+});
+
 describe('Step4Propuestas', () => {
   it('propuestas_pendientes: upload and «Agregar ATE» as today', async () => {
     await step4('propuestas_pendientes');

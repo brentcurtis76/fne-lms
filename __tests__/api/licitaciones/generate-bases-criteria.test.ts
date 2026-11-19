@@ -12,6 +12,7 @@ const { h } = vi.hoisted(() => {
   const h = {
     criterios: [] as Array<Record<string, unknown>>,
     criteriosError: null as { message: string } | null,
+    estado: 'publicada' as string,
     template: { nombre_servicio: 'Servicio inventado', objetivo: 'Objetivo inventado', version: 1 } as Record<string, unknown> | null,
     uploads: [] as string[],
     inserts: [] as string[],
@@ -28,7 +29,7 @@ vi.mock('@/lib/api-auth', async () => {
       return {
         data: {
           id: '22222222-2222-4222-8222-222222222222', school_id: 1, cliente_id: 'cliente-1', programa_id: 'prog-1',
-          numero_licitacion: 'LIC-1-2026-001', nombre_licitacion: 'Licitación inventada', estado: 'publicada',
+          numero_licitacion: 'LIC-1-2026-001', nombre_licitacion: 'Licitación inventada', estado: h.estado,
           year: 2026, monto_minimo: 100, monto_maximo: 200, tipo_moneda: 'UF', duracion_minima: '6', duracion_maxima: '12',
           peso_evaluacion_tecnica: 70, peso_evaluacion_economica: 30, email_licitacion: 'lic@example.test',
         },
@@ -82,7 +83,7 @@ async function call() {
 }
 
 beforeEach(() => {
-  h.criterios = []; h.criteriosError = null; h.uploads = []; h.inserts = [];
+  h.criterios = []; h.criteriosError = null; h.estado = 'publicada'; h.uploads = []; h.inserts = [];
   h.template = { nombre_servicio: 'Servicio inventado', objetivo: 'Objetivo inventado', version: 1 };
   generateBasesDocument.mockClear();
 });
@@ -124,5 +125,61 @@ describe('generate-bases — a programme without active evaluation criteria', ()
     expect(generateBasesDocument).toHaveBeenCalledTimes(1);
     expect(h.uploads).toHaveLength(1);
     expect(h.inserts).toContain('licitacion_documentos');
+  });
+});
+
+// join fix 1: no new Bases once the tender is awarded; the state check comes first of all.
+describe('generate-bases — the state of the tender', () => {
+  const SENTENCE = 'La licitación ya fue adjudicada: no se pueden generar nuevas Bases.';
+  const CRITERIO = [{ nombre_criterio: 'Criterio inventado', puntaje_maximo: 100, descripcion: null, orden: 1 }];
+
+  it.each(['contrato_pendiente', 'contrato_generado', 'adjudicada_externo', 'cerrada'])(
+    '%s: 409 with the sentence; nothing generated, stored or written',
+    async (estado) => {
+      h.estado = estado;
+      h.criterios = CRITERIO;
+      const r = await call();
+      expect(r.status).toBe(409);
+      expect(r.json.error).toBe(SENTENCE);
+      expect(generateBasesDocument).not.toHaveBeenCalled();
+      expect(h.uploads).toHaveLength(0);
+      expect(h.inserts).toHaveLength(0);
+    },
+  );
+
+  it('contrato_generado: the state check comes before the template and criteria refusals', async () => {
+    h.estado = 'contrato_generado';
+    h.template = null;
+    h.criteriosError = { message: 'synthetic query failure' };
+    const r = await call();
+    expect(r.status).toBe(409);
+    expect(r.json.error).toBe(SENTENCE);
+  });
+
+  it.each(['propuestas_pendientes', 'evaluacion_pendiente', 'adjudicacion_pendiente'])(
+    '%s: generates and stores the bases as today',
+    async (estado) => {
+      h.estado = estado;
+      h.criterios = CRITERIO;
+      const r = await call();
+      expect(r.status).toBe(200);
+      expect(generateBasesDocument).toHaveBeenCalledTimes(1);
+      expect(h.uploads).toHaveLength(1);
+      expect(h.inserts).toContain('licitacion_documentos');
+    },
+  );
+
+  it.each(['propuestas_pendientes', 'evaluacion_pendiente'])('%s: the existing refusals keep their order', async (estado) => {
+    h.estado = estado;
+    h.template = null;
+    h.criteriosError = { message: 'synthetic query failure' };
+    expect((await call()).status).toBe(422); // no template first
+    h.template = { nombre_servicio: 'Servicio inventado', objetivo: 'Objetivo inventado', version: 1 };
+    expect((await call()).status).toBe(500); // then the failed criteria query
+    h.criteriosError = null;
+    const r = await call();
+    expect(r.status).toBe(422); // then no active criteria
+    expect(r.json.error).toContain('criterios de evaluación activos');
+    expect(generateBasesDocument).not.toHaveBeenCalled();
   });
 });

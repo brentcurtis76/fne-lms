@@ -259,3 +259,70 @@ describe('MeetingDocumentationModal — background saving only for drafts (EC-R2
     await waitFor(() => expect(autosaveCalls()).toHaveLength(1));
   });
 });
+
+describe('MeetingDocumentationModal — a finalised meeting stays final (EC-R6)', () => {
+  const FINALIZED_AT = '2026-11-10T12:00:00.000Z';
+  const statusSelect = (container: HTMLElement) => {
+    const label = Array.from(container.querySelectorAll('label')).find((l) => l.textContent?.includes('Estado de la Reunión'));
+    return label!.parentElement!.querySelector('select') as HTMLSelectElement;
+  };
+  async function openEditWith(over: Record<string, unknown>) {
+    mockGetMeetingDetails.mockResolvedValue({ ...storedMeeting(String(over.status ?? 'borrador')), ...over });
+    seedRows('meeting_attendees', [{ id: 'att-ana', meeting_id: 'meeting-1', user_id: ANA.id, role: 'participant' }]);
+    const utils = render(<MeetingDocumentationModal {...defaultProps} meetingId="meeting-1" mode="edit" />);
+    await waitFor(() => {
+      const titleInput = utils.container.querySelector('input[type="text"]') as HTMLInputElement | null;
+      expect(titleInput?.value).toBe('Existing meeting');
+    });
+    return utils;
+  }
+
+  it.each([
+    { name: 'a finalised meeting', status: 'completada' },
+    { name: 'a trapped meeting (finalised, stored as borrador)', status: 'borrador' },
+  ])('$name: no «Guardar borrador», the state is locked at «Completada», «Guardar Cambios» sends completada', async ({ status }) => {
+    const utils = await openEditWith({ status, finalized_at: FINALIZED_AT });
+    expect(utils.queryByRole('button', { name: /Guardar borrador/i })).toBeNull();
+
+    await click(utils.getByRole('button', { name: /Siguiente/i }));
+    await waitFor(() => expect(editorOnChange.get('Resumen de la reunión…')).toBeDefined());
+    const select = statusSelect(utils.container);
+    expect(select.disabled).toBe(true);
+    expect(select.value).toBe('completada');
+    expect(select.options[select.selectedIndex].textContent).toBe('Completada');
+
+    await click(utils.getByRole('button', { name: /Siguiente/i }));
+    await click(utils.getByRole('button', { name: /Guardar Cambios/i }));
+    await waitFor(() => expect(mockUpdateMeeting).toHaveBeenCalledTimes(1));
+    expect(mockUpdateMeeting.mock.calls[0][1].status).toBe('completada');
+    expect(toastSuccess).toHaveBeenCalledWith('Reunión actualizada correctamente');
+  });
+
+  it('a draft (no finalized_at) keeps «Guardar borrador» and a free state select', async () => {
+    const utils = await openEditWith({ status: 'borrador', finalized_at: null });
+    expect(utils.getByRole('button', { name: /Guardar borrador/i })).toBeDefined();
+    await click(utils.getByRole('button', { name: /Siguiente/i }));
+    await waitFor(() => expect(editorOnChange.get('Resumen de la reunión…')).toBeDefined());
+    const select = statusSelect(utils.container);
+    expect(select.disabled).toBe(false);
+    expect(select.value).toBe('borrador');
+    await click(utils.getByRole('button', { name: /Guardar borrador/i }));
+    await waitFor(() => expect(mockUpdateMeeting).toHaveBeenCalledTimes(1));
+    expect(mockUpdateMeeting.mock.calls[0][1].status).toBe('borrador');
+  });
+
+  it('when the database refuses the change of state, it says the meeting was already finalised', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    mockUpdateMeeting.mockResolvedValue({
+      success: false,
+      error: { code: '42501', message: 'F18: a finalised meeting cannot leave the state completada' },
+    });
+    const utils = await openEditWith({ status: 'borrador', finalized_at: null });
+    await click(utils.getByRole('button', { name: /Guardar borrador/i }));
+    const sentence = 'Esta reunión ya fue finalizada: su estado no se puede cambiar.';
+    await waitFor(() => expect(vi.mocked(toast.error)).toHaveBeenCalledWith(sentence));
+    expect(utils.getByTestId('meeting-save-problems').textContent).toContain(sentence);
+    expect(toastSuccess).not.toHaveBeenCalled();
+    consoleError.mockRestore();
+  });
+});

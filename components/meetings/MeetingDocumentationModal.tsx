@@ -104,6 +104,10 @@ const PROTECTED_ROLE_LABELS: Record<string, string> = {
  */
 type MembersLoadState = 'idle' | 'loading' | 'success' | 'error';
 
+// EC-R6: shown when the database guard refuses a change of state of a
+// finalised meeting (42501 raised by guard_meeting_finalized_stays_final).
+const FINALIZED_STATE_LOCKED_MESSAGE = 'Esta reunión ya fue finalizada: su estado no se puede cambiar.';
+
 const MEMBERS_LOAD_ERROR_TOAST_ID = 'meeting-members-load-error';
 const MEMBERS_LOAD_ERROR_MESSAGE =
   'No se pudieron cargar los miembros de la comunidad. Intenta nuevamente.';
@@ -199,6 +203,12 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
   // a new meeting. «Completada» is offered in the status select only when the
   // stored meeting already is completada (it is reached through «Finalizar»).
   const [loadedStatus, setLoadedStatus] = useState<MeetingStatus | null>(null);
+  // EC-R6: when the loaded meeting carries finalized_at it was finalised once
+  // and stays final: no «Guardar borrador», the state locked at «Completada»,
+  // and every save sends completada (a meeting trapped as a draft by the old
+  // defect moves back to completada on its next save).
+  const [loadedFinalizedAt, setLoadedFinalizedAt] = useState<string | null>(null);
+  const isFinalized = !!loadedFinalizedAt;
   // Status of the meeting as it is stored right now (not the form's select,
   // which the person can change). Background saving runs only while this is
   // borrador: the autosave route accepts drafts only.
@@ -508,6 +518,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
 
         setLoadedStatus(meetingDetails.status);
         storedStatusRef.current = meetingDetails.status;
+        setLoadedFinalizedAt(meetingDetails.finalized_at ?? null);
 
         // Capture the authoritative version so optimistic-concurrency
         // autosaves start from the right baseline.
@@ -741,6 +752,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
     setMeetingVersion(0);
     setLastSavedAt(null);
     setLoadedStatus(null);
+    setLoadedFinalizedAt(null);
     storedStatusRef.current = null;
     setSavingIndicator('idle');
     setWorkSessions([]);
@@ -793,7 +805,9 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
       return { success: false };
     }
 
-    const effectiveStatus: MeetingStatus = status ?? formData.summary_info.status;
+    const effectiveStatus: MeetingStatus = isFinalized
+      ? MEETING_STATUS.COMPLETADA
+      : status ?? formData.summary_info.status;
     const docs = deriveMeetingDocs(formData);
     // Which form item each saved row belongs to, as the form was when the save started.
     const savedKeys = {
@@ -818,7 +832,13 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
         status: effectiveStatus,
       });
       if (!updateResult.success) {
-        problems.push(describeSaveError(updateResult.error, 'meeting'));
+        const finalizedRefusal =
+          updateResult.error?.code === '42501' && String(updateResult.error?.message ?? '').startsWith('F18:');
+        problems.push(
+          finalizedRefusal
+            ? { kind: 'meeting', message: FINALIZED_STATE_LOCKED_MESSAGE }
+            : describeSaveError(updateResult.error, 'meeting')
+        );
       } else {
         storedStatusRef.current = effectiveStatus;
       }
@@ -961,6 +981,8 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
 
   const handleSaveDraft = async () => {
     if (isSavingDraft || isSubmitting || saveInFlightRef.current) return;
+    // EC-R6: a finalised meeting never goes back to draft.
+    if (isFinalized) return;
 
     saveInFlightRef.current = true;
     setIsSavingDraft(true);
@@ -1633,12 +1655,14 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                     Estado de la Reunión
                   </label>
                   <select
-                    value={formData.summary_info.status}
+                    value={isFinalized ? MEETING_STATUS.COMPLETADA : formData.summary_info.status}
                     onChange={(e) => updateSummaryInfo('status', e.target.value as MeetingStatus)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
+                    disabled={isFinalized}
+                    data-testid="meeting-status-select"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent disabled:bg-gray-100 disabled:text-gray-600"
                   >
                     {Object.entries(meetingStatusLabels)
-                      .filter(([status]) => status !== MEETING_STATUS.COMPLETADA || loadedStatus === MEETING_STATUS.COMPLETADA)
+                      .filter(([status]) => status !== MEETING_STATUS.COMPLETADA || loadedStatus === MEETING_STATUS.COMPLETADA || isFinalized)
                       .map(([status, label]) => (
                         <option key={status} value={status}>{label}</option>
                       ))}
@@ -2041,8 +2065,9 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
             uploadingFiles={uploadingFiles}
             selectedFileCount={selectedFiles.length}
             mode={mode}
-            meetingStatus={formData.summary_info.status}
+            meetingStatus={isFinalized ? MEETING_STATUS.COMPLETADA : formData.summary_info.status}
             meetingId={meetingId}
+            canSaveDraft={!isFinalized}
             onPrevious={handlePrevious}
             onNext={handleNext}
             onSubmit={handleSubmit}

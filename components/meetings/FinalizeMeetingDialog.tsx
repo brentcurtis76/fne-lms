@@ -22,7 +22,7 @@ type Audience = FinalizeRequestAudience;
 const CONFLICT_MESSAGES: Record<string, string> = {
   meeting_not_draft: 'La reunión ya no está en borrador',
   meeting_already_finalized: 'La reunión ya fue finalizada por otro usuario',
-  no_attendance: 'Nadie está marcado como asistente. Elige «Las personas con acceso a la reunión».',
+  no_attendance: 'La asistencia aún no se registra en la plataforma. Elige «Las personas con acceso a la reunión».',
 };
 
 type FinalizeResult = {
@@ -226,7 +226,7 @@ export function FinalizeMeetingDialog({
               <span>
                 {AUDIENCE_PICKER_LABELS.attended}
                 {nobodyAttended && (
-                  <span className="block text-xs text-gray-600">Nadie está marcado como asistente.</span>
+                  <span className="block text-xs text-gray-600">La asistencia aún no se registra en la plataforma.</span>
                 )}
               </span>
             </label>

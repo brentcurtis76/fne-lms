@@ -120,7 +120,7 @@ describe('FinalizeMeetingDialog', () => {
   });
 
   describe('EC-R7: «Solo los asistentes» while nobody is marked as attending', () => {
-    const NOBODY = 'Nadie está marcado como asistente.';
+    const NOBODY = 'La asistencia aún no se registra en la plataforma.';
 
     it('attended_count 0: the «Solo los asistentes» radio is disabled and the sentence is shown', async () => {
       installFetch(async (url) => {
@@ -180,7 +180,7 @@ describe('FinalizeMeetingDialog', () => {
       });
       await waitFor(() => {
         expect(toastError).toHaveBeenCalledWith(
-          'Nadie está marcado como asistente. Elige «Las personas con acceso a la reunión».',
+          'La asistencia aún no se registra en la plataforma. Elige «Las personas con acceso a la reunión».',
         );
       });
       expect(toastSuccess).not.toHaveBeenCalled();

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 (globalThis as any).React = React;
@@ -205,3 +205,125 @@ describe('ContractForm — an existing client chosen for a new contract', () => 
     for (const input of textInputsOfClient()) expect(input.readOnly).toBe(false);
   });
 });
+
+/**
+ * F21b send-back 2: for an existing client, a field this form REQUIRES to go on
+ * and that the stored client has EMPTY stays editable, with the line «Los datos
+ * que faltan en la ficha del cliente se guardarán en ella.»; on save only those
+ * fields are written to the client, each only where it is still empty. Every
+ * field with a stored value stays read-only and is not written.
+ */
+describe('ContractForm — a required field the existing client lacks', () => {
+  const FILL_LINE = 'Los datos que faltan en la ficha del cliente se guardarán en ella.';
+  const SIN_EMAIL = {
+    id: 'cliente-1',
+    nombre_legal: 'Colegio Existente SpA',
+    nombre_fantasia: 'Colegio Existente',
+    rut: '76.123.456-0',
+    direccion: 'Calle Existente 1',
+    comuna: 'Comuna Existente',
+    ciudad: 'Ciudad Existente',
+    nombre_representante: 'Persona Existente',
+    nombre_contacto_administrativo: 'Contacto Existente',
+    email_contacto_administrativo: null,
+    school_id: null,
+  };
+  const clientSelect = (container: HTMLElement) => container.querySelector('select') as HTMLSelectElement;
+  const email = () => screen.getByPlaceholderText('administracion@colegio.cl') as HTMLInputElement;
+
+  it('manual contract, client without a contact e-mail: only that field is editable; the save writes it and nothing else', async () => {
+    currentClient = createFakeSupabase();
+    const onSuccess = vi.fn();
+    const { container } = render(
+      <ContractForm programas={PROGRAMAS} clientes={[SIN_EMAIL as any]} onSuccess={onSuccess} onCancel={vi.fn()} />,
+    );
+    typeInto(clientSelect(container), 'cliente-1');
+    fireEvent.click(screen.getByRole('checkbox', { name: /Contrato Manual/ }));
+    expect(email().readOnly).toBe(false);
+    for (const placeholder of ['Nombre legal de la empresa', 'Nombre comercial', 'Calle y número', 'Comuna', 'Ciudad', 'Nombre del representante']) {
+      expect((screen.getByPlaceholderText(placeholder) as HTMLInputElement).readOnly).toBe(true);
+    }
+    expect((screen.getAllByPlaceholderText('12.345.678-9')[0] as HTMLInputElement).readOnly).toBe(true);
+    expect((screen.getAllByPlaceholderText('Nombre completo').at(-1) as HTMLInputElement).readOnly).toBe(true);
+    expect(screen.getByText(FILL_LINE)).toBeInTheDocument();
+    expect(screen.getByText('Para corregir los datos del cliente, use Clientes')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Siguiente' })).toBeDisabled();
+
+    typeInto(email(), 'facturacion@ejemplo.test');
+    clickButton('Siguiente');
+    typeInto(container.querySelectorAll('input[type="date"]')[1], '2099-12-31');
+    typeInto(screen.getByPlaceholderText(/Asesoría personalizada/), 'Asesoría inventada');
+    typeInto(screen.getByPlaceholderText('0.00'), '100');
+    clickButton('Siguiente');
+    fillCuotaDates(container);
+    typeInto(container.querySelector('[data-testid="cuota-amount-input"]') as Element, '100');
+    clickButton(/Guardar Contrato/);
+    await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+
+    const clientWrites = currentClient.__writes.filter((w: any) => w.table === 'clientes');
+    expect(clientWrites).toHaveLength(1);
+    expect(clientWrites[0].op).toBe('update');
+    expect(clientWrites[0].payload).toEqual({ email_contacto_administrativo: 'facturacion@ejemplo.test' });
+    expect(clientWrites[0].filters).toEqual({
+      id: 'cliente-1',
+      or: 'email_contacto_administrativo.is.null,email_contacto_administrativo.eq.',
+    });
+    expect(currentClient.__writes.find((w: any) => w.table === 'contratos').payload[0].cliente_id).toBe('cliente-1');
+  });
+
+  it('programme contract, client without comuna: comuna is editable and is the only field written', async () => {
+    currentClient = createFakeSupabase();
+    const onSuccess = vi.fn();
+    const { container } = render(
+      <ContractForm programas={PROGRAMAS} clientes={[{ ...SIN_EMAIL, comuna: '' } as any]} onSuccess={onSuccess} onCancel={vi.fn()} />,
+    );
+    typeInto(clientSelect(container), 'cliente-1');
+    expect((screen.getByPlaceholderText('Comuna') as HTMLInputElement).readOnly).toBe(false);
+    expect((screen.getByPlaceholderText('Ciudad') as HTMLInputElement).readOnly).toBe(true);
+    // the e-mail is not required for a programme contract: it stays read-only even though empty
+    expect(email().readOnly).toBe(true);
+    expect(screen.getByText(FILL_LINE)).toBeInTheDocument();
+    typeInto(screen.getByPlaceholderText('Comuna'), 'Comuna Completada');
+    clickButton('Siguiente');
+    fillContractStep(container, { programaId: 'prog-a', total: 100 });
+    clickButton('Siguiente');
+    fillCuotaDates(container);
+    typeInto(container.querySelector('[data-testid="cuota-amount-input"]') as Element, '100');
+    clickButton(/Guardar Contrato/);
+    await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+    const clientWrites = currentClient.__writes.filter((w: any) => w.table === 'clientes');
+    expect(clientWrites.map((w: any) => w.payload)).toEqual([{ comuna: 'Comuna Completada' }]);
+  });
+
+  it('the draft save writes the filled field the same way', async () => {
+    currentClient = createFakeSupabase();
+    const onSuccess = vi.fn();
+    const { container } = render(
+      <ContractForm programas={PROGRAMAS} clientes={[{ ...SIN_EMAIL, comuna: '' } as any]} onSuccess={onSuccess} onCancel={vi.fn()} />,
+    );
+    typeInto(clientSelect(container), 'cliente-1');
+    typeInto(screen.getByPlaceholderText('Comuna'), 'Comuna Completada');
+    clickButton('Siguiente');
+    fillContractStep(container, { programaId: 'prog-a', total: 100 });
+    clickButton('Siguiente');
+    fillCuotaDates(container);
+    typeInto(container.querySelector('[data-testid="cuota-amount-input"]') as Element, '100');
+    clickButton(/Guardar Borrador/);
+    await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+    const clientWrites = currentClient.__writes.filter((w: any) => w.table === 'clientes');
+    expect(clientWrites).toHaveLength(1);
+    expect(clientWrites[0]).toMatchObject({ op: 'update', payload: { comuna: 'Comuna Completada' }, filters: { id: 'cliente-1', or: 'comuna.is.null,comuna.eq.' } });
+  });
+
+  it('a client that has everything: no fill line, all read-only', () => {
+    currentClient = createFakeSupabase();
+    const { container } = render(
+      <ContractForm programas={PROGRAMAS} clientes={[{ ...SIN_EMAIL, email_contacto_administrativo: 'a@ejemplo.test' } as any]} onSuccess={vi.fn()} onCancel={vi.fn()} />,
+    );
+    typeInto(clientSelect(container), 'cliente-1');
+    fireEvent.click(screen.getByRole('checkbox', { name: /Contrato Manual/ }));
+    expect(screen.queryByText(FILL_LINE)).toBeNull();
+    expect(email().readOnly).toBe(true);
+  });
+});
+

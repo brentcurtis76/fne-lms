@@ -145,6 +145,10 @@ export function createFakeSupabase(options: FakeOptions = {}) {
         ctx.filters[col] = value;
         return chain;
       },
+      or: (expr: string) => {
+        ctx.filters.or = expr;
+        return chain;
+      },
       in: (col: string, value: any) => {
         ctx.filters[col] = value;
         return chain;

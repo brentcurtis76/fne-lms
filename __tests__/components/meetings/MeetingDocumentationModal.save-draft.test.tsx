@@ -53,6 +53,13 @@ vi.mock('../../../utils/storage', () => ({
   uploadFile: vi.fn(),
 }));
 
+// EC-R11: the real updateMeeting (used by the version cases below) writes
+// through the same table store as the modal's own client.
+vi.mock('../../../lib/supabase-wrapper', async () => {
+  const mock = await import('./meetingSupabaseMock');
+  return { supabase: mock.makeMeetingSupabaseClient() };
+});
+
 import MeetingDocumentationModal from '../../../components/meetings/MeetingDocumentationModal';
 
 // Synthetic people.
@@ -728,5 +735,125 @@ describe('MeetingDocumentationModal — every commitment and task needs a person
     expect(toastError).toHaveBeenCalledWith('Elige a quién se asigna este compromiso. (y 1 problema más)');
     expect(utils.getByTestId('meeting-task-0-errors').textContent).toContain('Indica la fecha límite de la tarea.');
     expect(utils.queryByRole('dialog')).toBeNull();
+  });
+});
+
+describe('MeetingDocumentationModal — the full save checks the version (EC-R11)', () => {
+  const CONFLICT = 'Otra persona guardó esta reunión mientras editabas. Recarga para ver sus cambios; lo que escribiste no se guardó.';
+  const useRealUpdateMeeting = async () => {
+    const actual = await vi.importActual<typeof import('../../../utils/meetingUtils')>('../../../utils/meetingUtils');
+    mockUpdateMeeting.mockImplementation((...args: Parameters<typeof actual.updateMeeting>) => actual.updateMeeting(...args));
+  };
+  const loadedDraft = (over: Record<string, unknown> = {}) => ({
+    id: 'meeting-1',
+    title: 'Existing meeting',
+    meeting_date: new Date('2026-04-21T12:00:00Z').toISOString(),
+    duration_minutes: 60,
+    location: '',
+    status: 'borrador',
+    summary: 'summary text',
+    summary_doc: richDoc('summary text'),
+    notes: '',
+    notes_doc: null,
+    attendees: [{ user_id: ANA.id, role: 'participant' }],
+    agreements: [],
+    commitments: [{ id: 'c1', commitment_text: 'first', commitment_doc: richDoc('first'), assigned_to: ANA.id, due_date: '2026-05-01' }],
+    tasks: [],
+    version: 1,
+    finalized_at: null,
+    updated_at: new Date().toISOString(),
+    ...over,
+  });
+  async function openEditOnStep3() {
+    seedRows('meeting_attendees', [{ id: 'att-ana', meeting_id: 'meeting-1', user_id: ANA.id, role: 'participant' }]);
+    seedRows('meeting_commitments', [{ id: 'c1', meeting_id: 'meeting-1', commitment_text: 'first' }]);
+    const utils = render(<MeetingDocumentationModal {...defaultProps} meetingId="meeting-1" mode="edit" />);
+    await waitFor(() => {
+      const titleInput = utils.container.querySelector('input[type="text"]') as HTMLInputElement | null;
+      expect(titleInput?.value).toBe('Existing meeting');
+    });
+    await click(utils.getByRole('button', { name: /Siguiente/i }));
+    await click(utils.getByRole('button', { name: /Siguiente/i }));
+    await waitFor(() => expect(utils.getByRole('button', { name: /Agregar Acuerdo/i })).toBeDefined());
+    return utils;
+  }
+  let consoleError: ReturnType<typeof vi.spyOn>;
+  beforeEach(() => { consoleError = vi.spyOn(console, 'error').mockImplementation(() => {}); });
+  afterEach(() => { consoleError.mockRestore(); vi.useRealTimers(); });
+
+  it('the stored version moved since the load: the save is refused, nothing else is written, and the person is told', async () => {
+    await useRealUpdateMeeting();
+    const confirmSpy = vi.spyOn(window, 'confirm').mockImplementation(() => false);
+    mockGetMeetingDetails.mockResolvedValue(loadedDraft());
+    // Someone else saved meanwhile: the stored row is at version 2.
+    seedRows('community_meetings', [{ id: 'meeting-1', title: 'Their title', status: 'borrador', version: 2 }]);
+    seedRows('meeting_attachments', [{ id: 'doc-1', meeting_id: 'meeting-1', filename: 'acta.pdf', file_path: 'ws-1/meeting-1/acta.pdf', file_size: 10, file_type: 'application/pdf' }]);
+    const utils = await openEditOnStep3();
+    await click(utils.getByRole('button', { name: /Agregar Acuerdo/i }));
+    await waitFor(() => expect(editorOnChange.get('Describe el acuerdo…')).toBeDefined());
+    await act(async () => { editorOnChange.get('Describe el acuerdo…')!(richDoc('Mi acuerdo')); });
+    await click(utils.getByTitle('Eliminar archivo'));
+
+    await click(utils.getByRole('button', { name: /Guardar borrador/i }));
+
+    await waitFor(() => expect(toastError).toHaveBeenCalledWith(CONFLICT));
+    expect(utils.getByTestId('meeting-save-problems').textContent).toContain(CONFLICT);
+    expect(confirmSpy).toHaveBeenCalledTimes(1);
+    expect(String(confirmSpy.mock.calls[0][0])).toContain(CONFLICT);
+    expect(mockUpdateMeeting).toHaveBeenCalledTimes(1);
+    expect(mockUpdateMeeting.mock.calls[0][2]).toBe(1);
+    expect(tableRows.community_meetings[0]).toMatchObject({ title: 'Their title', version: 2 });
+    for (const key of [
+      'insert:meeting_agreements', 'update:meeting_agreements', 'delete:meeting_agreements',
+      'insert:meeting_commitments', 'update:meeting_commitments', 'delete:meeting_commitments',
+      'insert:meeting_tasks', 'update:meeting_tasks', 'delete:meeting_tasks',
+      'insert:meeting_attendees', 'delete:meeting_attendees', 'insert:meeting_read_grants', 'delete:meeting_read_grants',
+      'delete:meeting_attachments', 'remove:storage',
+    ]) {
+      expect(capturedCalls[key], key).toBeUndefined();
+    }
+    expect(toastSuccess).not.toHaveBeenCalled();
+    expect(defaultProps.onDraftSaved).not.toHaveBeenCalled();
+    // The form stays open with what the person wrote.
+    expect(utils.getByRole('button', { name: /Agregar Acuerdo/i })).toBeDefined();
+    expect(tableRows.meeting_attachments).toHaveLength(1);
+    confirmSpy.mockRestore();
+  });
+
+  it('a successful save writes version loaded + 1, and the next background save sends that version', async () => {
+    await useRealUpdateMeeting();
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    mockGetMeetingDetails.mockResolvedValue(loadedDraft());
+    seedRows('community_meetings', [{ id: 'meeting-1', title: 'Existing meeting', status: 'borrador', version: 1 }]);
+    const utils = await openEditOnStep3();
+
+    await click(utils.getByRole('button', { name: /Guardar borrador/i }));
+    await waitFor(() => expect(toastSuccess).toHaveBeenCalledWith('Borrador guardado'));
+    expect(capturedCalls['update:community_meetings'][0].version).toBe(2);
+    expect(tableRows.community_meetings[0].version).toBe(2);
+
+    await click(utils.getByRole('button', { name: /Anterior/i }));
+    await waitFor(() => expect(editorOnChange.get('Resumen de la reunión…')).toBeDefined());
+    await act(async () => { editorOnChange.get('Resumen de la reunión…')!(richDoc('Después de guardar')); });
+    await act(async () => { vi.advanceTimersByTime(2_500); });
+    const autosaves = () => vi.mocked(global.fetch).mock.calls.filter(([input]) => String(input).endsWith('/autosave'));
+    await waitFor(() => expect(autosaves()).toHaveLength(1));
+    expect(JSON.parse(String((autosaves()[0][1] as RequestInit).body)).version).toBe(2);
+  });
+
+  it('create, then two more saves: the stored version moves 0 → 1 → 2', async () => {
+    await useRealUpdateMeeting();
+    const utils = render(<MeetingDocumentationModal {...defaultProps} />);
+    await createToStep3(utils);
+    await addCompleteItems(utils);
+    for (const n of [1, 2, 3]) {
+      await click(utils.getByRole('button', { name: /Guardar borrador/i }));
+      await waitFor(() => expect(toastSuccess).toHaveBeenCalledTimes(n));
+    }
+    expect(capturedCalls['insert:community_meetings']).toHaveLength(1);
+    expect(mockUpdateMeeting.mock.calls.map((call) => call[2])).toEqual([0, 1]);
+    expect(tableRows.community_meetings).toHaveLength(1);
+    expect(tableRows.community_meetings[0].version).toBe(2);
+    expect(toastError).not.toHaveBeenCalled();
   });
 });

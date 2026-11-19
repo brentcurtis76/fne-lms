@@ -108,6 +108,11 @@ type MembersLoadState = 'idle' | 'loading' | 'success' | 'error';
 // finalised meeting (42501 raised by guard_meeting_finalized_stays_final).
 const FINALIZED_STATE_LOCKED_MESSAGE = 'Esta reunión ya fue finalizada: su estado no se puede cambiar.';
 
+// EC-R11: shown when the full save finds that someone else saved the meeting
+// after this form loaded it.
+const SAVE_CONFLICT_MESSAGE =
+  'Otra persona guardó esta reunión mientras editabas. Recarga para ver sus cambios; lo que escribiste no se guardó.';
+
 const MEMBERS_LOAD_ERROR_TOAST_ID = 'meeting-members-load-error';
 const MEMBERS_LOAD_ERROR_MESSAGE =
   'No se pudieron cargar los miembros de la comunidad. Intenta nuevamente.';
@@ -830,7 +835,20 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
         notes: docs.notesText,
         notes_doc: docs.notesDoc,
         status: effectiveStatus,
-      });
+      }, meetingVersion);
+      if (updateResult.conflict) {
+        // EC-R11: someone else saved since this form loaded the meeting.
+        // Nothing of this save is written (no child rows either); the form
+        // stays open with what the person typed.
+        setSaveProblems([{ kind: 'meeting', message: SAVE_CONFLICT_MESSAGE }]);
+        toast.error(SAVE_CONFLICT_MESSAGE);
+        const shouldReload =
+          typeof window !== 'undefined' && window.confirm(`${SAVE_CONFLICT_MESSAGE} ¿Recargar ahora?`);
+        if (shouldReload) {
+          await loadMeetingData();
+        }
+        return { success: false, meetingId: targetMeetingId };
+      }
       if (!updateResult.success) {
         const finalizedRefusal =
           updateResult.error?.code === '42501' && String(updateResult.error?.message ?? '').startsWith('F18:');
@@ -841,6 +859,9 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
         );
       } else {
         storedStatusRef.current = effectiveStatus;
+        if (typeof updateResult.version === 'number') {
+          setMeetingVersion(updateResult.version);
+        }
       }
     } else {
       const row = await insertMeetingRow(supabase, {

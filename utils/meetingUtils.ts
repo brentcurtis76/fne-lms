@@ -272,13 +272,70 @@ export async function getMeetingDetails(meetingId: string): Promise<MeetingWithD
 }
 
 /**
- * Update an existing meeting
+ * Update an existing meeting.
+ *
+ * EC-R11: with `expectedVersion` the write is optimistic: it only reaches the
+ * row while its stored `version` is still `expectedVersion`, and it moves the
+ * version to `expectedVersion + 1`. When no row is reached the meeting's
+ * version is read again: a readable row with another version is a conflict
+ * (`conflict: true`, someone else saved meanwhile); otherwise it is a refusal.
+ * Without `expectedVersion` (undefined) there is no version check, as before.
  */
 export async function updateMeeting(
   meetingId: string,
-  updates: Partial<CommunityMeeting>
-): Promise<{ success: boolean; error?: any }> {
+  updates: Partial<CommunityMeeting>,
+  expectedVersion?: number
+): Promise<{ success: boolean; error?: any; conflict?: boolean; version?: number }> {
   try {
+    if (expectedVersion !== undefined) {
+      const versionedPayload: Record<string, any> = {
+        title: updates.title,
+        meeting_date: updates.meeting_date,
+        duration_minutes: updates.duration_minutes,
+        location: updates.location,
+        status: updates.status,
+        summary: updates.summary,
+        notes: updates.notes,
+        updated_at: new Date().toISOString(),
+        version: expectedVersion + 1,
+      };
+      if (updates.summary_doc !== undefined) versionedPayload.summary_doc = updates.summary_doc;
+      if (updates.notes_doc !== undefined) versionedPayload.notes_doc = updates.notes_doc;
+
+      const { data: written, error: writeError } = await supabase
+        .from('community_meetings')
+        .update(versionedPayload)
+        .eq('id', meetingId)
+        .eq('version', expectedVersion)
+        .select('id, version')
+        .maybeSingle();
+
+      if (writeError) {
+        console.error('Error updating meeting:', writeError);
+        return { success: false, error: writeError };
+      }
+      if (written) {
+        return { success: true, version: (written as { version?: number }).version ?? expectedVersion + 1 };
+      }
+
+      // No row reached: either the version moved (conflict) or the write was
+      // refused (row level security answers with no row and no error).
+      const { data: stored } = await supabase
+        .from('community_meetings')
+        .select('version')
+        .eq('id', meetingId)
+        .maybeSingle();
+      const storedVersion = (stored as { version?: number } | null)?.version;
+      if (typeof storedVersion === 'number' && storedVersion !== expectedVersion) {
+        return { success: false, conflict: true, version: storedVersion };
+      }
+      return {
+        success: false,
+        error: { code: '42501', message: 'The meeting update reached no row (refused)' },
+      };
+    }
+
+
     const updatePayload: Record<string, any> = {
       title: updates.title,
       meeting_date: updates.meeting_date,

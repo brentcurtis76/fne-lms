@@ -9,7 +9,10 @@
  *     duplicate (meeting_id, user_id) with 23505, as the unique keys do);
  *   - updates and deletes return only rows that exist in the store, so a write
  *     to a row that is not there reaches nothing;
- *   - plain selects return the store, filtered by `.eq()` / `.in()`.
+ *   - plain selects return the store, filtered by `.eq()` / `.in()`;
+ *   - `.eq()` filters updates too, so `.eq('version', n)` on a row whose
+ *     version moved reaches no row; `.maybeSingle()` then answers
+ *     `{ data: null, error: null }` (EC-R11).
  * Tests seed rows with `seedRows`, make one write fail with `failingWrites`,
  * and hold a write open with `holdWrites` to exercise in-flight behaviour.
  */
@@ -121,6 +124,12 @@ export function makeMeetingSupabaseClient() {
         order: vi.fn(() => result()),
         single: vi.fn(() =>
           result().then((r) => ({ data: Array.isArray(r.data) ? r.data[0] ?? null : r.data, error: r.error })),
+        ),
+        // EC-R11: like PostgREST's `.maybeSingle()`: no row is `data: null`
+        // with no error (e.g. an update whose `.eq('version', n)` matches
+        // nothing because the stored version moved).
+        maybeSingle: vi.fn(() =>
+          result().then((r) => ({ data: Array.isArray(r.data) ? r.data[0] ?? null : r.data ?? null, error: r.error })),
         ),
         then: (resolve: any, reject?: any) => result().then(resolve, reject),
         insert: vi.fn((rows: any) => {

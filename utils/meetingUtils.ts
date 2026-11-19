@@ -276,9 +276,10 @@ export async function getMeetingDetails(meetingId: string): Promise<MeetingWithD
  *
  * EC-R11: with `expectedVersion` the write is optimistic: it only reaches the
  * row while its stored `version` is still `expectedVersion`, and it moves the
- * version to `expectedVersion + 1`. When no row is reached the meeting's
- * version is read again: a readable row with another version is a conflict
- * (`conflict: true`, someone else saved meanwhile); otherwise it is a refusal.
+ * version to `expectedVersion + 1`. When no row is reached it is a conflict
+ * (`conflict: true`, someone else saved meanwhile) only if the person may
+ * still edit the meeting (get_my_meeting_rights) and its stored version
+ * differs; otherwise it is a refusal (42501).
  * Without `expectedVersion` (undefined) there is no version check, as before.
  */
 export async function updateMeeting(
@@ -319,7 +320,17 @@ export async function updateMeeting(
       }
 
       // No row reached: either the version moved (conflict) or the write was
-      // refused (row level security answers with no row and no error).
+      // refused (row level security answers with no row and no error). It is
+      // a conflict only while the person may still edit the meeting, asked
+      // the way the page asks (get_my_meeting_rights; fails closed).
+      const refusal = {
+        success: false,
+        error: { code: '42501', message: 'The meeting update reached no row (refused)' },
+      };
+      const rights = await getMyMeetingRights([meetingId]);
+      if (rights.get(meetingId)?.canEdit !== true) {
+        return refusal;
+      }
       const { data: stored } = await supabase
         .from('community_meetings')
         .select('version')
@@ -329,10 +340,7 @@ export async function updateMeeting(
       if (typeof storedVersion === 'number' && storedVersion !== expectedVersion) {
         return { success: false, conflict: true, version: storedVersion };
       }
-      return {
-        success: false,
-        error: { code: '42501', message: 'The meeting update reached no row (refused)' },
-      };
+      return refusal;
     }
 
 

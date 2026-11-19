@@ -25,7 +25,7 @@
 
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap;
-SELECT plan(72);
+SELECT plan(76);
 
 CREATE TEMP TABLE ids (p text PRIMARY KEY, id uuid) ON COMMIT DROP;
 GRANT SELECT ON ids TO anon, authenticated, service_role;
@@ -58,7 +58,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- The 16 checks of one editor on their own four meetings. Called after the
+-- The 17 checks of one editor on their own four meetings. Called after the
 -- caller has switched to that editor's session, so every statement runs as
 -- that person and row level security plus the triggers decide.
 CREATE OR REPLACE FUNCTION pg_temp.editor_checks(p text) RETURNS SETOF text AS $$
@@ -74,6 +74,10 @@ BEGIN
       format('UPDATE public.community_meetings SET status = %L WHERE id = %L', s, m),
       '42501', NULL, format('%s: a finalised meeting cannot go to %s', p, s));
   END LOOP;
+  -- Send-back 1: the status column is nullable; NULL is not completada either.
+  RETURN NEXT throws_ok(
+    format('UPDATE public.community_meetings SET status = NULL WHERE id = %L', m),
+    '42501', NULL, format('%s: a finalised meeting cannot have its state set to NULL', p));
   RETURN NEXT is(
     pg_temp.exec_count(format('UPDATE public.community_meetings SET title = title || %L WHERE id = %L', ' (corregida)', m)),
     1, format('%s: the title of a finalised meeting can be corrected', p));

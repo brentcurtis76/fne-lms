@@ -205,3 +205,19 @@ describe('MeetingDocumentationModal — closing with unsaved changes asks first 
     expect(utils.getByText(/Cambios sin guardar/)).toBeDefined();
   });
 });
+
+describe('MeetingDocumentationModal — a half-typed date counts as unsaved (send-back 1)', () => {
+  it('a date field holding an incomplete typed value: closing asks', async () => {
+    const utils = renderModal();
+    const dateInput = utils.getByTestId('meeting-date') as HTMLInputElement;
+    // The browser keeps the value empty but marks the input badInput.
+    Object.defineProperty(dateInput, 'validity', { configurable: true, value: { badInput: true } });
+    fireEvent.change(dateInput, { target: { value: '' } });
+    fireEvent.blur(dateInput);
+    expect(utils.getByTestId('meeting-date-incomplete')).toBeDefined();
+
+    await click(utils.getByTestId('meeting-modal-close'));
+    expect(confirmSpy).toHaveBeenCalledWith(QUESTION);
+    expect(onClose).not.toHaveBeenCalled();
+  });
+});

@@ -11,7 +11,8 @@
 --      finalize route writes them, with the service key;
 --   2. refuses a change of state of a meeting that carries finalized_at,
 --      unless the new state is 'completada' (the one move a meeting trapped by
---      the old defect may make).
+--      the old defect may make); NULL counts as another state (the column is
+--      nullable), so the comparison is null-safe.
 -- Text corrections of a finalised meeting stay allowed. Server jobs and the
 -- finalize route (auth.uid() IS NULL) are unaffected. Additive: a new function
 -- and a new trigger; the existing guard_community_meeting_update is unchanged.
@@ -35,7 +36,7 @@ BEGIN
   END IF;
   IF OLD.finalized_at IS NOT NULL
      AND NEW.status IS DISTINCT FROM OLD.status
-     AND NEW.status::text <> 'completada' THEN
+     AND NEW.status::text IS DISTINCT FROM 'completada' THEN
     RAISE EXCEPTION 'F18: a finalised meeting cannot leave the state completada'
       USING ERRCODE = '42501';
   END IF;

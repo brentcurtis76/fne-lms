@@ -31,6 +31,9 @@ export const holdWrites: Record<string, Promise<void>> = {};
 /** Table store: rows per table. */
 export const tableRows: Record<string, any[]> = {};
 
+/** meeting id → rights get_my_meeting_rights answers (default: may edit and read). */
+export const meetingRights: Record<string, { can_edit?: boolean; can_read_content?: boolean }> = {};
+
 export function seedRows(table: string, rows: any[]) {
   tableRows[table] = rows.map((row) => ({ ...row }));
 }
@@ -45,7 +48,7 @@ export function makeGate() {
 }
 
 export function resetMeetingSupabaseMock() {
-  for (const store of [capturedCalls, failingWrites, failingReads, holdWrites, tableRows] as Array<Record<string, unknown>>) {
+  for (const store of [capturedCalls, failingWrites, failingReads, holdWrites, tableRows, meetingRights] as Array<Record<string, unknown>>) {
     for (const key of Object.keys(store)) delete store[key];
   }
   fromCalls.length = 0;
@@ -151,6 +154,19 @@ export function makeMeetingSupabaseClient() {
         }),
       };
       return chain;
+    }),
+    // Send-back 1: get_my_meeting_rights answers from `meetingRights`; a
+    // meeting not listed there may be edited (the editor these tests play).
+    rpc: vi.fn(async (name: string, args: { p_meeting_ids?: string[] }) => {
+      record(`rpc:${name}`, args);
+      if (name !== 'get_my_meeting_rights') return { data: null, error: { code: 'PGRST202', message: `no mock for ${name}` } };
+      const data = (args.p_meeting_ids ?? []).map((id) => ({
+        meeting_id: id,
+        can_edit: meetingRights[id]?.can_edit ?? true,
+        can_delete: false,
+        can_read_content: meetingRights[id]?.can_read_content ?? true,
+      }));
+      return { data, error: null };
     }),
     storage: {
       from: () => ({

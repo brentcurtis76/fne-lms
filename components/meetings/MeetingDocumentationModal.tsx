@@ -247,7 +247,13 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
   // Optimistic-concurrency version; DB default is 0 for freshly-inserted rows.
   // Edit mode overwrites this from the loaded meeting; create mode overwrites
   // after the first save returns the authoritative DB value.
-  const [meetingVersion, setMeetingVersion] = useState<number>(0);
+  // Send-back 1: kept in a ref, not state, so it is readable at once (a full
+  // save waiting for an in-flight background save needs the version that
+  // save returned, before React re-renders). Nothing renders from it.
+  const meetingVersionRef = useRef<number>(0);
+  const setMeetingVersion = useCallback((version: number) => {
+    meetingVersionRef.current = version;
+  }, []);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   // Status of the meeting as stored when it was loaded (edit mode); null for
   // a new meeting. «Completada» is offered in the status select only when the
@@ -267,6 +273,11 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
   const [savedTick, setSavedTick] = useState(0);
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autosaveInFlightRef = useRef<boolean>(false);
+  // Send-back 1: the background save in flight, so a full save can wait for it.
+  const autosavePromiseRef = useRef<Promise<void> | null>(null);
+  // True when the background save the full save waited for was refused with
+  // 409 (someone else saved, or the meeting is no longer a draft).
+  const autosaveConflictRef = useRef<boolean>(false);
   // Holds the latest startWorkSession so our open-effect can call it without
   // listing the useCallback in its deps (the useCallback is declared later).
   const startWorkSessionRef = useRef<((id: string) => Promise<void>) | null>(null);
@@ -679,8 +690,13 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
   const runAutosave = useCallback(async () => {
     const id = currentMeetingId;
     if (!id || autosaveInFlightRef.current) return;
+    // Send-back 1: never alongside a full save (it writes these fields too).
+    if (saveInFlightRef.current) return;
     if (storedStatusRef.current !== MEETING_STATUS.BORRADOR) return;
     autosaveInFlightRef.current = true;
+    autosaveConflictRef.current = false;
+    let finishAutosave!: () => void;
+    autosavePromiseRef.current = new Promise<void>((resolve) => { finishAutosave = resolve; });
     setSavingIndicator('saving');
     const sentSummaryDoc = formData.summary_info.summary_doc;
     const sentNotesDoc = formData.summary_info.notes_doc;
@@ -691,12 +707,13 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
         body: JSON.stringify({
           summary_doc: sentSummaryDoc ?? emptyDoc(),
           notes_doc: sentNotesDoc ?? emptyDoc(),
-          version: meetingVersion,
+          version: meetingVersionRef.current,
           work_session_id: workSessionId ?? undefined,
         }),
       });
 
       if (res.status === 409) {
+        autosaveConflictRef.current = true;
         const body = await res.json().catch(() => ({}));
         setSavingIndicator('error');
         // Both codes mean "the server already considers the draft closed —
@@ -758,8 +775,10 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
       setSavingIndicator('error');
     } finally {
       autosaveInFlightRef.current = false;
+      autosavePromiseRef.current = null;
+      finishAutosave();
     }
-  }, [currentMeetingId, formData.summary_info.summary_doc, formData.summary_info.notes_doc, meetingVersion, workSessionId]);
+  }, [currentMeetingId, formData.summary_info.summary_doc, formData.summary_info.notes_doc, workSessionId, setMeetingVersion]);
 
   const scheduleAutosave = useCallback(() => {
     if (!currentMeetingId) return;
@@ -770,7 +789,11 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
     }, AUTOSAVE_DEBOUNCE_MS);
   }, [currentMeetingId, runAutosave]);
 
-  const isDirty = formSnapshot(formData, selectedFiles.length, attachmentsToDelete.length) !== savedSnapshot;
+  // A date field holding a half-typed value (the browser keeps its value
+  // empty and marks it badInput) is an unsaved change too (send-back 1).
+  const isDirty =
+    meetingDateIncomplete ||
+    formSnapshot(formData, selectedFiles.length, attachmentsToDelete.length) !== savedSnapshot;
 
   // `afterSave`: called right after a successful finalise, so nothing typed
   // is at risk and no question is asked (EC-R8).
@@ -894,6 +917,26 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
     const problems: SaveProblem[] = [];
     let createdVersion: number | undefined;
 
+    // Send-back 1: the person's own background save must never read as
+    // someone else's. Cancel a pending one (the full save writes the summary
+    // and notes anyway) and wait for one in flight, then use the version it
+    // returned.
+    if (autosaveTimerRef.current) {
+      clearTimeout(autosaveTimerRef.current);
+      autosaveTimerRef.current = null;
+    }
+    if (autosavePromiseRef.current) {
+      await autosavePromiseRef.current;
+      if (autosaveConflictRef.current) {
+        // That background save already told the person (and offered to
+        // reload); the form may hold reloaded data now, so nothing is written.
+        autosaveConflictRef.current = false;
+        setSaveProblems([{ kind: 'meeting', message: SAVE_CONFLICT_MESSAGE }]);
+        toast.error(SAVE_CONFLICT_MESSAGE);
+        return { success: false, meetingId: currentMeetingId ?? undefined };
+      }
+    }
+
     let targetMeetingId = currentMeetingId;
     if (targetMeetingId) {
       const updateResult = await updateMeeting(targetMeetingId, {
@@ -906,7 +949,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
         notes: docs.notesText,
         notes_doc: docs.notesDoc,
         status: effectiveStatus,
-      }, meetingVersion);
+      }, meetingVersionRef.current);
       if (updateResult.conflict) {
         // EC-R11: someone else saved since this form loaded the meeting.
         // Nothing of this save is written (no child rows either); the form

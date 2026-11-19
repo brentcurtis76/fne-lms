@@ -14,6 +14,7 @@ import {
   makeGate,
   failingReads,
   refusedWrites,
+  meetingRights,
 } from './meetingSupabaseMock';
 
 // Capture TipTapEditor onChange callbacks keyed by placeholder. Placeholders
@@ -855,5 +856,114 @@ describe('MeetingDocumentationModal — the full save checks the version (EC-R11
     expect(tableRows.community_meetings).toHaveLength(1);
     expect(tableRows.community_meetings[0].version).toBe(2);
     expect(toastError).not.toHaveBeenCalled();
+  });
+});
+
+describe('MeetingDocumentationModal — own background save and lost rights are not conflicts (send-back 1)', () => {
+  const CONFLICT = 'Otra persona guardó esta reunión mientras editabas. Recarga para ver sus cambios; lo que escribiste no se guardó.';
+  const useRealUpdateMeeting = async () => {
+    const actual = await vi.importActual<typeof import('../../../utils/meetingUtils')>('../../../utils/meetingUtils');
+    mockUpdateMeeting.mockImplementation((...args: Parameters<typeof actual.updateMeeting>) => actual.updateMeeting(...args));
+  };
+  const loadedDraft = (version: number) => ({
+    id: 'meeting-1',
+    title: 'Existing meeting',
+    meeting_date: new Date('2026-04-21T12:00:00Z').toISOString(),
+    duration_minutes: 60,
+    location: '',
+    status: 'borrador',
+    summary: 'summary text',
+    summary_doc: richDoc('summary text'),
+    notes: '',
+    notes_doc: null,
+    attendees: [{ user_id: ANA.id, role: 'participant' }],
+    agreements: [],
+    commitments: [],
+    tasks: [],
+    version,
+    finalized_at: null,
+    updated_at: new Date().toISOString(),
+  });
+  async function openOnStep2(version: number) {
+    mockGetMeetingDetails.mockResolvedValue(loadedDraft(version));
+    seedRows('meeting_attendees', [{ id: 'att-ana', meeting_id: 'meeting-1', user_id: ANA.id, role: 'participant' }]);
+    const utils = render(<MeetingDocumentationModal {...defaultProps} meetingId="meeting-1" mode="edit" />);
+    await waitFor(() => {
+      const titleInput = utils.container.querySelector('input[type="text"]') as HTMLInputElement | null;
+      expect(titleInput?.value).toBe('Existing meeting');
+    });
+    await click(utils.getByRole('button', { name: /Siguiente/i }));
+    await waitFor(() => expect(editorOnChange.get('Resumen de la reunión…')).toBeDefined());
+    return utils;
+  }
+  const autosaves = () => vi.mocked(global.fetch).mock.calls.filter(([input]) => String(input).endsWith('/autosave'));
+  let consoleError: ReturnType<typeof vi.spyOn>;
+  let confirmSpy: ReturnType<typeof vi.spyOn>;
+  beforeEach(() => {
+    consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    confirmSpy = vi.spyOn(window, 'confirm').mockImplementation(() => false);
+  });
+  afterEach(() => { consoleError.mockRestore(); confirmSpy.mockRestore(); vi.useRealTimers(); });
+
+  it('a background save that answers version 5 after «Guardar borrador» was clicked at 4: the full save goes out with 5 and succeeds', async () => {
+    await useRealUpdateMeeting();
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    seedRows('community_meetings', [{ id: 'meeting-1', title: 'Existing meeting', status: 'borrador', version: 4 }]);
+    const gate = makeGate();
+    const plainFetch = global.fetch;
+    // @ts-expect-error override global fetch for test
+    global.fetch = vi.fn(async (input: RequestInfo, init?: RequestInit) => {
+      if (String(input).endsWith('/autosave')) {
+        // The server stores version 5 at once; its answer arrives later.
+        tableRows.community_meetings[0].version = 5;
+        await gate.promise;
+        return new Response(JSON.stringify({ data: { version: 5, updated_at: new Date().toISOString() } }), { status: 200 });
+      }
+      return (plainFetch as any)(input, init);
+    });
+    const utils = await openOnStep2(4);
+    await act(async () => { editorOnChange.get('Resumen de la reunión…')!(richDoc('Mi resumen')); });
+    await act(async () => { vi.advanceTimersByTime(2_500); });
+    await waitFor(() => expect(autosaves()).toHaveLength(1));
+
+    await click(utils.getByRole('button', { name: /Guardar borrador/i }));
+    expect(mockUpdateMeeting).not.toHaveBeenCalled();
+    await act(async () => { gate.release(); });
+
+    await waitFor(() => expect(toastSuccess).toHaveBeenCalledWith('Borrador guardado'));
+    expect(mockUpdateMeeting).toHaveBeenCalledTimes(1);
+    expect(mockUpdateMeeting.mock.calls[0][2]).toBe(5);
+    expect(tableRows.community_meetings[0].version).toBe(6);
+    expect(toastError).not.toHaveBeenCalledWith(CONFLICT);
+    expect(confirmSpy).not.toHaveBeenCalled();
+  });
+
+  it('a background save scheduled before «Guardar borrador» does not fire afterwards', async () => {
+    await useRealUpdateMeeting();
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    seedRows('community_meetings', [{ id: 'meeting-1', title: 'Existing meeting', status: 'borrador', version: 4 }]);
+    const utils = await openOnStep2(4);
+    await act(async () => { editorOnChange.get('Resumen de la reunión…')!(richDoc('Mi resumen')); });
+    await click(utils.getByRole('button', { name: /Guardar borrador/i }));
+    await waitFor(() => expect(toastSuccess).toHaveBeenCalledWith('Borrador guardado'));
+    await act(async () => { vi.advanceTimersByTime(5_000); });
+    await act(async () => { await Promise.resolve(); });
+    expect(autosaves()).toHaveLength(0);
+    expect(tableRows.community_meetings[0].version).toBe(5);
+  });
+
+  it('a person who can still read but no longer edit, with a newer stored version: the refusal, not the conflict', async () => {
+    await useRealUpdateMeeting();
+    seedRows('community_meetings', [{ id: 'meeting-1', title: 'Their title', status: 'borrador', version: 9 }]);
+    // Row level security lets them read the row but refuses the update.
+    refusedWrites.add('update:community_meetings');
+    meetingRights['meeting-1'] = { can_edit: false, can_read_content: true };
+    const utils = await openOnStep2(4);
+    await click(utils.getByRole('button', { name: /Guardar borrador/i }));
+    await waitFor(() => expect(toastError).toHaveBeenCalledWith('La reunión: no tienes permiso para guardar este cambio.'));
+    expect(toastError).not.toHaveBeenCalledWith(CONFLICT);
+    expect(utils.getByTestId('meeting-save-problems').textContent).not.toContain(CONFLICT);
+    expect(confirmSpy).not.toHaveBeenCalled();
+    expect(toastSuccess).not.toHaveBeenCalled();
   });
 });

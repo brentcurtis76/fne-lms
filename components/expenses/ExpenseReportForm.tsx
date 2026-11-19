@@ -33,6 +33,16 @@ interface ExpenseItemForm {
   receipt_filename?: string;
   // GES-3.32: the amount as typed (pesos or the foreign currency), read with parseEsCl.
   amountText?: string;
+  // Send-back 1: the row's stable key while the form is open (an existing
+  // item's id, or a key made when the row is added). Never sent or stored.
+  rowKey: string;
+}
+
+let unsavedRowCounter = 0;
+/** A key for a row added in this form (never sent to the database). */
+function newRowKey(): string {
+  unsavedRowCounter += 1;
+  return `unsaved-row-${unsavedRowCounter}`;
 }
 
 const PESOS_NO_DECIMALS = 'Los montos en pesos no llevan decimales.';
@@ -134,7 +144,8 @@ function changesOf(prev: ExpenseItemForm | undefined, next: ExpenseItemForm): Pa
 export default function ExpenseReportForm({ categories, editingReport, onSuccess, onCancel }: ExpenseReportFormProps) {
   const supabase = useSupabaseClient();
   const [loading, setLoading] = useState(false);
-  const [uploadingReceipts, setUploadingReceipts] = useState<Set<number>>(new Set());
+  // Rows (by stable key) whose receipt is uploading right now.
+  const [uploadingReceipts, setUploadingReceipts] = useState<Set<string>>(new Set());
   // GES-1.5: a just-chosen receipt is shown from the browser's own copy (an
   // object URL), keyed by its stored place, until the expense is saved.
   const localReceiptUrls = useRef<Map<string, string>>(new Map());
@@ -164,9 +175,14 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
       expense_date: '',
       vendor: '',
       expense_number: '',
-      notes: ''
+      notes: '',
+      rowKey: newRowKey()
     }
   ]);
+
+  // The rows as last rendered, read when an upload finishes.
+  const currentItems = useRef(expenseItems);
+  currentItems.current = expenseItems;
 
   // Populate form when editing
   useEffect(() => {
@@ -192,7 +208,8 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
           expense_number: item.expense_number || '',
           notes: item.notes || '',
           receipt_url: item.receipt_url,
-          receipt_filename: item.receipt_filename
+          receipt_filename: item.receipt_filename,
+          rowKey: String(item.id)
         }));
         setExpenseItems(items);
       }
@@ -208,7 +225,8 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
       expense_date: '',
       vendor: '',
       expense_number: '',
-      notes: ''
+      notes: '',
+      rowKey: newRowKey()
     }]);
   };
 
@@ -257,8 +275,11 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
 
   const handleReceiptUpload = async (index: number, file: File) => {
     if (!file) return;
+    // Send-back 1: the upload belongs to the row's KEY, not its position.
+    const rowKey = expenseItems[index]?.rowKey;
+    if (!rowKey || uploadingReceipts.has(rowKey)) return;
 
-    setUploadingReceipts(prev => new Set(prev).add(index));
+    setUploadingReceipts(prev => new Set(prev).add(rowKey));
 
     try {
       // Upload file to Supabase Storage
@@ -271,14 +292,19 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
 
       if (uploadError) throw uploadError;
 
+      // The row was removed while its file was uploading: the link is
+      // attached to nothing (the stored file is left as it is).
+      if (!currentItems.current.some(it => it.rowKey === rowKey)) return;
+
       // GES-1.5: store the file's place in the receipts store, never a link.
       const storedPlace = `${RECEIPTS_BUCKET}/${fileName}`;
       localReceiptUrls.current.set(storedPlace, URL.createObjectURL(file));
       
-      // GES-3.29: set only this row's receipt on the LATEST state, so text
-      // typed during the upload and a second upload's link are both kept.
-      setExpenseItems(prev => prev.map((it, i) => (
-        i === index ? { ...it, receipt_url: storedPlace, receipt_filename: file.name } : it
+      // GES-3.29 + send-back 1: set the receipt of the row with this KEY on
+      // the LATEST state, so text typed meanwhile, another row's upload and
+      // rows removed meanwhile are all respected.
+      setExpenseItems(prev => prev.map(it => (
+        it.rowKey === rowKey ? { ...it, receipt_url: storedPlace, receipt_filename: file.name } : it
       )));
       
       toast.success(`✅ Boleta subida exitosamente: ${file.name}`);
@@ -289,7 +315,7 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
     } finally {
       setUploadingReceipts(prev => {
         const newSet = new Set(prev);
-        newSet.delete(index);
+        newSet.delete(rowKey);
         return newSet;
       });
     }
@@ -616,7 +642,7 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
 
           <div className="space-y-4">
             {expenseItems.map((item, index) => (
-              <div key={index} className="p-4 bg-white border border-gray-200 rounded-lg space-y-4">
+              <div key={item.rowKey} className="p-4 bg-white border border-gray-200 rounded-lg space-y-4">
                 <div className="flex items-center justify-between">
                   <h4 className="font-semibold text-brand_primary">Gasto {index + 1}</h4>
                   {expenseItems.length > 1 && (
@@ -817,6 +843,7 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
                         <input
                           type="file"
                           accept=".pdf,.jpg,.jpeg,.png,.gif,.webp"
+                          disabled={uploadingReceipts.has(item.rowKey)}
                           onChange={(e) => {
                             const file = e.target.files?.[0];
                             if (file) handleReceiptUpload(index, file);
@@ -824,7 +851,7 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
                           className="hidden"
                         />
                         <div className="flex items-center justify-center w-full p-4 border-2 border-dashed border-gray-400 rounded-lg hover:border-brand_accent hover:bg-brand_beige transition-all duration-200">
-                          {uploadingReceipts.has(index) ? (
+                          {uploadingReceipts.has(item.rowKey) ? (
                             <div className="flex items-center text-brand_primary">
                               <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-brand_primary mr-3"></div>
                               <span className="font-medium">Subiendo archivo...</span>

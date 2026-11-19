@@ -18,6 +18,7 @@ const PROP = '55555555-5555-4555-8555-555555555555';
 const { h } = vi.hoisted(() => ({
   h: {
     role: 'admin',
+    roleRow: {} as Record<string, unknown>,
     rows: [] as Array<Record<string, unknown>>,
     requests: [] as RecordedRequest[],
   },
@@ -30,7 +31,8 @@ vi.mock('@/lib/api-auth', async () => {
   fake.state.respond = (req, terminal) => {
     if (req.target !== 'propuesta_generadas') return { data: null, error: null };
     const eqs = req.ops.filter(o => o.method === 'eq').map(o => o.args as [string, unknown]);
-    const hit = h.rows.filter(r => eqs.every(([c, v]) => r[c] === v));
+    const ins = req.ops.filter(o => o.method === 'in').map(o => o.args as [string, unknown[]]);
+    const hit = h.rows.filter(r => eqs.every(([c, v]) => r[c] === v) && ins.every(([c, vs]) => vs.includes(r[c])));
     if (has(req, 'update')) {
       const patch = req.ops.find(o => o.method === 'update')!.args[0] as Record<string, unknown>;
       hit.forEach(r => Object.assign(r, patch));
@@ -48,7 +50,7 @@ vi.mock('@/lib/api-auth', async () => {
   };
 });
 vi.mock('@/utils/roleUtils', () => ({
-  getUserRoles: vi.fn(async () => [{ role_type: h.role, is_active: true, from_cache: false, school_id: 1 }]),
+  getUserRoles: vi.fn(async () => [{ role_type: h.role, is_active: true, from_cache: false, school_id: 1, ...h.roleRow }]),
 }));
 vi.mock('@/lib/propuestas/storage', () => ({ getSignedUrl: vi.fn(async () => 'http://localhost/signed.pdf') }));
 
@@ -64,6 +66,7 @@ const updates = () => h.requests.filter(r => r.target === 'propuesta_generadas' 
 
 beforeEach(() => {
   h.role = 'admin';
+  h.roleRow = {};
   h.requests.length = 0;
   h.rows = [
     { id: PROP, licitacion_id: LIC, version: 1, estado: 'completada', web_slug: 'escuela-inventada-evoluciona-2026-v1-55555555', web_status: 'published' },
@@ -82,6 +85,9 @@ describe('POST /api/licitaciones/[id]/propuestas — «Retirar enlace» (LIC-E2)
     // The write is scoped to the version AND the tender.
     expect(u.ops.some(o => o.method === 'eq' && o.args[0] === 'id' && o.args[1] === PROP)).toBe(true);
     expect(u.ops.some(o => o.method === 'eq' && o.args[0] === 'licitacion_id' && o.args[1] === LIC)).toBe(true);
+    // Send-back 1 (3): the update itself only matches a live version.
+    const live = u.ops.find(o => o.method === 'in');
+    expect(live?.args).toEqual(['web_status', ['published', 'viewed']]);
   });
 
   it('a version of another tender → 404, nothing written', async () => {
@@ -120,5 +126,47 @@ describe('POST /api/licitaciones/[id]/propuestas — «Retirar enlace» (LIC-E2)
     const del = createMocks({ method: 'DELETE', query: { id: LIC } });
     await handler(del.req, del.res);
     expect(del.res._getStatusCode()).toBe(405);
+  });
+
+  // ── Send-back 1 ─────────────────────────────────────────────────────────
+  it('(2) a cached admin row is refused with the route\'s existing refusal, nothing written', async () => {
+    h.roleRow = { from_cache: true };
+    const r = await post({ propuesta_id: PROP, accion: 'retirar' });
+    expect(r.status).toBe(403);
+    expect(r.json.error).toBe('Solo administradores pueden acceder');
+    expect(updates()).toHaveLength(0);
+    expect(h.rows[0].web_status).toBe('published');
+  });
+
+  it('(2) an inactive admin row is refused, nothing written', async () => {
+    h.roleRow = { is_active: false };
+    const r = await post({ propuesta_id: PROP, accion: 'retirar' });
+    expect(r.status).toBe(403);
+    expect(updates()).toHaveLength(0);
+    expect(h.rows[0].web_status).toBe('published');
+  });
+
+  it('(3) a version still «generando» → 409, unchanged', async () => {
+    h.rows = [{ id: PROP, licitacion_id: LIC, version: 2, estado: 'generando', web_slug: null, web_status: null }];
+    const r = await post({ propuesta_id: PROP, accion: 'retirar' });
+    expect(r.status).toBe(409);
+    expect(r.json.error).toBe('Solo se puede retirar un enlace que está publicado.');
+    expect(h.rows[0].web_status).toBeNull();
+    expect(h.rows[0].estado).toBe('generando');
+  });
+
+  it('(3) a version in error → 409, unchanged', async () => {
+    h.rows = [{ id: PROP, licitacion_id: LIC, version: 2, estado: 'error', web_slug: null, web_status: null }];
+    const r = await post({ propuesta_id: PROP, accion: 'retirar' });
+    expect(r.status).toBe(409);
+    expect(h.rows[0].web_status).toBeNull();
+  });
+
+  it('(3) an already expired version → 409, unchanged', async () => {
+    h.rows[0].web_status = 'expired';
+    const r = await post({ propuesta_id: PROP, accion: 'retirar' });
+    expect(r.status).toBe(409);
+    expect(r.json.error).toBe('Solo se puede retirar un enlace que está publicado.');
+    expect(h.rows[0].web_status).toBe('expired');
   });
 });

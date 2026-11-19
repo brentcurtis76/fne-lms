@@ -14,6 +14,9 @@ import { getSignedUrl } from '@/lib/propuestas/storage';
 
 // POST: an Admin retires a version's public link by hand (LIC-E2). The public
 // routes already answer an expired proposal (410).
+const LIVE_WEB_STATUSES = ['published', 'viewed'];
+const NOT_LIVE_MESSAGE = 'Solo se puede retirar un enlace que está publicado.';
+
 const RetireSchema = z.object({
   propuesta_id: uuidSchema,
   accion: z.literal('retirar'),
@@ -37,7 +40,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return sendAuthError(res, 'Solo administradores pueden acceder', 403);
   }
 
-  if (req.method === 'POST') return retireLink(req, res, serviceClient, licitacionId);
+  if (req.method === 'POST') {
+    // A write asks for an admin the way the generation route does: an ACTIVE
+    // admin role that does not come from the cached fallback (send-back 1).
+    if (!userRoles.some(role => role.role_type === 'admin' && role.is_active === true && !role.from_cache)) {
+      return sendAuthError(res, 'Solo administradores pueden acceder', 403);
+    }
+    return retireLink(req, res, serviceClient, licitacionId);
+  }
 
   try {
     const { data, error: dbError } = await serviceClient
@@ -84,22 +94,26 @@ async function retireLink(
     // Only a version of THIS tender can be retired.
     const { data: existing, error: readError } = await serviceClient
       .from('propuesta_generadas')
-      .select('id')
+      .select('id, web_status')
       .eq('id', propuesta_id)
       .eq('licitacion_id', licitacionId)
       .maybeSingle();
     if (readError) throw new Error(readError.message);
     if (!existing) return sendAuthError(res, 'Propuesta no encontrada', 404);
 
+    // Only a LIVE version can be retired, and the update itself carries that
+    // condition: a version still generating, in error or already expired is
+    // never written (send-back 1).
     const { data: updated, error: updateError } = await serviceClient
       .from('propuesta_generadas')
       .update({ web_status: 'expired' })
       .eq('id', propuesta_id)
       .eq('licitacion_id', licitacionId)
+      .in('web_status', LIVE_WEB_STATUSES)
       .select('id, web_status')
       .maybeSingle();
     if (updateError) throw new Error(updateError.message);
-    if (!updated) return sendAuthError(res, 'Propuesta no encontrada', 404);
+    if (!updated) return sendAuthError(res, NOT_LIVE_MESSAGE, 409);
 
     return sendApiResponse(res, { propuesta: updated });
   } catch (err) {

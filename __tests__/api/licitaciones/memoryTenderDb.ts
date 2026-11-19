@@ -27,6 +27,7 @@ export function createMemoryTenderDb() {
     let op: 'select' | 'update' | 'upsert' | 'delete' | 'insert' = 'select';
     let values: any = null;
     let orderBy: { col: string; asc: boolean } | null = null;
+    let conflictKeys: string[] = [];
 
     const run = (terminal: 'await' | 'single') => {
       const matching = () => rows(table).filter(r => filters.every(f => f(r)));
@@ -57,6 +58,10 @@ export function createMemoryTenderDb() {
         writes.push({ table, op, values, filters: filterText });
         const list = Array.isArray(values) ? values : [values];
         const inserted = list.map(v => {
+          if (op === 'upsert' && conflictKeys.length > 0) {
+            const existing = rows(table).find(r => conflictKeys.every(k => r[k] === v[k]));
+            if (existing) return Object.assign(existing, v);
+          }
           const row = { id: v.id ?? `mem-${nextId++}`, ...v };
           rows(table).push(row);
           return row;
@@ -96,7 +101,12 @@ export function createMemoryTenderDb() {
         return chain;
       },
       update: (v: Row) => { op = 'update'; values = v; return chain; },
-      upsert: (v: Row | Row[]) => { op = 'upsert'; values = v; return chain; },
+      upsert: (v: Row | Row[], opts?: { onConflict?: string }) => {
+        op = 'upsert';
+        values = v;
+        conflictKeys = (opts?.onConflict ?? '').split(',').map(k => k.trim()).filter(Boolean);
+        return chain;
+      },
       insert: (v: Row | Row[]) => { op = 'insert'; values = v; return chain; },
       delete: () => { op = 'delete'; return chain; },
       single: () => Promise.resolve(run('single')),

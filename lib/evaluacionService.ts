@@ -134,6 +134,47 @@ export async function saveEvaluationScores(
 }
 
 /**
+ * Clears what a previous save left on licitacion_ates before the new scores
+ * are written (LIC-D16): every provider of the tender is unmarked as winner,
+ * and every provider not in `keepIds` (sent without an amount) loses its
+ * calculated score columns. Technical scores in licitacion_evaluaciones are
+ * not touched.
+ */
+export async function resetCalculatedScores(
+  supabase: SupabaseClient,
+  licitacionId: string,
+  keepIds: string[]
+): Promise<void> {
+  const { error: unmarkError } = await supabase
+    .from('licitacion_ates')
+    .update({ es_ganador: false })
+    .eq('licitacion_id', licitacionId);
+
+  if (unmarkError) {
+    throw new Error(`Error al limpiar ganador anterior: ${unmarkError.message}`);
+  }
+
+  let clear = supabase
+    .from('licitacion_ates')
+    .update({
+      puntaje_tecnico: null,
+      puntaje_economico: null,
+      puntaje_tecnico_ponderado: null,
+      puntaje_economico_ponderado: null,
+      puntaje_total: null,
+    })
+    .eq('licitacion_id', licitacionId);
+  if (keepIds.length > 0) {
+    clear = clear.not('id', 'in', `(${keepIds.join(',')})`);
+  }
+  const { error: clearError } = await clear;
+
+  if (clearError) {
+    throw new Error(`Error al limpiar puntajes anteriores: ${clearError.message}`);
+  }
+}
+
+/**
  * Updates licitacion_ates with calculated score fields.
  */
 export async function saveCalculatedScores(

@@ -111,3 +111,91 @@ describe('evaluation route — the evaluation date (LIC-B3)', () => {
     expect(r.json.data.fecha_evaluacion).toBeNull();
   });
 });
+
+// ---------------------------------------------------------------------------
+// LIC-D16 + N46: a re-save leaves no stale winner; another tender's provider is refused
+// ---------------------------------------------------------------------------
+const score = (ate_id: string, puntaje: number) => ({ ate_id, criterio_id: CRIT_1, puntaje });
+const ate = (id: string) => h.db.tables.licitacion_ates.find((a: any) => a.id === id);
+const SCORE_COLUMNS = ['puntaje_tecnico', 'puntaje_economico', 'puntaje_tecnico_ponderado', 'puntaje_economico_ponderado', 'puntaje_total'];
+
+async function saveBoth() {
+  // Weights 70/30. A: technical 80, 400 → economic 100, total 86. B: technical 60, 500 → economic 80, total 66.
+  const r = await post({
+    scores: [score(ATE_A, 80), score(ATE_B, 60)],
+    montos: [{ ate_id: ATE_A, monto_propuesto: 400 }, { ate_id: ATE_B, monto_propuesto: 500 }],
+  });
+  expect(r.status).toBe(200);
+  expect(ate(ATE_A).es_ganador).toBe(true);
+  expect(ate(ATE_B).es_ganador).toBe(false);
+  expect(tender().ganador_ate_id).toBe(ATE_A);
+}
+
+describe('evaluation route — no stale winner after a re-save (LIC-D16)', () => {
+  it('a save with B\'s amount only unmarks A, empties A\'s scores and makes B the winner', async () => {
+    await saveBoth();
+    const r = await post({
+      scores: [score(ATE_A, 80), score(ATE_B, 60)],
+      montos: [{ ate_id: ATE_B, monto_propuesto: 500 }],
+    });
+    expect(r.status).toBe(200);
+    expect(ate(ATE_A).es_ganador).toBe(false);
+    for (const col of SCORE_COLUMNS) expect(ate(ATE_A)[col], col).toBeNull();
+    expect(ate(ATE_B).es_ganador).toBe(true);
+    // B alone: technical 60 → 42, economic 100 → 30, total 72
+    expect(ate(ATE_B).puntaje_total).toBe(72);
+    expect(tender().ganador_ate_id).toBe(ATE_B);
+    expect(h.db.tables.licitacion_ates.filter((a: any) => a.licitacion_id === LIC && a.es_ganador)).toHaveLength(1);
+  });
+
+  it('a save where nobody has an amount marks no winner and empties the tender\'s winner', async () => {
+    await saveBoth();
+    const r = await post({ scores: [score(ATE_A, 80), score(ATE_B, 60)], montos: [] });
+    expect(r.status).toBe(200);
+    expect(ate(ATE_A).es_ganador).toBe(false);
+    expect(ate(ATE_B).es_ganador).toBe(false);
+    for (const col of SCORE_COLUMNS) {
+      expect(ate(ATE_A)[col], col).toBeNull();
+      expect(ate(ATE_B)[col], col).toBeNull();
+    }
+    expect(tender().ganador_ate_id).toBeNull();
+  });
+
+  it('does not touch the providers of another tender', async () => {
+    ate(ATE_FOREIGN).es_ganador = true;
+    ate(ATE_FOREIGN).puntaje_total = 90;
+    await saveBoth();
+    expect(ate(ATE_FOREIGN).es_ganador).toBe(true);
+    expect(ate(ATE_FOREIGN).puntaje_total).toBe(90);
+  });
+
+  it('a tie at the top stays as today: both marked winner, the tender\'s winner is the first in the amounts list', async () => {
+    // The owner decides ties (F20 decision, 19 Nov 2026): this pins today's behaviour, it does not choose it.
+    const r = await post({
+      scores: [score(ATE_A, 80), score(ATE_B, 80)],
+      montos: [{ ate_id: ATE_B, monto_propuesto: 400 }, { ate_id: ATE_A, monto_propuesto: 400 }],
+    });
+    expect(r.status).toBe(200);
+    expect(ate(ATE_A).es_ganador).toBe(true);
+    expect(ate(ATE_B).es_ganador).toBe(true);
+    expect(ate(ATE_A).puntaje_total).toBe(86);
+    expect(ate(ATE_B).puntaje_total).toBe(86);
+    expect(tender().ganador_ate_id).toBe(ATE_B);
+    expect(r.json.data).toEqual({ saved: true });
+  });
+});
+
+describe('evaluation route — an amount for another tender\'s provider (N46)', () => {
+  it('answers 400 and writes nothing', async () => {
+    const r = await post({
+      fecha_evaluacion: '2026-11-05',
+      scores: [score(ATE_A, 80)],
+      montos: [{ ate_id: ATE_A, monto_propuesto: 400 }, { ate_id: ATE_FOREIGN, monto_propuesto: 100 }],
+    });
+    expect(r.status).toBe(400);
+    expect(h.db.writes).toEqual([]);
+    expect(tender().ganador_ate_id).toBeNull();
+    expect(tender().fecha_evaluacion).toBeNull();
+    expect(ate(ATE_FOREIGN).es_ganador).toBe(false);
+  });
+});

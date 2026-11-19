@@ -1,9 +1,9 @@
 # Sistema (configuration, support, roadmap, test and debug pages, scheduled jobs)
 
 Area `19-sistema`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `d701100d0` (2026-11-18).
+Read from commit `ca9dad512` (2026-11-19).
 
-3 screen files, 27 API files, 6 pieces.
+4 screen files, 27 API files, 8 pieces.
 
 ## Screens
 
@@ -12,6 +12,7 @@ Read from commit `d701100d0` (2026-11-18).
 | `/admin/configuration` | `pages/admin/configuration.tsx` | 531 | Sistema › Configuración |  |
 | `/admin/feedback` | `pages/admin/feedback.tsx` | 557 | Gestión › Soporte Técnico |  |
 | `/admin/roadmap` | `pages/admin/roadmap.tsx` | 149 | Sistema › Roadmap MVP |  |
+| `/profile/reportes` | `pages/profile/reportes.tsx` | 239 | — |  |
 
 ## /admin/configuration
 
@@ -185,7 +186,7 @@ File `pages/admin/feedback.tsx` · 557 lines · frame: MainLayout
   - l.96 `{ effectiveRole, isAdmin: isAdminUser } = await getEffectiveRoleAndStatus(supabase, session.user.id)`
   - l.103 `router.push → /dashboard  (when !isAdminUser)`
   - l.320 `router.push → /login`
-- Linked from: `components/layout/Sidebar.tsx:591`, `components/notifications/ModernNotificationCenter.tsx:307`, `components/notifications/ModernNotificationCenter.tsx:325`, `components/notifications/NotificationDropdown.tsx:136`, `components/notifications/NotificationDropdown.tsx:154`, `lib/notificationEvents.ts:397`, `lib/notifications/catalog.ts:377`, `pages/notifications.tsx:265`, `pages/notifications.tsx:283`, `utils/notificationPermissions.ts:121`, `utils/notificationPermissions.ts:164`
+- Linked from: `components/layout/Sidebar.tsx:591`, `components/notifications/ModernNotificationCenter.tsx:307`, `components/notifications/ModernNotificationCenter.tsx:325`, `components/notifications/NotificationDropdown.tsx:136`, `components/notifications/NotificationDropdown.tsx:154`, `lib/notificationEvents.ts:397`, `lib/notifications/catalog.ts:377`, `pages/notifications.tsx:268`, `pages/notifications.tsx:286`, `utils/notificationPermissions.ts:121`, `utils/notificationPermissions.ts:164`
 - Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/feedback-notify-admins.spec.ts`.
 - QA scenarios that name this address: admin 1.
 
@@ -306,6 +307,12 @@ File `pages/admin/feedback.tsx` · 557 lines · frame: MainLayout
 - `types/roles.ts`
 - `utils/roleUtils.ts`
 
+### API addresses it calls
+
+| Address | Method | Called from |
+|---|---|---|
+| `/api/feedback/reply` | POST | `components/feedback/FeedbackDetail.tsx:147` |
+
 ## /admin/roadmap
 
 File `pages/admin/roadmap.tsx` · 149 lines · frame: MainLayout
@@ -376,6 +383,120 @@ File `pages/admin/roadmap.tsx` · 149 lines · frame: MainLayout
 - `components/admin/GeneraRoadmap.tsx`
 - `types/roles.ts`
 - `utils/roleUtils.ts`
+
+## /profile/reportes
+
+File `pages/profile/reportes.tsx` · 239 lines · frame: MainLayout · getServerSideProps
+
+### Who reaches it
+
+- Menu: no entry.
+- Middleware: no role rule. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: yes.
+- In the page:
+  - l.28 `server redirect → /login?next=[*]  (when !viewer)`
+- Linked from: `components/feedback/FeedbackModal.tsx:338`, `components/feedback/FeedbackModal.tsx:339`
+- Tests: no browser test that CI runs; unit tests of the page: `__tests__/pages/profile-reportes.test.tsx`.
+
+| Role | Sees it in the menu | Middleware |
+|---|---|---|
+| admin | — | pass |
+| consultor | — | pass |
+| equipo_directivo | — | pass |
+| lider_generacion | — | pass |
+| lider_comunidad | — | pass |
+| supervisor_de_red | — | pass |
+| community_manager | — | pass |
+| docente | — | pass |
+| encargado_licitacion | — | pass |
+
+### What the page file itself draws
+
+**Titles** (1)
+
+| Text | Level | Shown when | Where |
+|---|---|---|---|
+| «{headingOf(ticket)}» | h2 | `!(status === 'error') && !(status === 'loading') && !(tickets.length === 0) && each tickets` | MyReportsPage · l.201 |
+
+**Buttons** (1)
+
+| Text | Does | Shown when | Disabled when | Hook | Where |
+|---|---|---|---|---|---|
+| «Reintentar» | `{() => void load()}` | `status === 'error'` |  | `testid=reports-retry` | MyReportsPage · l.171 |
+
+**Moves to another page from code** (2)
+
+| Goes to | How | When | Where |
+|---|---|---|---|
+| `/login?next=[*]` | `server redirect` | `!viewer` | getServerSideProps · l.28 |
+| `{forcedChangeRedirectPath(verdict)}` | `server redirect` | `verdict !== 'allowed'` | getServerSideProps · l.34 |
+
+**Draws nothing when** (3)
+
+| Condition | Where |
+|---|---|
+| `sessionLoading` | MyReportsPage · l.122 |
+| `id !== request.current` | MyReportsPage · l.136 |
+| `id !== request.current` | MyReportsPage · l.149 |
+
+**Pieces placed here, with the texts and settings handed to them** (1)
+
+| Piece | Texts and settings | Shown when | Hook | Where |
+|---|---|---|---|---|
+| `MainLayout` | pageTitle: Mis reportes · breadcrumbs: Mi Perfil / Mis reportes |  |  | MyReportsPage · l.232 |
+
+**Texts kept in lists and helpers in the code (labels, options, status names)** (6)
+
+| Name | Texts | Where |
+|---|---|---|
+| `TICKET_COLUMNS` | «id, title, description, type, status, created_at» | l.58 |
+| `ACTIVITY_COLUMNS` | «id, feedback_id, message, is_system_message, created_by, created_at, visible_to_reporter» | l.59 |
+| `STATUS_LABELS` | «Nuevo», «Visto», «En Progreso», «Resuelto», «Cerrado» | l.62 |
+| `TYPE_LABELS` | «Problema», «Idea», «Comentario» | l.71 |
+| `UNKNOWN_STATUS` | «Estado desconocido» | l.77 |
+| `READ_ERROR` | «No se pudieron cargar tus reportes. Inténtalo de nuevo.» | l.80 |
+
+**Other texts written in the code (safety net: not tied to an element by the script)** (1)
+
+| Text | Where |
+|---|---|
+| «Reporte» | UNKNOWN_TYPE · l.78 |
+
+**Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (9)
+
+| Kind | What | Where |
+|---|---|---|
+| role | `role=alert` | MyReportsPage · l.169 |
+| mark | `testid=reports-error` | MyReportsPage · l.169 |
+| role | `role=status` | MyReportsPage · l.178 |
+| mark | `testid=reports-loading` | MyReportsPage · l.178 |
+| mark | `testid=reports-empty` | MyReportsPage · l.184 |
+| mark | `testid=report-card` | MyReportsPage · l.199 |
+| mark | `testid=report-status` | MyReportsPage · l.202 |
+| mark | `testid=report-comment` | MyReportsPage · l.214 |
+| mark | `testid=my-reports` | MyReportsPage · l.233 |
+
+**Values shown from data** (7)
+
+- `{READ_ERROR}` — MyReportsPage · l.170, when `status === 'error'`
+- `{STATUS_LABELS[ticket.status]} / {UNKNOWN_STATUS}` — MyReportsPage · l.202, when `!(status === 'error') && !(status === 'loading') && !(tickets.length === 0) && each tickets`
+- `{TYPE_LABELS[ticket.type]} / {UNKNOWN_TYPE}` — MyReportsPage · l.207, when `!(status === 'error') && !(status === 'loading') && !(tickets.length === 0) && each tickets`
+- `{formatDate(ticket.created_at)}` — MyReportsPage · l.209, when `!(status === 'error') && !(status === 'loading') && !(tickets.length === 0) && each tickets`
+- `{formatDate(row.created_at)}` — MyReportsPage · l.217, when `!(tickets.length === 0) && each tickets && comments.length > 0 && each comments`
+- `{row.message}` — MyReportsPage · l.219, when `!(tickets.length === 0) && each tickets && comments.length > 0 && each comments`
+- `{content}` — MyReportsPage · l.233
+
+**Other texts on screen** (3)
+
+- «Cargando tus reportes…» — MyReportsPage · l.179, when `!(status === 'error') && status === 'loading'`
+- «Todavía no has reportado ningún problema.» — MyReportsPage · l.185, when `!(status === 'error') && !(status === 'loading') && tickets.length === 0`
+- «Tu comentario / Respuesta de Soporte» — MyReportsPage · l.216, when `!(tickets.length === 0) && each tickets && comments.length > 0 && each comments`
+
+**Reads and writes the database directly:** `table:feedback_activity` (select), `table:platform_feedback` (select)
+
+### Pieces it uses (each is listed once, under "Pieces" below)
+
+- `lib/api-auth.ts`
+- `lib/auth/forced-password-change.ts`
 
 ## Pieces
 
@@ -570,108 +691,126 @@ Used by: `/admin/feedback`
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «Detalle de Feedback» | h3 |  | FeedbackDetail · l.247 |
-| «Descripción» | h4 |  | FeedbackDetail · l.307 |
-| «Captura de pantalla» | h4 | `feedback.screenshot_url` | FeedbackDetail · l.314 |
-| «Detalles técnicos» | h4 |  | FeedbackDetail · l.326 |
-| «Acciones» | h4 |  | FeedbackDetail · l.356 |
-| «Actividad» | h4 |  | FeedbackDetail · l.400 |
+| «Detalle de Feedback» | h3 |  | FeedbackDetail · l.293 |
+| «Descripción» | h4 |  | FeedbackDetail · l.353 |
+| «Captura de pantalla» | h4 | `feedback.screenshot_url` | FeedbackDetail · l.360 |
+| «Detalles técnicos» | h4 |  | FeedbackDetail · l.372 |
+| «Acciones» | h4 |  | FeedbackDetail · l.402 |
+| «Actividad» | h4 |  | FeedbackDetail · l.446 |
 
 **Buttons** (8)
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «[icon X]» · aria «Close modal» | `{onClose}` |  |  | `testid=close-modal-button` | FeedbackDetail · l.254 |
-| «Copiar Detalles» · tooltip «Copiar todos los detalles del error para Claude Code» | `{copyErrorDetailsForClaude}` |  |  |  | FeedbackDetail · l.270 |
-| «Marcar en progreso» | `{() => onStatusUpdate('in_progress')}` | `feedback.status !== 'in_progress' && feedback.status !== 'resolved' && feedback.status !== 'closed'` |  |  | FeedbackDetail · l.359 |
-| «Marcar como resuelto» | `{() => onStatusUpdate('resolved')}` | `feedback.status !== 'resolved' && feedback.status !== 'closed'` |  |  | FeedbackDetail · l.367 |
-| «Cerrar ticket» | `{() => onStatusUpdate('closed')}` | `feedback.status === 'resolved'` |  |  | FeedbackDetail · l.375 |
-| «Cerrar ventana» | `{onClose}` |  |  |  | FeedbackDetail · l.387 |
-| «[icon Send]» · aria «Send comment» | `{addComment}` |  | `{isSubmitting \|\| !newComment.trim()}` | `testid=send-comment-button` | FeedbackDetail · l.456 |
-| «[icon X]» | `{() => setShowFullScreenshot(false)}` | `showFullScreenshot && feedback.screenshot_url` |  |  | FeedbackDetail · l.484 |
+| «[icon X]» · aria «Close modal» | `{onClose}` |  |  | `testid=close-modal-button` | FeedbackDetail · l.300 |
+| «Copiar Detalles» · tooltip «Copiar todos los detalles del error para Claude Code» | `{copyErrorDetailsForClaude}` |  |  |  | FeedbackDetail · l.316 |
+| «Marcar en progreso» | `{() => onStatusUpdate('in_progress')}` | `feedback.status !== 'in_progress' && feedback.status !== 'resolved' && feedback.status !== 'closed'` |  |  | FeedbackDetail · l.405 |
+| «Marcar como resuelto» | `{() => onStatusUpdate('resolved')}` | `feedback.status !== 'resolved' && feedback.status !== 'closed'` |  |  | FeedbackDetail · l.413 |
+| «Cerrar ticket» | `{() => onStatusUpdate('closed')}` | `feedback.status === 'resolved'` |  |  | FeedbackDetail · l.421 |
+| «Cerrar ventana» | `{onClose}` |  |  |  | FeedbackDetail · l.433 |
+| «Enviar respuesta / Guardar nota» | `{addComment}` |  | `{isSubmitting \|\| !newComment.trim()}` | `testid=send-comment-button` | FeedbackDetail · l.536 |
+| «[icon X]» | `{() => setShowFullScreenshot(false)}` | `showFullScreenshot && feedback.screenshot_url` |  |  | FeedbackDetail · l.566 |
 
 **Links** (1)
 
 | Text | Goes to | Shown when | Hook | Where |
 |---|---|---|---|---|
-| «{feedback.page_url}» | `{feedback.page_url}` (new tab) | `isHttpPageUrl(feedback.page_url)` |  | FeedbackDetail · l.331 |
+| «{feedback.page_url}» | `{feedback.page_url}` (new tab) | `isHttpPageUrl(feedback.page_url)` |  | FeedbackDetail · l.377 |
 
 **Other things that react to a click** (1)
 
 | Element | Text | Does | Shown when | Where |
 |---|---|---|---|---|
-| `div` |  | `{onClose}` |  | FeedbackDetail · l.235 |
+| `div` |  | `{onClose}` |  | FeedbackDetail · l.281 |
 
-**Fields** (1)
+**Fields** (3)
 
 | Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
 |---|---|---|---|---|---|---|
-| «Agregar comentario...» | text | «Agregar comentario...» · disabled: `{isSubmitting}` · also `onKeyPress={(e) => e.key === 'Enter' && addComment()}` |  |  |  | FeedbackDetail · l.447 |
+| «Nota interna» | radio | `feedback-comment-kind` · disabled: `{isSubmitting}` |  |  | `testid=comment-kind-note` | FeedbackDetail · l.497 |
+| «Responder al usuario» | radio | `feedback-comment-kind` · disabled: `{isSubmitting}` |  |  | `testid=comment-kind-reply` | FeedbackDetail · l.509 |
+| «Agregar comentario...» | text | «Agregar comentario...» · disabled: `{isSubmitting}` · also `onKeyPress={(e) => e.key === 'Enter' && addComment()}` |  |  |  | FeedbackDetail · l.527 |
 
 **Embedded media** (3)
 
 | What | Shown when | Hook | Where |
 |---|---|---|---|
-| img · alt {`${feedback.profiles.first_name} ${feedback.profiles.last_name}`} · {feedback.profiles.avatar_url} | `feedback.profiles.avatar_url` |  | FeedbackDetail · l.283 |
-| img · alt Screenshot · {feedback.screenshot_url} | `feedback.screenshot_url` |  | FeedbackDetail · l.315 |
-| img · alt Screenshot · {feedback.screenshot_url} | `showFullScreenshot && feedback.screenshot_url` |  | FeedbackDetail · l.479 |
+| img · alt {`${feedback.profiles.first_name} ${feedback.profiles.last_name}`} · {feedback.profiles.avatar_url} | `feedback.profiles.avatar_url` |  | FeedbackDetail · l.329 |
+| img · alt Screenshot · {feedback.screenshot_url} | `feedback.screenshot_url` |  | FeedbackDetail · l.361 |
+| img · alt Screenshot · {feedback.screenshot_url} | `showFullScreenshot && feedback.screenshot_url` |  | FeedbackDetail · l.561 |
 
 **Pop-ups** (2)
 
 | Name or title | How | Opens when | Texts passed to it | Where |
 |---|---|---|---|---|
-| «Detalle de Feedback» | written in this file |  |  | FeedbackDetail · l.233 |
-| «(sin título)» | written in this file | `showFullScreenshot && feedback.screenshot_url` |  | FeedbackDetail · l.475 |
+| «Detalle de Feedback» | written in this file |  |  | FeedbackDetail · l.279 |
+| «(sin título)» | written in this file | `showFullScreenshot && feedback.screenshot_url` |  | FeedbackDetail · l.557 |
 
-**Toasts** (4)
+**Toasts** (7)
 
 | Kind | Text | When | Where |
 |---|---|---|---|
-| success | «Comentario agregado» |  | addComment · l.124 |
-| error | «Error al agregar comentario» |  | addComment · l.127 |
-| success | «¡Detalles copiados para Claude Code!» |  | copyErrorDetailsForClaude · l.222 |
-| error | «Error al copiar los detalles» |  | copyErrorDetailsForClaude · l.225 |
+| success | «Nota interna guardada» |  | addComment · l.134 |
+| error | «Error al agregar comentario» |  | addComment · l.137 |
+| error | «No se pudo enviar la respuesta» | `!response.ok` | sendReply · l.154 |
+| success | «Respuesta enviada al usuario» |  | sendReply · l.160 |
+| error | «No se pudo enviar la respuesta» |  | sendReply · l.163 |
+| success | «¡Detalles copiados para Claude Code!» |  | copyErrorDetailsForClaude · l.268 |
+| error | «Error al copiar los detalles» |  | copyErrorDetailsForClaude · l.271 |
 
 **Messages set on the page** (1)
 
 | Text | Set by | When | Where |
 |---|---|---|---|
-| «Usuario no autenticado» | `throw (shown by whoever catches it)` | `!user` | addComment · l.109 |
+| «Usuario no autenticado» | `throw (shown by whoever catches it)` | `!user` | addComment · l.118 |
 
 **Draws nothing when** (1)
 
 | Condition | Where |
 |---|---|
-| `!isOpen \|\| !feedback` | FeedbackDetail · l.229 |
+| `!isOpen \|\| !feedback` | FeedbackDetail · l.275 |
 
-**Other texts written in the code (safety net: not tied to an element by the script)** (5)
+**Other texts written in the code (safety net: not tied to an element by the script)** (7)
 
 | Text | Where |
 |---|---|
-| «Feature Request» | FeedbackDetail · l.192 |
-| «General Feedback» | FeedbackDetail · l.192 |
-| «**Console Error:** ``` {consoleError} ```» | FeedbackDetail · l.205 |
-| «Not captured» | FeedbackDetail · l.211 |
-| «Resolution Notes: {feedback.resolution_notes}» | FeedbackDetail · l.215 |
+| «Comentario del usuario» | FeedbackDetail · l.171 |
+| «Respuesta al usuario» | FeedbackDetail · l.174 |
+| «Feature Request» | FeedbackDetail · l.238 |
+| «General Feedback» | FeedbackDetail · l.238 |
+| «**Console Error:** ``` {consoleError} ```» | FeedbackDetail · l.251 |
+| «Not captured» | FeedbackDetail · l.257 |
+| «Resolution Notes: {feedback.resolution_notes}» | FeedbackDetail · l.261 |
 
-**Values shown from data** (10)
+**Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (1)
 
-- `# {feedback.id.slice(0, 8).toUpperCase…}` — FeedbackDetail · l.250
-- `{feedback.profiles.first_name} {feedback.profiles.last_name}` — FeedbackDetail · l.294
-- `{feedback.profiles.email}` — FeedbackDetail · l.297
-- `{feedback.description}` — FeedbackDetail · l.308
-- `{feedback.page_url}` — FeedbackDetail · l.340, when `!(isHttpPageUrl(feedback.page_url))`
-- `{JSON.stringify(feedback.browser_inf…}` — FeedbackDetail · l.346, when `feedback.browser_info`
-- `{activity.message}` — FeedbackDetail · l.421, when `!(activities.length === 0) && each activities && activity.is_system_message`
-- `{activity.profiles?.first_name} {activity.profiles?.last_name}` — FeedbackDetail · l.427, when `!(activities.length === 0) && each activities && !(activity.is_system_message)`
-- `{formatDate(activity.created_at)}` — FeedbackDetail · l.430, when `!(activities.length === 0) && each activities && !(activity.is_system_message)`
-- `{activity.message}` — FeedbackDetail · l.434, when `!(activities.length === 0) && each activities && !(activity.is_system_message)`
+| Kind | What | Where |
+|---|---|---|
+| role | `role=radiogroup` | FeedbackDetail · l.495 |
 
-**Other texts on screen** (3)
+**Values shown from data** (11)
 
-- «Ver información del navegador» (label) — FeedbackDetail · l.345, when `feedback.browser_info`
-- «Ticket cerrado» — FeedbackDetail · l.384, when `feedback.status === 'closed'`
-- «Sin actividad aún» — FeedbackDetail · l.408, when `activities.length === 0`
+- `# {feedback.id.slice(0, 8).toUpperCase…}` — FeedbackDetail · l.296
+- `{feedback.profiles.first_name} {feedback.profiles.last_name}` — FeedbackDetail · l.340
+- `{feedback.profiles.email}` — FeedbackDetail · l.343
+- `{feedback.description}` — FeedbackDetail · l.354
+- `{feedback.page_url}` — FeedbackDetail · l.386, when `!(isHttpPageUrl(feedback.page_url))`
+- `{JSON.stringify(feedback.browser_inf…}` — FeedbackDetail · l.392, when `feedback.browser_info`
+- `{activity.message}` — FeedbackDetail · l.467, when `!(activities.length === 0) && each activities && activity.is_system_message`
+- `{activity.profiles?.first_name} {activity.profiles?.last_name}` — FeedbackDetail · l.473, when `!(activities.length === 0) && each activities && !(activity.is_system_message)`
+- `{activityLabel(activity).text}` — FeedbackDetail · l.476, when `!(activities.length === 0) && each activities && !(activity.is_system_message)`
+- `{formatDate(activity.created_at)}` — FeedbackDetail · l.479, when `!(activities.length === 0) && each activities && !(activity.is_system_message)`
+- `{activity.message}` — FeedbackDetail · l.483, when `!(activities.length === 0) && each activities && !(activity.is_system_message)`
+
+**Other texts on screen** (7)
+
+- «Ver información del navegador» (label) — FeedbackDetail · l.391, when `feedback.browser_info`
+- «Ticket cerrado» — FeedbackDetail · l.430, when `feedback.status === 'closed'`
+- «Sin actividad aún» — FeedbackDetail · l.454, when `activities.length === 0`
+- «Tipo de comentario» (aria-label) — FeedbackDetail · l.495
+- «Nota interna» (label) — FeedbackDetail · l.496
+- «Responder al usuario» (label) — FeedbackDetail · l.508
+- «La persona que reportó la verá en «Mis reportes». / Solo la ven los administradores.» — FeedbackDetail · l.521
 
 **Reads and writes the database directly:** `table:feedback_activity` (insert, select)
 
@@ -713,6 +852,29 @@ Used by: `/admin/configuration`
 - `{icon}` — MobileFunctionalPageHeader · l.119
 - `{children}` — MobileFunctionalPageHeader · l.159, when `children`
 - `{subtitle}` — MobileFunctionalPageHeader · l.168, when `subtitle`
+
+### lib/api-auth.ts
+
+Used by: `/profile/reportes`
+
+**Messages set on the page** (2)
+
+| Text | Set by | When | Where |
+|---|---|---|---|
+| «Server configuration error» | `throw (shown by whoever catches it)` | `!supabaseUrl \|\| !serviceRoleKey` | createServiceRoleClient · l.113 |
+| «Failed to initialize admin connection» | `throw (shown by whoever catches it)` |  | createServiceRoleClient · l.125 |
+
+**Reads and writes the database directly:** `table:profiles` (select)
+
+### lib/auth/forced-password-change.ts
+
+Used by: `/profile/reportes`
+
+**Texts kept in lists and helpers in the code (labels, options, status names)** (1)
+
+| Name | Texts | Where |
+|---|---|---|
+| `verdictFromProfile()` | «required / allowed» | verdictFromProfile · l.254 |
 
 ### types/roles.ts
 

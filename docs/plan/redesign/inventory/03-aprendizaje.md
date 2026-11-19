@@ -1,7 +1,7 @@
 # Mi Aprendizaje (the learner's courses, lessons and routes)
 
 Area `03-aprendizaje`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `d701100d0` (2026-11-18).
+Read from commit `ca9dad512` (2026-11-19).
 
 Course system: the Course Review session owns this area's structure and its own checklist (docs/planning/courses/inventory.md, not yet on main). This file is the redesign's list of what is on screen today.
 
@@ -30,7 +30,7 @@ File `pages/course-manager.tsx` · 22 lines · frame: none
 - Menu: no entry.
 - Middleware: no role rule. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: yes.
 - In the page: no access check found by the script.
-- Linked from: `components/notifications/NotificationDropdown.tsx:138`, `components/notifications/NotificationDropdown.tsx:148`, `lib/auth/forced-password-change.ts:139`, `middleware.ts:334`
+- Linked from: `components/notifications/NotificationDropdown.tsx:138`, `components/notifications/NotificationDropdown.tsx:148`, `lib/auth/forced-password-change.ts:139`, `middleware.ts:340`
 - Tests: no browser test that CI runs.
 
 | Role | Sees it in the menu | Middleware |
@@ -65,13 +65,13 @@ File `pages/mi-aprendizaje.tsx` · 526 lines · frame: MainLayout
 
 - Menu: «Mi Aprendizaje» → `/mi-aprendizaje` — everyone signed in (`Sidebar.tsx` l.140)
 - Menu: Mi Aprendizaje › «Mis Cursos» → `/mi-aprendizaje?tab=cursos` — everyone signed in; the group: everyone signed in (`Sidebar.tsx` l.147)
-- Middleware: no role rule. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: yes.
+- Middleware: signed-in only. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page:
   - l.278 `router.push → /login  (when !session?.user)`
   - l.292 `role = await getUserPrimaryRole(session.user.id)`
   - l.347 `router.push → /login`
   - l.377 `router.push → /login`
-- Linked from: `components/DynamicFavicon.tsx:31`, `components/layout/Sidebar.tsx:143`, `components/layout/Sidebar.tsx:149`, `components/notifications/ModernNotificationCenter.tsx:309`, `components/notifications/ModernNotificationCenter.tsx:319`, `components/panel/PanelClasico.tsx:562`, `components/panel/PanelClasico.tsx:563`, `components/panel/PanelNuevo.tsx:130`, `lib/auth/forced-password-change.ts:152`, `lib/notificationEvents.ts:248`, `lib/notificationEvents.ts:262`, `lib/notificationEvents.ts:275` and 13 more
+- Linked from: `components/DynamicFavicon.tsx:31`, `components/layout/Sidebar.tsx:143`, `components/layout/Sidebar.tsx:149`, `components/notifications/ModernNotificationCenter.tsx:309`, `components/notifications/ModernNotificationCenter.tsx:319`, `components/panel/PanelClasico.tsx:562`, `components/panel/PanelClasico.tsx:563`, `components/panel/PanelNuevo.tsx:130`, `lib/auth/forced-password-change.ts:152`, `lib/auth/forced-password-change.ts:182`, `lib/notificationEvents.ts:248`, `lib/notificationEvents.ts:262` and 14 more
 - Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/notification-dispatch.spec.ts`, `tests/e2e/notification-mail-mirror.spec.ts`, `tests/e2e/panel-pin.spec.ts`.
 - QA scenarios that name this address: admin 4, community_manager 2, consultor 1, equipo_directivo 1, lider_comunidad 1, lider_generacion 1, supervisor_de_red 1.
 
@@ -203,7 +203,7 @@ File `pages/mi-aprendizaje/ruta/[id].tsx` · 549 lines · frame: MainLayout · g
 ### Who reaches it
 
 - Menu: no entry.
-- Middleware: no role rule. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: yes.
+- Middleware: signed-in only. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page:
   - l.506 `server redirect → /auth/signin  (when !user)`
   - l.521 `server redirect → /auth/signin  (when !profileData)`
@@ -342,9 +342,9 @@ File `pages/mi-aprendizaje/tareas.tsx` · 612 lines · frame: MainLayout
 ### Who reaches it
 
 - Menu: Mi Aprendizaje › «Mis Tareas» → `/mi-aprendizaje/tareas` — everyone signed in; the group: everyone signed in (`Sidebar.tsx` l.154)
-- Middleware: no role rule. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: yes.
+- Middleware: signed-in only. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page: no access check found by the script.
-- Linked from: `components/layout/Sidebar.tsx:156`, `lib/notifications/catalog.ts:296`, `pages/api/assignments/collaborative-submit.ts:126`, `pages/community/workspace.tsx:273`, `pages/community/workspace/assignments/[id]/discussion.tsx:150`, `pages/community/workspace/assignments/[id]/discussion.tsx:279`, `pages/community/workspace/assignments/[id]/discussion.tsx:289`, `pages/community/workspace/assignments/[id]/groups.tsx:154`, `pages/community/workspace/assignments/[id]/groups.tsx:164`
+- Linked from: `components/layout/Sidebar.tsx:156`, `lib/notifications/catalog.ts:296`, `pages/api/assignments/collaborative-submit.ts:126`, `pages/community/workspace.tsx:274`, `pages/community/workspace/assignments/[id]/discussion.tsx:150`, `pages/community/workspace/assignments/[id]/discussion.tsx:279`, `pages/community/workspace/assignments/[id]/discussion.tsx:289`, `pages/community/workspace/assignments/[id]/groups.tsx:154`, `pages/community/workspace/assignments/[id]/groups.tsx:164`
 - Tests: browser tests that CI runs: `tests/e2e/look-frame.spec.ts`.
 - QA scenarios that name this address: admin 1.
 
@@ -493,7 +493,7 @@ File `pages/my-paths.tsx` · 22 lines · frame: none
 - Menu: no entry.
 - Middleware: no role rule. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: yes.
 - In the page: no access check found by the script.
-- Linked from: `components/DynamicFavicon.tsx:32`, `lib/auth/forced-password-change.ts:154`, `middleware.ts:349`, `pages/mi-aprendizaje/ruta/[id].tsx:231`
+- Linked from: `components/DynamicFavicon.tsx:32`, `lib/auth/forced-password-change.ts:154`, `middleware.ts:355`, `pages/mi-aprendizaje/ruta/[id].tsx:231`
 - Tests: no browser test that CI runs.
 
 | Role | Sees it in the menu | Middleware |
@@ -527,7 +527,7 @@ File `pages/student/course/[courseId].tsx` · 708 lines · frame: MainLayout
 ### Who reaches it
 
 - Menu: no entry.
-- Middleware: no role rule. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: yes.
+- Middleware: signed-in only. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page:
   - l.76 `router.push → /login  (when !session?.user)`
   - l.83 `adminInMetadata = metadataHasRole(session.user?.user_metadata, 'admin')`
@@ -651,7 +651,7 @@ File `pages/student/lesson/[lessonId].tsx` · 970 lines · frame: MainLayout
 ### Who reaches it
 
 - Menu: no entry.
-- Middleware: no role rule. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: yes.
+- Middleware: signed-in only. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page:
   - l.106 `router.push → /auth/login  (when !session?.user)`
   - l.120 `userRole = await getUserPrimaryRole(session.user.id)`

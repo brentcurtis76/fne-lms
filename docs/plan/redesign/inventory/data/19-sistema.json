@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "d701100d014e948bec5766fb68836675e13355b6",
-  "date": "2026-11-18T15:21:06-03:00"
+  "commit": "ca9dad512fc0b65bf1db627e23a6d84edd80dd28",
+  "date": "2026-11-19T14:41:10-03:00"
  },
  "screens": [
   {
@@ -675,8 +675,8 @@
      "components/notifications/NotificationDropdown.tsx:154",
      "lib/notificationEvents.ts:397",
      "lib/notifications/catalog.ts:377",
-     "pages/notifications.tsx:265",
-     "pages/notifications.tsx:283",
+     "pages/notifications.tsx:268",
+     "pages/notifications.tsx:286",
      "utils/notificationPermissions.ts:121",
      "utils/notificationPermissions.ts:164"
     ],
@@ -1025,7 +1025,18 @@
     "types/roles.ts",
     "utils/roleUtils.ts"
    ],
-   "api": []
+   "api": [
+    {
+     "file": "pages/api/feedback/reply.ts",
+     "route": "/api/feedback/reply",
+     "methods": [
+      "POST"
+     ],
+     "from": [
+      "components/feedback/FeedbackDetail.tsx:147"
+     ]
+    }
+   ]
   },
   {
    "file": "pages/admin/roadmap.tsx",
@@ -1209,6 +1220,369 @@
     "components/admin/GeneraRoadmap.tsx",
     "types/roles.ts",
     "utils/roleUtils.ts"
+   ],
+   "api": []
+  },
+  {
+   "file": "pages/profile/reportes.tsx",
+   "route": "/profile/reportes",
+   "lines": 239,
+   "marks": {},
+   "frame": "MainLayout",
+   "server": "getServerSideProps",
+   "reach": {
+    "menu": [],
+    "middleware": {
+     "rule": "no role rule",
+     "signedOut": "not stopped by the middleware",
+     "passwordChangeHold": true
+    },
+    "roles": {
+     "admin": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "equipo_directivo": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_generacion": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_comunidad": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "supervisor_de_red": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "community_manager": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "docente": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "encargado_licitacion": {
+      "menu": "—",
+      "middleware": "pass"
+     }
+    },
+    "inPage": [
+     {
+      "line": 28,
+      "text": "server redirect → /login?next=[*]  (when !viewer)"
+     }
+    ],
+    "linkedFrom": [
+     "components/feedback/FeedbackModal.tsx:338",
+     "components/feedback/FeedbackModal.tsx:339"
+    ],
+    "qaScenarios": {},
+    "tests": {
+     "e2eCi": [],
+     "e2e": [],
+     "unit": [
+      "__tests__/pages/profile-reportes.test.tsx"
+     ]
+    }
+   },
+   "rows": [
+    {
+     "kind": "nav",
+     "line": 28,
+     "in": "getServerSideProps",
+     "when": "!viewer",
+     "text": "/login?next=[*]",
+     "via": "server redirect"
+    },
+    {
+     "kind": "nav",
+     "line": 34,
+     "in": "getServerSideProps",
+     "when": "verdict !== 'allowed'",
+     "text": "{forcedChangeRedirectPath(verdict)}",
+     "via": "server redirect"
+    },
+    {
+     "kind": "list",
+     "line": 58,
+     "text": "TICKET_COLUMNS",
+     "items": [
+      "id, title, description, type, status, created_at"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 59,
+     "text": "ACTIVITY_COLUMNS",
+     "items": [
+      "id, feedback_id, message, is_system_message, created_by, created_at, visible_to_reporter"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 62,
+     "text": "STATUS_LABELS",
+     "items": [
+      "Nuevo",
+      "Visto",
+      "En Progreso",
+      "Resuelto",
+      "Cerrado"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 71,
+     "text": "TYPE_LABELS",
+     "items": [
+      "Problema",
+      "Idea",
+      "Comentario"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 77,
+     "text": "UNKNOWN_STATUS",
+     "items": [
+      "Estado desconocido"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 80,
+     "text": "READ_ERROR",
+     "items": [
+      "No se pudieron cargar tus reportes. Inténtalo de nuevo."
+     ]
+    },
+    {
+     "kind": "gate",
+     "line": 122,
+     "in": "MyReportsPage",
+     "text": "sessionLoading"
+    },
+    {
+     "kind": "gate",
+     "line": 136,
+     "in": "MyReportsPage",
+     "text": "id !== request.current"
+    },
+    {
+     "kind": "gate",
+     "line": 149,
+     "in": "MyReportsPage",
+     "when": "own.length > 0",
+     "text": "id !== request.current"
+    },
+    {
+     "kind": "hook",
+     "line": 169,
+     "in": "MyReportsPage",
+     "when": "status === 'error'",
+     "text": "role=alert",
+     "type": "role",
+     "tag": "div"
+    },
+    {
+     "kind": "hook",
+     "line": 169,
+     "in": "MyReportsPage",
+     "when": "status === 'error'",
+     "text": "testid=reports-error",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "value",
+     "line": 170,
+     "in": "MyReportsPage",
+     "when": "status === 'error'",
+     "text": "{READ_ERROR}"
+    },
+    {
+     "kind": "button",
+     "line": 171,
+     "in": "MyReportsPage",
+     "when": "status === 'error'",
+     "text": "Reintentar",
+     "action": "{() => void load()}",
+     "hook": {
+      "testid": "reports-retry"
+     }
+    },
+    {
+     "kind": "hook",
+     "line": 178,
+     "in": "MyReportsPage",
+     "when": "!(status === 'error') && status === 'loading'",
+     "text": "role=status",
+     "type": "role",
+     "tag": "p"
+    },
+    {
+     "kind": "hook",
+     "line": 178,
+     "in": "MyReportsPage",
+     "when": "!(status === 'error') && status === 'loading'",
+     "text": "testid=reports-loading",
+     "type": "mark",
+     "tag": "p"
+    },
+    {
+     "kind": "text",
+     "line": 179,
+     "in": "MyReportsPage",
+     "when": "!(status === 'error') && status === 'loading'",
+     "text": "Cargando tus reportes…"
+    },
+    {
+     "kind": "hook",
+     "line": 184,
+     "in": "MyReportsPage",
+     "when": "!(status === 'error') && !(status === 'loading') && tickets.length === 0",
+     "text": "testid=reports-empty",
+     "type": "mark",
+     "tag": "p"
+    },
+    {
+     "kind": "text",
+     "line": 185,
+     "in": "MyReportsPage",
+     "when": "!(status === 'error') && !(status === 'loading') && tickets.length === 0",
+     "text": "Todavía no has reportado ningún problema."
+    },
+    {
+     "kind": "hook",
+     "line": 199,
+     "in": "MyReportsPage",
+     "when": "!(status === 'error') && !(status === 'loading') && !(tickets.length === 0) && each tickets",
+     "text": "testid=report-card",
+     "type": "mark",
+     "tag": "li"
+    },
+    {
+     "kind": "heading",
+     "line": 201,
+     "in": "MyReportsPage",
+     "when": "!(status === 'error') && !(status === 'loading') && !(tickets.length === 0) && each tickets",
+     "text": "{headingOf(ticket)}",
+     "level": 2
+    },
+    {
+     "kind": "hook",
+     "line": 202,
+     "in": "MyReportsPage",
+     "when": "!(status === 'error') && !(status === 'loading') && !(tickets.length === 0) && each tickets",
+     "text": "testid=report-status",
+     "type": "mark",
+     "tag": "span"
+    },
+    {
+     "kind": "value",
+     "line": 202,
+     "in": "MyReportsPage",
+     "when": "!(status === 'error') && !(status === 'loading') && !(tickets.length === 0) && each tickets",
+     "text": "{STATUS_LABELS[ticket.status]} / {UNKNOWN_STATUS}"
+    },
+    {
+     "kind": "value",
+     "line": 207,
+     "in": "MyReportsPage",
+     "when": "!(status === 'error') && !(status === 'loading') && !(tickets.length === 0) && each tickets",
+     "text": "{TYPE_LABELS[ticket.type]} / {UNKNOWN_TYPE}"
+    },
+    {
+     "kind": "value",
+     "line": 209,
+     "in": "MyReportsPage",
+     "when": "!(status === 'error') && !(status === 'loading') && !(tickets.length === 0) && each tickets",
+     "text": "{formatDate(ticket.created_at)}"
+    },
+    {
+     "kind": "hook",
+     "line": 214,
+     "in": "MyReportsPage",
+     "when": "!(tickets.length === 0) && each tickets && comments.length > 0 && each comments",
+     "text": "testid=report-comment",
+     "type": "mark",
+     "tag": "li"
+    },
+    {
+     "kind": "text",
+     "line": 216,
+     "in": "MyReportsPage",
+     "when": "!(tickets.length === 0) && each tickets && comments.length > 0 && each comments",
+     "text": "Tu comentario / Respuesta de Soporte"
+    },
+    {
+     "kind": "value",
+     "line": 217,
+     "in": "MyReportsPage",
+     "when": "!(tickets.length === 0) && each tickets && comments.length > 0 && each comments",
+     "text": "{formatDate(row.created_at)}"
+    },
+    {
+     "kind": "value",
+     "line": 219,
+     "in": "MyReportsPage",
+     "when": "!(tickets.length === 0) && each tickets && comments.length > 0 && each comments",
+     "text": "{row.message}"
+    },
+    {
+     "kind": "piece",
+     "line": 232,
+     "in": "MyReportsPage",
+     "text": "pageTitle: Mis reportes · breadcrumbs: Mi Perfil / Mis reportes",
+     "tag": "MainLayout"
+    },
+    {
+     "kind": "hook",
+     "line": 233,
+     "in": "MyReportsPage",
+     "text": "testid=my-reports",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "value",
+     "line": 233,
+     "in": "MyReportsPage",
+     "text": "{content}"
+    },
+    {
+     "kind": "string",
+     "line": 78,
+     "in": "UNKNOWN_TYPE",
+     "text": "Reporte"
+    }
+   ],
+   "db": [
+    {
+     "what": "table:feedback_activity",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:platform_feedback",
+     "ops": [
+      "select"
+     ]
+    }
+   ],
+   "pieces": [
+    "lib/api-auth.ts",
+    "lib/auth/forced-password-change.ts"
    ],
    "api": []
   }
@@ -1914,11 +2288,11 @@
    "usedBy": [
     "/admin/feedback"
    ],
-   "lines": 494,
+   "lines": 576,
    "rows": [
     {
      "kind": "message",
-     "line": 109,
+     "line": 118,
      "in": "addComment",
      "when": "!user",
      "text": "Usuario no autenticado",
@@ -1926,48 +2300,70 @@
     },
     {
      "kind": "toast",
-     "line": 124,
+     "line": 134,
      "in": "addComment",
-     "text": "Comentario agregado",
+     "text": "Nota interna guardada",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 127,
+     "line": 137,
      "in": "addComment",
      "text": "Error al agregar comentario",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 222,
+     "line": 154,
+     "in": "sendReply",
+     "when": "!response.ok",
+     "text": "No se pudo enviar la respuesta",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 160,
+     "in": "sendReply",
+     "text": "Respuesta enviada al usuario",
+     "variant": "success"
+    },
+    {
+     "kind": "toast",
+     "line": 163,
+     "in": "sendReply",
+     "text": "No se pudo enviar la respuesta",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 268,
      "in": "copyErrorDetailsForClaude",
      "text": "¡Detalles copiados para Claude Code!",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 225,
+     "line": 271,
      "in": "copyErrorDetailsForClaude",
      "text": "Error al copiar los detalles",
      "variant": "error"
     },
     {
      "kind": "gate",
-     "line": 229,
+     "line": 275,
      "in": "FeedbackDetail",
      "text": "!isOpen || !feedback"
     },
     {
      "kind": "popup",
-     "line": 233,
+     "line": 279,
      "in": "FeedbackDetail",
      "text": "Detalle de Feedback",
      "how": "written in this file"
     },
     {
      "kind": "clickable",
-     "line": 235,
+     "line": 281,
      "in": "FeedbackDetail",
      "text": "",
      "tag": "div",
@@ -1978,20 +2374,20 @@
     },
     {
      "kind": "heading",
-     "line": 247,
+     "line": 293,
      "in": "FeedbackDetail",
      "text": "Detalle de Feedback",
      "level": 3
     },
     {
      "kind": "value",
-     "line": 250,
+     "line": 296,
      "in": "FeedbackDetail",
      "text": "# {feedback.id.slice(0, 8).toUpperCase…}"
     },
     {
      "kind": "button",
-     "line": 254,
+     "line": 300,
      "in": "FeedbackDetail",
      "text": "[icon X]",
      "action": "{onClose}",
@@ -2002,7 +2398,7 @@
     },
     {
      "kind": "button",
-     "line": 270,
+     "line": 316,
      "in": "FeedbackDetail",
      "text": "Copiar Detalles",
      "action": "{copyErrorDetailsForClaude}",
@@ -2010,39 +2406,39 @@
     },
     {
      "kind": "media",
-     "line": 283,
+     "line": 329,
      "in": "FeedbackDetail",
      "when": "feedback.profiles.avatar_url",
      "text": "img · alt {`${feedback.profiles.first_name} ${feedback.profiles.last_name}`} · {feedback.profiles.avatar_url}"
     },
     {
      "kind": "value",
-     "line": 294,
+     "line": 340,
      "in": "FeedbackDetail",
      "text": "{feedback.profiles.first_name} {feedback.profiles.last_name}"
     },
     {
      "kind": "value",
-     "line": 297,
+     "line": 343,
      "in": "FeedbackDetail",
      "text": "{feedback.profiles.email}"
     },
     {
      "kind": "heading",
-     "line": 307,
+     "line": 353,
      "in": "FeedbackDetail",
      "text": "Descripción",
      "level": 4
     },
     {
      "kind": "value",
-     "line": 308,
+     "line": 354,
      "in": "FeedbackDetail",
      "text": "{feedback.description}"
     },
     {
      "kind": "heading",
-     "line": 314,
+     "line": 360,
      "in": "FeedbackDetail",
      "when": "feedback.screenshot_url",
      "text": "Captura de pantalla",
@@ -2050,21 +2446,21 @@
     },
     {
      "kind": "media",
-     "line": 315,
+     "line": 361,
      "in": "FeedbackDetail",
      "when": "feedback.screenshot_url",
      "text": "img · alt Screenshot · {feedback.screenshot_url}"
     },
     {
      "kind": "heading",
-     "line": 326,
+     "line": 372,
      "in": "FeedbackDetail",
      "text": "Detalles técnicos",
      "level": 4
     },
     {
      "kind": "link",
-     "line": 331,
+     "line": 377,
      "in": "FeedbackDetail",
      "when": "isHttpPageUrl(feedback.page_url)",
      "text": "{feedback.page_url}",
@@ -2073,35 +2469,35 @@
     },
     {
      "kind": "value",
-     "line": 340,
+     "line": 386,
      "in": "FeedbackDetail",
      "when": "!(isHttpPageUrl(feedback.page_url))",
      "text": "{feedback.page_url}"
     },
     {
      "kind": "label",
-     "line": 345,
+     "line": 391,
      "in": "FeedbackDetail",
      "when": "feedback.browser_info",
      "text": "Ver información del navegador"
     },
     {
      "kind": "value",
-     "line": 346,
+     "line": 392,
      "in": "FeedbackDetail",
      "when": "feedback.browser_info",
      "text": "{JSON.stringify(feedback.browser_inf…}"
     },
     {
      "kind": "heading",
-     "line": 356,
+     "line": 402,
      "in": "FeedbackDetail",
      "text": "Acciones",
      "level": 4
     },
     {
      "kind": "button",
-     "line": 359,
+     "line": 405,
      "in": "FeedbackDetail",
      "when": "feedback.status !== 'in_progress' && feedback.status !== 'resolved' && feedback.status !== 'closed'",
      "text": "Marcar en progreso",
@@ -2109,7 +2505,7 @@
     },
     {
      "kind": "button",
-     "line": 367,
+     "line": 413,
      "in": "FeedbackDetail",
      "when": "feedback.status !== 'resolved' && feedback.status !== 'closed'",
      "text": "Marcar como resuelto",
@@ -2117,7 +2513,7 @@
     },
     {
      "kind": "button",
-     "line": 375,
+     "line": 421,
      "in": "FeedbackDetail",
      "when": "feedback.status === 'resolved'",
      "text": "Cerrar ticket",
@@ -2125,63 +2521,130 @@
     },
     {
      "kind": "text",
-     "line": 384,
+     "line": 430,
      "in": "FeedbackDetail",
      "when": "feedback.status === 'closed'",
      "text": "Ticket cerrado"
     },
     {
      "kind": "button",
-     "line": 387,
+     "line": 433,
      "in": "FeedbackDetail",
      "text": "Cerrar ventana",
      "action": "{onClose}"
     },
     {
      "kind": "heading",
-     "line": 400,
+     "line": 446,
      "in": "FeedbackDetail",
      "text": "Actividad",
      "level": 4
     },
     {
      "kind": "text",
-     "line": 408,
+     "line": 454,
      "in": "FeedbackDetail",
      "when": "activities.length === 0",
      "text": "Sin actividad aún"
     },
     {
      "kind": "value",
-     "line": 421,
+     "line": 467,
      "in": "FeedbackDetail",
      "when": "!(activities.length === 0) && each activities && activity.is_system_message",
      "text": "{activity.message}"
     },
     {
      "kind": "value",
-     "line": 427,
+     "line": 473,
      "in": "FeedbackDetail",
      "when": "!(activities.length === 0) && each activities && !(activity.is_system_message)",
      "text": "{activity.profiles?.first_name} {activity.profiles?.last_name}"
     },
     {
      "kind": "value",
-     "line": 430,
+     "line": 476,
+     "in": "FeedbackDetail",
+     "when": "!(activities.length === 0) && each activities && !(activity.is_system_message)",
+     "text": "{activityLabel(activity).text}"
+    },
+    {
+     "kind": "value",
+     "line": 479,
      "in": "FeedbackDetail",
      "when": "!(activities.length === 0) && each activities && !(activity.is_system_message)",
      "text": "{formatDate(activity.created_at)}"
     },
     {
      "kind": "value",
-     "line": 434,
+     "line": 483,
      "in": "FeedbackDetail",
      "when": "!(activities.length === 0) && each activities && !(activity.is_system_message)",
      "text": "{activity.message}"
     },
     {
+     "kind": "text",
+     "line": 495,
+     "in": "FeedbackDetail",
+     "text": "Tipo de comentario",
+     "attr": "aria-label"
+    },
+    {
+     "kind": "hook",
+     "line": 495,
+     "in": "FeedbackDetail",
+     "text": "role=radiogroup",
+     "type": "role",
+     "tag": "div",
+     "aria": "Tipo de comentario"
+    },
+    {
+     "kind": "label",
+     "line": 496,
+     "in": "FeedbackDetail",
+     "text": "Nota interna"
+    },
+    {
      "kind": "field",
-     "line": 447,
+     "line": 497,
+     "in": "FeedbackDetail",
+     "text": "Nota interna",
+     "type": "radio",
+     "name": "feedback-comment-kind",
+     "disabled": "{isSubmitting}",
+     "action": "{() => setCommentKind('note')}",
+     "hook": {
+      "testid": "comment-kind-note"
+     }
+    },
+    {
+     "kind": "label",
+     "line": 508,
+     "in": "FeedbackDetail",
+     "text": "Responder al usuario"
+    },
+    {
+     "kind": "field",
+     "line": 509,
+     "in": "FeedbackDetail",
+     "text": "Responder al usuario",
+     "type": "radio",
+     "name": "feedback-comment-kind",
+     "disabled": "{isSubmitting}",
+     "action": "{() => setCommentKind('reply')}",
+     "hook": {
+      "testid": "comment-kind-reply"
+     }
+    },
+    {
+     "kind": "text",
+     "line": 521,
+     "in": "FeedbackDetail",
+     "text": "La persona que reportó la verá en «Mis reportes». / Solo la ven los administradores."
+    },
+    {
+     "kind": "field",
+     "line": 527,
      "in": "FeedbackDetail",
      "text": "Agregar comentario...",
      "type": "text",
@@ -2192,19 +2655,18 @@
     },
     {
      "kind": "button",
-     "line": 456,
+     "line": 536,
      "in": "FeedbackDetail",
-     "text": "[icon Send]",
+     "text": "Enviar respuesta / Guardar nota",
      "action": "{addComment}",
      "disabled": "{isSubmitting || !newComment.trim()}",
-     "aria": "Send comment",
      "hook": {
       "testid": "send-comment-button"
      }
     },
     {
      "kind": "popup",
-     "line": 475,
+     "line": 557,
      "in": "FeedbackDetail",
      "when": "showFullScreenshot && feedback.screenshot_url",
      "text": "(sin título)",
@@ -2212,14 +2674,14 @@
     },
     {
      "kind": "media",
-     "line": 479,
+     "line": 561,
      "in": "FeedbackDetail",
      "when": "showFullScreenshot && feedback.screenshot_url",
      "text": "img · alt Screenshot · {feedback.screenshot_url}"
     },
     {
      "kind": "button",
-     "line": 484,
+     "line": 566,
      "in": "FeedbackDetail",
      "when": "showFullScreenshot && feedback.screenshot_url",
      "text": "[icon X]",
@@ -2227,31 +2689,43 @@
     },
     {
      "kind": "string",
-     "line": 192,
+     "line": 171,
+     "in": "FeedbackDetail",
+     "text": "Comentario del usuario"
+    },
+    {
+     "kind": "string",
+     "line": 174,
+     "in": "FeedbackDetail",
+     "text": "Respuesta al usuario"
+    },
+    {
+     "kind": "string",
+     "line": 238,
      "in": "FeedbackDetail",
      "text": "Feature Request"
     },
     {
      "kind": "string",
-     "line": 192,
+     "line": 238,
      "in": "FeedbackDetail",
      "text": "General Feedback"
     },
     {
      "kind": "string",
-     "line": 205,
+     "line": 251,
      "in": "FeedbackDetail",
      "text": "**Console Error:** ``` {consoleError} ```"
     },
     {
      "kind": "string",
-     "line": 211,
+     "line": 257,
      "in": "FeedbackDetail",
      "text": "Not captured"
     },
     {
      "kind": "string",
-     "line": 215,
+     "line": 261,
      "in": "FeedbackDetail",
      "text": "Resolution Notes: {feedback.resolution_notes}"
     }
@@ -2360,6 +2834,55 @@
      "line": 32,
      "in": "FunctionalPageHeader",
      "text": "Buscar..."
+    }
+   ],
+   "db": []
+  },
+  "lib/api-auth.ts": {
+   "usedBy": [
+    "/profile/reportes"
+   ],
+   "lines": 551,
+   "rows": [
+    {
+     "kind": "message",
+     "line": 113,
+     "in": "createServiceRoleClient",
+     "when": "!supabaseUrl || !serviceRoleKey",
+     "text": "Server configuration error",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "message",
+     "line": 125,
+     "in": "createServiceRoleClient",
+     "text": "Failed to initialize admin connection",
+     "via": "throw (shown by whoever catches it)"
+    }
+   ],
+   "db": [
+    {
+     "what": "table:profiles",
+     "ops": [
+      "select"
+     ]
+    }
+   ]
+  },
+  "lib/auth/forced-password-change.ts": {
+   "usedBy": [
+    "/profile/reportes"
+   ],
+   "lines": 284,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 254,
+     "in": "verdictFromProfile",
+     "text": "verdictFromProfile()",
+     "items": [
+      "required / allowed"
+     ]
     }
    ],
    "db": []

@@ -4,14 +4,14 @@
  "note": "Redesigned separately and live since 12 Nov 2026. Listed so that every file under pages/ has a place.",
  "routesOnly": false,
  "readFrom": {
-  "commit": "d701100d014e948bec5766fb68836675e13355b6",
-  "date": "2026-11-18T15:21:06-03:00"
+  "commit": "ca9dad512fc0b65bf1db627e23a6d84edd80dd28",
+  "date": "2026-11-19T14:41:10-03:00"
  },
  "screens": [
   {
    "file": "pages/equipo.tsx",
    "route": "/equipo",
-   "lines": 36,
+   "lines": 31,
    "marks": {},
    "frame": "none",
    "server": "none",
@@ -68,7 +68,7 @@
      "components/site/SiteLayout.tsx:176",
      "lib/auth/forced-password-change.ts:148",
      "lib/look.ts:105",
-     "middleware.ts:343"
+     "middleware.ts:349"
     ],
     "qaScenarios": {},
     "tests": {
@@ -85,33 +85,40 @@
    "rows": [
     {
      "kind": "piece",
-     "line": 8,
+     "line": 9,
      "in": "EquipoPage",
-     "text": "active: nosotros · title: Equipo · Fundación Nueva Educación · description: El equipo de la Fundación Nueva Educación: comité internacional, equipo FNE y asesores internacionales.",
+     "text": "active: nosotros · title: Equipo · Fundación Nueva Educación · description: El equipo de la Fundación Nueva Educación: comité internacional, equipo FNE y asesores y asesoras internacionales.",
      "tag": "SiteLayout"
     },
     {
+     "kind": "piece",
+     "line": 14,
+     "in": "EquipoPage",
+     "text": "",
+     "tag": "PageHero"
+    },
+    {
      "kind": "text",
-     "line": 19,
+     "line": 15,
      "in": "EquipoPage",
      "text": "Equipo"
     },
     {
      "kind": "heading",
-     "line": 20,
+     "line": 16,
      "in": "EquipoPage",
      "text": "Una red de personas que cambian la escuela",
      "level": 1
     },
     {
      "kind": "text",
-     "line": 24,
+     "line": 20,
      "in": "EquipoPage",
-     "text": "Educadores, directivos e investigadores de Chile y Catalunya que acompañan a cada comunidad educativa en su proceso de transformación."
+     "text": "Profesionales de la educación, la dirección escolar y la investigación, de Chile y Catalunya, que acompañan a cada comunidad educativa en su proceso de transformación."
     },
     {
      "kind": "link",
-     "line": 27,
+     "line": 23,
      "in": "EquipoPage",
      "text": "← Conoce la fundación",
      "target": "/nosotros",
@@ -121,7 +128,7 @@
     },
     {
      "kind": "piece",
-     "line": 32,
+     "line": 27,
      "in": "EquipoPage",
      "text": "",
      "tag": "TeamSection"
@@ -132,6 +139,7 @@
     "components/PrivacyPolicyContent.tsx",
     "components/PrivacyPolicyModal.tsx",
     "components/TermsOfUseModal.tsx",
+    "components/site/PageHero.tsx",
     "components/site/SiteLayout.tsx",
     "components/site/TeamSection.tsx",
     "components/site/teamData.ts",
@@ -143,7 +151,7 @@
   {
    "file": "pages/index.tsx",
    "route": "/",
-   "lines": 479,
+   "lines": 511,
    "marks": {},
    "frame": "none",
    "server": "none",
@@ -206,11 +214,11 @@
      "pages/login.tsx:371",
      "pages/login.tsx:390",
      "pages/login.tsx:612",
-     "pages/nosotros.tsx:103",
+     "pages/nosotros.tsx:98",
      "pages/noticias/[slug].tsx:133",
-     "pages/pasantias.tsx:526",
-     "pages/programas.tsx:167",
-     "pages/programas.tsx:189",
+     "pages/pasantias.tsx:524",
+     "pages/programas.tsx:161",
+     "pages/programas.tsx:183",
      "pages/propuesta/[slug].tsx:155",
      "pages/quote/[id].tsx:80",
      "pages/reset-password.tsx:440",
@@ -230,15 +238,43 @@
    "rows": [
     {
      "kind": "list",
-     "line": 19,
+     "line": 16,
      "text": "HERO_WORDS",
      "items": [
       "La"
      ]
     },
     {
+     "kind": "gate",
+     "line": 38,
+     "in": "HomePage",
+     "text": "!('ResizeObserver' in window)"
+    },
+    {
+     "kind": "hook",
+     "line": 49,
+     "in": "hold",
+     "when": "Math.abs(target.getBoundingClientRect().top) > 2",
+     "text": "target.scrollIntoView()",
+     "type": "scroll"
+    },
+    {
+     "kind": "hook",
+     "line": 51,
+     "in": "hold",
+     "text": "setTimeout(…, 8000)",
+     "type": "timer"
+    },
+    {
+     "kind": "hook",
+     "line": 68,
+     "in": "HomePage",
+     "text": "window.addEventListener('hashchange')",
+     "type": "listener"
+    },
+    {
      "kind": "message",
-     "line": 69,
+     "line": 108,
      "in": "handleContactSubmit",
      "when": "response.ok",
      "text": "¡Mensaje enviado exitosamente! Te responderemos pronto.",
@@ -246,7 +282,7 @@
     },
     {
      "kind": "message",
-     "line": 73,
+     "line": 112,
      "in": "handleContactSubmit",
      "when": "!(response.ok)",
      "text": "Error al enviar el mensaje. Por favor intenta nuevamente.",
@@ -254,21 +290,21 @@
     },
     {
      "kind": "message",
-     "line": 77,
+     "line": 116,
      "in": "handleContactSubmit",
      "text": "Error de conexión. Por favor verifica tu conexión a internet e intenta nuevamente.",
      "via": "setSubmitError"
     },
     {
      "kind": "piece",
-     "line": 86,
+     "line": 125,
      "in": "HomePage",
      "text": "active: inicio · title: Fundación Nueva Educación · Educación relacional para transformar la escuela · description: Acompañamos a comunidades educativas en un cambio cultural profundo, desde la calidad de sus relaciones. Programas Inicia, Inspira, Evoluciona y Aula Generativa. ATE certificada por RPA Mineduc.",
      "tag": "SiteLayout"
     },
     {
      "kind": "hook",
-     "line": 92,
+     "line": 131,
      "in": "HomePage",
      "text": "id=inicio",
      "type": "mark",
@@ -276,19 +312,19 @@
     },
     {
      "kind": "media",
-     "line": 93,
+     "line": 132,
      "in": "HomePage",
      "text": "video · /sitio/hero.mp4"
     },
     {
      "kind": "text",
-     "line": 99,
+     "line": 138,
      "in": "HomePage",
      "text": "Fundación Nueva Educación · ATE certificada por RPA Mineduc"
     },
     {
      "kind": "heading",
-     "line": 101,
+     "line": 140,
      "in": "HomePage",
      "text": "{word.text}",
      "level": 1,
@@ -296,19 +332,19 @@
     },
     {
      "kind": "text",
-     "line": 113,
+     "line": 152,
      "in": "HomePage",
      "text": "La nueva educación es relacional"
     },
     {
      "kind": "text",
-     "line": 116,
+     "line": 155,
      "in": "HomePage",
      "text": "Acompañamos a comunidades educativas en un cambio cultural profundo. Empieza donde empieza todo aprendizaje: en la calidad de las relaciones entre estudiantes, docentes, directivos y familias."
     },
     {
      "kind": "link",
-     "line": 120,
+     "line": 159,
      "in": "HomePage",
      "text": "Conversemos tu escuela →",
      "target": "#contacto",
@@ -318,7 +354,7 @@
     },
     {
      "kind": "link",
-     "line": 123,
+     "line": 162,
      "in": "HomePage",
      "text": "Ver los programas",
      "target": "/programas",
@@ -328,38 +364,38 @@
     },
     {
      "kind": "text",
-     "line": 131,
+     "line": 170,
      "in": "HomePage",
      "text": "Colegios en programas de transformación"
     },
     {
      "kind": "text",
-     "line": 135,
+     "line": 174,
      "in": "HomePage",
      "text": "Ciudades de Chile, de Iquique a Osorno"
     },
     {
      "kind": "text",
-     "line": 139,
+     "line": 178,
      "in": "HomePage",
      "text": "Pasantes internacionales en Barcelona"
     },
     {
      "kind": "text",
-     "line": 143,
+     "line": 182,
      "in": "HomePage",
      "text": "Escuelas colaboradoras en Barcelona"
     },
     {
      "kind": "piece",
-     "line": 148,
+     "line": 187,
      "in": "HomePage",
      "text": "",
      "tag": "RedAliada"
     },
     {
      "kind": "hook",
-     "line": 151,
+     "line": 190,
      "in": "HomePage",
      "text": "id=relacional",
      "type": "mark",
@@ -367,123 +403,123 @@
     },
     {
      "kind": "text",
-     "line": 154,
+     "line": 193,
      "in": "HomePage",
      "text": "Por qué relacional"
     },
     {
      "kind": "heading",
-     "line": 155,
+     "line": 194,
      "in": "HomePage",
      "text": "Nadie aprende solo.",
      "level": 2
     },
     {
      "kind": "text",
-     "line": 159,
+     "line": 198,
      "in": "HomePage",
      "text": "Se aprende con otros, de otros y para otros. Por eso una escuela no cambia de verdad cuando cambia sus horarios, sus muebles o su tecnología. Cambia cuando cambia la manera en que sus personas se relacionan."
     },
     {
      "kind": "text",
-     "line": 164,
+     "line": 203,
      "in": "HomePage",
      "text": "A eso lo llamamos Educación Relacional: poner la calidad de los vínculos en el centro del proyecto educativo y dejar que desde ahí se ordenen el aprendizaje, la evaluación, el liderazgo y la relación con las familias."
     },
     {
      "kind": "text",
-     "line": 171,
+     "line": 210,
      "in": "HomePage",
      "text": "Entre"
     },
     {
      "kind": "text",
-     "line": 171,
+     "line": 210,
      "in": "HomePage",
      "text": "estudiantes"
     },
     {
      "kind": "text",
-     "line": 171,
+     "line": 210,
      "in": "HomePage",
      "text": ": pares que se cuidan y aprenden juntos"
     },
     {
      "kind": "text",
-     "line": 175,
+     "line": 214,
      "in": "HomePage",
      "text": "Entre"
     },
     {
      "kind": "text",
-     "line": 175,
+     "line": 214,
      "in": "HomePage",
      "text": "estudiantes y docentes"
     },
     {
      "kind": "text",
-     "line": 175,
+     "line": 214,
      "in": "HomePage",
      "text": ": confianza para atreverse"
     },
     {
      "kind": "text",
-     "line": 179,
+     "line": 218,
      "in": "HomePage",
      "text": "Entre"
     },
     {
      "kind": "text",
-     "line": 179,
+     "line": 218,
      "in": "HomePage",
      "text": "docentes"
     },
     {
      "kind": "text",
-     "line": 179,
+     "line": 218,
      "in": "HomePage",
      "text": ": equipos que crean en vez de trabajar a solas"
     },
     {
      "kind": "text",
-     "line": 183,
+     "line": 222,
      "in": "HomePage",
      "text": "Entre"
     },
     {
      "kind": "text",
-     "line": 183,
+     "line": 222,
      "in": "HomePage",
      "text": "la escuela y sus familias"
     },
     {
      "kind": "text",
-     "line": 183,
+     "line": 222,
      "in": "HomePage",
      "text": ": aliadas del proyecto educativo"
     },
     {
      "kind": "media",
-     "line": 190,
+     "line": 229,
      "in": "HomePage",
      "text": "img · alt Cinco estudiantes abrazados en círculo, vistos desde arriba · /sitio/abrazo.jpg"
     },
     {
      "kind": "text",
-     "line": 201,
+     "line": 240,
      "in": "HomePage",
      "text": "en relación"
     },
     {
      "kind": "piece",
-     "line": 206,
+     "line": 245,
      "in": "HomePage",
      "text": "",
      "tag": "Sociograma"
     },
     {
      "kind": "hook",
-     "line": 209,
+     "line": 248,
      "in": "HomePage",
      "text": "id=origen",
      "type": "mark",
@@ -491,122 +527,122 @@
     },
     {
      "kind": "media",
-     "line": 212,
+     "line": 251,
      "in": "HomePage",
      "text": "img · alt Estudiantes juegan al aire libre durante una actividad de Aula Generativa · /aula-generativa-activity.jpg"
     },
     {
      "kind": "text",
-     "line": 219,
+     "line": 258,
      "in": "HomePage",
      "text": "el espíritu de Los Pellines"
     },
     {
      "kind": "text",
-     "line": 222,
+     "line": 261,
      "in": "HomePage",
      "text": "De dónde venimos"
     },
     {
      "kind": "heading",
-     "line": 223,
+     "line": 262,
      "in": "HomePage",
      "text": "Treinta años cuidando vínculos",
      "level": 2
     },
     {
      "kind": "text",
-     "line": 227,
+     "line": 266,
      "in": "HomePage",
      "text": "En Los Pellines nos hemos dedicado por más de 30 años al cuidado y fortalecimiento de la calidad de las relaciones. Hoy llevamos ese espíritu a la sala de clases con el Aula Generativa, una propuesta que pone en el centro el Aprendizaje con Sentido."
     },
     {
      "kind": "text",
-     "line": 234,
+     "line": 273,
      "in": "HomePage",
      "text": "años de experiencia"
     },
     {
      "kind": "text",
-     "line": 238,
+     "line": 277,
      "in": "HomePage",
      "text": "niños y niñas"
     },
     {
      "kind": "text",
-     "line": 241,
+     "line": 280,
      "in": "HomePage",
      "text": "Características de un Aula Generativa"
     },
     {
      "kind": "heading",
-     "line": 244,
+     "line": 283,
      "in": "HomePage",
      "text": "Motivación compartida",
      "level": 3
     },
     {
      "kind": "text",
-     "line": 245,
+     "line": 284,
      "in": "HomePage",
-     "text": "Estudiantes y profesores altamente motivados trabajando juntos."
+     "text": "Estudiantes y docentes altamente motivados trabajando juntos."
     },
     {
      "kind": "heading",
-     "line": 248,
+     "line": 287,
      "in": "HomePage",
      "text": "Convivencia como motor",
      "level": 3
     },
     {
      "kind": "text",
-     "line": 249,
+     "line": 288,
      "in": "HomePage",
      "text": "Las relaciones saludables impulsan el aprendizaje significativo."
     },
     {
      "kind": "heading",
-     "line": 252,
+     "line": 291,
      "in": "HomePage",
      "text": "Identidad colectiva",
      "level": 3
     },
     {
      "kind": "text",
-     "line": 253,
+     "line": 292,
      "in": "HomePage",
      "text": "Cultura de curso fortalecida, con una identidad positiva compartida."
     },
     {
      "kind": "heading",
-     "line": 256,
+     "line": 295,
      "in": "HomePage",
      "text": "Aprendizaje cooperativo",
      "level": 3
     },
     {
      "kind": "text",
-     "line": 257,
+     "line": 296,
      "in": "HomePage",
      "text": "Los estudiantes enseñan, explican y reflexionan entre pares."
     },
     {
      "kind": "piece",
-     "line": 264,
+     "line": 303,
      "in": "HomePage",
      "text": "",
      "tag": "ViasEje"
     },
     {
      "kind": "piece",
-     "line": 266,
+     "line": 305,
      "in": "HomePage",
      "text": "",
      "tag": "Puertas"
     },
     {
      "kind": "hook",
-     "line": 270,
+     "line": 309,
      "in": "HomePage",
      "text": "id=pasantias",
      "type": "mark",
@@ -614,51 +650,51 @@
     },
     {
      "kind": "text",
-     "line": 274,
+     "line": 313,
      "in": "HomePage",
      "text": "Programa Inspira"
     },
     {
      "kind": "heading",
-     "line": 275,
+     "line": 314,
      "in": "HomePage",
      "text": "Pasantías en Barcelona",
      "level": 2
     },
     {
      "kind": "text",
-     "line": 279,
+     "line": 318,
      "in": "HomePage",
      "text": "Transforma tu visión educativa con una experiencia única de innovación en el corazón de Europa"
     },
     {
      "kind": "text",
-     "line": 284,
+     "line": 323,
      "in": "HomePage",
      "text": "CUPOS POR"
     },
     {
      "kind": "text",
-     "line": 285,
+     "line": 324,
      "in": "HomePage",
      "text": "ORDEN DE RESERVA"
     },
     {
      "kind": "heading",
-     "line": 287,
+     "line": 326,
      "in": "HomePage",
      "text": "Próximas Expediciones",
      "level": 3
     },
     {
      "kind": "text",
-     "line": 288,
+     "line": 327,
      "in": "HomePage",
      "text": "Próxima cohorte"
     },
     {
      "kind": "hook",
-     "line": 289,
+     "line": 328,
      "in": "HomePage",
      "text": "testid=cohort-headline",
      "type": "mark",
@@ -666,13 +702,13 @@
     },
     {
      "kind": "value",
-     "line": 289,
+     "line": 328,
      "in": "HomePage",
      "text": "{COHORT_HEADLINE}"
     },
     {
      "kind": "hook",
-     "line": 290,
+     "line": 329,
      "in": "HomePage",
      "text": "testid=cohort-programs",
      "type": "mark",
@@ -680,85 +716,85 @@
     },
     {
      "kind": "value",
-     "line": 290,
+     "line": 329,
      "in": "HomePage",
      "text": "{COHORT_PROGRAMS.map((program) => pr…}"
     },
     {
      "kind": "heading",
-     "line": 296,
+     "line": 335,
      "in": "HomePage",
      "text": "¿Qué incluye la experiencia?",
      "level": 3
     },
     {
      "kind": "heading",
-     "line": 301,
+     "line": 340,
      "in": "HomePage",
      "text": "Codocencia en Aulas",
      "level": 4
     },
     {
      "kind": "text",
-     "line": 302,
+     "line": 341,
      "in": "HomePage",
      "text": "Participa activamente en aulas de Nueva Educación como co-docente"
     },
     {
      "kind": "heading",
-     "line": 308,
+     "line": 347,
      "in": "HomePage",
      "text": "Visitas a Escuelas Innovadoras",
      "level": 4
     },
     {
      "kind": "text",
-     "line": 309,
+     "line": 348,
      "in": "HomePage",
      "text": "Conoce de primera mano las metodologías más vanguardistas de Europa"
     },
     {
      "kind": "heading",
-     "line": 315,
+     "line": 354,
      "in": "HomePage",
      "text": "Talleres Especializados",
      "level": 4
     },
     {
      "kind": "text",
-     "line": 316,
+     "line": 355,
      "in": "HomePage",
      "text": "Participa en workshops con expertos internacionales en educación"
     },
     {
      "kind": "heading",
-     "line": 322,
+     "line": 361,
      "in": "HomePage",
      "text": "Intercambio con las Escuelas",
      "level": 4
     },
     {
      "kind": "text",
-     "line": 323,
+     "line": 362,
      "in": "HomePage",
      "text": "Conversa con los equipos directivos, educadores y estudiantes de las escuelas que te reciben"
     },
     {
      "kind": "heading",
-     "line": 329,
+     "line": 368,
      "in": "HomePage",
      "text": "Bitácora de Aprendizajes",
      "level": 4
     },
     {
      "kind": "text",
-     "line": 330,
+     "line": 369,
      "in": "HomePage",
      "text": "Recibe bibliografía recomendada, una bitácora y un sistema de registro de tus aprendizajes al menos un mes antes del viaje"
     },
     {
      "kind": "link",
-     "line": 337,
+     "line": 376,
      "in": "HomePage",
      "text": "Conoce las Pasantías en Barcelona",
      "target": "/pasantias",
@@ -768,51 +804,51 @@
     },
     {
      "kind": "media",
-     "line": 345,
+     "line": 384,
      "in": "HomePage",
      "text": "img · alt Grupo de pasantes frente a la Escola Virolai, en Barcelona · /images/pasantias/pasantes-virolai.jpg"
     },
     {
      "kind": "media",
-     "line": 348,
+     "line": 387,
      "in": "HomePage",
      "text": "img · alt Educadoras chilenas en la biblioteca de una escuela de Barcelona · /images/pasantias/educadores-biblioteca.jpg"
     },
     {
      "kind": "media",
-     "line": 351,
+     "line": 390,
      "in": "HomePage",
      "text": "img · alt Niños observan con microscopios en un aula de Barcelona · /sitio/bcn-microscopios.jpg"
     },
     {
      "kind": "media",
-     "line": 354,
+     "line": 393,
      "in": "HomePage",
      "text": "img · alt Vista aérea de Barcelona · /images/pasantias/bcn-skyline.jpg"
     },
     {
      "kind": "media",
-     "line": 357,
+     "line": 396,
      "in": "HomePage",
      "text": "img · alt Aula de aprendizaje con trabajo por ambientes · /sitio/bcn-ambientes.jpg"
     },
     {
      "kind": "piece",
-     "line": 363,
-     "in": "HomePage",
-     "text": "",
-     "tag": "Novedades"
-    },
-    {
-     "kind": "piece",
-     "line": 365,
+     "line": 402,
      "in": "HomePage",
      "text": "",
      "tag": "MapaChile"
     },
     {
+     "kind": "piece",
+     "line": 405,
+     "in": "HomePage",
+     "text": "",
+     "tag": "Novedades"
+    },
+    {
      "kind": "hook",
-     "line": 368,
+     "line": 408,
      "in": "HomePage",
      "text": "id=contacto",
      "type": "mark",
@@ -820,52 +856,52 @@
     },
     {
      "kind": "text",
-     "line": 372,
+     "line": 412,
      "in": "HomePage",
      "text": "Contáctanos"
     },
     {
      "kind": "heading",
-     "line": 373,
+     "line": 413,
      "in": "HomePage",
      "text": "Empecemos por una conversación.",
      "level": 2
     },
     {
      "kind": "text",
-     "line": 377,
+     "line": 417,
      "in": "HomePage",
-     "text": "¿Listo para transformar tu institución educativa? Conversemos sobre cómo podemos acompañar tu proceso de transformación."
+     "text": "¿Quieres transformar tu institución educativa? Conversemos sobre cómo podemos acompañar tu proceso de transformación."
     },
     {
      "kind": "link",
-     "line": 381,
+     "line": 421,
      "in": "HomePage",
      "text": "info@nuevaeducacion.org",
      "target": "mailto:info@nuevaeducacion.org"
     },
     {
      "kind": "text",
-     "line": 382,
+     "line": 422,
      "in": "HomePage",
      "text": "Santiago, Chile"
     },
     {
      "kind": "text",
-     "line": 383,
+     "line": 423,
      "in": "HomePage",
      "text": "ATE certificada por RPA Mineduc"
     },
     {
      "kind": "heading",
-     "line": 388,
+     "line": 428,
      "in": "HomePage",
      "text": "Cuéntanos sobre tu proyecto",
      "level": 3
     },
     {
      "kind": "hook",
-     "line": 391,
+     "line": 431,
      "in": "HomePage",
      "when": "submitMessage",
      "text": "role=status",
@@ -874,14 +910,14 @@
     },
     {
      "kind": "value",
-     "line": 392,
+     "line": 432,
      "in": "HomePage",
      "when": "submitMessage",
      "text": "{submitMessage}"
     },
     {
      "kind": "hook",
-     "line": 396,
+     "line": 436,
      "in": "HomePage",
      "when": "submitError",
      "text": "role=alert",
@@ -890,27 +926,27 @@
     },
     {
      "kind": "value",
-     "line": 397,
+     "line": 437,
      "in": "HomePage",
      "when": "submitError",
      "text": "{submitError}"
     },
     {
      "kind": "form",
-     "line": 401,
+     "line": 441,
      "in": "HomePage",
      "text": "{handleContactSubmit}"
     },
     {
      "kind": "label",
-     "line": 403,
+     "line": 443,
      "in": "HomePage",
      "text": "Nombre *",
      "for": "nombre"
     },
     {
      "kind": "field",
-     "line": 404,
+     "line": 444,
      "in": "HomePage",
      "text": "Nombre *",
      "type": "text",
@@ -924,14 +960,14 @@
     },
     {
      "kind": "label",
-     "line": 407,
+     "line": 447,
      "in": "HomePage",
      "text": "Email *",
      "for": "email"
     },
     {
      "kind": "field",
-     "line": 408,
+     "line": 448,
      "in": "HomePage",
      "text": "Email *",
      "type": "email",
@@ -945,14 +981,14 @@
     },
     {
      "kind": "label",
-     "line": 411,
+     "line": 451,
      "in": "HomePage",
      "text": "Institución *",
      "for": "institucion"
     },
     {
      "kind": "field",
-     "line": 412,
+     "line": 452,
      "in": "HomePage",
      "text": "Institución *",
      "type": "text",
@@ -966,14 +1002,14 @@
     },
     {
      "kind": "label",
-     "line": 415,
+     "line": 455,
      "in": "HomePage",
      "text": "Cargo",
      "for": "cargo"
     },
     {
      "kind": "field",
-     "line": 416,
+     "line": 456,
      "in": "HomePage",
      "text": "Cargo",
      "type": "text",
@@ -986,14 +1022,14 @@
     },
     {
      "kind": "label",
-     "line": 419,
+     "line": 459,
      "in": "HomePage",
      "text": "¿Qué te interesa? *",
      "for": "interes"
     },
     {
      "kind": "field",
-     "line": 420,
+     "line": 460,
      "in": "HomePage",
      "text": "¿Qué te interesa? *",
      "type": "select",
@@ -1014,14 +1050,14 @@
     },
     {
      "kind": "label",
-     "line": 430,
+     "line": 470,
      "in": "HomePage",
      "text": "Mensaje *",
      "for": "mensaje"
     },
     {
      "kind": "field",
-     "line": 431,
+     "line": 471,
      "in": "HomePage",
      "text": "Mensaje *",
      "type": "textarea",
@@ -1036,14 +1072,14 @@
     },
     {
      "kind": "label",
-     "line": 448,
+     "line": 488,
      "in": "HomePage",
      "text": "Sitio web",
      "for": "website"
     },
     {
      "kind": "field",
-     "line": 449,
+     "line": 489,
      "in": "HomePage",
      "text": "Sitio web",
      "type": "text",
@@ -1056,7 +1092,7 @@
     },
     {
      "kind": "button",
-     "line": 460,
+     "line": 500,
      "in": "HomePage",
      "text": "Enviando... / Enviar Mensaje [→]",
      "submit": true,
@@ -1064,15 +1100,6 @@
      "hook": {
       "testid": "contact-submit"
      }
-    },
-    {
-     "kind": "popup",
-     "line": 469,
-     "in": "HomePage",
-     "text": "FlipbookDialog",
-     "how": "component",
-     "open": "{showDirectivesFlipbook}",
-     "props": "title: Programa Estratégico Para Directivos"
     }
    ],
    "db": [],
@@ -1080,7 +1107,6 @@
     "components/PrivacyPolicyContent.tsx",
     "components/PrivacyPolicyModal.tsx",
     "components/TermsOfUseModal.tsx",
-    "components/site/FlipbookDialog.tsx",
     "components/site/MapaChile.tsx",
     "components/site/NewsCard.tsx",
     "components/site/Novedades.tsx",
@@ -1104,7 +1130,7 @@
       "POST"
      ],
      "from": [
-      "pages/index.tsx:58"
+      "pages/index.tsx:97"
      ]
     },
     {
@@ -1122,7 +1148,7 @@
   {
    "file": "pages/nosotros.tsx",
    "route": "/nosotros",
-   "lines": 115,
+   "lines": 110,
    "marks": {},
    "frame": "none",
    "server": "none",
@@ -1178,7 +1204,7 @@
      "components/site/SiteLayout.tsx:175",
      "components/site/SiteLayout.tsx:26",
      "lib/look.ts:104",
-     "pages/equipo.tsx:27"
+     "pages/equipo.tsx:23"
     ],
     "qaScenarios": {},
     "tests": {
@@ -1195,7 +1221,7 @@
    "rows": [
     {
      "kind": "list",
-     "line": 6,
+     "line": 7,
      "text": "VERBS",
      "items": [
       "Transformar",
@@ -1208,33 +1234,40 @@
     },
     {
      "kind": "piece",
-     "line": 26,
+     "line": 27,
      "in": "NosotrosPage",
      "text": "active: nosotros · title: Nosotros · Fundación Nueva Educación · description: Somos una red que reflexiona y crea soluciones para la educación del siglo XXI: un equipo multidisciplinario experto en procesos de cambio cultural en el mundo de la educación.",
      "tag": "SiteLayout"
     },
     {
+     "kind": "piece",
+     "line": 32,
+     "in": "NosotrosPage",
+     "text": "",
+     "tag": "PageHero"
+    },
+    {
      "kind": "text",
-     "line": 37,
+     "line": 33,
      "in": "NosotrosPage",
      "text": "Nosotros"
     },
     {
      "kind": "heading",
-     "line": 38,
+     "line": 34,
      "in": "NosotrosPage",
      "text": "Somos una red que reflexiona y crea soluciones para la educación del siglo XXI",
      "level": 1
     },
     {
      "kind": "text",
-     "line": 42,
+     "line": 38,
      "in": "NosotrosPage",
-     "text": "Un equipo multidisciplinario de expertos en facilitar procesos de Cambio Cultural en el mundo de la educación, pioneros en la aplicación de los principios de la Nueva Educación en programas de formación para estudiantes y programas de cambio en equipos directivos y docentes."
+     "text": "Un equipo multidisciplinario experto en facilitar procesos de Cambio Cultural en el mundo de la educación, pionero en la aplicación de los principios de la Nueva Educación en programas de formación para estudiantes y programas de cambio en equipos directivos y docentes."
     },
     {
      "kind": "hook",
-     "line": 49,
+     "line": 44,
      "in": "NosotrosPage",
      "text": "id=que-hacemos",
      "type": "mark",
@@ -1242,21 +1275,21 @@
     },
     {
      "kind": "heading",
-     "line": 51,
+     "line": 46,
      "in": "NosotrosPage",
      "text": "Lo que hacemos",
      "level": 2
     },
     {
      "kind": "value",
-     "line": 55,
+     "line": 50,
      "in": "NosotrosPage",
      "when": "each VERBS",
      "text": "{String(index + 1).padStart(2, '0')}"
     },
     {
      "kind": "heading",
-     "line": 56,
+     "line": 51,
      "in": "NosotrosPage",
      "when": "each VERBS",
      "text": "{verb.name}",
@@ -1264,14 +1297,14 @@
     },
     {
      "kind": "value",
-     "line": 57,
+     "line": 52,
      "in": "NosotrosPage",
      "when": "each VERBS",
      "text": "{verb.text}"
     },
     {
      "kind": "hook",
-     "line": 65,
+     "line": 60,
      "in": "NosotrosPage",
      "text": "id=impacto",
      "type": "mark",
@@ -1279,64 +1312,64 @@
     },
     {
      "kind": "text",
-     "line": 68,
+     "line": 63,
      "in": "NosotrosPage",
      "text": "Nuestro impacto"
     },
     {
      "kind": "heading",
-     "line": 69,
+     "line": 64,
      "in": "NosotrosPage",
      "text": "Una red que ya está cambiando escuelas",
      "level": 2
     },
     {
      "kind": "text",
-     "line": 75,
+     "line": 70,
      "in": "NosotrosPage",
      "text": "Escuelas de vanguardia colaboradoras en Barcelona"
     },
     {
      "kind": "text",
-     "line": 79,
+     "line": 74,
      "in": "NosotrosPage",
      "text": "Colegios han pasado por nuestros programas de transformación"
     },
     {
      "kind": "text",
-     "line": 83,
+     "line": 78,
      "in": "NosotrosPage",
      "text": "Pasantes internacionales a Barcelona"
     },
     {
      "kind": "text",
-     "line": 87,
+     "line": 82,
      "in": "NosotrosPage",
      "text": "Colegios han confiado en nuestros programas de pasantías internacionales"
     },
     {
      "kind": "piece",
-     "line": 93,
+     "line": 88,
      "in": "NosotrosPage",
      "text": "",
      "tag": "TeamSection"
     },
     {
      "kind": "heading",
-     "line": 98,
+     "line": 93,
      "in": "NosotrosPage",
      "text": "La escuela se transforma desde sus vínculos",
      "level": 2
     },
     {
      "kind": "text",
-     "line": 101,
+     "line": 96,
      "in": "NosotrosPage",
      "text": "Conversemos sobre cómo podemos acompañar a tu comunidad educativa."
     },
     {
      "kind": "link",
-     "line": 103,
+     "line": 98,
      "in": "NosotrosPage",
      "text": "Conversemos →",
      "target": "/#contacto",
@@ -1346,7 +1379,7 @@
     },
     {
      "kind": "link",
-     "line": 106,
+     "line": 101,
      "in": "NosotrosPage",
      "text": "Ver los programas",
      "target": "/programas",
@@ -1356,19 +1389,19 @@
     },
     {
      "kind": "string",
-     "line": 10,
+     "line": 11,
      "in": "VERBS",
      "text": "Acompañamos a las comunidades educativas en procesos profundos de transformación cultural, facilitando el cambio desde adentro. Trabajamos codo a codo con directivos, docentes, estudiantes y familias para co-crear una nueva cultura escolar centrada en el desarrollo integral y el bienestar de toda l…"
     },
     {
      "kind": "string",
-     "line": 15,
+     "line": 16,
      "in": "VERBS",
      "text": "Sinergizamos redes vivas de colaboración entre escuelas innovadoras de Chile, España y América Latina. Estas redes permiten que las comunidades educativas compartan sus experiencias, aprendan unas de otras y co-construyan soluciones a desafíos comunes. A través de pasantías internacionales, encuent…"
     },
     {
      "kind": "string",
-     "line": 20,
+     "line": 21,
      "in": "VERBS",
      "text": "Desarrollamos herramientas e instrumentos propios para implementar, medir y ejecutar procesos de transformación educativa. Creamos metodologías de diagnóstico, matrices de evaluación, protocolos de implementación y sistemas de seguimiento que permiten a las escuelas gestionar su cambio de manera si…"
     }
@@ -1378,6 +1411,7 @@
     "components/PrivacyPolicyContent.tsx",
     "components/PrivacyPolicyModal.tsx",
     "components/TermsOfUseModal.tsx",
+    "components/site/PageHero.tsx",
     "components/site/SiteLayout.tsx",
     "components/site/TeamSection.tsx",
     "components/site/teamData.ts",
@@ -1389,7 +1423,7 @@
   {
    "file": "pages/noticias.tsx",
    "route": "/noticias",
-   "lines": 254,
+   "lines": 249,
    "marks": {},
    "frame": "none",
    "server": "none",
@@ -1469,7 +1503,7 @@
    "rows": [
     {
      "kind": "list",
-     "line": 15,
+     "line": 16,
      "text": "SHORT_MONTHS",
      "items": [
       "ENE",
@@ -1488,13 +1522,13 @@
     },
     {
      "kind": "value",
-     "line": 42,
+     "line": 43,
      "in": "EventText",
      "text": "{text}"
     },
     {
      "kind": "button",
-     "line": 44,
+     "line": 45,
      "in": "EventText",
      "when": "long",
      "text": "Leer menos / Leer más",
@@ -1505,14 +1539,14 @@
     },
     {
      "kind": "hook",
-     "line": 64,
+     "line": 65,
      "in": "fetchArticles",
      "text": "setTimeout(…, 10000)",
      "type": "timer"
     },
     {
      "kind": "message",
-     "line": 71,
+     "line": 72,
      "in": "fetchArticles",
      "when": "caught instanceof Error && caught.name === 'AbortError'",
      "text": "La solicitud tardó demasiado en responder. Por favor, intenta nuevamente.",
@@ -1520,7 +1554,7 @@
     },
     {
      "kind": "message",
-     "line": 73,
+     "line": 74,
      "in": "fetchArticles",
      "when": "!(caught instanceof Error && caught.name === 'AbortError')",
      "text": "No pudimos cargar las noticias. Por favor, intenta nuevamente.",
@@ -1528,7 +1562,7 @@
     },
     {
      "kind": "message",
-     "line": 85,
+     "line": 86,
      "in": "fetchEvents",
      "when": "!response.ok",
      "text": "Error loading events",
@@ -1536,33 +1570,40 @@
     },
     {
      "kind": "piece",
-     "line": 113,
+     "line": 114,
      "in": "NewsPage",
      "text": "active: noticias · title: Noticias y eventos · Fundación Nueva Educación · description: Mantente informado sobre las últimas actividades y eventos de la Fundación Nueva Educación",
      "tag": "SiteLayout"
     },
     {
+     "kind": "piece",
+     "line": 119,
+     "in": "NewsPage",
+     "text": "",
+     "tag": "PageHero"
+    },
+    {
      "kind": "text",
-     "line": 124,
+     "line": 120,
      "in": "NewsPage",
      "text": "Noticias y eventos"
     },
     {
      "kind": "heading",
-     "line": 125,
+     "line": 121,
      "in": "NewsPage",
      "text": "Lo que está pasando en la Nueva Educación",
      "level": 1
     },
     {
      "kind": "text",
-     "line": 129,
+     "line": 125,
      "in": "NewsPage",
      "text": "Mantente informado sobre las últimas actividades, eventos y transformaciones que estamos impulsando en el mundo de la educación. Historias de cambio, innovación pedagógica y el impacto de nuestros programas en comunidades educativas."
     },
     {
      "kind": "heading",
-     "line": 140,
+     "line": 135,
      "in": "NewsPage",
      "when": "upcoming.length > 0",
      "text": "Próximos eventos",
@@ -1573,21 +1614,21 @@
     },
     {
      "kind": "value",
-     "line": 145,
+     "line": 140,
      "in": "NewsPage",
      "when": "upcoming.length > 0 && each upcoming",
      "text": "{eventDays(event)}"
     },
     {
      "kind": "value",
-     "line": 146,
+     "line": 141,
      "in": "NewsPage",
      "when": "upcoming.length > 0 && each upcoming",
      "text": "{eventMonth(event)}"
     },
     {
      "kind": "heading",
-     "line": 149,
+     "line": 144,
      "in": "NewsPage",
      "when": "upcoming.length > 0 && each upcoming",
      "text": "{event.title}",
@@ -1595,14 +1636,14 @@
     },
     {
      "kind": "value",
-     "line": 150,
+     "line": 145,
      "in": "NewsPage",
      "when": "upcoming.length > 0 && each upcoming",
      "text": "{event.location} · {event.time}"
     },
     {
      "kind": "link",
-     "line": 156,
+     "line": 151,
      "in": "NewsPage",
      "when": "upcoming.length > 0 && each upcoming && event.link_url",
      "text": "{event.link_display} / Más información →",
@@ -1611,7 +1652,7 @@
     },
     {
      "kind": "heading",
-     "line": 167,
+     "line": 162,
      "in": "NewsPage",
      "text": "Noticias",
      "level": 2,
@@ -1621,7 +1662,7 @@
     },
     {
      "kind": "hook",
-     "line": 169,
+     "line": 164,
      "in": "NewsPage",
      "when": "loading",
      "text": "role=status",
@@ -1630,14 +1671,14 @@
     },
     {
      "kind": "text",
-     "line": 171,
+     "line": 166,
      "in": "NewsPage",
      "when": "loading",
      "text": "Cargando noticias…"
     },
     {
      "kind": "hook",
-     "line": 174,
+     "line": 169,
      "in": "NewsPage",
      "when": "!(loading) && error",
      "text": "role=alert",
@@ -1646,14 +1687,14 @@
     },
     {
      "kind": "value",
-     "line": 176,
+     "line": 171,
      "in": "NewsPage",
      "when": "!(loading) && error",
      "text": "{error}"
     },
     {
      "kind": "button",
-     "line": 177,
+     "line": 172,
      "in": "NewsPage",
      "when": "!(loading) && error",
      "text": "Intentar nuevamente",
@@ -1664,14 +1705,14 @@
     },
     {
      "kind": "text",
-     "line": 192,
+     "line": 187,
      "in": "NewsPage",
      "when": "!(loading) && !(error) && articles.length === 0",
      "text": "Pronto publicaremos nuestras primeras noticias."
     },
     {
      "kind": "link",
-     "line": 196,
+     "line": 191,
      "in": "NewsPage",
      "when": "!(loading) && !(error) && !(articles.length === 0)",
      "text": "{articleDate(lead)} {lead.title} {excerpt(lead.content_html, 220)} Leer la noticia →",
@@ -1682,14 +1723,14 @@
     },
     {
      "kind": "media",
-     "line": 198,
+     "line": 193,
      "in": "NewsPage",
      "when": "!(loading) && !(error) && !(articles.length === 0) && lead.featured_image",
      "text": "img · alt {lead.title} · {lead.featured_image}"
     },
     {
      "kind": "heading",
-     "line": 203,
+     "line": 198,
      "in": "NewsPage",
      "when": "!(loading) && !(error) && !(articles.length === 0)",
      "text": "{lead.title}",
@@ -1697,7 +1738,7 @@
     },
     {
      "kind": "piece",
-     "line": 212,
+     "line": 207,
      "in": "NewsPage",
      "when": "!(loading) && !(error) && !(articles.length === 0) && each rest",
      "text": "",
@@ -1705,7 +1746,7 @@
     },
     {
      "kind": "heading",
-     "line": 220,
+     "line": 215,
      "in": "NewsPage",
      "when": "events.pastEvents.length > 0",
      "text": "Eventos anteriores",
@@ -1716,14 +1757,14 @@
     },
     {
      "kind": "value",
-     "line": 224,
+     "line": 219,
      "in": "NewsPage",
      "when": "events.pastEvents.length > 0 && each events.pastEvents.slice(0, pastShown)",
      "text": "{eventRange(event)} · {event.location}"
     },
     {
      "kind": "heading",
-     "line": 227,
+     "line": 222,
      "in": "NewsPage",
      "when": "events.pastEvents.length > 0 && each events.pastEvents.slice(0, pastShown)",
      "text": "{event.title}",
@@ -1731,7 +1772,7 @@
     },
     {
      "kind": "link",
-     "line": 230,
+     "line": 225,
      "in": "NewsPage",
      "when": "events.pastEvents.length > 0 && each events.pastEvents.slice(0, pastShown) && event.link_url",
      "text": "{event.link_display} / Más información →",
@@ -1740,7 +1781,7 @@
     },
     {
      "kind": "button",
-     "line": 238,
+     "line": 233,
      "in": "NewsPage",
      "when": "events.pastEvents.length > 0 && events.pastEvents.length > pastShown",
      "text": "Ver más eventos",
@@ -1756,6 +1797,7 @@
     "components/PrivacyPolicyModal.tsx",
     "components/TermsOfUseModal.tsx",
     "components/site/NewsCard.tsx",
+    "components/site/PageHero.tsx",
     "components/site/SiteLayout.tsx",
     "components/site/news.ts",
     "components/site/useSiteEffects.ts",
@@ -1780,7 +1822,7 @@
       "GET"
      ],
      "from": [
-      "pages/noticias.tsx:84"
+      "pages/noticias.tsx:85"
      ]
     }
    ]
@@ -1850,7 +1892,7 @@
      "components/site/NewsCard.tsx:15",
      "components/site/NewsCard.tsx:17",
      "lib/look.ts:108",
-     "pages/noticias.tsx:196"
+     "pages/noticias.tsx:191"
     ],
     "qaScenarios": {},
     "tests": {
@@ -2096,7 +2138,7 @@
   {
    "file": "pages/pasantias.tsx",
    "route": "/pasantias",
-   "lines": 1350,
+   "lines": 1341,
    "marks": {},
    "frame": "none",
    "server": "getServerSideProps",
@@ -2153,8 +2195,8 @@
      "components/site/SiteLayout.tsx:23",
      "lib/look.ts:109",
      "lib/pasantias/pdf/contact.ts:22",
-     "pages/index.tsx:337",
-     "pages/programas.tsx:163"
+     "pages/index.tsx:376",
+     "pages/programas.tsx:157"
     ],
     "qaScenarios": {},
     "tests": {
@@ -2233,7 +2275,7 @@
     },
     {
      "kind": "list",
-     "line": 331,
+     "line": 329,
      "text": "DAY_PHOTO_ALT",
      "items": [
       "Una mano coloca una tarjeta sobre un muro de vidrio."
@@ -2241,32 +2283,32 @@
     },
     {
      "kind": "value",
-     "line": 346,
+     "line": 344,
      "in": "SectionHeader",
      "text": "{eyebrow}"
     },
     {
      "kind": "heading",
-     "line": 349,
+     "line": 347,
      "in": "SectionHeader",
      "text": "{title}",
      "level": 2
     },
     {
      "kind": "gate",
-     "line": 397,
+     "line": 395,
      "in": "PhotoBreak",
      "text": "!src"
     },
     {
      "kind": "media",
-     "line": 400,
+     "line": 398,
      "in": "PhotoBreak",
      "text": "img · {src}"
     },
     {
      "kind": "hook",
-     "line": 433,
+     "line": 431,
      "in": "ProgramCalendar",
      "screen": "lg:grid",
      "text": "testid=pasantias-calendar-{program.id}",
@@ -2275,7 +2317,7 @@
     },
     {
      "kind": "heading",
-     "line": 438,
+     "line": 436,
      "in": "ProgramCalendar",
      "screen": "lg:grid",
      "text": "{program.name}",
@@ -2283,7 +2325,7 @@
     },
     {
      "kind": "hook",
-     "line": 440,
+     "line": 438,
      "in": "ProgramCalendar",
      "when": "each program.weeks",
      "screen": "lg:grid",
@@ -2293,7 +2335,7 @@
     },
     {
      "kind": "value",
-     "line": 446,
+     "line": 444,
      "in": "ProgramCalendar",
      "when": "each program.weeks",
      "screen": "lg:grid",
@@ -2301,7 +2343,7 @@
     },
     {
      "kind": "value",
-     "line": 449,
+     "line": 447,
      "in": "ProgramCalendar",
      "when": "each program.weeks",
      "screen": "lg:grid",
@@ -2309,7 +2351,7 @@
     },
     {
      "kind": "value",
-     "line": 456,
+     "line": 454,
      "in": "ProgramCalendar",
      "when": "each program.weeks",
      "screen": "lg:grid",
@@ -2317,7 +2359,7 @@
     },
     {
      "kind": "list",
-     "line": 488,
+     "line": 486,
      "in": "PasantiasPage",
      "text": "faqs",
      "items": [
@@ -2330,70 +2372,70 @@
     },
     {
      "kind": "text",
-     "line": 493,
+     "line": 491,
      "in": "PasantiasPage",
      "text": "{COHORT_ROUTING[0].question} {COHORT_ROUTING[0].program}: {inspira.audience}. {COHORT_ROUTING[1].question} {COHORT_ROUTING[1].program}: {mirada.audience}."
     },
     {
      "kind": "text",
-     "line": 501,
+     "line": 499,
      "in": "PasantiasPage",
      "text": "No. Las sesiones del programa se desarrollan en español: las presentaciones, las entrevistas y los talleres. En las escuelas vas a escuchar una mezcla de catalán y español, y el equipo de FNE acompaña las visitas."
     },
     {
      "kind": "text",
-     "line": 510,
+     "line": 508,
      "in": "PasantiasPage",
      "text": "Sí. {COHORT_TOGETHER}. Los programas comparten el fin de semana libre: {COHORT_FREE_WEEKEND.label}."
     },
     {
      "kind": "text",
-     "line": 517,
+     "line": 515,
      "in": "PasantiasPage",
      "text": "{COHORT_PLACES} Registra tu interés más abajo y descarga la ficha y el programa completo con los valores."
     },
     {
      "kind": "text",
-     "line": 525,
+     "line": 523,
      "in": "PasantiasPage",
      "text": "Sí. Para cotizaciones grupales escríbenos por el"
     },
     {
      "kind": "link",
-     "line": 526,
+     "line": 524,
      "in": "PasantiasPage",
      "text": "formulario de contacto",
      "target": "/#contacto"
     },
     {
      "kind": "text",
-     "line": 529,
+     "line": 527,
      "in": "PasantiasPage",
      "text": "o a"
     },
     {
      "kind": "link",
-     "line": 530,
+     "line": 528,
      "in": "PasantiasPage",
      "text": "{COHORT_CONTACT.email}",
      "target": "mailto:[*]"
     },
     {
      "kind": "text",
-     "line": 533,
+     "line": 531,
      "in": "PasantiasPage",
      "text": "y coordinamos una propuesta para tu equipo."
     },
     {
      "kind": "piece",
-     "line": 540,
+     "line": 538,
      "in": "PasantiasPage",
      "text": "active: pasantias",
      "tag": "SiteLayout"
     },
     {
      "kind": "hook",
-     "line": 569,
+     "line": 567,
      "in": "PasantiasPage",
      "text": "testid=pasantias-hero id=hero",
      "type": "mark",
@@ -2401,27 +2443,27 @@
     },
     {
      "kind": "media",
-     "line": 571,
+     "line": 569,
      "in": "PasantiasPage",
      "when": "photos.hero",
      "text": "img · alt Barcelona, sede de las Pasantías INSPIRA · {photos.hero}"
     },
     {
      "kind": "text",
-     "line": 590,
+     "line": 588,
      "in": "PasantiasPage",
      "text": "Pasantías internacionales"
     },
     {
      "kind": "heading",
-     "line": 591,
+     "line": 589,
      "in": "PasantiasPage",
      "text": "Vive una escuela por dentro, no la visites",
      "level": 1
     },
     {
      "kind": "hook",
-     "line": 594,
+     "line": 592,
      "in": "PasantiasPage",
      "text": "testid=pasantias-date-chip",
      "type": "mark",
@@ -2429,13 +2471,13 @@
     },
     {
      "kind": "value",
-     "line": 594,
+     "line": 592,
      "in": "PasantiasPage",
      "text": "{COHORT_HEADLINE}"
     },
     {
      "kind": "hook",
-     "line": 597,
+     "line": 595,
      "in": "PasantiasPage",
      "text": "testid=pasantias-hero-stats",
      "type": "mark",
@@ -2443,13 +2485,13 @@
     },
     {
      "kind": "value",
-     "line": 597,
+     "line": 595,
      "in": "PasantiasPage",
      "text": "{COHORT_TOGETHER}"
     },
     {
      "kind": "hook",
-     "line": 609,
+     "line": 607,
      "in": "PasantiasPage",
      "text": "testid=pasantias-hero-routes",
      "type": "mark",
@@ -2457,7 +2499,7 @@
     },
     {
      "kind": "hook",
-     "line": 614,
+     "line": 612,
      "in": "PasantiasPage",
      "when": "each COHORT_ROUTING",
      "text": "testid=pasantias-hero-route-{index}",
@@ -2466,21 +2508,21 @@
     },
     {
      "kind": "text",
-     "line": 615,
+     "line": 613,
      "in": "PasantiasPage",
      "when": "each COHORT_ROUTING",
      "text": "{route.question}"
     },
     {
      "kind": "value",
-     "line": 616,
+     "line": 614,
      "in": "PasantiasPage",
      "when": "each COHORT_ROUTING",
      "text": "{route.program}"
     },
     {
      "kind": "link",
-     "line": 619,
+     "line": 617,
      "in": "PasantiasPage",
      "text": "Ver los programas",
      "target": "#programas",
@@ -2490,7 +2532,7 @@
     },
     {
      "kind": "link",
-     "line": 629,
+     "line": 627,
      "in": "PasantiasPage",
      "text": "Registra tu interés",
      "target": "#programa",
@@ -2500,7 +2542,7 @@
     },
     {
      "kind": "link",
-     "line": 632,
+     "line": 630,
      "in": "PasantiasPage",
      "text": "Descarga la ficha",
      "target": "{FICHA_HREF}",
@@ -2510,14 +2552,14 @@
     },
     {
      "kind": "text",
-     "line": 640,
+     "line": 638,
      "in": "PasantiasPage",
      "text": "La red INSPIRA en cifras",
      "attr": "aria-label"
     },
     {
      "kind": "hook",
-     "line": 640,
+     "line": 638,
      "in": "PasantiasPage",
      "text": "testid=pasantias-claims",
      "type": "mark",
@@ -2526,7 +2568,7 @@
     },
     {
      "kind": "hook",
-     "line": 650,
+     "line": 648,
      "in": "PasantiasPage",
      "when": "each COHORT_CLAIMS",
      "text": "testid=pasantias-claim-{index}",
@@ -2535,21 +2577,21 @@
     },
     {
      "kind": "value",
-     "line": 656,
+     "line": 654,
      "in": "PasantiasPage",
      "when": "each COHORT_CLAIMS",
      "text": "{figure}"
     },
     {
      "kind": "value",
-     "line": 657,
+     "line": 655,
      "in": "PasantiasPage",
      "when": "each COHORT_CLAIMS",
      "text": "{caption}"
     },
     {
      "kind": "hook",
-     "line": 662,
+     "line": 660,
      "in": "PasantiasPage",
      "text": "testid=pasantias-accreditation",
      "type": "mark",
@@ -2557,13 +2599,13 @@
     },
     {
      "kind": "value",
-     "line": 662,
+     "line": 660,
      "in": "PasantiasPage",
      "text": "{COHORT_ACCREDITATION}"
     },
     {
      "kind": "hook",
-     "line": 672,
+     "line": 670,
      "in": "PasantiasPage",
      "text": "testid=pasantias-barcelona id=barcelona",
      "type": "mark",
@@ -2571,45 +2613,45 @@
     },
     {
      "kind": "piece",
-     "line": 680,
+     "line": 678,
      "in": "PasantiasPage",
      "text": "eyebrow: Por qué {COHORT_CITY} · titleId: barcelona-title",
      "tag": "SectionHeader"
     },
     {
      "kind": "text",
-     "line": 684,
+     "line": 682,
      "in": "PasantiasPage",
      "text": "Un ecosistema,"
     },
     {
      "kind": "text",
-     "line": 685,
+     "line": 683,
      "in": "PasantiasPage",
      "text": "no una escuela suelta"
     },
     {
      "kind": "text",
-     "line": 691,
+     "line": 689,
      "in": "PasantiasPage",
      "text": "Cataluña lleva años sosteniendo una transformación educativa en red: escuelas muy distintas entre sí que comparten preguntas, herramientas y una manera de mirar al estudiante. Por eso la pasantía no es un tour por un colegio ejemplar, sino un recorrido por un ecosistema que se explica a sí mismo."
     },
     {
      "kind": "text",
-     "line": 697,
+     "line": 695,
      "in": "PasantiasPage",
      "text": "Vas a entrar a las aulas, conversar con los equipos directivos, entrevistar a estudiantes y docentes, y cerrar cada día con un taller que ordena lo que viste."
     },
     {
      "kind": "piece",
-     "line": 701,
+     "line": 699,
      "in": "PasantiasPage",
      "text": "",
      "tag": "Ecosistema"
     },
     {
      "kind": "hook",
-     "line": 707,
+     "line": 705,
      "in": "PasantiasPage",
      "text": "testid=pasantias-programas id=programas",
      "type": "mark",
@@ -2617,14 +2659,14 @@
     },
     {
      "kind": "piece",
-     "line": 713,
+     "line": 711,
      "in": "PasantiasPage",
      "text": "eyebrow: Elige tu programa · titleId: programas-title",
      "tag": "SectionHeader"
     },
     {
      "kind": "hook",
-     "line": 717,
+     "line": 715,
      "in": "PasantiasPage",
      "when": "each [inspira, mirada]",
      "text": "testid=pasantias-program-{program.id}",
@@ -2633,7 +2675,7 @@
     },
     {
      "kind": "heading",
-     "line": 728,
+     "line": 721,
      "in": "PasantiasPage",
      "when": "each [inspira, mirada]",
      "text": "{program.name}",
@@ -2641,42 +2683,42 @@
     },
     {
      "kind": "value",
-     "line": 735,
+     "line": 728,
      "in": "PasantiasPage",
      "when": "each [inspira, mirada]",
      "text": "{program.audience}"
     },
     {
      "kind": "value",
-     "line": 742,
+     "line": 735,
      "in": "PasantiasPage",
      "when": "each [inspira, mirada]",
      "text": "{programRanges[index]}"
     },
     {
      "kind": "text",
-     "line": 745,
+     "line": 738,
      "in": "PasantiasPage",
      "when": "each [inspira, mirada]",
      "text": "{formatNumber(program.school…} días en escuelas · {formatNumber( program.schoo…} escuelas"
     },
     {
      "kind": "value",
-     "line": 750,
+     "line": 743,
      "in": "PasantiasPage",
      "when": "each [inspira, mirada]",
      "text": "{program.overview}"
     },
     {
      "kind": "value",
-     "line": 753,
+     "line": 746,
      "in": "PasantiasPage",
      "when": "each [inspira, mirada]",
      "text": "{program.takeaway}"
     },
     {
      "kind": "link",
-     "line": 765,
+     "line": 758,
      "in": "PasantiasPage",
      "when": "each [inspira, mirada]",
      "text": "Me interesa {program.shortName}",
@@ -2688,7 +2730,7 @@
     },
     {
      "kind": "hook",
-     "line": 778,
+     "line": 771,
      "in": "PasantiasPage",
      "text": "id=escuela-interior",
      "type": "mark",
@@ -2696,7 +2738,7 @@
     },
     {
      "kind": "hook",
-     "line": 781,
+     "line": 774,
      "in": "PasantiasPage",
      "text": "testid=pasantias-calendario id=calendario",
      "type": "mark",
@@ -2704,20 +2746,20 @@
     },
     {
      "kind": "piece",
-     "line": 788,
+     "line": 781,
      "in": "PasantiasPage",
      "text": "title: El calendario · titleId: calendario-title",
      "tag": "SectionHeader"
     },
     {
      "kind": "value",
-     "line": 789,
+     "line": 782,
      "in": "PasantiasPage",
      "text": "{spanRange} · {COHORT_TOGETHER}."
     },
     {
      "kind": "hook",
-     "line": 805,
+     "line": 798,
      "in": "PasantiasPage",
      "text": "testid=pasantias-finde",
      "type": "mark",
@@ -2725,13 +2767,13 @@
     },
     {
      "kind": "text",
-     "line": 810,
+     "line": 803,
      "in": "PasantiasPage",
      "text": "Fin de semana libre"
     },
     {
      "kind": "hook",
-     "line": 811,
+     "line": 804,
      "in": "PasantiasPage",
      "text": "testid=pasantias-free-weekend-dates",
      "type": "mark",
@@ -2739,13 +2781,13 @@
     },
     {
      "kind": "text",
-     "line": 811,
+     "line": 804,
      "in": "PasantiasPage",
      "text": "{freeWeekendDates[0]} al {freeWeekendDates[1]}"
     },
     {
      "kind": "hook",
-     "line": 830,
+     "line": 823,
      "in": "PasantiasPage",
      "text": "testid=pasantias-dia-tipo id=un-dia",
      "type": "mark",
@@ -2753,14 +2795,14 @@
     },
     {
      "kind": "piece",
-     "line": 843,
+     "line": 836,
      "in": "PasantiasPage",
      "text": "eyebrow: Dentro de la escuela · title: Cómo es un día · titleId: dia-title",
      "tag": "SectionHeader"
     },
     {
      "kind": "hook",
-     "line": 848,
+     "line": 841,
      "in": "PasantiasPage",
      "text": "testid=pasantias-dia-lead",
      "type": "mark",
@@ -2768,13 +2810,13 @@
     },
     {
      "kind": "text",
-     "line": 852,
+     "line": 845,
      "in": "PasantiasPage",
      "text": "La escuela, contada por quienes la hacen."
     },
     {
      "kind": "media",
-     "line": 862,
+     "line": 855,
      "in": "PasantiasPage",
      "when": "photos.unDia",
      "text": "img · alt {DAY_PHOTO_ALT} · {photos.unDia}",
@@ -2784,7 +2826,7 @@
     },
     {
      "kind": "hook",
-     "line": 887,
+     "line": 880,
      "in": "PasantiasPage",
      "when": "each COHORT_DAY_STRUCTURE",
      "screen": "lg:block",
@@ -2794,7 +2836,7 @@
     },
     {
      "kind": "hook",
-     "line": 893,
+     "line": 886,
      "in": "PasantiasPage",
      "when": "each COHORT_DAY_STRUCTURE",
      "screen": "lg:block",
@@ -2804,7 +2846,7 @@
     },
     {
      "kind": "value",
-     "line": 893,
+     "line": 886,
      "in": "PasantiasPage",
      "when": "each COHORT_DAY_STRUCTURE",
      "screen": "lg:block",
@@ -2812,7 +2854,7 @@
     },
     {
      "kind": "heading",
-     "line": 901,
+     "line": 894,
      "in": "PasantiasPage",
      "when": "each COHORT_DAY_STRUCTURE && heading",
      "screen": "lg:block",
@@ -2821,7 +2863,7 @@
     },
     {
      "kind": "hook",
-     "line": 905,
+     "line": 898,
      "in": "PasantiasPage",
      "when": "each COHORT_DAY_STRUCTURE",
      "screen": "lg:block",
@@ -2831,7 +2873,7 @@
     },
     {
      "kind": "value",
-     "line": 905,
+     "line": 898,
      "in": "PasantiasPage",
      "when": "each COHORT_DAY_STRUCTURE",
      "screen": "lg:block",
@@ -2839,7 +2881,7 @@
     },
     {
      "kind": "hook",
-     "line": 919,
+     "line": 912,
      "in": "PasantiasPage",
      "text": "id=barcelona-calle",
      "type": "mark",
@@ -2847,7 +2889,7 @@
     },
     {
      "kind": "hook",
-     "line": 939,
+     "line": 932,
      "in": "PasantiasPage",
      "text": "testid=pasantias-escuelas id=escuelas",
      "type": "mark",
@@ -2855,14 +2897,14 @@
     },
     {
      "kind": "piece",
-     "line": 945,
+     "line": 938,
      "in": "PasantiasPage",
      "text": "eyebrow: {COHORT_CITY} · {COHORT_LABEL} · title: Las escuelas · titleId: escuelas-title",
      "tag": "SectionHeader"
     },
     {
      "kind": "hook",
-     "line": 951,
+     "line": 944,
      "in": "PasantiasPage",
      "text": "testid=pasantias-escuelas-{inspira.id}",
      "type": "mark",
@@ -2870,20 +2912,20 @@
     },
     {
      "kind": "heading",
-     "line": 957,
+     "line": 949,
      "in": "PasantiasPage",
      "text": "{inspira.name}",
      "level": 3
     },
     {
      "kind": "value",
-     "line": 959,
+     "line": 951,
      "in": "PasantiasPage",
      "text": "{inspira.overview}"
     },
     {
      "kind": "hook",
-     "line": 965,
+     "line": 957,
      "in": "PasantiasPage",
      "text": "testid=pasantias-escuelas-{inspira.id}-{inspira.weeks[0].id}",
      "type": "mark",
@@ -2891,14 +2933,14 @@
     },
     {
      "kind": "heading",
-     "line": 969,
+     "line": 961,
      "in": "PasantiasPage",
      "text": "{inspira.weeks[0].label}",
      "level": 4
     },
     {
      "kind": "hook",
-     "line": 974,
+     "line": 966,
      "in": "PasantiasPage",
      "when": "each inspira.immersionSchools",
      "text": "testid=pasantias-school-inmersion-{index}",
@@ -2907,7 +2949,7 @@
     },
     {
      "kind": "heading",
-     "line": 979,
+     "line": 971,
      "in": "PasantiasPage",
      "when": "each inspira.immersionSchools",
      "text": "{school.name}",
@@ -2915,14 +2957,14 @@
     },
     {
      "kind": "text",
-     "line": 982,
+     "line": 974,
      "in": "PasantiasPage",
      "when": "each inspira.immersionSchools",
      "text": "{formatNumber(school.days)} días por pasante"
     },
     {
      "kind": "hook",
-     "line": 990,
+     "line": 982,
      "in": "PasantiasPage",
      "text": "testid=pasantias-escuelas-{inspira.id}-{inspira.weeks[1].id}",
      "type": "mark",
@@ -2930,14 +2972,14 @@
     },
     {
      "kind": "heading",
-     "line": 994,
+     "line": 986,
      "in": "PasantiasPage",
      "text": "{inspira.weeks[1].label}",
      "level": 4
     },
     {
      "kind": "hook",
-     "line": 997,
+     "line": 989,
      "in": "PasantiasPage",
      "text": "testid=pasantias-visit-count",
      "type": "mark",
@@ -2945,13 +2987,13 @@
     },
     {
      "kind": "text",
-     "line": 997,
+     "line": 989,
      "in": "PasantiasPage",
      "text": "Cada cohorte visita {formatNumber(inspira.visits…} de estas {inspira.visits.candidates.l…} escuelas."
     },
     {
      "kind": "hook",
-     "line": 1007,
+     "line": 999,
      "in": "PasantiasPage",
      "when": "each inspira.visits.candidates",
      "text": "testid=pasantias-school-visita-{index}",
@@ -2960,7 +3002,7 @@
     },
     {
      "kind": "heading",
-     "line": 1012,
+     "line": 1004,
      "in": "PasantiasPage",
      "when": "each inspira.visits.candidates",
      "text": "{name}",
@@ -2968,13 +3010,13 @@
     },
     {
      "kind": "value",
-     "line": 1017,
+     "line": 1009,
      "in": "PasantiasPage",
      "text": "{inspira.visits.selection}"
     },
     {
      "kind": "hook",
-     "line": 1018,
+     "line": 1010,
      "in": "PasantiasPage",
      "text": "testid=pasantias-full-day",
      "type": "mark",
@@ -2982,13 +3024,13 @@
     },
     {
      "kind": "text",
-     "line": 1018,
+     "line": 1010,
      "in": "PasantiasPage",
      "text": "{joinEs(inspira.visits.fullD…} están fuera de {COHORT_CITY} y toman el día completo."
     },
     {
      "kind": "hook",
-     "line": 1026,
+     "line": 1018,
      "in": "PasantiasPage",
      "text": "testid=pasantias-escuelas-{mirada.id}",
      "type": "mark",
@@ -2996,14 +3038,14 @@
     },
     {
      "kind": "heading",
-     "line": 1031,
+     "line": 1023,
      "in": "PasantiasPage",
      "text": "{mirada.name}",
      "level": 3
     },
     {
      "kind": "hook",
-     "line": 1037,
+     "line": 1029,
      "in": "PasantiasPage",
      "text": "testid=pasantias-mirada-days",
      "type": "mark",
@@ -3011,13 +3053,13 @@
     },
     {
      "kind": "text",
-     "line": 1037,
+     "line": 1029,
      "in": "PasantiasPage",
      "text": "{formatNumber(mirada.daysPer…} días completos por escuela"
     },
     {
      "kind": "hook",
-     "line": 1047,
+     "line": 1039,
      "in": "PasantiasPage",
      "when": "each mirada.schools",
      "text": "testid=pasantias-school-mirada-{index}",
@@ -3026,7 +3068,7 @@
     },
     {
      "kind": "heading",
-     "line": 1053,
+     "line": 1045,
      "in": "PasantiasPage",
      "when": "each mirada.schools",
      "text": "{name}",
@@ -3034,13 +3076,13 @@
     },
     {
      "kind": "value",
-     "line": 1057,
+     "line": 1049,
      "in": "PasantiasPage",
      "text": "{mirada.orderCaveat}"
     },
     {
      "kind": "hook",
-     "line": 1063,
+     "line": 1055,
      "in": "PasantiasPage",
      "text": "testid=pasantias-mirada-extra id=antes-durante-despues",
      "type": "mark",
@@ -3048,53 +3090,53 @@
     },
     {
      "kind": "piece",
-     "line": 1070,
+     "line": 1062,
      "in": "PasantiasPage",
      "text": "title: {mirada.name}: antes, durante y después · titleId: mirada-title",
      "tag": "SectionHeader"
     },
     {
      "kind": "heading",
-     "line": 1077,
+     "line": 1069,
      "in": "PasantiasPage",
      "text": "Antes del viaje",
      "level": 3
     },
     {
      "kind": "value",
-     "line": 1078,
+     "line": 1070,
      "in": "PasantiasPage",
      "text": "{mirada.preparation}"
     },
     {
      "kind": "heading",
-     "line": 1083,
+     "line": 1075,
      "in": "PasantiasPage",
      "text": "Cierre · {closingDate}",
      "level": 3
     },
     {
      "kind": "value",
-     "line": 1084,
+     "line": 1076,
      "in": "PasantiasPage",
      "text": "{mirada.closing.text}"
     },
     {
      "kind": "heading",
-     "line": 1089,
+     "line": 1081,
      "in": "PasantiasPage",
      "text": "Seguimiento",
      "level": 3
     },
     {
      "kind": "value",
-     "line": 1090,
+     "line": 1082,
      "in": "PasantiasPage",
      "text": "{mirada.followUp}"
     },
     {
      "kind": "hook",
-     "line": 1098,
+     "line": 1090,
      "in": "PasantiasPage",
      "text": "id=equipo-foto",
      "type": "mark",
@@ -3102,7 +3144,7 @@
     },
     {
      "kind": "hook",
-     "line": 1101,
+     "line": 1093,
      "in": "PasantiasPage",
      "text": "testid=pasantias-equipo id=equipo",
      "type": "mark",
@@ -3110,14 +3152,14 @@
     },
     {
      "kind": "piece",
-     "line": 1108,
+     "line": 1099,
      "in": "PasantiasPage",
      "text": "eyebrow: En las escuelas · title: Quién te recibe · titleId: equipo-title",
      "tag": "SectionHeader"
     },
     {
      "kind": "hook",
-     "line": 1116,
+     "line": 1107,
      "in": "PasantiasPage",
      "when": "each COHORT_HOSTS",
      "text": "testid=pasantias-host-{index}",
@@ -3126,7 +3168,7 @@
     },
     {
      "kind": "media",
-     "line": 1122,
+     "line": 1113,
      "in": "PasantiasPage",
      "when": "each COHORT_HOSTS && portraits[index]",
      "text": "img · {portraits[index] as string}",
@@ -3136,7 +3178,7 @@
     },
     {
      "kind": "hook",
-     "line": 1135,
+     "line": 1126,
      "in": "PasantiasPage",
      "when": "each COHORT_HOSTS && !(portraits[index])",
      "text": "testid=pasantias-host-initials-{index}",
@@ -3145,14 +3187,14 @@
     },
     {
      "kind": "value",
-     "line": 1135,
+     "line": 1126,
      "in": "PasantiasPage",
      "when": "each COHORT_HOSTS && !(portraits[index])",
      "text": "{host.name .split(' ') .filter((word…}"
     },
     {
      "kind": "heading",
-     "line": 1148,
+     "line": 1139,
      "in": "PasantiasPage",
      "when": "each COHORT_HOSTS",
      "text": "{host.name}",
@@ -3160,21 +3202,21 @@
     },
     {
      "kind": "text",
-     "line": 1152,
+     "line": 1143,
      "in": "PasantiasPage",
      "when": "each COHORT_HOSTS",
      "text": "{host.role}, {host.school} —"
     },
     {
      "kind": "value",
-     "line": 1153,
+     "line": 1144,
      "in": "PasantiasPage",
      "when": "each COHORT_HOSTS",
      "text": "{host.note}"
     },
     {
      "kind": "hook",
-     "line": 1162,
+     "line": 1153,
      "in": "PasantiasPage",
      "text": "testid=pasantias-incluye id=incluye",
      "type": "mark",
@@ -3182,21 +3224,21 @@
     },
     {
      "kind": "heading",
-     "line": 1169,
+     "line": 1160,
      "in": "PasantiasPage",
      "text": "Incluye",
      "level": 2
     },
     {
      "kind": "value",
-     "line": 1176,
+     "line": 1167,
      "in": "PasantiasPage",
      "when": "each COHORT_INCLUDES",
      "text": "{item}"
     },
     {
      "kind": "hook",
-     "line": 1180,
+     "line": 1171,
      "in": "PasantiasPage",
      "when": "each [inspira.lunches, mirada.lunches]",
      "text": "testid=pasantias-lunches-{index}",
@@ -3205,35 +3247,35 @@
     },
     {
      "kind": "value",
-     "line": 1188,
+     "line": 1179,
      "in": "PasantiasPage",
      "when": "each [inspira.lunches, mirada.lunches]",
      "text": "{item}"
     },
     {
      "kind": "value",
-     "line": 1196,
+     "line": 1187,
      "in": "PasantiasPage",
      "when": "each mirada.extraIncludes",
      "text": "{mirada.name}: {item}"
     },
     {
      "kind": "heading",
-     "line": 1202,
+     "line": 1193,
      "in": "PasantiasPage",
      "text": "No incluye",
      "level": 2
     },
     {
      "kind": "value",
-     "line": 1209,
+     "line": 1200,
      "in": "PasantiasPage",
      "when": "each COHORT_EXCLUDES",
      "text": "{item}"
     },
     {
      "kind": "hook",
-     "line": 1224,
+     "line": 1215,
      "in": "PasantiasPage",
      "text": "testid=pasantias-programa id=programa",
      "type": "mark",
@@ -3241,20 +3283,20 @@
     },
     {
      "kind": "piece",
-     "line": 1233,
+     "line": 1224,
      "in": "PasantiasPage",
      "text": "title: Registra tu interés · titleId: programa-title",
      "tag": "SectionHeader"
     },
     {
      "kind": "text",
-     "line": 1240,
+     "line": 1231,
      "in": "PasantiasPage",
      "text": "Elige el programa que te corresponde. Si te interesa más de uno, registra una solicitud por cada programa con el mismo correo."
     },
     {
      "kind": "hook",
-     "line": 1243,
+     "line": 1234,
      "in": "PasantiasPage",
      "text": "testid=pasantias-places",
      "type": "mark",
@@ -3262,13 +3304,13 @@
     },
     {
      "kind": "value",
-     "line": 1243,
+     "line": 1234,
      "in": "PasantiasPage",
      "text": "{COHORT_PLACES}"
     },
     {
      "kind": "hook",
-     "line": 1251,
+     "line": 1242,
      "in": "PasantiasPage",
      "text": "testid=pasantias-registration-note",
      "type": "mark",
@@ -3276,13 +3318,13 @@
     },
     {
      "kind": "text",
-     "line": 1255,
+     "line": 1246,
      "in": "PasantiasPage",
      "text": "Registrar tu interés no reserva un cupo. Después de enviarlo puedes descargar la ficha y el programa completo."
     },
     {
      "kind": "link",
-     "line": 1259,
+     "line": 1250,
      "in": "PasantiasPage",
      "text": "Descarga la ficha (PDF)",
      "target": "{FICHA_HREF}",
@@ -3292,14 +3334,14 @@
     },
     {
      "kind": "piece",
-     "line": 1265,
+     "line": 1256,
      "in": "PasantiasPage",
      "text": "",
      "tag": "LeadForm"
     },
     {
      "kind": "hook",
-     "line": 1270,
+     "line": 1261,
      "in": "PasantiasPage",
      "text": "testid=pasantias-faq id=faq",
      "type": "mark",
@@ -3307,14 +3349,14 @@
     },
     {
      "kind": "piece",
-     "line": 1277,
+     "line": 1268,
      "in": "PasantiasPage",
      "text": "eyebrow: Antes de decidir · title: Preguntas frecuentes · titleId: faq-title",
      "tag": "SectionHeader"
     },
     {
      "kind": "hook",
-     "line": 1284,
+     "line": 1275,
      "in": "PasantiasPage",
      "when": "each faqs",
      "text": "testid=pasantias-faq-{index}",
@@ -3323,21 +3365,21 @@
     },
     {
      "kind": "label",
-     "line": 1290,
+     "line": 1281,
      "in": "PasantiasPage",
      "when": "each faqs",
      "text": "{faq.question} +"
     },
     {
      "kind": "value",
-     "line": 1299,
+     "line": 1290,
      "in": "PasantiasPage",
      "when": "each faqs",
      "text": "{faq.answer}"
     },
     {
      "kind": "hook",
-     "line": 1308,
+     "line": 1299,
      "in": "PasantiasPage",
      "text": "testid=pasantias-cierre id=cierre",
      "type": "mark",
@@ -3345,14 +3387,14 @@
     },
     {
      "kind": "media",
-     "line": 1316,
+     "line": 1307,
      "in": "PasantiasPage",
      "when": "photos.barcelonaTarde",
      "text": "img · {photos.barcelonaTarde}"
     },
     {
      "kind": "heading",
-     "line": 1329,
+     "line": 1320,
      "in": "PasantiasPage",
      "text": "Conversemos antes de que se cierre la cohorte",
      "level": 2,
@@ -3363,13 +3405,13 @@
     },
     {
      "kind": "text",
-     "line": 1333,
+     "line": 1324,
      "in": "PasantiasPage",
      "text": "Escríbenos por WhatsApp y te contamos cómo se prepara el viaje con tu equipo."
     },
     {
      "kind": "link",
-     "line": 1335,
+     "line": 1326,
      "in": "PasantiasPage",
      "text": "WhatsApp {COHORT_CONTACT.whatsapp}",
      "target": "{whatsappHref()}",
@@ -3546,7 +3588,7 @@
   {
    "file": "pages/programas.tsx",
    "route": "/programas",
-   "lines": 208,
+   "lines": 202,
    "marks": {},
    "frame": "none",
    "server": "none",
@@ -3599,13 +3641,13 @@
     "linkedFrom": [
      "components/Footer.tsx:92",
      "components/layout/FooterNuevo.tsx:16",
-     "components/site/Puertas.tsx:30",
-     "components/site/Puertas.tsx:33",
+     "components/site/Puertas.tsx:25",
+     "components/site/Puertas.tsx:28",
      "components/site/SiteLayout.tsx:173",
      "components/site/SiteLayout.tsx:24",
      "lib/look.ts:103",
-     "pages/index.tsx:123",
-     "pages/nosotros.tsx:106"
+     "pages/index.tsx:162",
+     "pages/nosotros.tsx:101"
     ],
     "qaScenarios": {},
     "tests": {
@@ -3620,7 +3662,7 @@
    "rows": [
     {
      "kind": "list",
-     "line": 10,
+     "line": 11,
      "text": "TAB_LABELS",
      "items": [
       "Objetivos",
@@ -3630,59 +3672,66 @@
     },
     {
      "kind": "hook",
-     "line": 33,
+     "line": 34,
      "in": "fromHash",
      "text": "fichaRef.current.scrollIntoView()",
      "type": "scroll"
     },
     {
      "kind": "hook",
-     "line": 36,
+     "line": 37,
      "in": "ProgramasPage",
      "text": "window.addEventListener('hashchange')",
      "type": "listener"
     },
     {
      "kind": "gate",
-     "line": 42,
+     "line": 43,
      "in": "ProgramasPage",
      "text": "current === shown"
     },
     {
      "kind": "piece",
-     "line": 58,
+     "line": 59,
      "in": "ProgramasPage",
      "text": "active: programas · title: Programas · Fundación Nueva Educación · description: Inicia, Inspira, Aula Generativa y Evoluciona: cuatro programas que se combinan para acompañar a cada comunidad educativa en su viaje hacia una educación de vanguardia.",
      "tag": "SiteLayout"
     },
     {
+     "kind": "piece",
+     "line": 64,
+     "in": "ProgramasPage",
+     "text": "",
+     "tag": "PageHero"
+    },
+    {
      "kind": "text",
-     "line": 69,
+     "line": 65,
      "in": "ProgramasPage",
      "text": "Programas"
     },
     {
      "kind": "heading",
-     "line": 70,
+     "line": 66,
      "in": "ProgramasPage",
      "text": "Programas de evolución educativa",
      "level": 1
     },
     {
      "kind": "text",
-     "line": 74,
+     "line": 70,
      "in": "ProgramasPage",
      "text": "Descubre nuestros programas, diseñados para acompañar a las comunidades educativas en su viaje hacia una educación de vanguardia."
     },
     {
      "kind": "text",
-     "line": 84,
+     "line": 79,
      "in": "ProgramasPage",
      "text": "La evolución de la cultura de una escuela se basa en la conservación de su identidad, en la elevación de sus fortalezas y en la creación colectiva de una nueva mirada y nuevas habilidades."
     },
     {
      "kind": "hook",
-     "line": 90,
+     "line": 85,
      "in": "ProgramasPage",
      "text": "id=viaje",
      "type": "mark",
@@ -3690,33 +3739,33 @@
     },
     {
      "kind": "text",
-     "line": 94,
+     "line": 89,
      "in": "ProgramasPage",
      "text": "El viaje de evolución"
     },
     {
      "kind": "heading",
-     "line": 95,
+     "line": 90,
      "in": "ProgramasPage",
      "text": "Un modelo para armar tu propio viaje",
      "level": 2
     },
     {
      "kind": "text",
-     "line": 100,
+     "line": 95,
      "in": "ProgramasPage",
      "text": "Estos programas son autónomos y pueden combinarse según las necesidades de tu institución. Te presentamos un orden sugerido para iniciar y profundizar el cambio educativo."
     },
     {
      "kind": "text",
-     "line": 105,
+     "line": 100,
      "in": "ProgramasPage",
      "text": "Programas",
      "attr": "aria-label"
     },
     {
      "kind": "hook",
-     "line": 105,
+     "line": 100,
      "in": "ProgramasPage",
      "text": "role=tablist",
      "type": "role",
@@ -3725,7 +3774,7 @@
     },
     {
      "kind": "tab",
-     "line": 108,
+     "line": 103,
      "in": "ProgramasPage",
      "when": "each JOURNEY",
      "text": "{item.name} {item.stage} · {item.detail}",
@@ -3735,33 +3784,33 @@
      }
     },
     {
-     "kind": "text",
-     "line": 130,
+     "kind": "value",
+     "line": 125,
      "in": "ProgramasPage",
-     "text": "Programas de {step.stage.toLowerCase()} · {program.duration}"
+     "text": "{step.stage} · {step.detail}"
     },
     {
      "kind": "heading",
-     "line": 134,
+     "line": 128,
      "in": "ProgramasPage",
      "text": "{step.name}",
      "level": 3
     },
     {
      "kind": "value",
-     "line": 135,
+     "line": 129,
      "in": "ProgramasPage",
      "text": "{program.subtitle}"
     },
     {
      "kind": "value",
-     "line": 139,
+     "line": 133,
      "in": "ProgramasPage",
      "text": "{program.description}"
     },
     {
      "kind": "hook",
-     "line": 140,
+     "line": 134,
      "in": "ProgramasPage",
      "text": "role=tablist",
      "type": "role",
@@ -3770,7 +3819,7 @@
     },
     {
      "kind": "tab",
-     "line": 142,
+     "line": 136,
      "in": "ProgramasPage",
      "when": "each tabs",
      "text": "{TAB_LABELS[key]}",
@@ -3781,14 +3830,14 @@
     },
     {
      "kind": "value",
-     "line": 157,
+     "line": 151,
      "in": "ProgramasPage",
      "when": "each items",
      "text": "{item}"
     },
     {
      "kind": "link",
-     "line": 163,
+     "line": 157,
      "in": "ProgramasPage",
      "when": "step.id === 'inspira'",
      "text": "Conoce las Pasantías en Barcelona",
@@ -3799,7 +3848,7 @@
     },
     {
      "kind": "link",
-     "line": 167,
+     "line": 161,
      "in": "ProgramasPage",
      "text": "Contáctanos →",
      "target": "/#contacto",
@@ -3809,7 +3858,7 @@
     },
     {
      "kind": "button",
-     "line": 170,
+     "line": 164,
      "in": "ProgramasPage",
      "text": "Programa Estratégico para Directivos →",
      "action": "{() => setShowFlipbook(true)}",
@@ -3819,26 +3868,26 @@
     },
     {
      "kind": "text",
-     "line": 183,
+     "line": 177,
      "in": "ProgramasPage",
      "text": "El primer paso"
     },
     {
      "kind": "heading",
-     "line": 184,
+     "line": 178,
      "in": "ProgramasPage",
-     "text": "¿Listo para iniciar este viaje de evolución?",
+     "text": "¿Comenzamos este viaje de evolución?",
      "level": 2
     },
     {
      "kind": "text",
-     "line": 187,
+     "line": 181,
      "in": "ProgramasPage",
      "text": "Comienza hoy el camino hacia una educación de vanguardia para tu institución."
     },
     {
      "kind": "link",
-     "line": 189,
+     "line": 183,
      "in": "ProgramasPage",
      "text": "Contáctanos →",
      "target": "/#contacto",
@@ -3848,7 +3897,7 @@
     },
     {
      "kind": "link",
-     "line": 192,
+     "line": 186,
      "in": "ProgramasPage",
      "text": "Accede a la plataforma",
      "target": "/login",
@@ -3858,7 +3907,7 @@
     },
     {
      "kind": "popup",
-     "line": 199,
+     "line": 193,
      "in": "ProgramasPage",
      "text": "FlipbookDialog",
      "how": "component",
@@ -3872,6 +3921,7 @@
     "components/PrivacyPolicyModal.tsx",
     "components/TermsOfUseModal.tsx",
     "components/site/FlipbookDialog.tsx",
+    "components/site/PageHero.tsx",
     "components/site/SiteLayout.tsx",
     "components/site/programsData.ts",
     "components/site/useSiteEffects.ts",
@@ -5373,7 +5423,6 @@
   },
   "components/site/FlipbookDialog.tsx": {
    "usedBy": [
-    "/",
     "/programas"
    ],
    "lines": 59,
@@ -5889,15 +5938,33 @@
    ],
    "db": []
   },
+  "components/site/PageHero.tsx": {
+   "usedBy": [
+    "/equipo",
+    "/nosotros",
+    "/noticias",
+    "/programas"
+   ],
+   "lines": 19,
+   "rows": [
+    {
+     "kind": "value",
+     "line": 15,
+     "in": "PageHero",
+     "text": "{children}"
+    }
+   ],
+   "db": []
+  },
   "components/site/Puertas.tsx": {
    "usedBy": [
     "/"
    ],
-   "lines": 78,
+   "lines": 55,
    "rows": [
     {
      "kind": "hook",
-     "line": 15,
+     "line": 10,
      "in": "Puertas",
      "text": "id=programas",
      "type": "mark",
@@ -5905,26 +5972,26 @@
     },
     {
      "kind": "text",
-     "line": 18,
+     "line": 13,
      "in": "Puertas",
      "text": "Programas"
     },
     {
      "kind": "heading",
-     "line": 19,
+     "line": 14,
      "in": "Puertas",
      "text": "Arma tu propio viaje de evolución",
      "level": 2
     },
     {
      "kind": "text",
-     "line": 24,
+     "line": 19,
      "in": "Puertas",
      "text": "Cuatro programas autónomos que se combinan según las necesidades de cada institución. Este es el orden que sugerimos para iniciar y profundizar el cambio."
     },
     {
      "kind": "link",
-     "line": 30,
+     "line": 25,
      "in": "Puertas",
      "when": "each JOURNEY",
      "text": "{String(index + 1).padStart(2, '0')} {step.stage} · {step.detail} {step.name} {step.summary} Ver el programa →",
@@ -5936,44 +6003,10 @@
     },
     {
      "kind": "heading",
-     "line": 45,
+     "line": 40,
      "in": "Puertas",
      "when": "each JOURNEY",
      "text": "{step.name}",
-     "level": 3
-    },
-    {
-     "kind": "button",
-     "line": 58,
-     "in": "Puertas",
-     "text": "Programa Estratégico para Directivos Hojea el programa completo. →",
-     "action": "{onOpenDirectivos}",
-     "hook": {
-      "testid": "directivos-flipbook-cta"
-     }
-    },
-    {
-     "kind": "heading",
-     "line": 61,
-     "in": "Puertas",
-     "text": "Programa Estratégico para Directivos",
-     "level": 3
-    },
-    {
-     "kind": "link",
-     "line": 66,
-     "in": "Puertas",
-     "text": "Hub de Transformación La plataforma donde cada escuela conduce su proceso de cambio. →",
-     "target": "/login",
-     "hook": {
-      "testid": "puertas-hub"
-     }
-    },
-    {
-     "kind": "heading",
-     "line": 69,
-     "in": "Puertas",
-     "text": "Hub de Transformación",
      "level": 3
     }
    ],
@@ -6605,7 +6638,7 @@
      "kind": "text",
      "line": 46,
      "in": "TeamSection",
-     "text": "Expertos comprometidos con la innovación educativa y el desarrollo de metodologías que potencian el crecimiento de cada estudiante."
+     "text": "Un equipo experto y comprometido con la innovación educativa y el desarrollo de metodologías que potencian el crecimiento de cada estudiante."
     },
     {
      "kind": "heading",
@@ -6718,7 +6751,7 @@
      "text": "VIAS",
      "items": [
       "Propósito",
-      "Un para qué compartido, construido entre todos.",
+      "Un para qué compartido, construido por toda la comunidad.",
       "Crecimiento",
       "Cada estudiante es conocido, mirado y acompañado.",
       "Aprendizaje",
@@ -6881,11 +6914,11 @@
     "/",
     "/programas"
    ],
-   "lines": 200,
+   "lines": 205,
    "rows": [
     {
      "kind": "list",
-     "line": 19,
+     "line": 20,
      "text": "PROGRAMS",
      "items": [
       "AULA GENERATIVA",
@@ -6900,30 +6933,28 @@
       "Programa de crecimiento personal",
       "Programa de prácticas generativas",
       "Programa de comunidades de crecimiento",
-      "Calidad de vida para educadores con aulas con motor propio",
+      "Calidad de vida para educadores y educadoras con aulas con motor propio",
       "Vínculos seguros y prosociales entre pares",
       "Conexión positiva con las familias",
       "Superación de la dicotomía Convivencia/Aprendizaje",
       "Síntesis hacia la mirada generativa",
       "INSPIRA",
-      "Viaja y sumérgete en una escuela de vanguardia educativa",
+      "Viaja y sumérgete en escuelas de vanguardia educativa",
       "2 semanas",
       "INSPIRA es una experiencia diseñada para ampliar la mirada pedagógica y entregar respuestas concretas sobre cómo alcanzar paso a paso una educación de vanguard…",
-      "Visitas Pedagógicas: Jornadas en colegios de vanguardia para conocer el proyecto educativo",
-      "Estadia Pedagógica: Trabajo pedagógico en aula junto a un educador de vanguardia",
-      "Conversatorios con Expertos: Sesiones de diálogo con expertos en educación de Cataluña",
+      "Conversatorios con Expertos y Expertas: Sesiones de diálogo con especialistas en educación de Cataluña",
       "Talleres de síntesis: Síntesis de aprendizajes y recursos compartidos",
       "Plataforma de registro: Bitácora de viaje compartida con documentación del cambio",
-      "Jornadas de visitas a colegios de vanguardia",
-      "Trabajo pedagógico directo en aula",
-      "Diálogos con expertos educativos",
+      "Visitas Pedagógicas: Jornadas en colegios de vanguardia para conocer el proyecto educativo",
+      "Estadía Pedagógica: Trabajo pedagógico en aula junto a educadores y educadoras de vanguardia",
+      "Diálogos con especialistas en educación",
       "Síntesis de aprendizajes y desafíos",
       "Registro multimedia del viaje",
       "INICIA",
       "Introducción a la Nueva Educación",
       "40-80 horas",
       "Programa diseñado para establecimientos educacionales que desean conocer y discernir el inicio de un largo y profundo proceso de transformación de su cultura e…",
-      "Asesorar y formar al director y su equipo en liderazgo del cambio",
+      "Asesorar y formar al director o directora y su equipo en liderazgo del cambio",
       "Acompañamiento al equipo de gestión para el proceso cultural",
       "Favorecer la emergencia de un sentido de urgencia compartido",
       "Visualizar un horizonte de transformación compartido",
@@ -6952,11 +6983,11 @@
       "Soñar, diseñar, implementar, evaluar y rediseñar junto a los equipos de terreno",
       "Institucionalizar los cambios y arraigar la nueva cultura",
       "Asesoría directiva para diseñar y liderar el cambio",
-      "Visitas de asesores internacionales en terreno",
+      "Visitas de asesores y asesoras internacionales en terreno",
       "Asesoría técnica para la implementación de prácticas",
       "Plataforma de formación asincrónica, individual y en equipos",
-      "Formación de líderes de base",
-      "Formación de Comunidades de Crecimiento",
+      "Formación y acompañamiento de líderes de base",
+      "Formación y acompañamiento de Comunidades de Crecimiento",
       "Implementación de Hub de Transformación",
       "Migración completa de pre-kinder a 4 medio en nivel de profundidad diverso",
       "Amplia y apropiada implementación de nuevas prácticas y proceso pedagógicos",
@@ -6972,28 +7003,30 @@
     },
     {
      "kind": "list",
-     "line": 152,
+     "line": 157,
      "text": "JOURNEY",
      "items": [
       "Inicia",
-      "Despegue",
+      "Preparación",
       "40 a 80 horas",
       "Introducción a la Nueva Educación. Para establecimientos que quieren conocer y discernir el inicio de un proceso profundo de transformación de su cultura educa…",
       "Inspira",
+      "Despegue",
       "2 semanas en Barcelona",
-      "Viaja y sumérgete en una escuela de vanguardia. Una experiencia para ampliar la mirada pedagógica, con respuestas concretas para Chile.",
+      "Viaja y sumérgete en escuelas de vanguardia. Una experiencia para ampliar la mirada pedagógica, con respuestas concretas para Chile.",
       "Aula Generativa",
-      "Cambio cultural",
-      "En la sala de clases",
+      "Cambio en el aula",
+      "Vínculos entre pares",
       "Un ecosistema de relaciones saludables que eleva el crecimiento y el aprendizaje de cada estudiante, fortaleciendo la calidad de los vínculos entre pares.",
       "Evoluciona",
+      "Cambio en todo el colegio",
       "5 años",
       "Una transformación profunda de la cultura educativa: una ruta por las siete vías, a la medida, progresiva y basada en victorias tempranas."
      ]
     },
     {
      "kind": "message",
-     "line": 197,
+     "line": 202,
      "in": "programById",
      "when": "!found",
      "text": "Unknown program: {id}",
@@ -7001,37 +7034,37 @@
     },
     {
      "kind": "string",
-     "line": 24,
+     "line": 25,
      "in": "PROGRAMS",
      "text": "El aula generativa busca optimizar los procesos y elevar los resultados en el crecimiento y aprendizaje de cada estudiante, fortaleciendo la calidad de los vínculos entre pares."
     },
     {
      "kind": "string",
-     "line": 51,
+     "line": 52,
      "in": "PROGRAMS",
      "text": "INSPIRA es una experiencia diseñada para ampliar la mirada pedagógica y entregar respuestas concretas sobre cómo alcanzar paso a paso una educación de vanguardia para Chile."
     },
     {
      "kind": "string",
-     "line": 72,
+     "line": 71,
      "in": "PROGRAMS",
      "text": "Programa diseñado para establecimientos educacionales que desean conocer y discernir el inicio de un largo y profundo proceso de transformación de su cultura educativa."
     },
     {
      "kind": "string",
-     "line": 99,
+     "line": 98,
      "in": "PROGRAMS",
-     "text": "Programa de evolución progresiva, estimado en 5 años de duración. Se deberá considerar el tamaño de la comunidad educativa, la velocidad de implementación y la claridad política del centro para avanzar."
+     "text": "Programa de evolución progresiva, estimado en 5 años de duración. Se deberá considerar el tamaño de la comunidad educativa, la velocidad de implementación y la claridad de propósito del centro para avanzar."
     },
     {
      "kind": "string",
-     "line": 103,
+     "line": 102,
      "in": "PROGRAMS",
      "text": "Construir y recorrer una ruta de evolución cultural que en las 7 vías de evolución declaradas: Propósito, Personalización, Aprendizaje, Evaluación, Liderazgo, Familias y Trabajo Docente"
     },
     {
      "kind": "string",
-     "line": 159,
+     "line": 164,
      "in": "JOURNEY",
      "text": "Introducción a la Nueva Educación. Para establecimientos que quieren conocer y discernir el inicio de un proceso profundo de transformación de su cultura educativa."
     }
@@ -7085,7 +7118,7 @@
       "Joaquín Aguirre",
       "Doctor en Ciencias de la Educación con 54 años de experiencia en el Ministerio de Educación como Supervisor Técnico Pedagógico. Especializado en Diseño Curricu…",
       "Abraham de la Fuente",
-      "Doctor en Didáctica de las Matemáticas e investigador sobre la formación del profesorado. Es director adjunto de investigación educativa en el Institut Angelet…",
+      "Doctor en Didáctica de las Matemáticas e investigador sobre la formación del profesorado. Es director del Institut Angeleta Ferrer, donde impulsa líneas de inn…",
       "Ana Vicálvaro",
       "Directora de la Escola Octavio Paz de Barcelona, una escuela pública emblemática del barrio de Navas que lidera procesos de transformación educativa. Graduada …",
       "Raúl Martínez",
@@ -7099,11 +7132,11 @@
       "Marta Cárdenas",
       "Es coordinadora de la etapa de Educación Infantil en Virolai Reina Elisenda. Es educadora especializada en el trabajo con niños y niñas con necesidades educati…",
       "Maite Pino",
-      "Es coordinadora de la Escola Virolai Reina Elisenda y maestra. Se formó como Maestra de Educación Infantil en la UAB y ha trabajado en distintos centros públic…",
+      "Es directora adjunta de la Escola Virolai y maestra. Se formó como Maestra de Educación Infantil en la UAB y ha trabajado en distintos centros públicos y conce…",
       "Claudia López de Lamadrid",
       "Es coordinadora y responsable pedagógica de la escuela infantil de Virolai (Virolai Petit), donde trabaja desde 2003. Ha sido maestra de inglés y tutora en Edu…",
       "Enrique Vergara",
-      "Es educador y coordinador pedagógico en la Escola Virolai, donde forma parte del equipo desde 2018. Licenciado en Ciencias Ambientales por la UAB, ha combinado…",
+      "Es educador y director adjunto de la Escola Virolai, donde forma parte del equipo desde 2018. Licenciado en Ciencias Ambientales por la UAB, ha combinado su tr…",
       "Laia Garcés",
       "Es coordinadora de la etapa de primaria en la Escuela Sadako de Barcelona, donde también ha sido tutora, es especialista de inglés y ha formado parte del equip…",
       "Marta Ortega",
@@ -7133,7 +7166,7 @@
      "items": [
       "Comité Internacional",
       "Equipo FNE",
-      "Asesores Internacionales"
+      "Asesores y Asesoras Internacionales"
      ]
     }
    ],
@@ -7149,39 +7182,60 @@
     "/pasantias",
     "/programas"
    ],
-   "lines": 211,
+   "lines": 246,
    "rows": [
     {
      "kind": "hook",
-     "line": 82,
+     "line": 50,
+     "in": "fetchNow",
+     "text": "querySelector(img)",
+     "type": "lookup"
+    },
+    {
+     "kind": "hook",
+     "line": 61,
+     "in": "show",
+     "text": "image.addEventListener('load')",
+     "type": "listener"
+    },
+    {
+     "kind": "hook",
+     "line": 62,
+     "in": "show",
+     "text": "image.addEventListener('error')",
+     "type": "listener"
+    },
+    {
+     "kind": "hook",
+     "line": 115,
      "in": "watch",
      "text": "querySelectorAll(.rv,.clip,.mv)",
      "type": "lookup"
     },
     {
      "kind": "hook",
-     "line": 88,
+     "line": 122,
      "in": "watch",
      "text": "querySelectorAll([data-n])",
      "type": "lookup"
     },
     {
      "kind": "hook",
-     "line": 99,
+     "line": 133,
      "in": "useSiteEffects",
      "text": "querySelector(.nav)",
      "type": "lookup"
     },
     {
      "kind": "hook",
-     "line": 100,
+     "line": 134,
      "in": "useSiteEffects",
      "text": "querySelector(.prog)",
      "type": "lookup"
     },
     {
      "kind": "hook",
-     "line": 115,
+     "line": 149,
      "in": "onScroll",
      "when": "!reduce",
      "text": "querySelectorAll([data-img-par])",
@@ -7189,21 +7243,21 @@
     },
     {
      "kind": "hook",
-     "line": 126,
+     "line": 160,
      "in": "useSiteEffects",
      "text": "window.addEventListener('scroll')",
      "type": "listener"
     },
     {
      "kind": "hook",
-     "line": 138,
+     "line": 172,
      "in": "useSiteEffects",
      "text": "window.addEventListener('resize')",
      "type": "listener"
     },
     {
      "kind": "hook",
-     "line": 144,
+     "line": 178,
      "in": "useSiteEffects",
      "when": "fine && !reduce",
      "text": "el.addEventListener('mousemove')",
@@ -7211,7 +7265,7 @@
     },
     {
      "kind": "hook",
-     "line": 156,
+     "line": 190,
      "in": "useSiteEffects",
      "when": "fine && !reduce",
      "text": "el.addEventListener('mouseout')",
@@ -7219,7 +7273,7 @@
     },
     {
      "kind": "hook",
-     "line": 165,
+     "line": 199,
      "in": "useSiteEffects",
      "when": "fine && !reduce",
      "text": "querySelector(.cur)",
@@ -7227,7 +7281,7 @@
     },
     {
      "kind": "hook",
-     "line": 166,
+     "line": 200,
      "in": "useSiteEffects",
      "when": "fine && !reduce",
      "text": "querySelector(.hero .iso, .phero .iso, .pas-hero .iso)",
@@ -7235,7 +7289,7 @@
     },
     {
      "kind": "hook",
-     "line": 172,
+     "line": 206,
      "in": "useSiteEffects",
      "when": "fine && !reduce && cursor",
      "text": "window.addEventListener('mousemove')",

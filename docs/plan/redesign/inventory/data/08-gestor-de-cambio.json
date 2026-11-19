@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "d701100d014e948bec5766fb68836675e13355b6",
-  "date": "2026-11-18T15:21:06-03:00"
+  "commit": "ca9dad512fc0b65bf1db627e23a6d84edd80dd28",
+  "date": "2026-11-19T14:41:10-03:00"
  },
  "screens": [
   {
@@ -5362,7 +5362,7 @@
     ],
     "linkedFrom": [
      "components/layout/Sidebar.tsx:278",
-     "middleware.ts:223",
+     "middleware.ts:224",
      "pages/admin/assessment-builder/[templateId]/expectations.tsx:1027",
      "pages/admin/assessment-builder/[templateId]/expectations.tsx:469",
      "pages/admin/assessment-builder/[templateId]/index.tsx:1093",
@@ -12302,7 +12302,7 @@
     "linkedFrom": [
      "components/layout/Sidebar.tsx:286",
      "components/layout/Sidebar.tsx:343",
-     "middleware.ts:272",
+     "middleware.ts:278",
      "pages/admin/context-questions/overview.tsx:414",
      "pages/admin/context-questions/overview.tsx:415",
      "pages/school/migration-plan/index.tsx:533",
@@ -15999,6 +15999,8 @@
     "/admin/assessment-builder/[templateId]"
    ],
    "referencedIn": [
+    "__tests__/api/assessment-builder/consultor-reads-by-rule.test.ts",
+    "__tests__/api/assessment-builder/create-duplicate-row-back.test.ts",
     "__tests__/api/assessment-builder/templates.test.ts",
     "pages/admin/assessment-builder/[templateId]/index.tsx",
     "pages/admin/assessment-builder/index.tsx",
@@ -16078,6 +16080,7 @@
     "/admin/assessment-builder/[templateId]"
    ],
    "referencedIn": [
+    "__tests__/api/assessment-builder/create-duplicate-row-back.test.ts",
     "__tests__/api/assessment-builder/duplicate-content-columns.test.ts",
     "__tests__/api/assessment-builder/duplicate-from-editor.test.ts",
     "__tests__/api/assessment-builder/lifecycle.test.ts",
@@ -16098,6 +16101,7 @@
    ],
    "calledBy": [],
    "referencedIn": [
+    "__tests__/api/assessment-builder/consultor-reads-by-rule.test.ts",
     "__tests__/api/assessment-builder/expectations-concurrent-rules.test.ts",
     "__tests__/api/assessment-builder/expectations-level-descriptors.test.ts",
     "__tests__/api/assessment-builder/expectations-put-validation.test.ts",
@@ -16162,6 +16166,7 @@
    "referencedIn": [
     "__tests__/api/assessment-builder/cobertura-gate.test.ts",
     "__tests__/api/assessment-builder/detalle.test.ts",
+    "__tests__/api/assessment-builder/indicator-by-id-read-rule.test.ts",
     "__tests__/api/assessment-builder/indicator-put-expectation-check.test.ts",
     "__tests__/api/assessment-builder/indicator-put-mapping.test.ts",
     "__tests__/api/assessment-builder/indicators.test.ts",
@@ -16273,7 +16278,9 @@
     "hasPermission"
    ],
    "calledBy": [],
-   "referencedIn": []
+   "referencedIn": [
+    "__tests__/api/assessment-builder/consultor-reads-by-rule.test.ts"
+   ]
   },
   {
    "file": "pages/api/admin/assessment-builder/templates/[templateId]/versions.ts",
@@ -16289,6 +16296,7 @@
     "/admin/assessment-builder/[templateId]"
    ],
    "referencedIn": [
+    "__tests__/api/assessment-builder/consultor-reads-by-rule.test.ts",
     "pages/admin/assessment-builder/[templateId]/index.tsx"
    ]
   },
@@ -16377,12 +16385,14 @@
     "GET"
    ],
    "guards": [
+    "createServiceRoleClient",
     "getApiUser"
    ],
    "calledBy": [
     "/demo/assessments/[templateId]"
    ],
    "referencedIn": [
+    "__tests__/api/demo/demo-assessments-read-access.test.ts",
     "pages/demo/assessments/[templateId]/index.tsx"
    ]
   },
@@ -16393,12 +16403,14 @@
     "GET"
    ],
    "guards": [
+    "createServiceRoleClient",
     "getApiUser"
    ],
    "calledBy": [
     "/demo/assessments"
    ],
    "referencedIn": [
+    "__tests__/api/demo/demo-assessments-read-access.test.ts",
     "pages/demo/assessments/index.tsx"
    ]
   },
@@ -16448,6 +16460,7 @@
     "GET"
    ],
    "guards": [
+    "createServiceRoleClient",
     "getApiUser"
    ],
    "calledBy": [
@@ -16457,6 +16470,7 @@
     "__tests__/api/assessment-builder/docente-assessments.test.ts",
     "__tests__/api/assessment-builder/response-load-failure.test.ts",
     "__tests__/api/docente/assessments/get-progress.test.ts",
+    "__tests__/api/docente/assessments/instrument-read-access.test.ts",
     "__tests__/pages/docente/assessment-form-autosave.test.tsx",
     "__tests__/pages/docente/assessment-frequency.test.tsx",
     "pages/docente/assessments/[instanceId]/index.tsx",
@@ -16471,6 +16485,7 @@
     "PUT"
    ],
    "guards": [
+    "createServiceRoleClient",
     "getApiUser"
    ],
    "calledBy": [
@@ -16479,6 +16494,7 @@
    "referencedIn": [
     "__tests__/api/assessment-builder/traspaso.test.ts",
     "__tests__/api/docente/assessments/responses.test.ts",
+    "__tests__/api/docente/assessments/save-send-read-access.test.ts",
     "__tests__/pages/docente/assessment-form-autosave.test.tsx",
     "__tests__/pages/docente/assessment-frequency.test.tsx",
     "lib/services/assessment-builder/responseDraft.ts",
@@ -16498,6 +16514,7 @@
     "/docente/assessments/[instanceId]/results"
    ],
    "referencedIn": [
+    "__tests__/api/docente/assessments/results-read-access.test.ts",
     "pages/docente/assessments/[instanceId]/results.tsx",
     "tests/e2e/assessment-results.spec.ts"
    ]
@@ -16509,12 +16526,14 @@
     "POST"
    ],
    "guards": [
+    "createServiceRoleClient",
     "getApiUser"
    ],
    "calledBy": [
     "/docente/assessments/[instanceId]"
    ],
    "referencedIn": [
+    "__tests__/api/docente/assessments/save-send-read-access.test.ts",
     "__tests__/api/docente/assessments/submit.test.ts",
     "__tests__/pages/docente/assessment-form-autosave.test.tsx",
     "pages/docente/assessments/[instanceId]/index.tsx",
@@ -16528,6 +16547,7 @@
     "GET"
    ],
    "guards": [
+    "createServiceRoleClient",
     "getApiUser"
    ],
    "calledBy": [
@@ -16535,6 +16555,7 @@
    ],
    "referencedIn": [
     "__tests__/api/assessment-builder/docente-assessments.test.ts",
+    "__tests__/api/docente/assessments/instrument-read-access.test.ts",
     "__tests__/pages/docente/assessments-list-cards.test.tsx",
     "pages/docente/assessments/index.tsx",
     "tests/e2e/assessment-delivery.spec.ts"
@@ -16795,6 +16816,7 @@
     "/school/transversal-context"
    ],
    "referencedIn": [
+    "__tests__/api/school/via-responsibles-consultor-reads-by-rule.test.ts",
     "__tests__/api/school/via-responsibles-sanitize.test.ts",
     "__tests__/api/school/via-responsibles.test.ts",
     "components/school/ViaResponsiblesSection.tsx"

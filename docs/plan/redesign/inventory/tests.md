@@ -1,11 +1,11 @@
 # Screens and their tests
 
-Written by `scripts/redesign/inventory.mjs` from commit `d701100d0`. For phase 3 (the safety net). A browser test is counted for a screen when the test file names the screen's address; that is weaker than "the test checks the screen". CI runs 31 of 72 browser test files (`scripts/ci/e2e-mandatory.mjs`).
+Written by `scripts/redesign/inventory.mjs` from commit `ca9dad512`. For phase 3 (the safety net). A browser test is counted for a screen when the test file names the screen's address; that is weaker than "the test checks the screen". CI runs 31 of 72 browser test files (`scripts/ci/e2e-mandatory.mjs`).
 
-- 151 screens with an address.
+- 152 screens with an address.
 - 35 are named by a browser test that CI runs.
-- 49 are named only by tests CI skips, or have only unit tests.
-- 67 have no test at all.
+- 52 are named only by tests CI skips, or have only unit tests.
+- 65 have no test at all.
 
 ## No test at all
 
@@ -51,13 +51,11 @@ Written by `scripts/redesign/inventory.mjs` from commit `d701100d0`. For phase 3
 | 10-licitaciones | `/admin/licitaciones/criterios` | `pages/admin/licitaciones/criterios.tsx` (Looks like a leftover but is in use) |
 | 10-licitaciones | `/admin/licitaciones/feriados` | `pages/admin/licitaciones/feriados.tsx` |
 | 10-licitaciones | `/admin/licitaciones/templates` | `pages/admin/licitaciones/templates.tsx` |
-| 10-licitaciones | `/licitaciones/[id]/evaluacion` | `pages/licitaciones/[id]/evaluacion.tsx` |
 | 10-licitaciones | `/licitaciones/importar` | `pages/licitaciones/importar.tsx` |
 | 10-licitaciones | `/licitaciones` | `pages/licitaciones/index.tsx` |
 | 11-gestion | `/admin/clients` | `pages/admin/clients.tsx` |
 | 11-gestion | `/admin/quotes/[id]/edit` | `pages/admin/quotes/[id]/edit.tsx` |
 | 11-gestion | `/admin/quotes/new` | `pages/admin/quotes/new.tsx` |
-| 11-gestion | `/contract-print/[id]` | `pages/contract-print/[id].tsx` |
 | 11-gestion | `/quote/[id]` | `pages/quote/[id].tsx` |
 | 13-reportes | `/detailed-reports` | `pages/detailed-reports.tsx` |
 | 13-reportes | `/reporte-horas` | `pages/reporte-horas.tsx` |
@@ -93,9 +91,9 @@ Written by `scripts/redesign/inventory.mjs` from commit `d701100d0`. For phase 3
 | 05-tareas | `/assignments/[id]` | `e2e/assessment-frequency-validation.spec.ts`, `e2e/due-reminders.spec.ts` | — |
 | 05-tareas | `/quiz-reviews` | `e2e/urgent-anonymous-boundaries.spec.ts`, `e2e/urgent-anonymous-current.spec.ts` | — |
 | 05-tareas | `/quiz-reviews/[id]` | `e2e/urgent-anonymous-boundaries.spec.ts`, `e2e/urgent-anonymous-current.spec.ts` | — |
-| 06-sesiones | `/admin/sessions/create` | `e2e/reservation.spec.ts` | 2 |
-| 06-sesiones | `/consultor/sessions/[id]` | `e2e/notification-catalog-links.spec.ts`, `e2e/session-reminders.spec.ts` | 1 |
-| 06-sesiones | `/consultor/sessions` | — | 1 |
+| 06-sesiones | `/admin/sessions/create` | `e2e/reservation.spec.ts` | 3 |
+| 06-sesiones | `/consultor/sessions/[id]` | `e2e/notification-catalog-links.spec.ts`, `e2e/session-reminders.spec.ts` | 2 |
+| 06-sesiones | `/consultor/sessions` | — | 2 |
 | 06-sesiones | `/meet/diag` | — | 4 |
 | 07-espacio-colaborativo | `/admin/growth-communities/[id]/members` | — | 2 |
 | 07-espacio-colaborativo | `/admin/growth-communities` | — | 2 |
@@ -116,10 +114,12 @@ Written by `scripts/redesign/inventory.mjs` from commit `d701100d0`. For phase 3
 | 10-licitaciones | `/admin/licitaciones/consultores` | `e2e/flows/proposal-consultant-crud.spec.ts` | — |
 | 10-licitaciones | `/admin/licitaciones/documentos-propuesta` | `e2e/flows/proposal-document-library.spec.ts` | — |
 | 10-licitaciones | `/licitaciones/[id]` | `e2e/flows/proposal-admin-visibility.spec.ts`, `e2e/flows/proposal-buckets.spec.ts`, `e2e/flows/proposal-config.spec.ts`, `e2e/flows/proposal-versioning.spec.ts` | 2 |
+| 10-licitaciones | `/licitaciones/[id]/evaluacion` | — | 1 |
 | 10-licitaciones | `/licitaciones/nueva` | — | 1 |
 | 10-licitaciones | `/propuesta/[slug]` | `e2e/flows/proposal-buckets.spec.ts`, `e2e/flows/proposal-web-view.spec.ts` | — |
 | 11-gestion | `/admin/quotes` | — | 1 |
-| 11-gestion | `/contracts` | `e2e/urgent-anonymous-boundaries.spec.ts`, `e2e/urgent-anonymous-current.spec.ts` | 2 |
+| 11-gestion | `/contract-print/[id]` | — | 1 |
+| 11-gestion | `/contracts` | `e2e/urgent-anonymous-boundaries.spec.ts`, `e2e/urgent-anonymous-current.spec.ts` | 4 |
 | 14-personas | `/admin/school-users` | — | 1 |
 | 15-comunicacion | `/admin/news` | `e2e/urgent-anonymous-boundaries.spec.ts`, `e2e/urgent-anonymous-current.spec.ts` | — |
 | 16-notificaciones | `/notificaciones/baja` | `e2e/notification-unsubscribe.spec.ts` | — |
@@ -131,6 +131,7 @@ Written by `scripts/redesign/inventory.mjs` from commit `d701100d0`. For phase 3
 | 18-qa | `/qa` | `qa/auth-redirects.spec.ts`, `qa/qa-system.spec.ts` | — |
 | 18-qa | `/qa/run/[scenarioId]` | `qa/auth-redirects.spec.ts` | — |
 | 19-sistema | `/admin/feedback` | `e2e/feedback-notify-admins.spec.ts` | — |
+| 19-sistema | `/profile/reportes` | — | 1 |
 | 20-sitio-publico | `/` | — | 1 |
 
 ## Named by a browser test that CI runs

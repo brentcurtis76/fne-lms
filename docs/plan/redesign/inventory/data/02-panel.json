@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "d701100d014e948bec5766fb68836675e13355b6",
-  "date": "2026-11-18T15:21:06-03:00"
+  "commit": "ca9dad512fc0b65bf1db627e23a6d84edd80dd28",
+  "date": "2026-11-19T14:41:10-03:00"
  },
  "screens": [
   {
@@ -83,15 +83,18 @@
      "components/notifications/NotificationDropdown.tsx:157",
      "components/ui/kit/Button.typecheck.tsx:24",
      "components/workspace/WorkspaceSidebar.tsx:172",
+     "hooks/useSessionCreate.ts:169",
+     "hooks/useSessionDetail.ts:101",
+     "hooks/useSessionsList.ts:134",
      "lib/auth/forced-password-change.ts:142",
      "lib/frontend-auth-utils.ts:155",
      "lib/notificationEvents.ts:823",
      "lib/notificationEvents.ts:840",
      "lib/notifications/catalog.ts:111",
-     "middleware.ts:243",
-     "middleware.ts:264",
-     "middleware.ts:299",
-     "middleware.ts:337",
+     "middleware.ts:244",
+     "middleware.ts:269",
+     "middleware.ts:305",
+     "middleware.ts:343",
      "pages/admin/assessment-builder/[templateId]/expectations.tsx:1002",
      "pages/admin/assessment-builder/[templateId]/index.tsx:1430",
      "pages/admin/assessment-builder/create.tsx:259",
@@ -149,22 +152,19 @@
      "pages/admin/schools.tsx:170",
      "pages/admin/sessions/[id].tsx:250",
      "pages/admin/sessions/approvals.tsx:74",
-     "pages/admin/sessions/create.tsx:194",
      "pages/admin/sessions/index.tsx:172",
      "pages/admin/tractor-signups.tsx:71",
      "pages/admin/user-management.tsx:340",
      "pages/change-password.tsx:103",
      "pages/change-password.tsx:236",
-     "pages/community/workspace.tsx:870",
-     "pages/consultor/sessions/[id].tsx:123",
-     "pages/consultor/sessions/index.tsx:147",
+     "pages/community/workspace.tsx:912",
      "pages/consultor/sessions/reports.tsx:279",
      "pages/consultor/sessions/reports.tsx:380",
-     "pages/contracts.tsx:172",
+     "pages/contracts.tsx:175",
      "pages/detailed-reports.tsx:172",
      "pages/detailed-reports.tsx:178",
      "pages/expense-reports.tsx:142",
-     "pages/licitaciones/[id].tsx:221",
+     "pages/licitaciones/[id].tsx:222",
      "pages/licitaciones/[id]/evaluacion.tsx:253",
      "pages/licitaciones/index.tsx:185",
      "pages/licitaciones/index.tsx:198",
@@ -174,9 +174,9 @@
      "pages/meet/session/[id].tsx:147",
      "pages/meet/session/[id].tsx:148",
      "pages/mis-horas.tsx:59",
-     "pages/notifications.tsx:257",
-     "pages/notifications.tsx:261",
-     "pages/notifications.tsx:286",
+     "pages/notifications.tsx:260",
+     "pages/notifications.tsx:264",
+     "pages/notifications.tsx:289",
      "pages/pending-approval.tsx:37",
      "pages/qa/index.tsx:362",
      "pages/qa/index.tsx:363",
@@ -379,7 +379,7 @@
       "POST"
      ],
      "from": [
-      "utils/workspaceUtils.ts:386"
+      "utils/workspaceUtils.ts:390"
      ]
     },
     {
@@ -1016,11 +1016,11 @@
    "usedBy": [
     "/dashboard"
    ],
-   "lines": 163,
+   "lines": 171,
    "rows": [
     {
      "kind": "popup",
-     "line": 41,
+     "line": 44,
      "in": "WorkspaceSettingsModal",
      "when": "look === 'nuevo'",
      "text": "WorkspaceSettingsNuevo",
@@ -1029,27 +1029,27 @@
     },
     {
      "kind": "gate",
-     "line": 43,
+     "line": 46,
      "in": "WorkspaceSettingsModal",
      "text": "!isOpen"
     },
     {
      "kind": "popup",
-     "line": 46,
+     "line": 49,
      "in": "WorkspaceSettingsModal",
      "text": "Configuración de la Comunidad",
      "how": "written in this file"
     },
     {
      "kind": "heading",
-     "line": 49,
+     "line": 52,
      "in": "WorkspaceSettingsModal",
      "text": "Configuración de la Comunidad",
      "level": 3
     },
     {
      "kind": "button",
-     "line": 52,
+     "line": 55,
      "in": "WorkspaceSettingsModal",
      "text": "[icon X]",
      "action": "{onClose}",
@@ -1057,13 +1057,13 @@
     },
     {
      "kind": "label",
-     "line": 64,
+     "line": 67,
      "in": "WorkspaceSettingsModal",
      "text": "Nombre de la Comunidad"
     },
     {
      "kind": "field",
-     "line": 67,
+     "line": 70,
      "in": "WorkspaceSettingsModal",
      "text": "Nombre de la Comunidad",
      "type": "text",
@@ -1073,35 +1073,37 @@
     },
     {
      "kind": "text",
-     "line": 76,
+     "line": 79,
      "in": "WorkspaceSettingsModal",
      "text": "Cualquier miembro puede cambiar el nombre del grupo"
     },
     {
      "kind": "label",
-     "line": 82,
+     "line": 86,
      "in": "WorkspaceSettingsModal",
+     "when": "canChangePicture",
      "text": "Imagen de la Comunidad"
     },
     {
      "kind": "media",
-     "line": 91,
+     "line": 95,
      "in": "WorkspaceSettingsModal",
-     "when": "imagePreview",
+     "when": "canChangePicture && imagePreview",
      "text": "img · alt Vista previa · {imagePreview}"
     },
     {
      "kind": "button",
-     "line": 96,
+     "line": 100,
      "in": "WorkspaceSettingsModal",
-     "when": "imagePreview",
+     "when": "canChangePicture && imagePreview",
      "text": "[icon X]",
      "action": "{handleRemoveImage}"
     },
     {
      "kind": "field",
-     "line": 113,
+     "line": 117,
      "in": "WorkspaceSettingsModal",
+     "when": "canChangePicture",
      "screen": "hidden",
      "text": "Subir imagen",
      "type": "file",
@@ -1114,20 +1116,29 @@
     },
     {
      "kind": "label",
-     "line": 121,
+     "line": 125,
      "in": "WorkspaceSettingsModal",
+     "when": "canChangePicture",
      "text": "Subir imagen",
      "for": "community-image-upload"
     },
     {
      "kind": "text",
-     "line": 129,
+     "line": 133,
      "in": "WorkspaceSettingsModal",
+     "when": "canChangePicture",
      "text": "Máx. 5MB (JPEG, PNG, WebP)"
     },
     {
-     "kind": "button",
+     "kind": "text",
      "line": 138,
+     "in": "WorkspaceSettingsModal",
+     "when": "canChangePicture",
+     "text": "La imagen la cambian los administradores y el gestor de la comunidad."
+    },
+    {
+     "kind": "button",
+     "line": 146,
      "in": "WorkspaceSettingsModal",
      "text": "Cancelar",
      "action": "{onClose}",
@@ -1135,7 +1146,7 @@
     },
     {
      "kind": "button",
-     "line": 145,
+     "line": 153,
      "in": "WorkspaceSettingsModal",
      "text": "Guardando... / Guardar cambios",
      "action": "{handleSave}",
@@ -1148,11 +1159,11 @@
    "usedBy": [
     "/dashboard"
    ],
-   "lines": 114,
+   "lines": 121,
    "rows": [
     {
      "kind": "popup",
-     "line": 37,
+     "line": 39,
      "in": "WorkspaceSettingsNuevo",
      "text": "Dialog",
      "how": "component",
@@ -1164,7 +1175,7 @@
     },
     {
      "kind": "button",
-     "line": 46,
+     "line": 48,
      "in": "WorkspaceSettingsNuevo",
      "text": "Cancelar",
      "action": "{onClose}",
@@ -1175,7 +1186,7 @@
     },
     {
      "kind": "button",
-     "line": 49,
+     "line": 51,
      "in": "WorkspaceSettingsNuevo",
      "text": "Guardando... / Guardar cambios",
      "action": "{handleSave}",
@@ -1186,14 +1197,14 @@
     },
     {
      "kind": "piece",
-     "line": 55,
+     "line": 57,
      "in": "WorkspaceSettingsNuevo",
      "text": "label: Nombre de la Comunidad · help: Cualquier miembro puede cambiar el nombre del grupo",
      "tag": "Field"
     },
     {
      "kind": "field",
-     "line": 56,
+     "line": 58,
      "in": "WorkspaceSettingsNuevo",
      "text": "Ingresa un nombre personalizado",
      "type": "text",
@@ -1206,30 +1217,32 @@
     },
     {
      "kind": "hook",
-     "line": 66,
+     "line": 69,
      "in": "WorkspaceSettingsNuevo",
+     "when": "canChangePicture",
      "text": "role=group",
      "type": "role",
      "tag": "div"
     },
     {
      "kind": "text",
-     "line": 68,
+     "line": 71,
      "in": "WorkspaceSettingsNuevo",
+     "when": "canChangePicture",
      "text": "Imagen de la Comunidad"
     },
     {
      "kind": "media",
-     "line": 73,
+     "line": 76,
      "in": "WorkspaceSettingsNuevo",
-     "when": "imagePreview",
+     "when": "canChangePicture && imagePreview",
      "text": "img · alt Vista previa · {imagePreview}"
     },
     {
      "kind": "button",
-     "line": 74,
+     "line": 77,
      "in": "WorkspaceSettingsNuevo",
-     "when": "imagePreview",
+     "when": "canChangePicture && imagePreview",
      "text": "[icon X]",
      "action": "{handleRemoveImage}",
      "aria": "Quitar imagen",
@@ -1240,24 +1253,25 @@
     },
     {
      "kind": "piece",
-     "line": 82,
+     "line": 85,
      "in": "WorkspaceSettingsNuevo",
-     "when": "imagePreview",
+     "when": "canChangePicture && imagePreview",
      "text": "aria-hidden: true",
      "tag": "X"
     },
     {
      "kind": "piece",
-     "line": 87,
+     "line": 90,
      "in": "WorkspaceSettingsNuevo",
-     "when": "!(imagePreview)",
+     "when": "canChangePicture && !(imagePreview)",
      "text": "aria-hidden: true",
      "tag": "Camera"
     },
     {
      "kind": "field",
-     "line": 91,
+     "line": 94,
      "in": "WorkspaceSettingsNuevo",
+     "when": "canChangePicture",
      "screen": "hidden",
      "text": "",
      "type": "file",
@@ -1269,8 +1283,9 @@
     },
     {
      "kind": "button",
-     "line": 99,
+     "line": 102,
      "in": "WorkspaceSettingsNuevo",
+     "when": "canChangePicture",
      "text": "Subir imagen",
      "action": "{() => fileInputRef.current?.click()}",
      "hook": {
@@ -1279,16 +1294,25 @@
     },
     {
      "kind": "piece",
-     "line": 100,
+     "line": 103,
      "in": "WorkspaceSettingsNuevo",
+     "when": "canChangePicture",
      "text": "aria-hidden: true",
      "tag": "Upload"
     },
     {
      "kind": "text",
-     "line": 104,
+     "line": 107,
      "in": "WorkspaceSettingsNuevo",
+     "when": "canChangePicture",
      "text": "Máx. 5MB (JPEG, PNG, WebP)"
+    },
+    {
+     "kind": "text",
+     "line": 112,
+     "in": "WorkspaceSettingsNuevo",
+     "when": "canChangePicture",
+     "text": "La imagen la cambian los administradores y el gestor de la comunidad."
     }
    ],
    "db": []
@@ -1330,11 +1354,11 @@
    "usedBy": [
     "/dashboard"
    ],
-   "lines": 142,
+   "lines": 194,
    "rows": [
     {
      "kind": "toast",
-     "line": 45,
+     "line": 53,
      "in": "handleImageSelect",
      "when": "file.size > 5 * 1024 * 1024",
      "text": "La imagen debe ser menor a 5MB",
@@ -1342,7 +1366,7 @@
     },
     {
      "kind": "toast",
-     "line": 52,
+     "line": 60,
      "in": "handleImageSelect",
      "when": "!allowedTypes.includes(file.type)",
      "text": "Solo se permiten imágenes (JPEG, PNG, WebP)",
@@ -1350,14 +1374,22 @@
     },
     {
      "kind": "toast",
-     "line": 102,
+     "line": 147,
+     "in": "handleSave",
+     "when": "nameChanged && renameError",
+     "text": "{renameError}",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 155,
      "in": "handleSave",
      "text": "Configuración actualizada exitosamente",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 110,
+     "line": 160,
      "in": "handleSave",
      "text": "Error al guardar la configuración",
      "variant": "error"
@@ -6157,13 +6189,24 @@
    "usedBy": [
     "/dashboard"
    ],
-   "lines": 181,
+   "lines": 241,
    "rows": [
     {
      "kind": "list",
-     "line": 21,
+     "line": 25,
+     "text": "WORKSPACE_RENAME_MESSAGES",
+     "items": [
+      "Solo los miembros de la comunidad pueden cambiar su nombre.",
+      "El nombre debe tener entre 1 y 100 caracteres, con al menos una letra o un número, sin caracteres invisibles.",
+      "No se pudo guardar. Inténtalo de nuevo."
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 31,
      "text": "communityWorkspaceService",
      "items": [
+      "workspace not found",
       "No se proporcionó ningún archivo",
       "El archivo debe ser menor a 5MB",
       "Solo se permiten imágenes (JPEG, PNG, WebP)",
@@ -6172,7 +6215,15 @@
     },
     {
      "kind": "message",
-     "line": 54,
+     "line": 70,
+     "in": "getWorkspaceSettings",
+     "when": "!data",
+     "text": "workspace not found",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "message",
+     "line": 114,
      "in": "uploadCommunityImage",
      "when": "!file",
      "text": "No se proporcionó ningún archivo",
@@ -6180,7 +6231,7 @@
     },
     {
      "kind": "message",
-     "line": 60,
+     "line": 120,
      "in": "uploadCommunityImage",
      "when": "file.size > maxSize",
      "text": "El archivo debe ser menor a 5MB",
@@ -6188,7 +6239,7 @@
     },
     {
      "kind": "message",
-     "line": 66,
+     "line": 126,
      "in": "uploadCommunityImage",
      "when": "!allowedTypes.includes(file.type)",
      "text": "Solo se permiten imágenes (JPEG, PNG, WebP)",
@@ -6196,7 +6247,7 @@
     },
     {
      "kind": "access",
-     "line": 173,
+     "line": 233,
      "in": "canEditWorkspace",
      "text": "canEdit = canEditWorkspaceWithRoles(roles, workspace.community_id)",
      "via": "declaration"
@@ -6210,6 +6261,10 @@
       "remove",
       "upload"
      ]
+    },
+    {
+     "what": "rpc:rename_community_workspace",
+     "ops": []
     },
     {
      "what": "table:community_workspaces",
@@ -6413,7 +6468,7 @@
    "usedBy": [
     "/dashboard"
    ],
-   "lines": 493,
+   "lines": 497,
    "rows": [],
    "db": [
     {

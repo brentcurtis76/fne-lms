@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "d701100d014e948bec5766fb68836675e13355b6",
-  "date": "2026-11-18T15:21:06-03:00"
+  "commit": "ca9dad512fc0b65bf1db627e23a6d84edd80dd28",
+  "date": "2026-11-19T14:41:10-03:00"
  },
  "screens": [
   {
@@ -95,7 +95,7 @@
     "linkedFrom": [
      "components/layout/Sidebar.tsx:487",
      "lib/notifications/catalog.ts:304",
-     "middleware.ts:223",
+     "middleware.ts:224",
      "pages/admin/assignment-review/[id].tsx:348"
     ],
     "qaScenarios": {
@@ -1117,7 +1117,7 @@
      "lib/notifications/catalog.ts:288",
      "lib/notifications/catalog.ts:290",
      "lib/notifications/catalog.ts:291",
-     "middleware.ts:328",
+     "middleware.ts:334",
      "pages/assignments/[id]/index.tsx:170",
      "pages/assignments/[id]/index.tsx:171",
      "pages/assignments/[id]/index.tsx:59",
@@ -1129,8 +1129,8 @@
      "pages/assignments/[id]/submissions.tsx:226",
      "pages/assignments/[id]/submissions.tsx:327",
      "pages/assignments/[id]/submissions.tsx:328",
-     "pages/notifications.tsx:269",
-     "pages/notifications.tsx:280"
+     "pages/notifications.tsx:272",
+     "pages/notifications.tsx:283"
     ],
     "qaScenarios": {},
     "tests": {
@@ -1593,7 +1593,7 @@
     "linkedFrom": [
      "components/assignments/AssignmentCard.tsx:116",
      "components/assignments/AssignmentCard.tsx:117",
-     "middleware.ts:328",
+     "middleware.ts:334",
      "pages/api/assignments/collaborative-submit.ts:155",
      "pages/assignments.tsx:174",
      "pages/assignments.tsx:236",
@@ -2742,7 +2742,7 @@
       "POST"
      ],
      "from": [
-      "utils/messagingUtils-simple.ts:829"
+      "utils/messagingUtils-simple.ts:896"
      ]
     }
    ]
@@ -3079,8 +3079,8 @@
      }
     ],
     "middleware": {
-     "rule": "no role rule",
-     "signedOut": "not stopped by the middleware",
+     "rule": "signed-in only",
+     "signedOut": "sent to /login",
      "passwordChangeHold": true
     },
     "roles": {
@@ -3151,8 +3151,9 @@
      "components/DynamicFavicon.tsx:34",
      "components/layout/Sidebar.tsx:204",
      "lib/auth/forced-password-change.ts:158",
+     "lib/auth/forced-password-change.ts:183",
      "lib/notifications/catalog.ts:310",
-     "middleware.ts:353",
+     "middleware.ts:359",
      "pages/quiz-reviews/[id].tsx:59",
      "pages/quiz-reviews/[id].tsx:73",
      "pages/quiz-reviews/[id].tsx:81",
@@ -3488,8 +3489,8 @@
    "reach": {
     "menu": [],
     "middleware": {
-     "rule": "no role rule",
-     "signedOut": "not stopped by the middleware",
+     "rule": "signed-in only",
+     "signedOut": "sent to /login",
      "passwordChangeHold": true
     },
     "roles": {
@@ -3545,7 +3546,7 @@
      }
     ],
     "linkedFrom": [
-     "middleware.ts:353",
+     "middleware.ts:359",
      "pages/quiz-reviews.tsx:223",
      "pages/quiz-reviews.tsx:224"
     ],
@@ -4613,11 +4614,11 @@
    "usedBy": [
     "/community/workspace/assignments/[id]/discussion"
    ],
-   "lines": 607,
+   "lines": 610,
    "rows": [
     {
      "kind": "hook",
-     "line": 112,
+     "line": 113,
      "in": "MessageComposer",
      "when": "editingMessage && textareaRef.current",
      "text": "textareaRef.current.focus()",
@@ -4625,13 +4626,13 @@
     },
     {
      "kind": "gate",
-     "line": 162,
+     "line": 163,
      "in": "MessageComposer",
      "text": "!mentionPosition"
     },
     {
      "kind": "hook",
-     "line": 185,
+     "line": 186,
      "in": "MessageComposer",
      "when": "textareaRef.current",
      "text": "textareaRef.current.focus()",
@@ -4639,81 +4640,75 @@
     },
     {
      "kind": "alert",
-     "line": 197,
+     "line": 198,
      "in": "MessageComposer",
      "when": "!isValidAttachment(file)",
      "text": "Archivo no válido: {file.name}"
     },
     {
      "kind": "alert",
-     "line": 204,
+     "line": 205,
      "in": "MessageComposer",
      "when": "attachments.length + validFiles.length > DEFAULT_MESSAGING_CONFIG.max_attachments_per_message",
      "text": "No se pueden adjuntar más de {DEFAULT_MESSAGING_CONFIG.ma…} archivos"
     },
     {
      "kind": "gate",
-     "line": 241,
+     "line": 242,
      "in": "MessageComposer",
      "text": "!content.trim() && attachments.length === 0"
     },
     {
      "kind": "gate",
-     "line": 242,
+     "line": 243,
      "in": "MessageComposer",
      "text": "isSubmitting || disabled"
     },
     {
      "kind": "alert",
-     "line": 270,
+     "line": 271,
      "in": "MessageComposer",
      "when": "!validationResult.is_valid",
      "text": "{validationResult.errors.join('\\n')}"
     },
     {
-     "kind": "alert",
-     "line": 292,
-     "in": "MessageComposer",
-     "text": "Error al enviar el mensaje. Inténtalo de nuevo."
-    },
-    {
      "kind": "hook",
-     "line": 343,
+     "line": 346,
      "in": "MessageComposer",
      "text": "document.addEventListener('mousedown')",
      "type": "listener"
     },
     {
      "kind": "text",
-     "line": 359,
+     "line": 362,
      "in": "MessageComposer",
      "when": "((replyToMessage || editingMessage)) && replyToMessage",
      "text": "Respondiendo a"
     },
     {
      "kind": "value",
-     "line": 359,
+     "line": 362,
      "in": "MessageComposer",
      "when": "((replyToMessage || editingMessage)) && replyToMessage",
      "text": "{replyToMessage.author_name}"
     },
     {
      "kind": "value",
-     "line": 360,
+     "line": 363,
      "in": "MessageComposer",
      "when": "((replyToMessage || editingMessage)) && replyToMessage",
      "text": "{replyToMessage.content.substring(0,…} ..."
     },
     {
      "kind": "text",
-     "line": 368,
+     "line": 371,
      "in": "MessageComposer",
      "when": "((replyToMessage || editingMessage)) && editingMessage",
      "text": "Editando mensaje"
     },
     {
      "kind": "button",
-     "line": 372,
+     "line": 375,
      "in": "MessageComposer",
      "when": "(replyToMessage || editingMessage)",
      "text": "[icon X]",
@@ -4721,14 +4716,14 @@
     },
     {
      "kind": "gesture",
-     "line": 382,
+     "line": 385,
      "in": "MessageComposer",
      "text": "onDrop={handleDrop} · onDragOver={handleDragOver}",
      "tag": "div"
     },
     {
      "kind": "field",
-     "line": 388,
+     "line": 391,
      "in": "MessageComposer",
      "text": "{placeholder}",
      "type": "textarea",
@@ -4740,13 +4735,13 @@
     },
     {
      "kind": "value",
-     "line": 401,
+     "line": 404,
      "in": "MessageComposer",
      "text": "{content.length} / {maxLength}"
     },
     {
      "kind": "button",
-     "line": 406,
+     "line": 409,
      "in": "MessageComposer",
      "text": "[icon Loader2]",
      "action": "{handleSubmit}",
@@ -4754,7 +4749,7 @@
     },
     {
      "kind": "popup",
-     "line": 425,
+     "line": 428,
      "in": "MessageComposer",
      "when": "showMentionPicker && mentionSuggestions.length > 0",
      "text": "MentionPicker",
@@ -4764,28 +4759,28 @@
     },
     {
      "kind": "media",
-     "line": 461,
+     "line": 464,
      "in": "MessageComposer",
      "when": "attachments.length > 0 && each attachments && file.type.startsWith('image/')",
      "text": "Image"
     },
     {
      "kind": "value",
-     "line": 465,
+     "line": 468,
      "in": "MessageComposer",
      "when": "attachments.length > 0 && each attachments",
      "text": "{file.name}"
     },
     {
      "kind": "value",
-     "line": 466,
+     "line": 469,
      "in": "MessageComposer",
      "when": "attachments.length > 0 && each attachments",
      "text": "( {formatFileSize(file.size)} )"
     },
     {
      "kind": "button",
-     "line": 468,
+     "line": 471,
      "in": "MessageComposer",
      "when": "attachments.length > 0 && each attachments",
      "text": "[icon X]",
@@ -4793,14 +4788,14 @@
     },
     {
      "kind": "value",
-     "line": 486,
+     "line": 489,
      "in": "MessageComposer",
      "when": "validation && !validation.is_valid && each validation.errors",
      "text": "{error}"
     },
     {
      "kind": "button",
-     "line": 499,
+     "line": 502,
      "in": "MessageComposer",
      "when": "allowAttachments",
      "text": "[icon Paperclip]",
@@ -4810,7 +4805,7 @@
     },
     {
      "kind": "field",
-     "line": 507,
+     "line": 510,
      "in": "MessageComposer",
      "when": "allowAttachments",
      "screen": "hidden",
@@ -4822,7 +4817,7 @@
     },
     {
      "kind": "button",
-     "line": 520,
+     "line": 523,
      "in": "MessageComposer",
      "text": "[icon Smile]",
      "action": "{() => setShowEmojiPicker(!showEmojiPicker)}",
@@ -4831,7 +4826,7 @@
     },
     {
      "kind": "button",
-     "line": 536,
+     "line": 539,
      "in": "MessageComposer",
      "when": "showEmojiPicker && each quickEmojis",
      "text": "{emoji}",
@@ -4839,7 +4834,7 @@
     },
     {
      "kind": "button",
-     "line": 553,
+     "line": 556,
      "in": "MessageComposer",
      "when": "allowMentions",
      "text": "[icon AtSign]",
@@ -4849,7 +4844,7 @@
     },
     {
      "kind": "hook",
-     "line": 559,
+     "line": 562,
      "in": "MessageComposer",
      "when": "allowMentions && textareaRef.current",
      "text": "textareaRef.current.focus()",
@@ -4857,7 +4852,7 @@
     },
     {
      "kind": "button",
-     "line": 577,
+     "line": 580,
      "in": "MessageComposer",
      "when": "(replyToMessage || editingMessage)",
      "text": "Cancelar",
@@ -4866,7 +4861,7 @@
     },
     {
      "kind": "button",
-     "line": 585,
+     "line": 588,
      "in": "MessageComposer",
      "text": "Enviando... / Guardar cambios / Enviar mensaje",
      "action": "{handleSubmit}",
@@ -4874,7 +4869,7 @@
     },
     {
      "kind": "string",
-     "line": 70,
+     "line": 71,
      "in": "MessageComposer",
      "text": "Escribe un mensaje..."
     }
@@ -5703,11 +5698,11 @@
    "usedBy": [
     "/community/workspace/assignments/[id]/discussion"
    ],
-   "lines": 844,
+   "lines": 911,
    "rows": [
     {
      "kind": "message",
-     "line": 563,
+     "line": 626,
      "in": "sendMessage",
      "when": "error && (error?.code === '42P01' || error?.message?.includes('does not exist'))",
      "text": "Messaging feature not yet implemented",
@@ -5715,7 +5710,19 @@
     },
     {
      "kind": "string",
-     "line": 833,
+     "line": 579,
+     "in": "failureReason",
+     "text": "Error desconocido"
+    },
+    {
+     "kind": "string",
+     "line": 683,
+     "in": "sendMessage",
+     "text": "No se guardó el registro del archivo"
+    },
+    {
+     "kind": "string",
+     "line": 900,
      "in": "requestMessageNotifications",
      "text": "Bearer {session.access_token}"
     }
@@ -5740,12 +5747,6 @@
      "ops": [
       "insert",
       "select"
-     ]
-    },
-    {
-     "what": "table:message_threads",
-     "ops": [
-      "update"
      ]
     },
     {

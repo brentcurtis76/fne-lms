@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "d701100d014e948bec5766fb68836675e13355b6",
-  "date": "2026-11-18T15:21:06-03:00"
+  "commit": "ca9dad512fc0b65bf1db627e23a6d84edd80dd28",
+  "date": "2026-11-19T14:41:10-03:00"
  },
  "screens": [
   {
@@ -104,7 +104,7 @@
      "components/DynamicFavicon.tsx:37",
      "components/layout/Sidebar.tsx:631",
      "lib/auth/forced-password-change.ts:145",
-     "middleware.ts:340",
+     "middleware.ts:346",
      "pages/api/qa/seed-codebase-index.ts:299"
     ],
     "qaScenarios": {
@@ -945,7 +945,7 @@
     "linkedFrom": [
      "components/layout/Sidebar.tsx:659",
      "lib/auth/forced-password-change.ts:159",
-     "middleware.ts:354"
+     "middleware.ts:360"
     ],
     "qaScenarios": {
      "admin": [
@@ -1220,7 +1220,7 @@
      "components/DynamicFavicon.tsx:36",
      "components/layout/Sidebar.tsx:642",
      "lib/auth/forced-password-change.ts:160",
-     "middleware.ts:355",
+     "middleware.ts:361",
      "pages/api/qa/seed-codebase-index.ts:335"
     ],
     "qaScenarios": {

@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "d701100d014e948bec5766fb68836675e13355b6",
-  "date": "2026-11-18T15:21:06-03:00"
+  "commit": "ca9dad512fc0b65bf1db627e23a6d84edd80dd28",
+  "date": "2026-11-19T14:41:10-03:00"
  },
  "screens": [
   {
@@ -1971,7 +1971,7 @@
   {
    "file": "pages/contract-print/[id].tsx",
    "route": "/contract-print/[id]",
-   "lines": 276,
+   "lines": 277,
    "marks": {},
    "frame": "none",
    "server": "none",
@@ -2023,14 +2023,16 @@
     "inPage": [],
     "linkedFrom": [
      "lib/look.ts:114",
-     "middleware.ts:332",
-     "pages/contracts.tsx:1051"
+     "middleware.ts:338",
+     "pages/contracts.tsx:1085"
     ],
     "qaScenarios": {},
     "tests": {
      "e2eCi": [],
      "e2e": [],
-     "unit": []
+     "unit": [
+      "__tests__/pages/contract-print-annex.test.tsx"
+     ]
     }
    },
    "rows": [
@@ -2165,7 +2167,7 @@
   {
    "file": "pages/contracts.tsx",
    "route": "/contracts",
-   "lines": 1097,
+   "lines": 1131,
    "marks": {},
    "frame": "MainLayout",
    "server": "none",
@@ -2226,36 +2228,36 @@
     },
     "inPage": [
      {
-      "line": 157,
+      "line": 160,
       "text": "router.push → /login  (when !session?.user)"
      },
      {
-      "line": 170,
+      "line": 173,
       "text": "userRole = await getUserPrimaryRole(session.user.id)"
      },
      {
-      "line": 172,
+      "line": 175,
       "text": "router.push → /dashboard  (when !profile || userRole !== 'admin')"
      },
      {
-      "line": 241,
+      "line": 250,
       "text": "router.push → /login"
      },
      {
-      "line": 316,
+      "line": 325,
       "text": "router.push → /login"
      }
     ],
     "linkedFrom": [
      "components/DynamicFavicon.tsx:39",
      "components/layout/Sidebar.tsx:559",
-     "components/licitaciones/Step7Contrato.tsx:206",
-     "components/licitaciones/Step7Contrato.tsx:261",
+     "components/licitaciones/Step7Contrato.tsx:207",
      "components/licitaciones/Step7Contrato.tsx:262",
-     "components/licitaciones/Step7Contrato.tsx:418",
+     "components/licitaciones/Step7Contrato.tsx:263",
      "components/licitaciones/Step7Contrato.tsx:419",
+     "components/licitaciones/Step7Contrato.tsx:420",
      "lib/auth/forced-password-change.ts:138",
-     "middleware.ts:333",
+     "middleware.ts:339",
      "pages/admin/schools.tsx:591"
     ],
     "qaScenarios": {
@@ -2282,21 +2284,23 @@
      ],
      "unit": [
       "__tests__/pages/contracts-activation.test.tsx",
-      "__tests__/pages/contracts-invoice-storage.test.tsx"
+      "__tests__/pages/contracts-edit-annex.test.tsx",
+      "__tests__/pages/contracts-invoice-storage.test.tsx",
+      "__tests__/pages/contracts-licitacion-once.test.tsx"
      ]
     }
    },
    "rows": [
     {
      "kind": "hook",
-     "line": 145,
+     "line": 148,
      "in": "ContractsPage",
      "text": "window.addEventListener('openPDFImporterFromForm')",
      "type": "listener"
     },
     {
      "kind": "nav",
-     "line": 157,
+     "line": 160,
      "in": "checkSession",
      "when": "!session?.user",
      "text": "/login",
@@ -2304,14 +2308,14 @@
     },
     {
      "kind": "access",
-     "line": 170,
+     "line": 173,
      "in": "checkSession",
      "text": "userRole = await getUserPrimaryRole(session.user.id)",
      "via": "getUserPrimaryRole"
     },
     {
      "kind": "nav",
-     "line": 172,
+     "line": 175,
      "in": "checkSession",
      "when": "!profile || userRole !== 'admin'",
      "text": "/dashboard",
@@ -2319,7 +2323,7 @@
     },
     {
      "kind": "toast",
-     "line": 204,
+     "line": 207,
      "in": "checkSession",
      "when": "cliente_id && typeof cliente_id === 'string' && school_name && typeof school_name === 'string'",
      "text": "Creando contrato para: {decodeURIComponent(school_n…}",
@@ -2327,114 +2331,114 @@
     },
     {
      "kind": "toast",
-     "line": 229,
+     "line": 238,
      "in": "checkSession",
-     "when": "tab === 'nuevo' && licitacion_id && typeof licitacion_id === 'string' && licRes.ok && lic",
+     "when": "tab === 'nuevo' && licitacion_id && typeof licitacion_id === 'string' && handledLicitacionIdRef.current !== licitacion_id && licRes.ok && lic",
      "text": "Datos de la licitacion cargados. Complete los campos del contrato.",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 233,
+     "line": 242,
      "in": "checkSession",
-     "when": "tab === 'nuevo' && licitacion_id && typeof licitacion_id === 'string'",
+     "when": "tab === 'nuevo' && licitacion_id && typeof licitacion_id === 'string' && handledLicitacionIdRef.current !== licitacion_id",
      "text": "No se pudo cargar datos de la licitacion",
      "variant": "error"
     },
     {
      "kind": "nav",
-     "line": 241,
+     "line": 250,
      "in": "checkSession",
      "text": "/login",
      "via": "router.push"
     },
     {
      "kind": "toast",
-     "line": 266,
+     "line": 275,
      "in": "loadContratos",
      "text": "Error al actualizar la lista de contratos:",
      "variant": "error"
     },
     {
      "kind": "hook",
-     "line": 314,
+     "line": 323,
      "in": "handleLogout",
      "text": "localStorage: rememberMe",
      "type": "storage"
     },
     {
      "kind": "hook",
-     "line": 315,
+     "line": 324,
      "in": "handleLogout",
      "text": "sessionStorage: sessionOnly",
      "type": "storage"
     },
     {
      "kind": "nav",
-     "line": 316,
+     "line": 325,
      "in": "handleLogout",
      "text": "/login",
      "via": "router.push"
     },
     {
      "kind": "toast",
-     "line": 366,
+     "line": 375,
      "in": "handleDeleteContract",
      "text": "Error al eliminar el contrato:",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 382,
+     "line": 391,
      "in": "handleMarkSigned",
      "text": "Contrato marcado como firmado.",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 386,
+     "line": 395,
      "in": "handleMarkSigned",
      "text": "Error al marcar el contrato como firmado:",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 430,
+     "line": 439,
      "in": "handleUploadContract",
      "text": "Error al subir el contrato:",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 454,
+     "line": 463,
      "in": "handleActivateWithoutDocument",
      "text": "Contrato activado. Recuerda subir el documento firmado cuando el cliente lo envíe.",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 459,
+     "line": 468,
      "in": "handleActivateWithoutDocument",
      "text": "Error al activar el contrato:",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 482,
+     "line": 491,
      "in": "handleToggleCashFlow",
      "text": "Contrato {newCashFlowStatus ? 'inclui…} flujo de caja exitosamente.",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 485,
+     "line": 494,
      "in": "handleToggleCashFlow",
      "text": "Error al actualizar el flujo de caja:",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 494,
+     "line": 503,
      "in": "handleInvoiceUpload",
      "when": "!validTypes.includes(file.type)",
      "text": "Tipo de archivo no válido. Use PDF, JPG o PNG.",
@@ -2442,7 +2446,7 @@
     },
     {
      "kind": "toast",
-     "line": 500,
+     "line": 509,
      "in": "handleInvoiceUpload",
      "when": "file.size > maxSize",
      "text": "El archivo es demasiado grande. Máximo 10MB.",
@@ -2450,35 +2454,35 @@
     },
     {
      "kind": "toast",
-     "line": 523,
+     "line": 532,
      "in": "handleInvoiceUpload",
      "text": "Factura subida exitosamente: {file.name}",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 530,
+     "line": 539,
      "in": "handleInvoiceUpload",
      "text": "Error al subir la factura:",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 547,
+     "line": 556,
      "in": "handleTogglePaymentStatus",
      "text": "Cuota marcada como {!currentStatus ? 'pagada' :…}",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 554,
+     "line": 563,
      "in": "handleTogglePaymentStatus",
      "text": "Error al actualizar el estado de pago:",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 569,
+     "line": 578,
      "in": "handleInvoiceDelete",
      "when": "!cuota?.factura_url",
      "text": "No se encontró la factura",
@@ -2486,35 +2490,35 @@
     },
     {
      "kind": "toast",
-     "line": 603,
+     "line": 612,
      "in": "handleInvoiceDelete",
      "text": "Factura eliminada exitosamente",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 610,
+     "line": 619,
      "in": "handleInvoiceDelete",
      "text": "Error al eliminar la factura:",
      "variant": "error"
     },
     {
      "kind": "text",
-     "line": 631,
+     "line": 640,
      "in": "ContractsPage",
      "when": "loading",
      "text": "Cargando..."
     },
     {
      "kind": "piece",
-     "line": 638,
+     "line": 647,
      "in": "ContractsPage",
      "text": "",
      "tag": "MainLayout"
     },
     {
      "kind": "piece",
-     "line": 648,
+     "line": 657,
      "in": "ContractsPage",
      "when": "(activeTab === 'lista' || activeTab === 'flujo')",
      "text": "title: Contratos · subtitle: Gestión de contratos, anexos y flujo de caja · searchPlaceholder: Buscar por número, cliente... · primaryAction: Nuevo Contrato",
@@ -2522,7 +2526,7 @@
     },
     {
      "kind": "button",
-     "line": 662,
+     "line": 671,
      "in": "ContractsPage",
      "when": "(activeTab === 'lista' || activeTab === 'flujo')",
      "text": "Importar PDF",
@@ -2531,7 +2535,7 @@
     },
     {
      "kind": "button",
-     "line": 670,
+     "line": 679,
      "in": "ContractsPage",
      "when": "(activeTab === 'lista' || activeTab === 'flujo')",
      "text": "Nuevo Anexo",
@@ -2539,7 +2543,7 @@
     },
     {
      "kind": "button",
-     "line": 677,
+     "line": 686,
      "in": "ContractsPage",
      "when": "(activeTab === 'lista' || activeTab === 'flujo')",
      "text": "Flujo de Caja",
@@ -2547,7 +2551,7 @@
     },
     {
      "kind": "button",
-     "line": 698,
+     "line": 707,
      "in": "ContractsPage",
      "when": "(activeTab === 'nuevo' || activeTab === 'editar' || activeTab === 'nuevo-anexo' || activeTab === 'editar-anexo')",
      "text": "Volver a Contratos",
@@ -2555,7 +2559,7 @@
     },
     {
      "kind": "heading",
-     "line": 706,
+     "line": 715,
      "in": "ContractsPage",
      "when": "(activeTab === 'nuevo' || activeTab === 'editar' || activeTab === 'nuevo-anexo' || activeTab === 'editar-anexo')",
      "text": "Crear Nuevo Contrato / Crear Nuevo Anexo / Editar Anexo / Editar Contrato",
@@ -2563,7 +2567,7 @@
     },
     {
      "kind": "heading",
-     "line": 720,
+     "line": 729,
      "in": "ContractsPage",
      "when": "activeTab === 'lista'",
      "text": "Contratos Registrados ( {contratos.length} )",
@@ -2571,7 +2575,7 @@
     },
     {
      "kind": "button",
-     "line": 724,
+     "line": 733,
      "in": "ContractsPage",
      "when": "activeTab === 'lista' && ((firmaPendienteCount > 0 || showFirmaPendiente))",
      "text": "Firma pendiente ( {firmaPendienteCount} )",
@@ -2583,42 +2587,42 @@
     },
     {
      "kind": "column",
-     "line": 745,
+     "line": 754,
      "in": "ContractsPage",
      "when": "activeTab === 'lista' && contratos.length > 0",
      "text": "N° Contrato"
     },
     {
      "kind": "column",
-     "line": 746,
+     "line": 755,
      "in": "ContractsPage",
      "when": "activeTab === 'lista' && contratos.length > 0",
      "text": "Cliente"
     },
     {
      "kind": "column",
-     "line": 747,
+     "line": 756,
      "in": "ContractsPage",
      "when": "activeTab === 'lista' && contratos.length > 0",
      "text": "Fecha"
     },
     {
      "kind": "column",
-     "line": 748,
+     "line": 757,
      "in": "ContractsPage",
      "when": "activeTab === 'lista' && contratos.length > 0",
      "text": "Valor Total"
     },
     {
      "kind": "column",
-     "line": 749,
+     "line": 758,
      "in": "ContractsPage",
      "when": "activeTab === 'lista' && contratos.length > 0",
      "text": "Estado"
     },
     {
      "kind": "button",
-     "line": 758,
+     "line": 767,
      "in": "ContractsPage",
      "when": "activeTab === 'lista' && contratos.length > 0 && filteredContratos.length > 0 && each filteredContratos",
      "text": "{contrato.numero_contrato} [ANEXO] [MANUAL] [BORRADOR]",
@@ -2626,56 +2630,56 @@
     },
     {
      "kind": "value",
-     "line": 782,
+     "line": 791,
      "in": "ContractsPage",
      "when": "activeTab === 'lista' && contratos.length > 0 && filteredContratos.length > 0 && each filteredContratos",
      "text": "{contrato.clientes.nombre_legal}"
     },
     {
      "kind": "text",
-     "line": 783,
+     "line": 792,
      "in": "ContractsPage",
      "when": "activeTab === 'lista' && contratos.length > 0 && filteredContratos.length > 0 && each filteredContratos",
      "text": "{contrato.descripcion_manual} / Contrato Manual / {contrato.clientes.nombre_fantasia}"
     },
     {
      "kind": "value",
-     "line": 793,
+     "line": 802,
      "in": "ContractsPage",
      "when": "activeTab === 'lista' && contratos.length > 0 && filteredContratos.length > 0 && each filteredContratos",
      "text": "{formatDate(contrato.fecha_contrato)}"
     },
     {
      "kind": "value",
-     "line": 798,
+     "line": 807,
      "in": "ContractsPage",
      "when": "activeTab === 'lista' && contratos.length > 0 && filteredContratos.length > 0 && each filteredContratos",
      "text": "{formatCurrency(contrato.precio_tota…}"
     },
     {
      "kind": "text",
-     "line": 804,
+     "line": 813,
      "in": "ContractsPage",
      "when": "activeTab === 'lista' && contratos.length > 0 && filteredContratos.length > 0 && each filteredContratos",
      "text": "Activo / Borrador / Pendiente"
     },
     {
      "kind": "text",
-     "line": 815,
+     "line": 824,
      "in": "ContractsPage",
      "when": "contratos.length > 0 && filteredContratos.length > 0 && each filteredContratos && isFirmaPendiente(contrato)",
      "text": "FIRMA PENDIENTE"
     },
     {
      "kind": "text",
-     "line": 820,
+     "line": 829,
      "in": "ContractsPage",
      "when": "contratos.length > 0 && filteredContratos.length > 0 && each filteredContratos && contrato.incluir_en_flujo",
      "text": "En Flujo"
     },
     {
      "kind": "button",
-     "line": 827,
+     "line": 836,
      "in": "ContractsPage",
      "when": "activeTab === 'lista' && contratos.length > 0 && filteredContratos.length > 0 && each filteredContratos",
      "text": "[icon Eye]",
@@ -2684,7 +2688,7 @@
     },
     {
      "kind": "link",
-     "line": 836,
+     "line": 845,
      "in": "ContractsPage",
      "when": "contratos.length > 0 && filteredContratos.length > 0 && each filteredContratos && contrato.licitacion_id",
      "text": "[icon ExternalLink]",
@@ -2692,49 +2696,49 @@
     },
     {
      "kind": "text",
-     "line": 853,
+     "line": 862,
      "in": "ContractsPage",
      "when": "activeTab === 'lista' && contratos.length > 0 && !(filteredContratos.length > 0) && showFirmaPendiente",
      "text": "No hay contratos activos con firma pendiente"
     },
     {
      "kind": "text",
-     "line": 854,
+     "line": 863,
      "in": "ContractsPage",
      "when": "contratos.length > 0 && !(filteredContratos.length > 0) && showFirmaPendiente && searchQuery",
      "text": "que coincidan con &quot;"
     },
     {
      "kind": "text",
-     "line": 854,
+     "line": 863,
      "in": "ContractsPage",
      "when": "contratos.length > 0 && !(filteredContratos.length > 0) && showFirmaPendiente && searchQuery",
      "text": "&quot;"
     },
     {
      "kind": "text",
-     "line": 855,
+     "line": 864,
      "in": "ContractsPage",
      "when": "activeTab === 'lista' && contratos.length > 0 && !(filteredContratos.length > 0) && showFirmaPendiente",
      "text": ". Desactiva el filtro &quot;Firma pendiente&quot; para ver todos los contratos."
     },
     {
      "kind": "text",
-     "line": 859,
+     "line": 868,
      "in": "ContractsPage",
      "when": "activeTab === 'lista' && contratos.length > 0 && !(filteredContratos.length > 0) && !(showFirmaPendiente)",
      "text": "No se encontraron contratos para &quot;"
     },
     {
      "kind": "text",
-     "line": 859,
+     "line": 868,
      "in": "ContractsPage",
      "when": "activeTab === 'lista' && contratos.length > 0 && !(filteredContratos.length > 0) && !(showFirmaPendiente)",
      "text": "&quot;. Prueba con otro número de contrato, cliente o programa."
     },
     {
      "kind": "heading",
-     "line": 871,
+     "line": 880,
      "in": "ContractsPage",
      "when": "activeTab === 'lista' && !(contratos.length > 0)",
      "text": "No hay contratos registrados",
@@ -2742,14 +2746,14 @@
     },
     {
      "kind": "text",
-     "line": 872,
+     "line": 881,
      "in": "ContractsPage",
      "when": "activeTab === 'lista' && !(contratos.length > 0)",
      "text": "Comienza creando tu primer contrato"
     },
     {
      "kind": "button",
-     "line": 873,
+     "line": 882,
      "in": "ContractsPage",
      "when": "activeTab === 'lista' && !(contratos.length > 0)",
      "text": "Crear Primer Contrato",
@@ -2757,7 +2761,7 @@
     },
     {
      "kind": "piece",
-     "line": 886,
+     "line": 895,
      "in": "ContractsPage",
      "when": "activeTab === 'nuevo'",
      "text": "",
@@ -2765,7 +2769,7 @@
     },
     {
      "kind": "toast",
-     "line": 907,
+     "line": 916,
      "in": "ContractsPage",
      "when": "activeTab === 'nuevo' && activeLicitacionId && contratoId && !linkRes.ok",
      "text": "Contrato creado pero error al vincular con licitacion: {err.error || 'Error descono…}. Contacte al administrador.",
@@ -2773,15 +2777,31 @@
     },
     {
      "kind": "toast",
-     "line": 909,
+     "line": 920,
      "in": "ContractsPage",
-     "when": "activeTab === 'nuevo' && activeLicitacionId && contratoId && !(!linkRes.ok)",
+     "when": "activeTab === 'nuevo' && activeLicitacionId && contratoId && !(!linkRes.ok) && reuse?.reused",
+     "text": "Esta licitación ya tenía un contrato: se abrió el contrato existente. Los cambios de este formulario no se guardaron; edite el contrato desde Gestión. / El contrato existente no tiene cuotas registradas: revíselo antes de continuar.",
+     "variant": "plain"
+    },
+    {
+     "kind": "toast",
+     "line": 928,
+     "in": "ContractsPage",
+     "when": "activeTab === 'nuevo' && activeLicitacionId && contratoId && !(!linkRes.ok) && !(reuse?.reused)",
      "text": "Contrato generado y vinculado a la licitacion exitosamente",
      "variant": "success"
     },
     {
+     "kind": "nav",
+     "line": 932,
+     "in": "ContractsPage",
+     "when": "activeTab === 'nuevo' && activeLicitacionId && contratoId && !(!linkRes.ok)",
+     "text": "/contracts",
+     "via": "router.replace"
+    },
+    {
      "kind": "toast",
-     "line": 912,
+     "line": 939,
      "in": "ContractsPage",
      "when": "activeTab === 'nuevo' && activeLicitacionId && contratoId",
      "text": "Contrato creado pero no se pudo vincular con la licitacion. Contacte al administrador.",
@@ -2789,7 +2809,7 @@
     },
     {
      "kind": "piece",
-     "line": 933,
+     "line": 960,
      "in": "ContractsPage",
      "when": "activeTab === 'editar' && editingContrato",
      "text": "",
@@ -2797,7 +2817,7 @@
     },
     {
      "kind": "piece",
-     "line": 950,
+     "line": 977,
      "in": "ContractsPage",
      "when": "activeTab === 'nuevo-anexo'",
      "text": "",
@@ -2805,7 +2825,7 @@
     },
     {
      "kind": "piece",
-     "line": 961,
+     "line": 988,
      "in": "ContractsPage",
      "when": "activeTab === 'editar-anexo' && editingAnexo",
      "text": "",
@@ -2813,7 +2833,7 @@
     },
     {
      "kind": "piece",
-     "line": 977,
+     "line": 1004,
      "in": "ContractsPage",
      "when": "activeTab === 'flujo'",
      "text": "",
@@ -2821,7 +2841,7 @@
     },
     {
      "kind": "popup",
-     "line": 982,
+     "line": 1009,
      "in": "ContractsPage",
      "when": "deleteModalContrato",
      "text": "Eliminar Contrato",
@@ -2829,7 +2849,7 @@
     },
     {
      "kind": "heading",
-     "line": 990,
+     "line": 1017,
      "in": "ContractsPage",
      "when": "deleteModalContrato",
      "text": "Eliminar Contrato",
@@ -2837,35 +2857,35 @@
     },
     {
      "kind": "text",
-     "line": 991,
+     "line": 1018,
      "in": "ContractsPage",
      "when": "deleteModalContrato",
      "text": "Esta acción no se puede deshacer"
     },
     {
      "kind": "text",
-     "line": 997,
+     "line": 1024,
      "in": "ContractsPage",
      "when": "deleteModalContrato",
      "text": "¿Estás seguro de que deseas eliminar el contrato"
     },
     {
      "kind": "value",
-     "line": 998,
+     "line": 1025,
      "in": "ContractsPage",
      "when": "deleteModalContrato",
      "text": "{deleteModalContrato.numero_contrato}"
     },
     {
      "kind": "text",
-     "line": 1001,
+     "line": 1028,
      "in": "ContractsPage",
      "when": "deleteModalContrato",
      "text": "Se eliminarán también todas las cuotas asociadas a este contrato."
     },
     {
      "kind": "button",
-     "line": 1006,
+     "line": 1033,
      "in": "ContractsPage",
      "when": "deleteModalContrato",
      "text": "Cancelar",
@@ -2873,7 +2893,7 @@
     },
     {
      "kind": "button",
-     "line": 1012,
+     "line": 1039,
      "in": "ContractsPage",
      "when": "deleteModalContrato",
      "text": "Eliminar Contrato",
@@ -2881,7 +2901,7 @@
     },
     {
      "kind": "popup",
-     "line": 1025,
+     "line": 1052,
      "in": "ContractsPage",
      "text": "ContractDetailsModal",
      "how": "component",
@@ -2889,7 +2909,7 @@
     },
     {
      "kind": "nav",
-     "line": 1046,
+     "line": 1080,
      "in": "ContractsPage",
      "when": "target.kind === 'original'",
      "text": "{target.url}",
@@ -2897,7 +2917,7 @@
     },
     {
      "kind": "toast",
-     "line": 1048,
+     "line": 1082,
      "in": "ContractsPage",
      "when": "!(target.kind === 'original') && target.kind === 'missing'",
      "text": "Este contrato fue importado y no tiene el documento original cargado. Use \"Subir contrato\" para adjuntarlo.",
@@ -2905,7 +2925,7 @@
     },
     {
      "kind": "nav",
-     "line": 1051,
+     "line": 1085,
      "in": "ContractsPage",
      "when": "!(target.kind === 'original') && !(target.kind === 'missing')",
      "text": "/contract-print/[*]",
@@ -2913,7 +2933,7 @@
     },
     {
      "kind": "piece",
-     "line": 1062,
+     "line": 1096,
      "in": "ContractsPage",
      "when": "showPDFImporter",
      "text": "",
@@ -2921,7 +2941,7 @@
     },
     {
      "kind": "toast",
-     "line": 1082,
+     "line": 1116,
      "in": "ContractsPage",
      "when": "showPDFImporter && sourceFile",
      "text": "No se pudo guardar el PDF original; podrá adjuntarlo luego con \"Subir contrato\".",
@@ -2929,7 +2949,7 @@
     },
     {
      "kind": "toast",
-     "line": 1088,
+     "line": 1122,
      "in": "ContractsPage",
      "when": "showPDFImporter",
      "text": "Datos extraídos del PDF. Complete la información faltante.",
@@ -2937,19 +2957,19 @@
     },
     {
      "kind": "string",
-     "line": 839,
+     "line": 848,
      "in": "ContractsPage",
      "text": "Ver Licitacion"
     },
     {
      "kind": "string",
-     "line": 907,
+     "line": 916,
      "in": "ContractsPage",
      "text": "Error desconocido"
     },
     {
      "kind": "list",
-     "line": 323,
+     "line": 332,
      "in": "formatCurrency",
      "text": "formatCurrency()",
      "items": [
@@ -3054,6 +3074,7 @@
     "lib/annex-template.ts",
     "lib/contract-document.ts",
     "lib/contract-template.ts",
+    "lib/contracts/cuotas-math.ts",
     "lib/contracts/extractionError.ts",
     "lib/contracts/open-invoice.ts",
     "lib/uf-service.ts",
@@ -3069,7 +3090,7 @@
       "POST"
      ],
      "from": [
-      "components/contracts/ContractForm.tsx:517"
+      "components/contracts/ContractForm.tsx:592"
      ]
     },
     {
@@ -3119,7 +3140,7 @@
       "POST"
      ],
      "from": [
-      "components/contracts/ContractPDFImporter.tsx:129"
+      "components/contracts/ContractPDFImporter.tsx:132"
      ]
     },
     {
@@ -3137,7 +3158,7 @@
       "GET"
      ],
      "from": [
-      "pages/contracts.tsx:214"
+      "pages/contracts.tsx:223"
      ]
     },
     {
@@ -3147,7 +3168,7 @@
       "POST"
      ],
      "from": [
-      "pages/contracts.tsx:898"
+      "pages/contracts.tsx:907"
      ]
     },
     {
@@ -3157,7 +3178,7 @@
       "GET"
      ],
      "from": [
-      "lib/uf-service.ts:215"
+      "lib/uf-service.ts:396"
      ]
     }
    ]
@@ -3227,7 +3248,7 @@
      "pages/admin/quotes/index.tsx:354",
      "pages/admin/quotes/index.tsx:355",
      "pages/api/quotes/create.ts:129",
-     "pages/api/quotes/createV2.ts:224"
+     "pages/api/quotes/createV2.ts:245"
     ],
     "qaScenarios": {},
     "tests": {
@@ -3387,25 +3408,25 @@
    "usedBy": [
     "/contracts"
    ],
-   "lines": 787,
+   "lines": 802,
    "rows": [
     {
      "kind": "toast",
-     "line": 149,
+     "line": 151,
      "in": "loadParentContract",
      "text": "Error al cargar el contrato padre",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 179,
+     "line": 181,
      "in": "loadClienteContratos",
      "text": "Error al cargar contratos del cliente",
      "variant": "error"
     },
     {
      "kind": "message",
-     "line": 257,
+     "line": 259,
      "in": "handleSaveAnnex",
      "when": "!editingAnnex && !selectedContrato",
      "text": "No se ha seleccionado un contrato padre",
@@ -3413,7 +3434,7 @@
     },
     {
      "kind": "toast",
-     "line": 262,
+     "line": 264,
      "in": "handleSaveAnnex",
      "when": "!annexForm.anexo_fecha",
      "text": "La fecha del anexo es obligatoria",
@@ -3421,7 +3442,7 @@
     },
     {
      "kind": "toast",
-     "line": 267,
+     "line": 269,
      "in": "handleSaveAnnex",
      "when": "annexForm.numero_participantes < 1",
      "text": "Debe haber al menos 1 participante",
@@ -3429,7 +3450,7 @@
     },
     {
      "kind": "toast",
-     "line": 272,
+     "line": 274,
      "in": "handleSaveAnnex",
      "when": "annexForm.precio_total_uf <= 0",
      "text": "El precio total debe ser mayor a 0",
@@ -3437,7 +3458,15 @@
     },
     {
      "kind": "toast",
-     "line": 281,
+     "line": 284,
+     "in": "handleSaveAnnex",
+     "when": "incompleteCuota",
+     "text": "La cuota {incompleteCuota.numero_cuota} necesita fecha y un monto mayor que cero.",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 291,
      "in": "handleSaveAnnex",
      "when": "validCuotas.length === 0",
      "text": "Debe agregar al menos una cuota válida",
@@ -3445,7 +3474,7 @@
     },
     {
      "kind": "toast",
-     "line": 287,
+     "line": 297,
      "in": "handleSaveAnnex",
      "when": "Math.abs(totalCuotas - annexForm.precio_total_uf) > 0.01",
      "text": "La suma de las cuotas debe ser igual al precio total",
@@ -3453,7 +3482,7 @@
     },
     {
      "kind": "toast",
-     "line": 319,
+     "line": 329,
      "in": "handleSaveAnnex",
      "when": "editingAnnex",
      "text": "Anexo actualizado exitosamente",
@@ -3461,7 +3490,7 @@
     },
     {
      "kind": "toast",
-     "line": 367,
+     "line": 382,
      "in": "handleSaveAnnex",
      "when": "!(editingAnnex)",
      "text": "Anexo creado exitosamente",
@@ -3469,21 +3498,21 @@
     },
     {
      "kind": "toast",
-     "line": 374,
+     "line": 389,
      "in": "handleSaveAnnex",
      "text": "Error al guardar el anexo:",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 407,
+     "line": 422,
      "in": "generatePreviewPDF",
      "text": "Error al generar la vista previa",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 413,
+     "line": 428,
      "in": "nextStep",
      "when": "step === 'cliente' && !selectedClienteId",
      "text": "Seleccione un cliente",
@@ -3491,7 +3520,7 @@
     },
     {
      "kind": "toast",
-     "line": 417,
+     "line": 432,
      "in": "nextStep",
      "when": "step === 'contrato' && !selectedContratoId",
      "text": "Seleccione un contrato",
@@ -3499,7 +3528,7 @@
     },
     {
      "kind": "list",
-     "line": 436,
+     "line": 451,
      "in": "AnnexForm",
      "text": "cycleOptions",
      "items": [
@@ -3511,28 +3540,28 @@
     },
     {
      "kind": "heading",
-     "line": 447,
+     "line": 462,
      "in": "AnnexForm",
      "text": "Editar Anexo / Crear Nuevo Anexo",
      "level": 2
     },
     {
      "kind": "value",
-     "line": 476,
+     "line": 491,
      "in": "AnnexForm",
      "when": "each [ { key: 'cliente', label: 'Cliente', icon: Users…",
      "text": "{label}"
     },
     {
      "kind": "text",
-     "line": 497,
+     "line": 512,
      "in": "AnnexForm",
      "when": "editingAnnex && loadingParent",
      "text": "Cargando datos del anexo..."
     },
     {
      "kind": "heading",
-     "line": 505,
+     "line": 520,
      "in": "AnnexForm",
      "when": "step === 'cliente' && !loadingParent",
      "text": "Seleccionar Cliente",
@@ -3540,7 +3569,7 @@
     },
     {
      "kind": "clickable",
-     "line": 508,
+     "line": 523,
      "in": "AnnexForm",
      "when": "step === 'cliente' && !loadingParent && each clientes",
      "text": "{cliente.nombre_legal} {cliente.nombre_fantasia} RUT: {cliente.rut}",
@@ -3549,28 +3578,28 @@
     },
     {
      "kind": "value",
-     "line": 517,
+     "line": 532,
      "in": "AnnexForm",
      "when": "step === 'cliente' && !loadingParent && each clientes",
      "text": "{cliente.nombre_legal}"
     },
     {
      "kind": "value",
-     "line": 518,
+     "line": 533,
      "in": "AnnexForm",
      "when": "step === 'cliente' && !loadingParent && each clientes",
      "text": "{cliente.nombre_fantasia}"
     },
     {
      "kind": "text",
-     "line": 519,
+     "line": 534,
      "in": "AnnexForm",
      "when": "step === 'cliente' && !loadingParent && each clientes",
      "text": "RUT: {cliente.rut}"
     },
     {
      "kind": "heading",
-     "line": 529,
+     "line": 544,
      "in": "AnnexForm",
      "when": "step === 'contrato' && !loadingParent",
      "text": "Seleccionar Contrato de {clientes.find(c => c.id === selecte…}",
@@ -3578,44 +3607,44 @@
     },
     {
      "kind": "clickable",
-     "line": 534,
+     "line": 549,
      "in": "AnnexForm",
      "when": "step === 'contrato' && !loadingParent && each clienteContratos",
-     "text": "{contrato.numero_contrato} {contrato.programas.nombre} Fecha: {(() => { const parts = contrato.fec…} Valor: $ / UF {con…",
+     "text": "{contrato.numero_contrato} {contrato.programas?.nombre} / {contrato.descripcion_manual} / Contrato manual Fecha: {(() =…",
      "tag": "div",
      "action": "{() => handleContratoSelect(contrato.id)}"
     },
     {
      "kind": "value",
-     "line": 543,
+     "line": 558,
      "in": "AnnexForm",
      "when": "step === 'contrato' && !loadingParent && each clienteContratos",
      "text": "{contrato.numero_contrato}"
     },
     {
-     "kind": "value",
-     "line": 544,
+     "kind": "text",
+     "line": 559,
      "in": "AnnexForm",
      "when": "step === 'contrato' && !loadingParent && each clienteContratos",
-     "text": "{contrato.programas.nombre}"
+     "text": "{contrato.programas?.nombre} / {contrato.descripcion_manual} / Contrato manual"
     },
     {
      "kind": "text",
-     "line": 545,
+     "line": 560,
      "in": "AnnexForm",
      "when": "step === 'contrato' && !loadingParent && each clienteContratos",
      "text": "Fecha: {(() => { const parts = contrato.fec…}"
     },
     {
      "kind": "text",
-     "line": 557,
+     "line": 572,
      "in": "AnnexForm",
      "when": "step === 'contrato' && !loadingParent && each clienteContratos",
      "text": "Valor: $ / UF {contrato.precio_total_uf.toLocaleSt…}"
     },
     {
      "kind": "heading",
-     "line": 569,
+     "line": 584,
      "in": "AnnexForm",
      "when": "step === 'anexo' && selectedContrato && !loadingParent",
      "text": "Detalles del Anexo para {selectedContrato.numero_contrato}",
@@ -3623,14 +3652,14 @@
     },
     {
      "kind": "label",
-     "line": 575,
+     "line": 590,
      "in": "AnnexForm",
      "when": "step === 'anexo' && selectedContrato && !loadingParent",
      "text": "Fecha del Anexo *"
     },
     {
      "kind": "field",
-     "line": 578,
+     "line": 593,
      "in": "AnnexForm",
      "when": "step === 'anexo' && selectedContrato && !loadingParent",
      "text": "Fecha del Anexo *",
@@ -3639,14 +3668,14 @@
     },
     {
      "kind": "label",
-     "line": 587,
+     "line": 602,
      "in": "AnnexForm",
      "when": "step === 'anexo' && selectedContrato && !loadingParent",
      "text": "Número de Participantes *"
     },
     {
      "kind": "field",
-     "line": 590,
+     "line": 605,
      "in": "AnnexForm",
      "when": "step === 'anexo' && selectedContrato && !loadingParent",
      "text": "Número de Participantes *",
@@ -3656,14 +3685,14 @@
     },
     {
      "kind": "label",
-     "line": 600,
+     "line": 615,
      "in": "AnnexForm",
      "when": "step === 'anexo' && selectedContrato && !loadingParent",
      "text": "Nombre del Ciclo *"
     },
     {
      "kind": "field",
-     "line": 603,
+     "line": 618,
      "in": "AnnexForm",
      "when": "step === 'anexo' && selectedContrato && !loadingParent",
      "text": "Nombre del Ciclo *",
@@ -3675,14 +3704,14 @@
     },
     {
      "kind": "label",
-     "line": 615,
+     "line": 630,
      "in": "AnnexForm",
      "when": "step === 'anexo' && selectedContrato && !loadingParent",
      "text": "Tipo de Moneda *"
     },
     {
      "kind": "field",
-     "line": 618,
+     "line": 633,
      "in": "AnnexForm",
      "when": "step === 'anexo' && selectedContrato && !loadingParent",
      "text": "Tipo de Moneda *",
@@ -3695,14 +3724,14 @@
     },
     {
      "kind": "label",
-     "line": 629,
+     "line": 644,
      "in": "AnnexForm",
      "when": "step === 'anexo' && selectedContrato && !loadingParent",
      "text": "Precio Total ( {annexForm.tipo_moneda} ) *"
     },
     {
      "kind": "field",
-     "line": 632,
+     "line": 647,
      "in": "AnnexForm",
      "when": "step === 'anexo' && selectedContrato && !loadingParent",
      "text": "Precio Total ( {annexForm.tipo_moneda} ) *",
@@ -3712,7 +3741,7 @@
     },
     {
      "kind": "heading",
-     "line": 649,
+     "line": 664,
      "in": "AnnexForm",
      "when": "step === 'cuotas' && !loadingParent",
      "text": "Configurar Cuotas",
@@ -3720,7 +3749,7 @@
     },
     {
      "kind": "button",
-     "line": 650,
+     "line": 665,
      "in": "AnnexForm",
      "when": "step === 'cuotas' && !loadingParent",
      "text": "Agregar Cuota",
@@ -3728,7 +3757,7 @@
     },
     {
      "kind": "heading",
-     "line": 664,
+     "line": 679,
      "in": "AnnexForm",
      "when": "step === 'cuotas' && !loadingParent && each cuotas",
      "text": "Cuota {cuota.numero_cuota}",
@@ -3736,7 +3765,7 @@
     },
     {
      "kind": "button",
-     "line": 666,
+     "line": 681,
      "in": "AnnexForm",
      "when": "step === 'cuotas' && !loadingParent && each cuotas && cuotas.length > 1",
      "text": "[icon Trash2]",
@@ -3745,14 +3774,14 @@
     },
     {
      "kind": "label",
-     "line": 679,
+     "line": 694,
      "in": "AnnexForm",
      "when": "step === 'cuotas' && !loadingParent && each cuotas",
      "text": "Fecha de Vencimiento *"
     },
     {
      "kind": "field",
-     "line": 682,
+     "line": 697,
      "in": "AnnexForm",
      "when": "step === 'cuotas' && !loadingParent && each cuotas",
      "text": "Fecha de Vencimiento *",
@@ -3761,14 +3790,14 @@
     },
     {
      "kind": "label",
-     "line": 691,
+     "line": 706,
      "in": "AnnexForm",
      "when": "step === 'cuotas' && !loadingParent && each cuotas",
      "text": "Monto ( {annexForm.tipo_moneda} ) *"
     },
     {
      "kind": "field",
-     "line": 694,
+     "line": 709,
      "in": "AnnexForm",
      "when": "step === 'cuotas' && !loadingParent && each cuotas",
      "text": "Monto ( {annexForm.tipo_moneda} ) *",
@@ -3778,21 +3807,21 @@
     },
     {
      "kind": "text",
-     "line": 710,
+     "line": 725,
      "in": "AnnexForm",
      "when": "step === 'cuotas' && !loadingParent",
      "text": "Total del Anexo:"
     },
     {
      "kind": "text",
-     "line": 713,
+     "line": 728,
      "in": "AnnexForm",
      "when": "step === 'cuotas' && !loadingParent",
      "text": "Suma de Cuotas:"
     },
     {
      "kind": "button",
-     "line": 723,
+     "line": 738,
      "in": "AnnexForm",
      "when": "!loadingParent",
      "text": "Cancelar",
@@ -3800,15 +3829,15 @@
     },
     {
      "kind": "button",
-     "line": 731,
+     "line": 746,
      "in": "AnnexForm",
-     "when": "!loadingParent && step !== 'cliente'",
+     "when": "!loadingParent && step !== 'cliente' && !(editingAnnex && step === 'anexo')",
      "text": "Anterior",
      "action": "{prevStep}"
     },
     {
      "kind": "button",
-     "line": 743,
+     "line": 758,
      "in": "AnnexForm",
      "when": "!loadingParent && step === 'cuotas'",
      "text": "Vista Previa",
@@ -3816,7 +3845,7 @@
     },
     {
      "kind": "button",
-     "line": 754,
+     "line": 769,
      "in": "AnnexForm",
      "when": "!loadingParent && step === 'cuotas'",
      "text": "Guardando... / Actualizar Anexo / Crear Anexo",
@@ -3825,7 +3854,7 @@
     },
     {
      "kind": "button",
-     "line": 773,
+     "line": 788,
      "in": "AnnexForm",
      "when": "!loadingParent && !(step === 'cuotas')",
      "text": "Siguiente",
@@ -3853,49 +3882,74 @@
    "usedBy": [
     "/contracts"
    ],
-   "lines": 899,
+   "lines": 949,
    "rows": [
     {
+     "kind": "message",
+     "line": 109,
+     "in": "loadUFValueAndGenerateCashFlow",
+     "when": "!isUsableUF(ufValue?.valor)",
+     "text": "UF value not usable",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
      "kind": "alert",
-     "line": 395,
+     "line": 436,
      "in": "handleInvoiceUpload",
      "text": "Error al subir la factura:"
     },
     {
      "kind": "alert",
-     "line": 418,
+     "line": 459,
      "in": "handlePaymentStatusToggle",
      "text": "Error al actualizar el estado de pago:"
     },
     {
      "kind": "heading",
-     "line": 446,
+     "line": 487,
      "in": "CashFlowView",
      "text": "Valor UF Actual",
      "level": 4
     },
     {
      "kind": "text",
-     "line": 447,
+     "line": 488,
      "in": "CashFlowView",
      "text": "Utilizado para proyecciones y conversiones"
     },
     {
      "kind": "value",
-     "line": 453,
+     "line": 494,
      "in": "CashFlowView",
      "when": "!(loading)",
-     "text": "{UFService.formatCurrency(currentUFV…}"
+     "text": "{UFService.formatCurrency(currentUFV…} / —"
     },
     {
      "kind": "text",
-     "line": 457,
+     "line": 499,
      "in": "CashFlowView",
+     "when": "ufOrigin?.source === 'live'",
      "text": "Actualizado automáticamente"
     },
     {
+     "kind": "hook",
+     "line": 502,
+     "in": "CashFlowView",
+     "when": "ufOrigin && ufOrigin.source !== 'live'",
+     "text": "role=status",
+     "type": "role",
+     "tag": "p"
+    },
+    {
+     "kind": "text",
+     "line": 502,
+     "in": "CashFlowView",
+     "when": "ufOrigin && ufOrigin.source !== 'live'",
+     "text": "No se pudo obtener la UF de hoy. Se usa el valor del {formatUFDate(ufOrigin.fecha)}. / No se pudo obtener la UF de hoy. Se usa un valor de referencia del {formatUFDate(ufOrigin.fecha)}."
+    },
+    {
      "kind": "button",
-     "line": 467,
+     "line": 517,
      "in": "CashFlowView",
      "when": "each (['3m', '6m', '12m'] as const)",
      "text": "[3 Meses] [6 Meses] [12 Meses]",
@@ -3903,49 +3957,49 @@
     },
     {
      "kind": "button",
-     "line": 485,
+     "line": 535,
      "in": "CashFlowView",
      "text": "UF",
      "action": "{() => setCurrencyDisplay('UF')}"
     },
     {
      "kind": "button",
-     "line": 495,
+     "line": 545,
      "in": "CashFlowView",
      "text": "CLP",
      "action": "{() => setCurrencyDisplay('CLP')}"
     },
     {
      "kind": "button",
-     "line": 505,
+     "line": 555,
      "in": "CashFlowView",
      "text": "Ambos",
      "action": "{() => setCurrencyDisplay('BOTH')}"
     },
     {
      "kind": "button",
-     "line": 519,
+     "line": 569,
      "in": "CashFlowView",
      "text": "Vista Mensual",
      "action": "{() => setViewType('monthly')}"
     },
     {
      "kind": "button",
-     "line": 529,
+     "line": 579,
      "in": "CashFlowView",
      "text": "Vista Detallada",
      "action": "{() => setViewType('detailed')}"
     },
     {
      "kind": "text",
-     "line": 548,
+     "line": 598,
      "in": "CashFlowView",
      "when": "viewType === 'detailed'",
      "text": "Filtrar por estado:"
     },
     {
      "kind": "button",
-     "line": 551,
+     "line": 601,
      "in": "CashFlowView",
      "when": "viewType === 'detailed'",
      "text": "Todas",
@@ -3953,7 +4007,7 @@
     },
     {
      "kind": "button",
-     "line": 561,
+     "line": 611,
      "in": "CashFlowView",
      "when": "viewType === 'detailed'",
      "text": "Vencidas sin pagar",
@@ -3961,7 +4015,7 @@
     },
     {
      "kind": "button",
-     "line": 571,
+     "line": 621,
      "in": "CashFlowView",
      "when": "viewType === 'detailed'",
      "text": "Vencidas pagadas",
@@ -3969,159 +4023,159 @@
     },
     {
      "kind": "heading",
-     "line": 590,
+     "line": 640,
      "in": "CashFlowView",
      "text": "Resumen de Todos los Contratos",
      "level": 3
     },
     {
      "kind": "text",
-     "line": 591,
+     "line": 641,
      "in": "CashFlowView",
      "text": "( {getAllContractsTotals().contractCou…} contratos incluidos en flujo)"
     },
     {
      "kind": "text",
-     "line": 597,
+     "line": 647,
      "in": "CashFlowView",
      "text": "Total de Contratos"
     },
     {
      "kind": "value",
-     "line": 598,
+     "line": 648,
      "in": "CashFlowView",
-     "text": "{formatCurrency(getAllContractsTotal…}"
+     "text": "{formatTotal(getAllContractsTotals()…}"
     },
     {
      "kind": "text",
-     "line": 599,
+     "line": 649,
      "in": "CashFlowView",
      "text": "Valor total de todos los contratos"
     },
     {
      "kind": "text",
-     "line": 608,
+     "line": 658,
      "in": "CashFlowView",
      "text": "Total Pagado"
     },
     {
      "kind": "value",
-     "line": 609,
+     "line": 659,
      "in": "CashFlowView",
-     "text": "{formatCurrency(getAllContractsTotal…}"
+     "text": "{formatTotal(getAllContractsTotals()…}"
     },
     {
      "kind": "text",
-     "line": 610,
+     "line": 660,
      "in": "CashFlowView",
      "text": "Cuotas ya pagadas"
     },
     {
      "kind": "text",
-     "line": 619,
+     "line": 669,
      "in": "CashFlowView",
      "text": "Total Pendiente"
     },
     {
      "kind": "value",
-     "line": 620,
+     "line": 670,
      "in": "CashFlowView",
-     "text": "{formatCurrency(getAllContractsTotal…}"
+     "text": "{formatTotal(getAllContractsTotals()…}"
     },
     {
      "kind": "text",
-     "line": 621,
+     "line": 671,
      "in": "CashFlowView",
      "text": "Cuotas por cobrar"
     },
     {
      "kind": "heading",
-     "line": 632,
+     "line": 682,
      "in": "CashFlowView",
      "text": "Flujo de Caja - Próximos 3 / 6 / 12 Meses",
      "level": 3
     },
     {
      "kind": "text",
-     "line": 633,
+     "line": 683,
      "in": "CashFlowView",
      "text": "Solo cuotas vencen en el período seleccionado"
     },
     {
      "kind": "text",
-     "line": 639,
+     "line": 689,
      "in": "CashFlowView",
      "text": "Proyectado ( 3 / 6 / 12 meses)"
     },
     {
      "kind": "value",
-     "line": 640,
+     "line": 690,
      "in": "CashFlowView",
-     "text": "{formatCurrency(getTotalProjected().…}"
+     "text": "{formatTotal(getTotalProjected())}"
     },
     {
      "kind": "text",
-     "line": 641,
+     "line": 691,
      "in": "CashFlowView",
      "text": "Cuotas que vencen en período"
     },
     {
      "kind": "text",
-     "line": 650,
+     "line": 700,
      "in": "CashFlowView",
      "text": "Pagado (período)"
     },
     {
      "kind": "value",
-     "line": 651,
+     "line": 701,
      "in": "CashFlowView",
-     "text": "{formatCurrency(getTotalPaid().uf, '…}"
+     "text": "{formatTotal(getTotalPaid())}"
     },
     {
      "kind": "text",
-     "line": 652,
+     "line": 702,
      "in": "CashFlowView",
      "text": "Cuotas pagadas en período"
     },
     {
      "kind": "text",
-     "line": 661,
+     "line": 711,
      "in": "CashFlowView",
      "text": "Pendiente (período)"
     },
     {
      "kind": "value",
-     "line": 662,
+     "line": 712,
      "in": "CashFlowView",
-     "text": "{formatCurrency(getTotalPending().uf…}"
+     "text": "{formatTotal(getTotalPending())}"
     },
     {
      "kind": "text",
-     "line": 663,
+     "line": 713,
      "in": "CashFlowView",
      "text": "Cuotas pendientes en período"
     },
     {
      "kind": "text",
-     "line": 676,
+     "line": 726,
      "in": "CashFlowView",
      "text": "Cuotas Vencidas"
     },
     {
      "kind": "value",
-     "line": 677,
+     "line": 727,
      "in": "CashFlowView",
      "text": "{overdueCuotas.length}"
     },
     {
      "kind": "text",
-     "line": 678,
+     "line": 728,
      "in": "CashFlowView",
      "text": "Cuotas que ya pasaron su fecha límite"
     },
     {
      "kind": "heading",
-     "line": 691,
+     "line": 741,
      "in": "CashFlowView",
      "when": "overdueCuotas.length > 0",
      "text": "Cuotas Vencidas ( {overdueCuotas.length} )",
@@ -4129,7 +4183,7 @@
     },
     {
      "kind": "button",
-     "line": 694,
+     "line": 744,
      "in": "CashFlowView",
      "when": "overdueCuotas.length > 0 && overdueCuotas.length > 5",
      "text": "Ver menos / Ver todas",
@@ -4137,56 +4191,56 @@
     },
     {
      "kind": "value",
-     "line": 714,
+     "line": 764,
      "in": "CashFlowView",
      "when": "overdueCuotas.length > 0 && each (showAllOverdue ? overdueCuotas : overdueCuotas.s…",
      "text": "{contrato.clientes.nombre_legal}"
     },
     {
      "kind": "text",
-     "line": 715,
+     "line": 765,
      "in": "CashFlowView",
      "when": "overdueCuotas.length > 0 && each (showAllOverdue ? overdueCuotas : overdueCuotas.s…",
      "text": "Contrato {contrato.numero_contrato} - Cuota {cuota.numero_cuota}"
     },
     {
      "kind": "value",
-     "line": 720,
+     "line": 770,
      "in": "CashFlowView",
      "when": "overdueCuotas.length > 0 && each (showAllOverdue ? overdueCuotas : overdueCuotas.s…",
      "text": "{formatCurrency(cuota.monto_uf, cont…}"
     },
     {
      "kind": "text",
-     "line": 721,
+     "line": 771,
      "in": "CashFlowView",
      "when": "overdueCuotas.length > 0 && each (showAllOverdue ? overdueCuotas : overdueCuotas.s…",
      "text": "Vence: {formatDate(cuota.fecha_vencimiento)}"
     },
     {
      "kind": "text",
-     "line": 727,
+     "line": 777,
      "in": "CashFlowView",
      "when": "overdueCuotas.length > 0 && !showAllOverdue && overdueCuotas.length > 5",
      "text": "... y {overdueCuotas.length - 5} cuotas vencidas más"
     },
     {
      "kind": "text",
-     "line": 731,
+     "line": 781,
      "in": "CashFlowView",
      "when": "overdueCuotas.length > 0 && !showAllOverdue && overdueCuotas.length > 5",
      "text": "Haz clic en &quot;Ver todas&quot; arriba para mostrar todas las cuotas vencidas"
     },
     {
      "kind": "heading",
-     "line": 742,
+     "line": 792,
      "in": "CashFlowView",
      "text": "Proyección de Flujo de Caja - Mensual / Detallada",
      "level": 3
     },
     {
      "kind": "heading",
-     "line": 754,
+     "line": 804,
      "in": "CashFlowView",
      "when": "viewType === 'monthly' && each cashFlow",
      "text": "{formatMonth(item.fecha)}",
@@ -4194,168 +4248,168 @@
     },
     {
      "kind": "value",
-     "line": 758,
+     "line": 808,
      "in": "CashFlowView",
      "when": "viewType === 'monthly' && each cashFlow",
      "text": "{formatCurrency(item.total_mes, 'UF'…}"
     },
     {
      "kind": "text",
-     "line": 761,
+     "line": 811,
      "in": "CashFlowView",
      "when": "viewType === 'monthly' && each cashFlow",
      "text": "{item.cuotas.length} cuotas programadas"
     },
     {
      "kind": "text",
-     "line": 769,
+     "line": 819,
      "in": "CashFlowView",
      "when": "viewType === 'monthly' && each cashFlow",
      "text": "Pagado"
     },
     {
      "kind": "value",
-     "line": 770,
+     "line": 820,
      "in": "CashFlowView",
      "when": "viewType === 'monthly' && each cashFlow",
      "text": "{formatCurrency(item.total_pagado, '…}"
     },
     {
      "kind": "text",
-     "line": 775,
+     "line": 825,
      "in": "CashFlowView",
      "when": "viewType === 'monthly' && each cashFlow",
      "text": "Pendiente"
     },
     {
      "kind": "value",
-     "line": 776,
+     "line": 826,
      "in": "CashFlowView",
      "when": "viewType === 'monthly' && each cashFlow",
      "text": "{formatCurrency(item.total_pendiente…}"
     },
     {
      "kind": "text",
-     "line": 781,
+     "line": 831,
      "in": "CashFlowView",
      "when": "viewType === 'monthly' && each cashFlow",
      "text": "% Cobrado"
     },
     {
      "kind": "value",
-     "line": 782,
+     "line": 832,
      "in": "CashFlowView",
      "when": "viewType === 'monthly' && each cashFlow",
      "text": "{((item.total_pagado / item.total_me…} / 0 %"
     },
     {
      "kind": "column",
-     "line": 796,
+     "line": 846,
      "in": "CashFlowView",
      "when": "!(viewType === 'monthly')",
      "text": "Fecha"
     },
     {
      "kind": "column",
-     "line": 797,
+     "line": 847,
      "in": "CashFlowView",
      "when": "!(viewType === 'monthly')",
      "text": "Cliente"
     },
     {
      "kind": "column",
-     "line": 798,
+     "line": 848,
      "in": "CashFlowView",
      "when": "!(viewType === 'monthly')",
      "text": "Contrato"
     },
     {
      "kind": "column",
-     "line": 799,
+     "line": 849,
      "in": "CashFlowView",
      "when": "!(viewType === 'monthly')",
      "text": "Cuota"
     },
     {
      "kind": "column",
-     "line": 800,
+     "line": 850,
      "in": "CashFlowView",
      "when": "!(viewType === 'monthly')",
      "text": "Monto"
     },
     {
      "kind": "column",
-     "line": 801,
+     "line": 851,
      "in": "CashFlowView",
      "when": "!(viewType === 'monthly')",
      "text": "Estado"
     },
     {
      "kind": "column",
-     "line": 802,
+     "line": 852,
      "in": "CashFlowView",
      "when": "!(viewType === 'monthly')",
      "text": "Factura"
     },
     {
      "kind": "column",
-     "line": 803,
+     "line": 853,
      "in": "CashFlowView",
      "when": "!(viewType === 'monthly')",
      "text": "Pagado"
     },
     {
      "kind": "value",
-     "line": 812,
+     "line": 862,
      "in": "CashFlowView",
      "when": "!(viewType === 'monthly') && each cashFlow && each filterCuotas(monthItem.cuotas) .sort((a, b) => a.…",
      "text": "{formatDate(cuota.fecha_vencimiento)}"
     },
     {
      "kind": "value",
-     "line": 815,
+     "line": 865,
      "in": "CashFlowView",
      "when": "!(viewType === 'monthly') && each cashFlow && each filterCuotas(monthItem.cuotas) .sort((a, b) => a.…",
      "text": "{contrato.clientes.nombre_legal}"
     },
     {
      "kind": "value",
-     "line": 816,
+     "line": 866,
      "in": "CashFlowView",
      "when": "!(viewType === 'monthly') && each cashFlow && each filterCuotas(monthItem.cuotas) .sort((a, b) => a.…",
      "text": "{contrato.clientes.nombre_fantasia}"
     },
     {
      "kind": "value",
-     "line": 819,
+     "line": 869,
      "in": "CashFlowView",
      "when": "!(viewType === 'monthly') && each cashFlow && each filterCuotas(monthItem.cuotas) .sort((a, b) => a.…",
      "text": "{contrato.numero_contrato}"
     },
     {
      "kind": "text",
-     "line": 820,
+     "line": 870,
      "in": "CashFlowView",
      "when": "!(viewType === 'monthly') && each cashFlow && each filterCuotas(monthItem.cuotas) .sort((a, b) => a.…",
      "text": "Cuota {cuota.numero_cuota}"
     },
     {
      "kind": "value",
-     "line": 821,
+     "line": 871,
      "in": "CashFlowView",
      "when": "!(viewType === 'monthly') && each cashFlow && each filterCuotas(monthItem.cuotas) .sort((a, b) => a.…",
      "text": "{formatCurrency(cuota.monto_uf, cont…}"
     },
     {
      "kind": "text",
-     "line": 823,
+     "line": 873,
      "in": "CashFlowView",
      "when": "!(viewType === 'monthly') && each cashFlow && each filterCuotas(monthItem.cuotas) .sort((a, b) => a.…",
      "text": "Pagada / Vencida / Pendiente"
     },
     {
      "kind": "button",
-     "line": 841,
+     "line": 891,
      "in": "CashFlowView",
      "when": "!(viewType === 'monthly') && each cashFlow && each filterCuotas(monthItem.cuotas) .sort((a, b) => a.… && cuota.factura_url",
      "text": "Ver",
@@ -4367,14 +4421,14 @@
     },
     {
      "kind": "label",
-     "line": 851,
+     "line": 901,
      "in": "CashFlowView",
      "when": "!(viewType === 'monthly') && each cashFlow && each filterCuotas(monthItem.cuotas) .sort((a, b) => a.… && !(cuota.factura_url)",
      "text": "[icon Upload]"
     },
     {
      "kind": "field",
-     "line": 852,
+     "line": 902,
      "in": "CashFlowView",
      "when": "!(viewType === 'monthly') && each cashFlow && each filterCuotas(monthItem.cuotas) .sort((a, b) => a.… && !(cuota.factura_url)",
      "screen": "hidden",
@@ -4385,7 +4439,7 @@
     },
     {
      "kind": "button",
-     "line": 876,
+     "line": 926,
      "in": "CashFlowView",
      "when": "!(viewType === 'monthly') && each cashFlow && each filterCuotas(monthItem.cuotas) .sort((a, b) => a.…",
      "text": "[icon Check]",
@@ -4411,11 +4465,11 @@
    "usedBy": [
     "/contracts"
    ],
-   "lines": 1017,
+   "lines": 1045,
    "rows": [
     {
      "kind": "hook",
-     "line": 139,
+     "line": 140,
      "in": "ContractDetailsModal",
      "when": "isOpen",
      "text": "document.addEventListener('keydown')",
@@ -4423,7 +4477,7 @@
     },
     {
      "kind": "hook",
-     "line": 153,
+     "line": 154,
      "in": "ContractDetailsModal",
      "when": "showActivateConfirm",
      "text": "cancelActivateRef.current.focus()",
@@ -4431,13 +4485,13 @@
     },
     {
      "kind": "gate",
-     "line": 167,
+     "line": 168,
      "in": "ContractDetailsModal",
      "text": "!isOpen"
     },
     {
      "kind": "list",
-     "line": 175,
+     "line": 180,
      "in": "ContractDetailsModal",
      "text": "uploadVariant",
      "items": [
@@ -4446,7 +4500,7 @@
     },
     {
      "kind": "list",
-     "line": 223,
+     "line": 228,
      "in": "formatFileSize",
      "text": "sizes",
      "items": [
@@ -4457,212 +4511,235 @@
     },
     {
      "kind": "popup",
-     "line": 369,
+     "line": 374,
      "in": "ContractDetailsModal",
      "text": "{contrato.numero_contrato}",
      "how": "written in this file"
     },
     {
      "kind": "heading",
-     "line": 378,
+     "line": 383,
      "in": "ContractDetailsModal",
      "text": "{contrato.numero_contrato}",
      "level": 2
     },
     {
      "kind": "text",
-     "line": 379,
+     "line": 384,
      "in": "ContractDetailsModal",
      "text": "Detalles del Contrato"
     },
     {
      "kind": "button",
-     "line": 381,
+     "line": 386,
      "in": "ContractDetailsModal",
      "text": "[icon X]",
      "action": "{onClose}"
     },
     {
      "kind": "text",
-     "line": 394,
+     "line": 399,
      "in": "ContractDetailsModal",
      "text": "Activo / Borrador / Pendiente"
     },
     {
      "kind": "text",
-     "line": 406,
+     "line": 411,
      "in": "ContractDetailsModal",
      "when": "firmaPendiente",
      "text": "Firma pendiente"
     },
     {
      "kind": "button",
-     "line": 410,
+     "line": 415,
      "in": "ContractDetailsModal",
      "text": "En Flujo de Caja / Fuera de Flujo",
      "action": "{() => onToggleCashFlow(contrato)}"
     },
     {
      "kind": "button",
-     "line": 424,
+     "line": 429,
      "in": "ContractDetailsModal",
      "text": "Editar",
      "action": "{() => onEdit(contrato)}"
     },
     {
      "kind": "button",
-     "line": 432,
+     "line": 437,
      "in": "ContractDetailsModal",
      "text": "PDF",
      "action": "{() => onGeneratePDF(contrato)}"
     },
     {
      "kind": "button",
-     "line": 440,
+     "line": 445,
      "in": "ContractDetailsModal",
      "text": "Eliminar",
      "action": "{() => onDelete(contrato)}"
     },
     {
      "kind": "heading",
-     "line": 454,
+     "line": 459,
      "in": "ContractDetailsModal",
      "text": "Información del Contrato",
      "level": 3
     },
     {
      "kind": "text",
-     "line": 460,
+     "line": 465,
      "in": "ContractDetailsModal",
      "text": "Número de Contrato"
     },
     {
      "kind": "value",
-     "line": 461,
+     "line": 466,
      "in": "ContractDetailsModal",
      "text": "{contrato.numero_contrato}"
     },
     {
      "kind": "text",
-     "line": 468,
+     "line": 473,
      "in": "ContractDetailsModal",
      "text": "Fecha de Contrato"
     },
     {
      "kind": "value",
-     "line": 469,
+     "line": 474,
      "in": "ContractDetailsModal",
      "text": "{formatDate(contrato.fecha_contrato)}"
     },
     {
      "kind": "text",
-     "line": 477,
+     "line": 482,
      "in": "ContractDetailsModal",
      "when": "contrato.fecha_fin",
      "text": "Fecha de Fin"
     },
     {
      "kind": "value",
-     "line": 478,
+     "line": 483,
      "in": "ContractDetailsModal",
      "when": "contrato.fecha_fin",
      "text": "{formatDate(contrato.fecha_fin)}"
     },
     {
      "kind": "text",
-     "line": 486,
+     "line": 491,
      "in": "ContractDetailsModal",
      "text": "Valor Total"
     },
     {
      "kind": "value",
-     "line": 487,
+     "line": 492,
      "in": "ContractDetailsModal",
      "text": "{formatCurrency(contrato.precio_tota…}"
     },
     {
+     "kind": "hook",
+     "line": 498,
+     "in": "ContractDetailsModal",
+     "when": "showHoursLine && !contrato.es_manual && !contrato.programas",
+     "text": "testid=contract-details-hours",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "text",
+     "line": 501,
+     "in": "ContractDetailsModal",
+     "when": "showHoursLine && !contrato.es_manual && !contrato.programas",
+     "text": "Horas contratadas"
+    },
+    {
+     "kind": "text",
+     "line": 502,
+     "in": "ContractDetailsModal",
+     "when": "showHoursLine && !contrato.es_manual && !contrato.programas",
+     "text": "{contrato.horas_contratadas} horas"
+    },
+    {
      "kind": "heading",
-     "line": 495,
+     "line": 511,
      "in": "ContractDetailsModal",
      "text": "Información del Cliente",
      "level": 3
     },
     {
      "kind": "text",
-     "line": 501,
+     "line": 517,
      "in": "ContractDetailsModal",
      "text": "Nombre Legal"
     },
     {
      "kind": "value",
-     "line": 502,
+     "line": 518,
      "in": "ContractDetailsModal",
      "text": "{contrato.clientes.nombre_legal}"
     },
     {
      "kind": "text",
-     "line": 509,
+     "line": 525,
      "in": "ContractDetailsModal",
      "text": "Nombre Fantasía"
     },
     {
      "kind": "value",
-     "line": 510,
+     "line": 526,
      "in": "ContractDetailsModal",
      "text": "{contrato.clientes.nombre_fantasia}"
     },
     {
      "kind": "text",
-     "line": 517,
+     "line": 533,
      "in": "ContractDetailsModal",
      "text": "RUT"
     },
     {
      "kind": "value",
-     "line": 518,
+     "line": 534,
      "in": "ContractDetailsModal",
      "text": "{contrato.clientes.rut}"
     },
     {
      "kind": "text",
-     "line": 525,
+     "line": 541,
      "in": "ContractDetailsModal",
      "text": "Dirección"
     },
     {
      "kind": "value",
-     "line": 526,
+     "line": 542,
      "in": "ContractDetailsModal",
      "text": "{contrato.clientes.direccion}"
     },
     {
      "kind": "value",
-     "line": 527,
+     "line": 543,
      "in": "ContractDetailsModal",
      "text": "{contrato.clientes.comuna} , {contrato.clientes.ciudad}"
     },
     {
      "kind": "text",
-     "line": 534,
+     "line": 550,
      "in": "ContractDetailsModal",
      "text": "Representante"
     },
     {
      "kind": "value",
-     "line": 535,
+     "line": 551,
      "in": "ContractDetailsModal",
      "text": "{contrato.clientes.nombre_representa…}"
     },
     {
      "kind": "text",
-     "line": 537,
+     "line": 553,
      "in": "ContractDetailsModal",
      "when": "contrato.clientes.rut_representante",
      "text": "RUT: {contrato.clientes.rut_representante}"
     },
     {
      "kind": "heading",
-     "line": 547,
+     "line": 563,
      "in": "ContractDetailsModal",
      "when": "(contrato.clientes.nombre_encargado_proyecto || contrato.clientes.telefono_encargado_proyecto || contrato.clientes.email_encargado_proyecto)",
      "text": "Encargado del Proyecto",
@@ -4670,49 +4747,49 @@
     },
     {
      "kind": "text",
-     "line": 553,
+     "line": 569,
      "in": "ContractDetailsModal",
      "when": "((contrato.clientes.nombre_encargado_proyecto || contrato.clientes.telefono_encargado_proyecto || contrato.clientes.email_encargado_proyecto)) && contrato.clientes.nombre_encargado_proyecto",
      "text": "Nombre"
     },
     {
      "kind": "value",
-     "line": 554,
+     "line": 570,
      "in": "ContractDetailsModal",
      "when": "((contrato.clientes.nombre_encargado_proyecto || contrato.clientes.telefono_encargado_proyecto || contrato.clientes.email_encargado_proyecto)) && contrato.clientes.nombre_encargado_proyecto",
      "text": "{contrato.clientes.nombre_encargado_…}"
     },
     {
      "kind": "text",
-     "line": 566,
+     "line": 582,
      "in": "ContractDetailsModal",
      "when": "((contrato.clientes.nombre_encargado_proyecto || contrato.clientes.telefono_encargado_proyecto || contrato.clientes.email_encargado_proyecto)) && contrato.clientes.telefono_encargado_proyecto",
      "text": "Teléfono"
     },
     {
      "kind": "value",
-     "line": 567,
+     "line": 583,
      "in": "ContractDetailsModal",
      "when": "((contrato.clientes.nombre_encargado_proyecto || contrato.clientes.telefono_encargado_proyecto || contrato.clientes.email_encargado_proyecto)) && contrato.clientes.telefono_encargado_proyecto",
      "text": "{contrato.clientes.telefono_encargad…}"
     },
     {
      "kind": "text",
-     "line": 578,
+     "line": 594,
      "in": "ContractDetailsModal",
      "when": "((contrato.clientes.nombre_encargado_proyecto || contrato.clientes.telefono_encargado_proyecto || contrato.clientes.email_encargado_proyecto)) && contrato.clientes.email_encargado_proyecto",
      "text": "Email"
     },
     {
      "kind": "value",
-     "line": 579,
+     "line": 595,
      "in": "ContractDetailsModal",
      "when": "((contrato.clientes.nombre_encargado_proyecto || contrato.clientes.telefono_encargado_proyecto || contrato.clientes.email_encargado_proyecto)) && contrato.clientes.email_encargado_proyecto",
      "text": "{contrato.clientes.email_encargado_p…}"
     },
     {
      "kind": "heading",
-     "line": 592,
+     "line": 608,
      "in": "ContractDetailsModal",
      "when": "(contrato.clientes.nombre_contacto_administrativo || contrato.clientes.telefono_contacto_administrativo || contrato.clientes.email_contacto_administrativo)",
      "text": "Contacto Administrativo",
@@ -4720,63 +4797,63 @@
     },
     {
      "kind": "text",
-     "line": 595,
+     "line": 611,
      "in": "ContractDetailsModal",
      "when": "(contrato.clientes.nombre_contacto_administrativo || contrato.clientes.telefono_contacto_administrativo || contrato.clientes.email_contacto_administrativo)",
      "text": "Contacto para facturación:"
     },
     {
      "kind": "text",
-     "line": 595,
+     "line": 611,
      "in": "ContractDetailsModal",
      "when": "(contrato.clientes.nombre_contacto_administrativo || contrato.clientes.telefono_contacto_administrativo || contrato.clientes.email_contacto_administrativo)",
      "text": "A esta persona se enviarán las facturas y documentos administrativos"
     },
     {
      "kind": "text",
-     "line": 603,
+     "line": 619,
      "in": "ContractDetailsModal",
      "when": "((contrato.clientes.nombre_contacto_administrativo || contrato.clientes.telefono_contacto_administrativo || contrato.clientes.email_contacto_administrativo)) && contrato.clientes.nombre_contacto_administrativo",
      "text": "Nombre"
     },
     {
      "kind": "value",
-     "line": 604,
+     "line": 620,
      "in": "ContractDetailsModal",
      "when": "((contrato.clientes.nombre_contacto_administrativo || contrato.clientes.telefono_contacto_administrativo || contrato.clientes.email_contacto_administrativo)) && contrato.clientes.nombre_contacto_administrativo",
      "text": "{contrato.clientes.nombre_contacto_a…}"
     },
     {
      "kind": "text",
-     "line": 616,
+     "line": 632,
      "in": "ContractDetailsModal",
      "when": "((contrato.clientes.nombre_contacto_administrativo || contrato.clientes.telefono_contacto_administrativo || contrato.clientes.email_contacto_administrativo)) && contrato.clientes.telefono_contacto_administrativo",
      "text": "Teléfono"
     },
     {
      "kind": "value",
-     "line": 617,
+     "line": 633,
      "in": "ContractDetailsModal",
      "when": "((contrato.clientes.nombre_contacto_administrativo || contrato.clientes.telefono_contacto_administrativo || contrato.clientes.email_contacto_administrativo)) && contrato.clientes.telefono_contacto_administrativo",
      "text": "{contrato.clientes.telefono_contacto…}"
     },
     {
      "kind": "text",
-     "line": 628,
+     "line": 644,
      "in": "ContractDetailsModal",
      "when": "((contrato.clientes.nombre_contacto_administrativo || contrato.clientes.telefono_contacto_administrativo || contrato.clientes.email_contacto_administrativo)) && contrato.clientes.email_contacto_administrativo",
      "text": "Email de Facturación"
     },
     {
      "kind": "value",
-     "line": 629,
+     "line": 645,
      "in": "ContractDetailsModal",
      "when": "((contrato.clientes.nombre_contacto_administrativo || contrato.clientes.telefono_contacto_administrativo || contrato.clientes.email_contacto_administrativo)) && contrato.clientes.email_contacto_administrativo",
      "text": "{contrato.clientes.email_contacto_ad…}"
     },
     {
      "kind": "heading",
-     "line": 643,
+     "line": 659,
      "in": "ContractDetailsModal",
      "when": "contrato.es_manual",
      "text": "Información del Contrato",
@@ -4784,35 +4861,58 @@
     },
     {
      "kind": "text",
-     "line": 646,
+     "line": 662,
      "in": "ContractDetailsModal",
      "when": "contrato.es_manual",
      "text": "Tipo de Contrato"
     },
     {
      "kind": "text",
-     "line": 647,
+     "line": 663,
      "in": "ContractDetailsModal",
      "when": "contrato.es_manual",
      "text": "Contrato Manual"
     },
     {
+     "kind": "hook",
+     "line": 666,
+     "in": "ContractDetailsModal",
+     "when": "contrato.es_manual && showHoursLine",
+     "text": "testid=contract-details-hours",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
      "kind": "text",
-     "line": 651,
+     "line": 667,
+     "in": "ContractDetailsModal",
+     "when": "contrato.es_manual && showHoursLine",
+     "text": "Horas contratadas"
+    },
+    {
+     "kind": "text",
+     "line": 668,
+     "in": "ContractDetailsModal",
+     "when": "contrato.es_manual && showHoursLine",
+     "text": "{contrato.horas_contratadas} horas"
+    },
+    {
+     "kind": "text",
+     "line": 673,
      "in": "ContractDetailsModal",
      "when": "contrato.es_manual && contrato.descripcion_manual",
      "text": "Descripción"
     },
     {
      "kind": "value",
-     "line": 652,
+     "line": 674,
      "in": "ContractDetailsModal",
      "when": "contrato.es_manual && contrato.descripcion_manual",
      "text": "{contrato.descripcion_manual}"
     },
     {
      "kind": "heading",
-     "line": 659,
+     "line": 681,
      "in": "ContractDetailsModal",
      "when": "!(contrato.es_manual) && contrato.programas",
      "text": "Información del Programa",
@@ -4820,77 +4920,100 @@
     },
     {
      "kind": "text",
-     "line": 663,
+     "line": 685,
      "in": "ContractDetailsModal",
      "when": "!(contrato.es_manual) && contrato.programas",
      "text": "Nombre del Programa"
     },
     {
      "kind": "value",
-     "line": 664,
+     "line": 686,
      "in": "ContractDetailsModal",
      "when": "!(contrato.es_manual) && contrato.programas",
      "text": "{contrato.programas.nombre}"
     },
     {
      "kind": "text",
-     "line": 667,
+     "line": 689,
      "in": "ContractDetailsModal",
      "when": "!(contrato.es_manual) && contrato.programas",
      "text": "Código de Servicio"
     },
     {
      "kind": "value",
-     "line": 668,
+     "line": 690,
      "in": "ContractDetailsModal",
      "when": "!(contrato.es_manual) && contrato.programas",
      "text": "{contrato.programas.codigo_servicio}"
     },
     {
      "kind": "text",
-     "line": 671,
+     "line": 693,
      "in": "ContractDetailsModal",
      "when": "!(contrato.es_manual) && contrato.programas",
      "text": "Modalidad"
     },
     {
      "kind": "value",
-     "line": 672,
+     "line": 694,
      "in": "ContractDetailsModal",
      "when": "!(contrato.es_manual) && contrato.programas",
      "text": "{contrato.programas.modalidad}"
     },
     {
      "kind": "text",
-     "line": 675,
+     "line": 697,
      "in": "ContractDetailsModal",
      "when": "!(contrato.es_manual) && contrato.programas",
-     "text": "Horas Totales"
+     "text": "Horas del programa"
     },
     {
      "kind": "text",
-     "line": 676,
+     "line": 698,
      "in": "ContractDetailsModal",
      "when": "!(contrato.es_manual) && contrato.programas",
      "text": "{contrato.programas.horas_totales} horas"
     },
     {
+     "kind": "hook",
+     "line": 701,
+     "in": "ContractDetailsModal",
+     "when": "!(contrato.es_manual) && contrato.programas && showHoursLine",
+     "text": "testid=contract-details-hours",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
      "kind": "text",
-     "line": 681,
+     "line": 702,
+     "in": "ContractDetailsModal",
+     "when": "!(contrato.es_manual) && contrato.programas && showHoursLine",
+     "text": "Horas contratadas"
+    },
+    {
+     "kind": "text",
+     "line": 703,
+     "in": "ContractDetailsModal",
+     "when": "!(contrato.es_manual) && contrato.programas && showHoursLine",
+     "text": "{contrato.horas_contratadas} horas"
+    },
+    {
+     "kind": "text",
+     "line": 709,
      "in": "ContractDetailsModal",
      "when": "!(contrato.es_manual) && contrato.programas && contrato.programas.descripcion",
      "text": "Descripción"
     },
     {
      "kind": "value",
-     "line": 682,
+     "line": 710,
      "in": "ContractDetailsModal",
      "when": "!(contrato.es_manual) && contrato.programas && contrato.programas.descripcion",
      "text": "{contrato.programas.descripcion}"
     },
     {
      "kind": "piece",
-     "line": 691,
+     "line": 719,
      "in": "ContractDetailsModal",
      "when": "contrato.estado === 'activo' && contrato.horas_contratadas != null && contrato.horas_contratadas > 0",
      "text": "",
@@ -4898,7 +5021,7 @@
     },
     {
      "kind": "heading",
-     "line": 701,
+     "line": 729,
      "in": "ContractDetailsModal",
      "when": "contrato.cuotas && contrato.cuotas.length > 0",
      "text": "Cronograma de Pagos ( {contrato.cuotas.length} cuotas)",
@@ -4906,84 +5029,84 @@
     },
     {
      "kind": "column",
-     "line": 708,
+     "line": 736,
      "in": "ContractDetailsModal",
      "when": "contrato.cuotas && contrato.cuotas.length > 0",
      "text": "Cuota"
     },
     {
      "kind": "column",
-     "line": 709,
+     "line": 737,
      "in": "ContractDetailsModal",
      "when": "contrato.cuotas && contrato.cuotas.length > 0",
      "text": "Fecha Vencimiento"
     },
     {
      "kind": "column",
-     "line": 710,
+     "line": 738,
      "in": "ContractDetailsModal",
      "when": "contrato.cuotas && contrato.cuotas.length > 0",
      "text": "Monto"
     },
     {
      "kind": "column",
-     "line": 711,
+     "line": 739,
      "in": "ContractDetailsModal",
      "when": "contrato.cuotas && contrato.cuotas.length > 0",
      "text": "Estado"
     },
     {
      "kind": "column",
-     "line": 712,
+     "line": 740,
      "in": "ContractDetailsModal",
      "when": "contrato.cuotas && contrato.cuotas.length > 0",
      "text": "Factura"
     },
     {
      "kind": "column",
-     "line": 713,
+     "line": 741,
      "in": "ContractDetailsModal",
      "when": "contrato.cuotas && contrato.cuotas.length > 0",
      "text": "Pagado"
     },
     {
      "kind": "text",
-     "line": 719,
+     "line": 747,
      "in": "ContractDetailsModal",
      "when": "contrato.cuotas && contrato.cuotas.length > 0 && each contrato.cuotas",
      "text": "Cuota {cuota.numero_cuota}"
     },
     {
      "kind": "value",
-     "line": 720,
+     "line": 748,
      "in": "ContractDetailsModal",
      "when": "contrato.cuotas && contrato.cuotas.length > 0 && each contrato.cuotas",
      "text": "{formatDate(cuota.fecha_vencimiento)}"
     },
     {
      "kind": "value",
-     "line": 721,
+     "line": 749,
      "in": "ContractDetailsModal",
      "when": "contrato.cuotas && contrato.cuotas.length > 0 && each contrato.cuotas",
      "text": "{formatCurrency(cuota.monto_uf)}"
     },
     {
      "kind": "text",
-     "line": 723,
+     "line": 751,
      "in": "ContractDetailsModal",
      "when": "contrato.cuotas && contrato.cuotas.length > 0 && each contrato.cuotas",
      "text": "Pagada / Vencida / Pendiente"
     },
     {
      "kind": "value",
-     "line": 745,
+     "line": 773,
      "in": "ContractDetailsModal",
      "when": "contrato.cuotas && contrato.cuotas.length > 0 && each contrato.cuotas && cuota.factura_url && !hiddenInvoices.has(cuota.id)",
      "text": "{getFileIcon(cuota.factura_type)}"
     },
     {
      "kind": "text",
-     "line": 746,
+     "line": 774,
      "in": "ContractDetailsModal",
      "when": "contrato.cuotas && contrato.cuotas.length > 0 && each contrato.cuotas && cuota.factura_url && !hiddenInvoices.has(cuota.id)",
      "text": "{cuota.factura_filename || cuota.factura_url.split('/').pop()}",
@@ -4991,28 +5114,28 @@
     },
     {
      "kind": "text",
-     "line": 746,
+     "line": 774,
      "in": "ContractDetailsModal",
      "when": "contrato.cuotas && contrato.cuotas.length > 0 && each contrato.cuotas && cuota.factura_url && !hiddenInvoices.has(cuota.id)",
      "text": "{cuota.factura_filename} / {cuota.factura_url.split('/').pop()?…} / Factura"
     },
     {
      "kind": "value",
-     "line": 753,
+     "line": 781,
      "in": "ContractDetailsModal",
      "when": "contrato.cuotas && contrato.cuotas.length > 0 && each contrato.cuotas && cuota.factura_url && !hiddenInvoices.has(cuota.id) && cuota.factura_size",
      "text": "{formatFileSize(cuota.factura_size)}"
     },
     {
      "kind": "value",
-     "line": 756,
+     "line": 784,
      "in": "ContractDetailsModal",
      "when": "contrato.cuotas && contrato.cuotas.length > 0 && each contrato.cuotas && cuota.factura_url && !hiddenInvoices.has(cuota.id) && cuota.factura_uploaded_at",
      "text": "• {formatUploadDate(cuota.factura_uplo…}"
     },
     {
      "kind": "button",
-     "line": 761,
+     "line": 789,
      "in": "ContractDetailsModal",
      "when": "contrato.cuotas && contrato.cuotas.length > 0 && each contrato.cuotas && cuota.factura_url && !hiddenInvoices.has(cuota.id)",
      "text": "[icon Eye]",
@@ -5025,7 +5148,7 @@
     },
     {
      "kind": "button",
-     "line": 772,
+     "line": 800,
      "in": "ContractDetailsModal",
      "when": "contrato.cuotas && contrato.cuotas.length > 0 && each contrato.cuotas && cuota.factura_url && !hiddenInvoices.has(cuota.id)",
      "text": "[icon Download]",
@@ -5038,7 +5161,7 @@
     },
     {
      "kind": "button",
-     "line": 783,
+     "line": 811,
      "in": "ContractDetailsModal",
      "when": "contrato.cuotas && contrato.cuotas.length > 0 && each contrato.cuotas && cuota.factura_url && !hiddenInvoices.has(cuota.id)",
      "text": "[icon Trash2]",
@@ -5048,14 +5171,14 @@
     },
     {
      "kind": "label",
-     "line": 801,
+     "line": 829,
      "in": "ContractDetailsModal",
      "when": "contrato.cuotas && contrato.cuotas.length > 0 && each contrato.cuotas && !(cuota.factura_url && !hiddenInvoices.has(cuota.id))",
      "text": "[icon Upload]"
     },
     {
      "kind": "field",
-     "line": 802,
+     "line": 830,
      "in": "ContractDetailsModal",
      "when": "contrato.cuotas && contrato.cuotas.length > 0 && each contrato.cuotas && !(cuota.factura_url && !hiddenInvoices.has(cuota.id))",
      "screen": "hidden",
@@ -5066,7 +5189,7 @@
     },
     {
      "kind": "text",
-     "line": 808,
+     "line": 836,
      "in": "ContractDetailsModal",
      "when": "contrato.cuotas && contrato.cuotas.length > 0 && each contrato.cuotas && !(cuota.factura_url && !hiddenInvoices.has(cuota.id))",
      "text": "Subir factura",
@@ -5074,7 +5197,7 @@
     },
     {
      "kind": "button",
-     "line": 821,
+     "line": 849,
      "in": "ContractDetailsModal",
      "when": "contrato.cuotas && contrato.cuotas.length > 0 && each contrato.cuotas",
      "text": "[icon Check]",
@@ -5083,7 +5206,7 @@
     },
     {
      "kind": "heading",
-     "line": 845,
+     "line": 873,
      "in": "ContractDetailsModal",
      "when": "(pendingActivation || firmaPendiente)",
      "text": "Subir Contrato Firmado",
@@ -5091,21 +5214,21 @@
     },
     {
      "kind": "value",
-     "line": 847,
+     "line": 875,
      "in": "ContractDetailsModal",
      "when": "(pendingActivation || firmaPendiente)",
      "text": "{uploadVariant.introText}"
     },
     {
      "kind": "label",
-     "line": 848,
+     "line": 876,
      "in": "ContractDetailsModal",
      "when": "(pendingActivation || firmaPendiente)",
      "text": "Subiendo... / Subir Contrato Firmado"
     },
     {
      "kind": "field",
-     "line": 849,
+     "line": 877,
      "in": "ContractDetailsModal",
      "when": "(pendingActivation || firmaPendiente)",
      "screen": "hidden",
@@ -5119,21 +5242,21 @@
     },
     {
      "kind": "text",
-     "line": 870,
+     "line": 898,
      "in": "ContractDetailsModal",
      "when": "((pendingActivation || firmaPendiente)) && pendingActivation && isBorrador",
      "text": "Este contrato es un borrador: complétalo y guárdalo antes de poder activarlo sin documento."
     },
     {
      "kind": "text",
-     "line": 875,
+     "line": 903,
      "in": "ContractDetailsModal",
      "when": "((pendingActivation || firmaPendiente)) && pendingActivation && !(isBorrador)",
      "text": "¿El cliente aún no envía el documento firmado?"
     },
     {
      "kind": "button",
-     "line": 877,
+     "line": 905,
      "in": "ContractDetailsModal",
      "when": "((pendingActivation || firmaPendiente)) && pendingActivation && !(isBorrador)",
      "text": "Activar sin documento firmado",
@@ -5144,14 +5267,14 @@
     },
     {
      "kind": "text",
-     "line": 890,
+     "line": 918,
      "in": "ContractDetailsModal",
      "when": "((pendingActivation || firmaPendiente)) && !pendingActivation && contrato.contrato_url",
      "text": "¿El documento ya cargado corresponde al contrato firmado?"
     },
     {
      "kind": "button",
-     "line": 892,
+     "line": 920,
      "in": "ContractDetailsModal",
      "when": "((pendingActivation || firmaPendiente)) && !pendingActivation && contrato.contrato_url",
      "text": "Marcar como firmado",
@@ -5162,7 +5285,7 @@
     },
     {
      "kind": "popup",
-     "line": 909,
+     "line": 937,
      "in": "ContractDetailsModal",
      "when": "deleteInvoiceId",
      "text": "Eliminar Factura",
@@ -5170,7 +5293,7 @@
     },
     {
      "kind": "heading",
-     "line": 917,
+     "line": 945,
      "in": "ContractDetailsModal",
      "when": "deleteInvoiceId",
      "text": "Eliminar Factura",
@@ -5178,28 +5301,28 @@
     },
     {
      "kind": "text",
-     "line": 918,
+     "line": 946,
      "in": "ContractDetailsModal",
      "when": "deleteInvoiceId",
      "text": "Esta acción no se puede deshacer"
     },
     {
      "kind": "text",
-     "line": 924,
+     "line": 952,
      "in": "ContractDetailsModal",
      "when": "deleteInvoiceId",
      "text": "¿Está seguro de que desea eliminar esta factura?"
     },
     {
      "kind": "text",
-     "line": 927,
+     "line": 955,
      "in": "ContractDetailsModal",
      "when": "deleteInvoiceId",
      "text": "La factura será eliminada permanentemente del sistema."
     },
     {
      "kind": "button",
-     "line": 932,
+     "line": 960,
      "in": "ContractDetailsModal",
      "when": "deleteInvoiceId",
      "text": "Cancelar",
@@ -5207,7 +5330,7 @@
     },
     {
      "kind": "button",
-     "line": 938,
+     "line": 966,
      "in": "ContractDetailsModal",
      "when": "deleteInvoiceId",
      "text": "Eliminar Factura",
@@ -5215,7 +5338,7 @@
     },
     {
      "kind": "popup",
-     "line": 952,
+     "line": 980,
      "in": "ContractDetailsModal",
      "when": "showActivateConfirm",
      "text": "Activar contrato sin documento",
@@ -5223,7 +5346,7 @@
     },
     {
      "kind": "popup",
-     "line": 953,
+     "line": 981,
      "in": "ContractDetailsModal",
      "when": "showActivateConfirm",
      "text": "Activar contrato sin documento",
@@ -5233,14 +5356,14 @@
     },
     {
      "kind": "gate",
-     "line": 961,
+     "line": 989,
      "in": "ContractDetailsModal",
      "when": "showActivateConfirm",
      "text": "event.key !== 'Tab'"
     },
     {
      "kind": "hook",
-     "line": 967,
+     "line": 995,
      "in": "ContractDetailsModal",
      "when": "showActivateConfirm",
      "text": "next.focus()",
@@ -5248,7 +5371,7 @@
     },
     {
      "kind": "heading",
-     "line": 976,
+     "line": 1004,
      "in": "ContractDetailsModal",
      "when": "showActivateConfirm",
      "text": "Activar contrato sin documento",
@@ -5260,28 +5383,28 @@
     },
     {
      "kind": "text",
-     "line": 977,
+     "line": 1005,
      "in": "ContractDetailsModal",
      "when": "showActivateConfirm",
      "text": "La firma quedará pendiente"
     },
     {
      "kind": "text",
-     "line": 983,
+     "line": 1011,
      "in": "ContractDetailsModal",
      "when": "showActivateConfirm",
      "text": "El contrato quedará activo y se incluirá en el flujo de caja."
     },
     {
      "kind": "text",
-     "line": 986,
+     "line": 1014,
      "in": "ContractDetailsModal",
      "when": "showActivateConfirm",
      "text": "Podrás subir el documento firmado cuando el cliente lo envíe; mientras tanto el contrato se mostrará con firma pendiente."
     },
     {
      "kind": "button",
-     "line": 991,
+     "line": 1019,
      "in": "ContractDetailsModal",
      "when": "showActivateConfirm",
      "text": "Cancelar",
@@ -5293,7 +5416,7 @@
     },
     {
      "kind": "button",
-     "line": 1000,
+     "line": 1028,
      "in": "ContractDetailsModal",
      "when": "showActivateConfirm",
      "text": "Activando... / Activar Contrato",
@@ -5305,37 +5428,37 @@
     },
     {
      "kind": "string",
-     "line": 190,
+     "line": 195,
      "in": "ContractDetailsModal",
      "text": "El contrato está activo sin documento firmado confirmado. Súbelo cuando el cliente lo envíe."
     },
     {
      "kind": "string",
-     "line": 247,
+     "line": 252,
      "in": "ContractDetailsModal",
      "text": "Hace {diffMins} minuto{diffMins !== 1 ? 's' : ''}"
     },
     {
      "kind": "string",
-     "line": 249,
+     "line": 254,
      "in": "ContractDetailsModal",
      "text": "Hace {diffHours} hora{diffHours !== 1 ? 's' : ''}"
     },
     {
      "kind": "string",
-     "line": 251,
+     "line": 256,
      "in": "ContractDetailsModal",
      "text": "Ayer"
     },
     {
      "kind": "string",
-     "line": 253,
+     "line": 258,
      "in": "ContractDetailsModal",
      "text": "Hace {diffDays} días"
     },
     {
      "kind": "list",
-     "line": 215,
+     "line": 220,
      "in": "formatCurrency",
      "text": "formatCurrency()",
      "items": [
@@ -5344,7 +5467,7 @@
     },
     {
      "kind": "list",
-     "line": 224,
+     "line": 229,
      "in": "formatFileSize",
      "text": "formatFileSize()",
      "items": [
@@ -5353,7 +5476,7 @@
     },
     {
      "kind": "list",
-     "line": 247,
+     "line": 252,
      "in": "formatUploadDate",
      "text": "formatUploadDate()",
      "items": [
@@ -5370,25 +5493,45 @@
    "usedBy": [
     "/contracts"
    ],
-   "lines": 1962,
+   "lines": 2191,
    "rows": [
     {
+     "kind": "list",
+     "line": 92,
+     "text": "DUPLICATE_DRAFT_NUMBER_MESSAGE",
+     "items": [
+      "Ya existe un contrato con este número. Por favor use un número diferente."
+     ]
+    },
+    {
      "kind": "gate",
-     "line": 356,
+     "line": 382,
      "in": "ContractForm",
      "text": "!licitacionData || editingContract"
     },
     {
      "kind": "toast",
-     "line": 405,
+     "line": 431,
      "in": "ContractForm",
      "when": "licitacionData.precio_total_uf != null && licitacionData.monto_minimo != null && licitacionData.monto_maximo != null && (precio < min || precio > max)",
      "text": "Advertencia: el precio adjudicado ({precio} {licitacionData.tipo_moneda …}) esta fuera del rango de la licitacion ({min}–{max} {licitacionData.tipo_moneda …})",
      "variant": "plain"
     },
     {
+     "kind": "gate",
+     "line": 446,
+     "in": "ContractForm",
+     "text": "!licitacionProgramaId || editingContract"
+    },
+    {
+     "kind": "gate",
+     "line": 479,
+     "in": "ContractForm",
+     "text": "cancelled"
+    },
+    {
      "kind": "toast",
-     "line": 504,
+     "line": 579,
      "in": "handleCreateSchool",
      "when": "!newSchoolForm.name.trim()",
      "text": "El nombre de la escuela es requerido",
@@ -5396,7 +5539,7 @@
     },
     {
      "kind": "message",
-     "line": 514,
+     "line": 589,
      "in": "handleCreateSchool",
      "when": "!session",
      "text": "No authenticated session",
@@ -5404,7 +5547,7 @@
     },
     {
      "kind": "message",
-     "line": 528,
+     "line": 603,
      "in": "handleCreateSchool",
      "when": "!response.ok",
      "text": "Error creating school",
@@ -5412,65 +5555,82 @@
     },
     {
      "kind": "toast",
-     "line": 556,
+     "line": 631,
      "in": "handleCreateSchool",
      "text": "Escuela creada exitosamente",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 559,
+     "line": 634,
      "in": "handleCreateSchool",
      "text": "Error al crear la escuela:",
      "variant": "error"
     },
     {
-     "kind": "alert",
-     "line": 572,
+     "kind": "toast",
+     "line": 675,
      "in": "handleSaveAsDraft",
      "when": "!contractForm.numero_contrato",
-     "text": "Por favor ingrese un número de contrato antes de guardar como borrador."
+     "text": "Por favor ingrese un número de contrato antes de guardar como borrador.",
+     "variant": "error"
     },
     {
-     "kind": "message",
-     "line": 681,
+     "kind": "toast",
+     "line": 683,
      "in": "handleSaveAsDraft",
-     "when": "!(editingContract) && !(existingDraft) && error && error.message.includes('duplicate key')",
-     "text": "Ya existe un contrato con este número. Por favor use un número diferente.",
-     "via": "throw (shown by whoever catches it)"
+     "when": "!cuota.fecha_vencimiento",
+     "text": "La cuota {cuota.numero_cuota} necesita una fecha de vencimiento para guardar el borrador.",
+     "variant": "error"
     },
     {
-     "kind": "alert",
-     "line": 725,
+     "kind": "toast",
+     "line": 687,
      "in": "handleSaveAsDraft",
-     "text": "✅ Contrato guardado como borrador. Puede continuar editándolo más tarde desde la lista de contratos."
+     "when": "!(cuota.monto > 0)",
+     "text": "La cuota {cuota.numero_cuota} necesita un monto mayor que cero para guardar el borrador.",
+     "variant": "error"
     },
     {
-     "kind": "alert",
-     "line": 729,
+     "kind": "toast",
+     "line": 692,
      "in": "handleSaveAsDraft",
-     "text": "Error al guardar el borrador. Por favor intente nuevamente."
+     "when": "amountPrecisionError",
+     "text": "{amountPrecisionError}",
+     "variant": "error"
     },
     {
-     "kind": "list",
-     "line": 812,
-     "in": "handleSaveContract",
-     "when": "!(editingContract) && !selectedClienteId",
-     "text": "clientData",
-     "items": [
-      "Notario Público"
-     ]
+     "kind": "toast",
+     "line": 724,
+     "in": "handleSaveAsDraft",
+     "when": "(!clienteId && (clienteForm.rut || clienteForm.nombre_legal)) && !clienteId && clienteError",
+     "text": "No se pudo guardar el cliente del borrador. Revise sus datos e inténtelo de nuevo.",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 841,
+     "in": "handleSaveAsDraft",
+     "text": "✅ Contrato guardado como borrador. Puede continuar editándolo más tarde desde la lista de contratos.",
+     "variant": "success"
+    },
+    {
+     "kind": "toast",
+     "line": 845,
+     "in": "handleSaveAsDraft",
+     "text": "No se pudo guardar el borrador. Inténtelo de nuevo.",
+     "variant": "error"
     },
     {
      "kind": "confirm",
-     "line": 853,
+     "line": 1000,
      "in": "handleSaveContract",
      "when": "!(editingContract) && !selectedClienteId && existingCliente",
      "text": "{confirmMessage}"
     },
     {
      "kind": "toast",
-     "line": 858,
+     "line": 1005,
      "in": "handleSaveContract",
      "when": "!(editingContract) && !selectedClienteId && existingCliente && !(confirm(confirmMessage))",
      "text": "Creación de contrato cancelada. Por favor verifica el RUT del cliente.",
@@ -5478,7 +5638,7 @@
     },
     {
      "kind": "message",
-     "line": 896,
+     "line": 1043,
      "in": "handleSaveContract",
      "when": "!(editingContract) && existingContract",
      "text": "El número de contrato \"{contractForm.numero_contrato}\" ya existe. Por favor, use un número diferente.",
@@ -5486,7 +5646,7 @@
     },
     {
      "kind": "message",
-     "line": 901,
+     "line": 1048,
      "in": "handleSaveContract",
      "when": "!(editingContract) && !clienteId",
      "text": "Error: No se pudo determinar el ID del cliente. Por favor, seleccione o cree un cliente válido.",
@@ -5494,7 +5654,7 @@
     },
     {
      "kind": "message",
-     "line": 936,
+     "line": 1084,
      "in": "handleSaveContract",
      "when": "!(editingContract) && contratoError && contratoError.message.includes('contratos_cliente_id_fkey')",
      "text": "Error: El cliente seleccionado no existe en la base de datos. Por favor, cree un nuevo cliente o seleccione uno existente.",
@@ -5502,63 +5662,63 @@
     },
     {
      "kind": "toast",
-     "line": 964,
+     "line": 1112,
      "in": "handleSaveContract",
      "text": "Error al guardar el contrato:",
      "variant": "error"
     },
     {
      "kind": "text",
-     "line": 1076,
+     "line": 1241,
      "in": "ContractForm",
      "when": "licitacionId && !extractedData",
      "text": "Datos pre-cargados desde licitacion."
     },
     {
      "kind": "text",
-     "line": 1076,
+     "line": 1241,
      "in": "ContractForm",
      "when": "licitacionId && !extractedData",
      "text": "El cliente, programa y monto han sido completados automaticamente. Revise y complete los campos restantes."
     },
     {
      "kind": "text",
-     "line": 1088,
+     "line": 1253,
      "in": "ContractForm",
      "when": "extractedData",
      "text": "Datos importados desde PDF"
     },
     {
      "kind": "text",
-     "line": 1090,
+     "line": 1255,
      "in": "ContractForm",
      "when": "extractedData",
      "text": "Los campos han sido pre-llenados con la información extraída. Por favor, revise y complete los campos faltantes."
     },
     {
      "kind": "text",
-     "line": 1095,
+     "line": 1260,
      "in": "ContractForm",
      "when": "extractedData && extractedData.overall_confidence",
      "text": "Confianza: {Math.round(extractedData.overall_co…} %"
     },
     {
      "kind": "value",
-     "line": 1117,
+     "line": 1282,
      "in": "ContractForm",
      "when": "each ['cliente', 'contrato', 'cuotas']",
      "text": "{index + 1}"
     },
     {
      "kind": "text",
-     "line": 1123,
+     "line": 1288,
      "in": "ContractForm",
      "when": "each ['cliente', 'contrato', 'cuotas']",
      "text": "[Cliente] [Contrato] [Cuotas]"
     },
     {
      "kind": "heading",
-     "line": 1144,
+     "line": 1309,
      "in": "ContractForm",
      "when": "step === 'cliente'",
      "text": "Información del Cliente",
@@ -5566,37 +5726,38 @@
     },
     {
      "kind": "label",
-     "line": 1150,
+     "line": 1315,
      "in": "ContractForm",
      "when": "step === 'cliente'",
      "text": "Contrato Manual (Subir PDF existente) Marque esta opción para contratos creados fuera del sistema. Solo se solicitará información operativa."
     },
     {
      "kind": "field",
-     "line": 1151,
+     "line": 1316,
      "in": "ContractForm",
      "when": "step === 'cliente'",
      "text": "Contrato Manual (Subir PDF existente) Marque esta opción para contratos creados fuera del sistema. Solo se solicitará información operativa.",
      "type": "checkbox",
+     "disabled": "{!!editingContract}",
      "action": "{(e) => setEsManual(e.target.checked)}"
     },
     {
      "kind": "text",
-     "line": 1170,
+     "line": 1337,
      "in": "ContractForm",
      "when": "step === 'cliente'",
      "text": "¿Tiene un PDF de contrato?"
     },
     {
      "kind": "text",
-     "line": 1172,
+     "line": 1339,
      "in": "ContractForm",
      "when": "step === 'cliente'",
      "text": "Use AI para extraer automáticamente la información del contrato"
     },
     {
      "kind": "button",
-     "line": 1175,
+     "line": 1342,
      "in": "ContractForm",
      "when": "step === 'cliente'",
      "text": "Importar con AI",
@@ -5604,14 +5765,14 @@
     },
     {
      "kind": "label",
-     "line": 1192,
+     "line": 1359,
      "in": "ContractForm",
      "when": "step === 'cliente'",
      "text": "Seleccionar Cliente Existente (Pre-seleccionado desde licitacion) / (Opcional)"
     },
     {
      "kind": "field",
-     "line": 1195,
+     "line": 1362,
      "in": "ContractForm",
      "when": "step === 'cliente'",
      "text": "Seleccionar Cliente Existente (Pre-seleccionado desde licitacion) / (Opcional)",
@@ -5625,21 +5786,21 @@
     },
     {
      "kind": "text",
-     "line": 1210,
+     "line": 1377,
      "in": "ContractForm",
      "when": "step === 'cliente' && licitacionId",
      "text": "Cliente fijado por la licitacion. No se puede cambiar."
     },
     {
      "kind": "label",
-     "line": 1218,
+     "line": 1385,
      "in": "ContractForm",
      "when": "step === 'cliente'",
      "text": "Escuela Asociada"
     },
     {
      "kind": "button",
-     "line": 1222,
+     "line": 1389,
      "in": "ContractForm",
      "when": "step === 'cliente'",
      "text": "Cancelar / + Nueva Escuela",
@@ -5647,7 +5808,7 @@
     },
     {
      "kind": "field",
-     "line": 1232,
+     "line": 1399,
      "in": "ContractForm",
      "when": "step === 'cliente' && !showNewSchoolForm",
      "text": "",
@@ -5660,7 +5821,7 @@
     },
     {
      "kind": "field",
-     "line": 1264,
+     "line": 1431,
      "in": "ContractForm",
      "when": "step === 'cliente' && !(!showNewSchoolForm)",
      "text": "Nombre de la escuela *",
@@ -5670,7 +5831,7 @@
     },
     {
      "kind": "field",
-     "line": 1273,
+     "line": 1440,
      "in": "ContractForm",
      "when": "step === 'cliente' && !(!showNewSchoolForm)",
      "text": "Código",
@@ -5680,7 +5841,7 @@
     },
     {
      "kind": "field",
-     "line": 1280,
+     "line": 1447,
      "in": "ContractForm",
      "when": "step === 'cliente' && !(!showNewSchoolForm)",
      "text": "Región",
@@ -5690,7 +5851,7 @@
     },
     {
      "kind": "field",
-     "line": 1289,
+     "line": 1456,
      "in": "ContractForm",
      "when": "step === 'cliente' && !(!showNewSchoolForm)",
      "text": "Dirección",
@@ -5700,7 +5861,7 @@
     },
     {
      "kind": "field",
-     "line": 1298,
+     "line": 1465,
      "in": "ContractForm",
      "when": "step === 'cliente' && !(!showNewSchoolForm)",
      "text": "Esta escuela maneja generaciones",
@@ -5713,7 +5874,7 @@
     },
     {
      "kind": "label",
-     "line": 1305,
+     "line": 1472,
      "in": "ContractForm",
      "when": "step === 'cliente' && !(!showNewSchoolForm)",
      "text": "Esta escuela maneja generaciones",
@@ -5721,7 +5882,7 @@
     },
     {
      "kind": "button",
-     "line": 1309,
+     "line": 1476,
      "in": "ContractForm",
      "when": "step === 'cliente' && !(!showNewSchoolForm)",
      "text": "Creando... / Crear Escuela",
@@ -5730,21 +5891,21 @@
     },
     {
      "kind": "text",
-     "line": 1322,
+     "line": 1489,
      "in": "ContractForm",
      "when": "step === 'cliente' && selectedSchoolId",
      "text": "La escuela y el cliente quedarán vinculados automáticamente"
     },
     {
      "kind": "label",
-     "line": 1330,
+     "line": 1497,
      "in": "ContractForm",
      "when": "step === 'cliente'",
      "text": "Nombre Legal *"
     },
     {
      "kind": "field",
-     "line": 1333,
+     "line": 1500,
      "in": "ContractForm",
      "when": "step === 'cliente'",
      "text": "Nombre Legal *",
@@ -5754,14 +5915,14 @@
     },
     {
      "kind": "label",
-     "line": 1343,
+     "line": 1510,
      "in": "ContractForm",
      "when": "step === 'cliente'",
      "text": "Nombre de Fantasía *"
     },
     {
      "kind": "field",
-     "line": 1346,
+     "line": 1513,
      "in": "ContractForm",
      "when": "step === 'cliente'",
      "text": "Nombre de Fantasía *",
@@ -5771,14 +5932,14 @@
     },
     {
      "kind": "label",
-     "line": 1356,
+     "line": 1523,
      "in": "ContractForm",
      "when": "step === 'cliente'",
      "text": "RUT *"
     },
     {
      "kind": "field",
-     "line": 1359,
+     "line": 1526,
      "in": "ContractForm",
      "when": "step === 'cliente'",
      "text": "RUT *",
@@ -5788,14 +5949,14 @@
     },
     {
      "kind": "label",
-     "line": 1369,
+     "line": 1536,
      "in": "ContractForm",
      "when": "step === 'cliente'",
      "text": "Dirección *"
     },
     {
      "kind": "field",
-     "line": 1372,
+     "line": 1539,
      "in": "ContractForm",
      "when": "step === 'cliente'",
      "text": "Dirección *",
@@ -5805,14 +5966,14 @@
     },
     {
      "kind": "label",
-     "line": 1382,
+     "line": 1549,
      "in": "ContractForm",
      "when": "step === 'cliente'",
      "text": "Comuna *"
     },
     {
      "kind": "field",
-     "line": 1385,
+     "line": 1552,
      "in": "ContractForm",
      "when": "step === 'cliente'",
      "text": "Comuna *",
@@ -5822,14 +5983,14 @@
     },
     {
      "kind": "label",
-     "line": 1395,
+     "line": 1562,
      "in": "ContractForm",
      "when": "step === 'cliente'",
      "text": "Ciudad *"
     },
     {
      "kind": "field",
-     "line": 1398,
+     "line": 1565,
      "in": "ContractForm",
      "when": "step === 'cliente'",
      "text": "Ciudad *",
@@ -5839,14 +6000,14 @@
     },
     {
      "kind": "label",
-     "line": 1408,
+     "line": 1575,
      "in": "ContractForm",
      "when": "step === 'cliente'",
      "text": "Representante Legal *"
     },
     {
      "kind": "field",
-     "line": 1411,
+     "line": 1578,
      "in": "ContractForm",
      "when": "step === 'cliente'",
      "text": "Representante Legal *",
@@ -5856,14 +6017,14 @@
     },
     {
      "kind": "label",
-     "line": 1421,
+     "line": 1588,
      "in": "ContractForm",
      "when": "step === 'cliente'",
      "text": "RUT Representante"
     },
     {
      "kind": "field",
-     "line": 1424,
+     "line": 1591,
      "in": "ContractForm",
      "when": "step === 'cliente'",
      "text": "RUT Representante",
@@ -5873,7 +6034,7 @@
     },
     {
      "kind": "heading",
-     "line": 1437,
+     "line": 1604,
      "in": "ContractForm",
      "when": "step === 'cliente' && !esManual",
      "text": "Información Legal Adicional",
@@ -5881,14 +6042,14 @@
     },
     {
      "kind": "label",
-     "line": 1440,
+     "line": 1607,
      "in": "ContractForm",
      "when": "step === 'cliente' && !esManual",
      "text": "Fecha Escritura Pública"
     },
     {
      "kind": "field",
-     "line": 1443,
+     "line": 1610,
      "in": "ContractForm",
      "when": "step === 'cliente' && !esManual",
      "text": "Fecha Escritura Pública",
@@ -5897,14 +6058,14 @@
     },
     {
      "kind": "label",
-     "line": 1452,
+     "line": 1619,
      "in": "ContractForm",
      "when": "step === 'cliente' && !esManual",
      "text": "Notario Público"
     },
     {
      "kind": "field",
-     "line": 1455,
+     "line": 1622,
      "in": "ContractForm",
      "when": "step === 'cliente' && !esManual",
      "text": "Notario Público",
@@ -5914,14 +6075,14 @@
     },
     {
      "kind": "label",
-     "line": 1465,
+     "line": 1632,
      "in": "ContractForm",
      "when": "step === 'cliente' && !esManual",
      "text": "Comuna Notaría"
     },
     {
      "kind": "field",
-     "line": 1468,
+     "line": 1635,
      "in": "ContractForm",
      "when": "step === 'cliente' && !esManual",
      "text": "Comuna Notaría",
@@ -5931,7 +6092,7 @@
     },
     {
      "kind": "heading",
-     "line": 1483,
+     "line": 1650,
      "in": "ContractForm",
      "when": "step === 'cliente' && !esManual",
      "text": "Encargado del Proyecto",
@@ -5939,14 +6100,14 @@
     },
     {
      "kind": "label",
-     "line": 1486,
+     "line": 1653,
      "in": "ContractForm",
      "when": "step === 'cliente' && !esManual",
      "text": "Nombre del Encargado"
     },
     {
      "kind": "field",
-     "line": 1489,
+     "line": 1656,
      "in": "ContractForm",
      "when": "step === 'cliente' && !esManual",
      "text": "Nombre del Encargado",
@@ -5956,14 +6117,14 @@
     },
     {
      "kind": "label",
-     "line": 1499,
+     "line": 1666,
      "in": "ContractForm",
      "when": "step === 'cliente' && !esManual",
      "text": "Teléfono"
     },
     {
      "kind": "field",
-     "line": 1502,
+     "line": 1669,
      "in": "ContractForm",
      "when": "step === 'cliente' && !esManual",
      "text": "Teléfono",
@@ -5973,14 +6134,14 @@
     },
     {
      "kind": "label",
-     "line": 1512,
+     "line": 1679,
      "in": "ContractForm",
      "when": "step === 'cliente' && !esManual",
      "text": "Email"
     },
     {
      "kind": "field",
-     "line": 1515,
+     "line": 1682,
      "in": "ContractForm",
      "when": "step === 'cliente' && !esManual",
      "text": "Email",
@@ -5990,14 +6151,14 @@
     },
     {
      "kind": "text",
-     "line": 1526,
+     "line": 1693,
      "in": "ContractForm",
      "when": "step === 'cliente' && !esManual",
      "text": "Esta información es necesaria para la gestión de facturación y seguimiento del proyecto."
     },
     {
      "kind": "heading",
-     "line": 1534,
+     "line": 1701,
      "in": "ContractForm",
      "when": "step === 'cliente'",
      "text": "Contacto Administrativo [(Requerido para facturación)]",
@@ -6005,28 +6166,28 @@
     },
     {
      "kind": "text",
-     "line": 1542,
+     "line": 1709,
      "in": "ContractForm",
      "when": "step === 'cliente'",
      "text": "Importante:"
     },
     {
      "kind": "text",
-     "line": 1542,
+     "line": 1709,
      "in": "ContractForm",
      "when": "step === 'cliente'",
      "text": "Esta es la persona que recibirá todas las facturas y documentos administrativos del contrato."
     },
     {
      "kind": "label",
-     "line": 1549,
+     "line": 1716,
      "in": "ContractForm",
      "when": "step === 'cliente'",
      "text": "Nombre del Contacto Administrativo"
     },
     {
      "kind": "field",
-     "line": 1552,
+     "line": 1719,
      "in": "ContractForm",
      "when": "step === 'cliente'",
      "text": "Nombre del Contacto Administrativo",
@@ -6036,14 +6197,14 @@
     },
     {
      "kind": "label",
-     "line": 1562,
+     "line": 1729,
      "in": "ContractForm",
      "when": "step === 'cliente'",
      "text": "Teléfono de Facturación"
     },
     {
      "kind": "field",
-     "line": 1565,
+     "line": 1732,
      "in": "ContractForm",
      "when": "step === 'cliente'",
      "text": "Teléfono de Facturación",
@@ -6053,14 +6214,14 @@
     },
     {
      "kind": "label",
-     "line": 1575,
+     "line": 1742,
      "in": "ContractForm",
      "when": "step === 'cliente'",
      "text": "Email de Facturación"
     },
     {
      "kind": "field",
-     "line": 1578,
+     "line": 1745,
      "in": "ContractForm",
      "when": "step === 'cliente'",
      "text": "Email de Facturación",
@@ -6070,21 +6231,21 @@
     },
     {
      "kind": "text",
-     "line": 1589,
+     "line": 1756,
      "in": "ContractForm",
      "when": "step === 'cliente'",
      "text": "Nota:"
     },
     {
      "kind": "text",
-     "line": 1589,
+     "line": 1756,
      "in": "ContractForm",
      "when": "step === 'cliente'",
      "text": "Las facturas y documentos administrativos se enviarán a este contacto por email."
     },
     {
      "kind": "heading",
-     "line": 1601,
+     "line": 1768,
      "in": "ContractForm",
      "when": "step === 'contrato'",
      "text": "Información del Contrato",
@@ -6092,28 +6253,28 @@
     },
     {
      "kind": "text",
-     "line": 1608,
+     "line": 1775,
      "in": "ContractForm",
      "when": "step === 'contrato' && esManual",
      "text": "Contrato Manual"
     },
     {
      "kind": "text",
-     "line": 1608,
+     "line": 1775,
      "in": "ContractForm",
      "when": "step === 'contrato' && esManual",
      "text": "- Solo ingrese información necesaria para gestión operativa y pagos."
     },
     {
      "kind": "label",
-     "line": 1615,
+     "line": 1782,
      "in": "ContractForm",
      "when": "step === 'contrato'",
      "text": "Número de Contrato *"
     },
     {
      "kind": "field",
-     "line": 1618,
+     "line": 1785,
      "in": "ContractForm",
      "when": "step === 'contrato'",
      "text": "Número de Contrato *",
@@ -6123,14 +6284,14 @@
     },
     {
      "kind": "label",
-     "line": 1628,
+     "line": 1795,
      "in": "ContractForm",
      "when": "step === 'contrato'",
      "text": "Fecha del Contrato *"
     },
     {
      "kind": "field",
-     "line": 1631,
+     "line": 1798,
      "in": "ContractForm",
      "when": "step === 'contrato'",
      "text": "Fecha del Contrato *",
@@ -6139,14 +6300,14 @@
     },
     {
      "kind": "label",
-     "line": 1640,
+     "line": 1807,
      "in": "ContractForm",
      "when": "step === 'contrato'",
      "text": "Fecha de Finalización *"
     },
     {
      "kind": "field",
-     "line": 1643,
+     "line": 1810,
      "in": "ContractForm",
      "when": "step === 'contrato'",
      "text": "Fecha de Finalización *",
@@ -6156,14 +6317,14 @@
     },
     {
      "kind": "label",
-     "line": 1655,
+     "line": 1822,
      "in": "ContractForm",
      "when": "step === 'contrato' && esManual",
      "text": "Descripción del Contrato *"
     },
     {
      "kind": "field",
-     "line": 1658,
+     "line": 1825,
      "in": "ContractForm",
      "when": "step === 'contrato' && esManual",
      "text": "Descripción del Contrato *",
@@ -6174,56 +6335,111 @@
     },
     {
      "kind": "text",
-     "line": 1666,
+     "line": 1833,
      "in": "ContractForm",
      "when": "step === 'contrato' && esManual",
      "text": "Breve descripción del servicio o programa que cubre este contrato"
     },
     {
      "kind": "label",
-     "line": 1671,
+     "line": 1838,
      "in": "ContractForm",
      "when": "step === 'contrato' && !(esManual)",
      "text": "Programa Contratado *"
     },
     {
      "kind": "field",
-     "line": 1674,
+     "line": 1841,
      "in": "ContractForm",
      "when": "step === 'contrato' && !(esManual)",
      "text": "Programa Contratado *",
      "type": "select",
      "disabled": "{!!licitacionId}",
-     "action": "{(e) => !licitacionId && setContractForm({ ...contractForm, programa_id: e.targe…}",
+     "action": "{(e) => { if (licitacionId) return; // The programme's hours replace the field, …}",
      "options": [
       "-- Seleccionar programa --",
       "(lista) {programa.nombre} ( {programa.horas_totales} h - {programa.modalidad} )"
      ]
     },
     {
+     "kind": "gate",
+     "line": 1844,
+     "in": "ContractForm",
+     "when": "step === 'contrato' && !(esManual)",
+     "text": "licitacionId"
+    },
+    {
      "kind": "text",
-     "line": 1689,
+     "line": 1865,
      "in": "ContractForm",
      "when": "step === 'contrato' && !(esManual) && licitacionId",
      "text": "Programa fijado por la licitacion. No se puede cambiar."
     },
     {
      "kind": "label",
-     "line": 1696,
+     "line": 1873,
+     "in": "ContractForm",
+     "when": "step === 'contrato'",
+     "text": "Horas contratadas"
+    },
+    {
+     "kind": "field",
+     "line": 1876,
+     "in": "ContractForm",
+     "when": "step === 'contrato'",
+     "text": "Horas contratadas",
+     "type": "number",
+     "limits": "min=0 max=999999.99 step=0.01 readOnly={horasReadOnly}",
+     "action": "{(e) => { if (horasReadOnly) return; setContractForm({ ...contractForm, horas_co…}",
+     "hook": {
+      "testid": "contract-hours-input"
+     }
+    },
+    {
+     "kind": "gate",
+     "line": 1885,
+     "in": "ContractForm",
+     "when": "step === 'contrato'",
+     "text": "horasReadOnly"
+    },
+    {
+     "kind": "text",
+     "line": 1892,
+     "in": "ContractForm",
+     "when": "step === 'contrato' && hourAllocationState !== 'has'",
+     "text": "Horas de la bolsa de este contrato (opcional). / Se completa con las horas del programa al elegirlo; puede cambiarlas después."
+    },
+    {
+     "kind": "text",
+     "line": 1900,
+     "in": "ContractForm",
+     "when": "step === 'contrato' && hourAllocationState === 'has'",
+     "text": "No se puede cambiar: el contrato ya tiene una distribución de horas."
+    },
+    {
+     "kind": "text",
+     "line": 1905,
+     "in": "ContractForm",
+     "when": "step === 'contrato' && !horasValid",
+     "text": "Las horas contratadas deben ser un número entre 0 y 999999,99 con hasta dos decimales."
+    },
+    {
+     "kind": "label",
+     "line": 1911,
      "in": "ContractForm",
      "when": "step === 'contrato'",
      "text": "Tipo de Moneda"
     },
     {
      "kind": "label",
-     "line": 1700,
+     "line": 1915,
      "in": "ContractForm",
      "when": "step === 'contrato'",
      "text": "UF (Unidades de Fomento)"
     },
     {
      "kind": "field",
-     "line": 1701,
+     "line": 1916,
      "in": "ContractForm",
      "when": "step === 'contrato'",
      "text": "UF (Unidades de Fomento)",
@@ -6233,14 +6449,14 @@
     },
     {
      "kind": "label",
-     "line": 1711,
+     "line": 1926,
      "in": "ContractForm",
      "when": "step === 'contrato'",
      "text": "Pesos Chilenos (CLP)"
     },
     {
      "kind": "field",
-     "line": 1712,
+     "line": 1927,
      "in": "ContractForm",
      "when": "step === 'contrato'",
      "text": "Pesos Chilenos (CLP)",
@@ -6250,14 +6466,14 @@
     },
     {
      "kind": "label",
-     "line": 1726,
+     "line": 1941,
      "in": "ContractForm",
      "when": "step === 'contrato'",
      "text": "Precio Total ( {contractForm.tipo_moneda} ) *"
     },
     {
      "kind": "field",
-     "line": 1729,
+     "line": 1944,
      "in": "ContractForm",
      "when": "step === 'contrato'",
      "text": "Precio Total ( {contractForm.tipo_moneda} ) *",
@@ -6268,21 +6484,21 @@
     },
     {
      "kind": "text",
-     "line": 1745,
+     "line": 1960,
      "in": "ContractForm",
      "when": "step === 'contrato' && esManual",
      "text": "El PDF del contrato se subirá después de guardar"
     },
     {
      "kind": "text",
-     "line": 1746,
+     "line": 1961,
      "in": "ContractForm",
      "when": "step === 'contrato' && esManual",
      "text": "Una vez guardada la información, podrá cargar el PDF desde el listado de contratos"
     },
     {
      "kind": "heading",
-     "line": 1758,
+     "line": 1973,
      "in": "ContractForm",
      "when": "step === 'cuotas'",
      "text": "Plan de Pagos",
@@ -6290,7 +6506,7 @@
     },
     {
      "kind": "button",
-     "line": 1761,
+     "line": 1976,
      "in": "ContractForm",
      "when": "step === 'cuotas'",
      "text": "Calcular Automático",
@@ -6298,7 +6514,7 @@
     },
     {
      "kind": "button",
-     "line": 1768,
+     "line": 1983,
      "in": "ContractForm",
      "when": "step === 'cuotas'",
      "text": "Agregar Cuota",
@@ -6307,35 +6523,35 @@
     },
     {
      "kind": "text",
-     "line": 1782,
+     "line": 1997,
      "in": "ContractForm",
      "when": "step === 'cuotas'",
      "text": "Total del Contrato:"
     },
     {
      "kind": "text",
-     "line": 1785,
+     "line": 2000,
      "in": "ContractForm",
      "when": "step === 'cuotas'",
      "text": "Total de Cuotas:"
     },
     {
      "kind": "text",
-     "line": 1793,
+     "line": 2008,
      "in": "ContractForm",
      "when": "step === 'cuotas' && each cuotas",
      "text": "Cuota {cuota.numero_cuota}"
     },
     {
      "kind": "label",
-     "line": 1797,
+     "line": 2012,
      "in": "ContractForm",
      "when": "step === 'cuotas' && each cuotas",
      "text": "Fecha Vencimiento"
     },
     {
      "kind": "field",
-     "line": 1800,
+     "line": 2015,
      "in": "ContractForm",
      "when": "step === 'cuotas' && each cuotas",
      "text": "Fecha Vencimiento",
@@ -6344,14 +6560,14 @@
     },
     {
      "kind": "label",
-     "line": 1809,
+     "line": 2024,
      "in": "ContractForm",
      "when": "step === 'cuotas' && each cuotas",
      "text": "Monto ( {contractForm.tipo_moneda} )"
     },
     {
      "kind": "field",
-     "line": 1812,
+     "line": 2027,
      "in": "ContractForm",
      "when": "step === 'cuotas' && each cuotas",
      "text": "Monto ( {contractForm.tipo_moneda} )",
@@ -6361,7 +6577,7 @@
     },
     {
      "kind": "button",
-     "line": 1823,
+     "line": 2038,
      "in": "ContractForm",
      "when": "step === 'cuotas' && each cuotas",
      "text": "[icon Trash2]",
@@ -6371,21 +6587,35 @@
     },
     {
      "kind": "text",
-     "line": 1839,
+     "line": 2054,
      "in": "ContractForm",
-     "when": "step === 'cuotas' && Math.abs(cuotas.reduce((sum, c) => sum + c.monto, 0) - contractForm.precio_total_uf) > 0.01",
-     "text": "⚠️ La suma de las cuotas no coincide con el total del contrato. Diferencia: {contractForm.tipo_moneda} {(contractForm.precio_total_uf - cuo…}"
+     "when": "step === 'cuotas' && !cuotasMatchTotal",
+     "text": "⚠️ La suma de las cuotas no coincide con el total del contrato. Diferencia: {contractForm.tipo_moneda} {difference(contractForm.precio_tota…}"
+    },
+    {
+     "kind": "value",
+     "line": 2063,
+     "in": "ContractForm",
+     "when": "step === 'cuotas' && amountPrecisionError",
+     "text": "{amountPrecisionError}"
+    },
+    {
+     "kind": "text",
+     "line": 2069,
+     "in": "ContractForm",
+     "when": "step === 'cuotas' && zeroAmountCuota",
+     "text": "La cuota {zeroAmountCuota.numero_cuota} necesita un monto mayor que cero."
     },
     {
      "kind": "button",
-     "line": 1851,
+     "line": 2080,
      "in": "ContractForm",
      "text": "Cancelar",
      "action": "{onCancel}"
     },
     {
      "kind": "button",
-     "line": 1860,
+     "line": 2089,
      "in": "ContractForm",
      "when": "step !== 'cliente'",
      "text": "Anterior",
@@ -6393,7 +6623,7 @@
     },
     {
      "kind": "button",
-     "line": 1875,
+     "line": 2104,
      "in": "ContractForm",
      "when": "step !== 'cuotas'",
      "text": "Siguiente",
@@ -6402,7 +6632,7 @@
     },
     {
      "kind": "button",
-     "line": 1889,
+     "line": 2118,
      "in": "ContractForm",
      "when": "!(step !== 'cuotas')",
      "text": "Guardando borrador... / Guardar Borrador",
@@ -6412,7 +6642,7 @@
     },
     {
      "kind": "button",
-     "line": 1910,
+     "line": 2139,
      "in": "ContractForm",
      "when": "!(step !== 'cuotas') && !esManual",
      "text": "Vista previa / PDF",
@@ -6421,7 +6651,7 @@
     },
     {
      "kind": "toast",
-     "line": 1913,
+     "line": 2142,
      "in": "ContractForm",
      "when": "!(step !== 'cuotas') && !esManual",
      "text": "Error al abrir la vista previa del contrato",
@@ -6429,7 +6659,7 @@
     },
     {
      "kind": "button",
-     "line": 1922,
+     "line": 2151,
      "in": "ContractForm",
      "when": "!(step !== 'cuotas')",
      "text": "Guardando... / Actualizar Contrato / Guardar Contrato",
@@ -6438,7 +6668,7 @@
     },
     {
      "kind": "heading",
-     "line": 1950,
+     "line": 2179,
      "in": "ContractForm",
      "when": "showCondicionesPago",
      "text": "Condiciones de Pago (Licitacion)",
@@ -6446,80 +6676,83 @@
     },
     {
      "kind": "value",
-     "line": 1953,
+     "line": 2182,
      "in": "ContractForm",
      "when": "showCondicionesPago",
      "text": "{licitacionData?.condiciones_pago}"
     },
     {
      "kind": "string",
-     "line": 235,
+     "line": 255,
      "in": "ContractForm",
      "text": "Contrato importado desde PDF - {extractedData.contract?.num…}"
     },
     {
      "kind": "string",
-     "line": 235,
+     "line": 255,
      "in": "ContractForm",
      "text": "Sin número"
     },
     {
      "kind": "string",
-     "line": 521,
+     "line": 596,
      "in": "ContractForm",
      "text": "Bearer {session.access_token}"
     },
     {
      "kind": "string",
-     "line": 584,
-     "in": "ContractForm",
-     "text": "Cliente Pendiente"
-    },
-    {
-     "kind": "string",
-     "line": 845,
+     "line": 992,
      "in": "ContractForm",
      "text": "Nombre: {existingCliente.nombre_legal}"
     },
     {
      "kind": "string",
-     "line": 846,
+     "line": 993,
      "in": "ContractForm",
      "text": "Nombre Fantasía: {existingCliente.nombre_fant…}"
     },
     {
      "kind": "string",
-     "line": 847,
+     "line": 994,
      "in": "ContractForm",
      "text": "Ciudad: {existingCliente.ciudad}"
     },
     {
      "kind": "string",
-     "line": 848,
+     "line": 995,
      "in": "ContractForm",
      "text": "Representante: {existingCliente.nombre_repr…}"
     },
     {
      "kind": "string",
-     "line": 849,
+     "line": 996,
      "in": "ContractForm",
      "text": "¿Deseas usar este cliente existente para el contrato?"
     },
     {
      "kind": "string",
-     "line": 850,
+     "line": 997,
      "in": "ContractForm",
      "text": "• SÍ: Usará el cliente existente"
     },
     {
      "kind": "string",
-     "line": 851,
+     "line": 998,
      "in": "ContractForm",
      "text": "• NO: Verifica el RUT y corrige los datos"
     },
     {
      "kind": "list",
-     "line": 972,
+     "line": 464,
+     "in": "readHourAllocationState",
+     "text": "readHourAllocationState()",
+     "items": [
+      "has / none"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 1120,
      "in": "formatCurrency",
      "text": "formatCurrency()",
      "items": [
@@ -6534,6 +6767,12 @@
       "insert",
       "select",
       "update"
+     ]
+    },
+    {
+     "what": "table:contract_hour_allocations",
+     "ops": [
+      "select"
      ]
     },
     {
@@ -6552,6 +6791,12 @@
      ]
     },
     {
+     "what": "table:licitaciones",
+     "ops": [
+      "select"
+     ]
+    },
+    {
      "what": "table:schools",
      "ops": [
       "select",
@@ -6564,11 +6809,11 @@
    "usedBy": [
     "/contracts"
    ],
-   "lines": 604,
+   "lines": 607,
    "rows": [
     {
      "kind": "toast",
-     "line": 80,
+     "line": 84,
      "in": "ContractPDFImporter",
      "when": "!(file && file.type === 'application/pdf')",
      "text": "Por favor, seleccione un archivo PDF",
@@ -6576,7 +6821,7 @@
     },
     {
      "kind": "toast",
-     "line": 96,
+     "line": 100,
      "in": "handleFileUpload",
      "when": "file.type !== 'application/pdf'",
      "text": "Solo se permiten archivos PDF",
@@ -6584,22 +6829,22 @@
     },
     {
      "kind": "toast",
-     "line": 102,
+     "line": 105,
      "in": "handleFileUpload",
-     "when": "file.size > maxSize",
-     "text": "El archivo es demasiado grande (máximo 10MB)",
+     "when": "file.size > MAX_PDF_BYTES",
+     "text": "{TOO_LARGE_MESSAGE}",
      "variant": "error"
     },
     {
      "kind": "download",
-     "line": 107,
+     "line": 110,
      "in": "handleFileUpload",
      "text": "URL.createObjectURL()",
      "how": "createObjectURL"
     },
     {
      "kind": "message",
-     "line": 126,
+     "line": 129,
      "in": "handleFileUpload",
      "when": "!base64",
      "text": "Failed to read file",
@@ -6607,7 +6852,7 @@
     },
     {
      "kind": "toast",
-     "line": 159,
+     "line": 162,
      "in": "handleFileUpload",
      "when": "result.extracted.overall_confidence < 0.7",
      "text": "Confianza baja en la extracción - Por favor revise los datos",
@@ -6615,7 +6860,7 @@
     },
     {
      "kind": "toast",
-     "line": 164,
+     "line": 167,
      "in": "handleFileUpload",
      "when": "!(result.extracted.overall_confidence < 0.7) && result.extracted.overall_confidence > 0.9",
      "text": "Extracción completada con alta confianza",
@@ -6623,7 +6868,7 @@
     },
     {
      "kind": "toast",
-     "line": 166,
+     "line": 169,
      "in": "handleFileUpload",
      "when": "!(result.extracted.overall_confidence < 0.7) && !(result.extracted.overall_confidence > 0.9)",
      "text": "Extracción completada - Revise los datos antes de confirmar",
@@ -6631,46 +6876,46 @@
     },
     {
      "kind": "toast",
-     "line": 170,
+     "line": 173,
      "in": "handleFileUpload",
      "text": "Error al procesar el PDF",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 178,
+     "line": 181,
      "in": "handleFileUpload",
      "text": "Error al extraer datos del PDF",
      "variant": "error"
     },
     {
      "kind": "confirm",
-     "line": 222,
+     "line": 225,
      "in": "handleConfirm",
      "text": "Hay errores de validación. ¿Desea continuar de todos modos?"
     },
     {
      "kind": "toast",
-     "line": 240,
+     "line": 243,
      "in": "handleConfirm",
      "text": "Datos importados exitosamente",
      "variant": "success"
     },
     {
      "kind": "label",
-     "line": 251,
+     "line": 254,
      "in": "renderField",
      "text": "{label} [*]"
     },
     {
      "kind": "value",
-     "line": 255,
+     "line": 258,
      "in": "renderField",
      "text": "{Math.round(confidence * 100)} %"
     },
     {
      "kind": "button",
-     "line": 259,
+     "line": 262,
      "in": "renderField",
      "text": "[icon Edit2]",
      "action": "{() => setEditingField(path)}",
@@ -6678,7 +6923,7 @@
     },
     {
      "kind": "field",
-     "line": 270,
+     "line": 273,
      "in": "renderField",
      "when": "isEditing",
      "text": "",
@@ -6688,42 +6933,42 @@
     },
     {
      "kind": "value",
-     "line": 280,
+     "line": 283,
      "in": "renderField",
      "when": "!(isEditing)",
      "text": "{value} / -"
     },
     {
      "kind": "value",
-     "line": 284,
+     "line": 287,
      "in": "renderField",
      "when": "hasError",
      "text": "{validationErrors.find(e => e.field …}"
     },
     {
      "kind": "popup",
-     "line": 293,
+     "line": 296,
      "in": "ContractPDFImporter",
      "text": "Importar Contrato desde PDF",
      "how": "written in this file"
     },
     {
      "kind": "heading",
-     "line": 297,
+     "line": 300,
      "in": "ContractPDFImporter",
      "text": "Importar Contrato desde PDF",
      "level": 2
     },
     {
      "kind": "button",
-     "line": 298,
+     "line": 301,
      "in": "ContractPDFImporter",
      "text": "[icon X]",
      "action": "{onCancel}"
     },
     {
      "kind": "gesture",
-     "line": 308,
+     "line": 311,
      "in": "ContractPDFImporter",
      "when": "!pdfFile",
      "text": "onDrop={handleDrop} · onDragOver={(e) => e.preventDefault()}",
@@ -6731,21 +6976,21 @@
     },
     {
      "kind": "text",
-     "line": 315,
+     "line": 318,
      "in": "ContractPDFImporter",
      "when": "!pdfFile",
      "text": "Arrastra un PDF aquí o haz clic para seleccionar"
     },
     {
      "kind": "text",
-     "line": 318,
+     "line": 320,
      "in": "ContractPDFImporter",
      "when": "!pdfFile",
-     "text": "Máximo 10MB • Solo archivos PDF"
+     "text": "Máximo {String(MAX_PDF_BYTES / (1024 * 1024…} MB • Solo archivos PDF"
     },
     {
      "kind": "hook",
-     "line": 320,
+     "line": 323,
      "in": "ContractPDFImporter",
      "when": "!pdfFile",
      "text": "testid=pdf-import-anthropic-notice",
@@ -6754,21 +6999,21 @@
     },
     {
      "kind": "text",
-     "line": 321,
+     "line": 324,
      "in": "ContractPDFImporter",
      "when": "!pdfFile",
      "text": "Al importar, el texto del documento se envía a Anthropic (Claude) para leerlo."
     },
     {
      "kind": "label",
-     "line": 323,
+     "line": 326,
      "in": "ContractPDFImporter",
      "when": "!pdfFile",
      "text": "Seleccionar archivo"
     },
     {
      "kind": "field",
-     "line": 324,
+     "line": 327,
      "in": "ContractPDFImporter",
      "when": "!pdfFile",
      "screen": "hidden",
@@ -6779,14 +7024,14 @@
     },
     {
      "kind": "value",
-     "line": 340,
+     "line": 343,
      "in": "ContractPDFImporter",
      "when": "!(!pdfFile)",
      "text": "{pdfFile.name}"
     },
     {
      "kind": "button",
-     "line": 342,
+     "line": 345,
      "in": "ContractPDFImporter",
      "when": "!(!pdfFile)",
      "text": "Cambiar archivo",
@@ -6794,7 +7039,7 @@
     },
     {
      "kind": "button",
-     "line": 373,
+     "line": 376,
      "in": "ContractPDFImporter",
      "when": "!(!pdfFile) && numPages && numPages > 1",
      "text": "[icon ChevronLeft]",
@@ -6803,14 +7048,14 @@
     },
     {
      "kind": "text",
-     "line": 380,
+     "line": 383,
      "in": "ContractPDFImporter",
      "when": "!(!pdfFile) && numPages && numPages > 1",
      "text": "Página {pageNumber} de {numPages}"
     },
     {
      "kind": "button",
-     "line": 383,
+     "line": 386,
      "in": "ContractPDFImporter",
      "when": "!(!pdfFile) && numPages && numPages > 1",
      "text": "[icon ChevronRight]",
@@ -6819,84 +7064,84 @@
     },
     {
      "kind": "text",
-     "line": 410,
+     "line": 413,
      "in": "ContractPDFImporter",
      "when": "!extractedData && extracting",
      "text": "Extrayendo información..."
     },
     {
      "kind": "text",
-     "line": 414,
+     "line": 417,
      "in": "ContractPDFImporter",
      "when": "!extractedData && extracting",
      "text": "PDF cargado correctamente"
     },
     {
      "kind": "text",
-     "line": 418,
+     "line": 421,
      "in": "ContractPDFImporter",
      "when": "!extractedData && extracting",
      "text": "Procesando texto del documento"
     },
     {
      "kind": "text",
-     "line": 422,
+     "line": 425,
      "in": "ContractPDFImporter",
      "when": "!extractedData && extracting",
      "text": "Identificando datos del contrato..."
     },
     {
      "kind": "text",
-     "line": 427,
+     "line": 430,
      "in": "ContractPDFImporter",
      "when": "!extractedData && extracting",
      "text": "Claude AI está analizando su documento"
     },
     {
      "kind": "text",
-     "line": 431,
+     "line": 434,
      "in": "ContractPDFImporter",
      "when": "!extractedData && extracting",
      "text": "Esto puede tomar entre 3-5 segundos"
     },
     {
      "kind": "text",
-     "line": 438,
+     "line": 441,
      "in": "ContractPDFImporter",
      "when": "!extractedData && !(extracting)",
      "text": "Seleccione un PDF para extraer la información del contrato"
     },
     {
      "kind": "text",
-     "line": 449,
+     "line": 452,
      "in": "ContractPDFImporter",
      "when": "!(!extractedData)",
      "text": "Confianza general de extracción"
     },
     {
      "kind": "value",
-     "line": 450,
+     "line": 453,
      "in": "ContractPDFImporter",
      "when": "!(!extractedData)",
      "text": "{Math.round(extractedData.overall_co…} %"
     },
     {
      "kind": "text",
-     "line": 462,
+     "line": 465,
      "in": "ContractPDFImporter",
      "when": "!(!extractedData) && existingClient",
      "text": "Cliente existente encontrado"
     },
     {
      "kind": "text",
-     "line": 463,
+     "line": 466,
      "in": "ContractPDFImporter",
      "when": "!(!extractedData) && existingClient",
      "text": "Se encontró el cliente &quot; {existingClient.nombre_legal} &quot; con el mismo RUT. Los datos del cliente se usarán automáticamente."
     },
     {
      "kind": "heading",
-     "line": 474,
+     "line": 477,
      "in": "ContractPDFImporter",
      "when": "!(!extractedData)",
      "text": "Información del Contrato",
@@ -6904,14 +7149,14 @@
     },
     {
      "kind": "value",
-     "line": 475,
+     "line": 478,
      "in": "ContractPDFImporter",
      "when": "!(!extractedData)",
      "text": "{renderField('Número de Contrato', e…} {renderField('Fecha del Contrato', e…} {renderField('Fecha de Término', ext…}"
     },
     {
      "kind": "heading",
-     "line": 487,
+     "line": 490,
      "in": "ContractPDFImporter",
      "when": "!(!extractedData)",
      "text": "Información del Cliente",
@@ -6919,14 +7164,14 @@
     },
     {
      "kind": "text",
-     "line": 488,
+     "line": 491,
      "in": "ContractPDFImporter",
      "when": "!(!extractedData)",
      "text": "{renderField('Razón Social', extract…} {renderField('RUT', extractedData.cl…} {renderField('Dirección', extractedD…} {renderField('Comuna', extractedData…} {renderField('Ciudad', extractedData…} {renderField('Representante Legal', …} {rend…"
     },
     {
      "kind": "heading",
-     "line": 508,
+     "line": 511,
      "in": "ContractPDFImporter",
      "when": "!(!extractedData)",
      "text": "Información Financiera",
@@ -6934,14 +7179,14 @@
     },
     {
      "kind": "value",
-     "line": 509,
+     "line": 512,
      "in": "ContractPDFImporter",
      "when": "!(!extractedData)",
      "text": "{renderField('Precio Total', extract…} {renderField('Moneda', extractedData…}"
     },
     {
      "kind": "heading",
-     "line": 520,
+     "line": 523,
      "in": "ContractPDFImporter",
      "when": "!(!extractedData) && extractedData.payment_schedule && extractedData.payment_schedule.length > 0",
      "text": "Calendario de Pagos ( {extractedData.payment_schedule.leng…} cuotas)",
@@ -6949,91 +7194,91 @@
     },
     {
      "kind": "column",
-     "line": 527,
+     "line": 530,
      "in": "ContractPDFImporter",
      "when": "!(!extractedData) && extractedData.payment_schedule && extractedData.payment_schedule.length > 0",
      "text": "N°"
     },
     {
      "kind": "column",
-     "line": 528,
+     "line": 531,
      "in": "ContractPDFImporter",
      "when": "!(!extractedData) && extractedData.payment_schedule && extractedData.payment_schedule.length > 0",
      "text": "Vencimiento"
     },
     {
      "kind": "column",
-     "line": 529,
+     "line": 532,
      "in": "ContractPDFImporter",
      "when": "!(!extractedData) && extractedData.payment_schedule && extractedData.payment_schedule.length > 0",
      "text": "Monto"
     },
     {
      "kind": "column",
-     "line": 530,
+     "line": 533,
      "in": "ContractPDFImporter",
      "when": "!(!extractedData) && extractedData.payment_schedule && extractedData.payment_schedule.length > 0",
      "text": "Confianza"
     },
     {
      "kind": "value",
-     "line": 536,
+     "line": 539,
      "in": "ContractPDFImporter",
      "when": "!(!extractedData) && extractedData.payment_schedule && extractedData.payment_schedule.length > 0 && each extractedData.payment_schedule",
      "text": "{payment.numero_cuota}"
     },
     {
      "kind": "value",
-     "line": 537,
+     "line": 540,
      "in": "ContractPDFImporter",
      "when": "!(!extractedData) && extractedData.payment_schedule && extractedData.payment_schedule.length > 0 && each extractedData.payment_schedule",
      "text": "{payment.fecha_vencimiento}"
     },
     {
      "kind": "value",
-     "line": 538,
+     "line": 541,
      "in": "ContractPDFImporter",
      "when": "!(!extractedData) && extractedData.payment_schedule && extractedData.payment_schedule.length > 0 && each extractedData.payment_schedule",
      "text": "{extractedData.financial.moneda} {payment.monto.toLocaleString('es-CL…}"
     },
     {
      "kind": "value",
-     "line": 542,
+     "line": 545,
      "in": "ContractPDFImporter",
      "when": "!(!extractedData) && extractedData.payment_schedule && extractedData.payment_schedule.length > 0 && each extractedData.payment_schedule",
      "text": "{Math.round(payment.confidence * 100)} %"
     },
     {
      "kind": "text",
-     "line": 560,
+     "line": 563,
      "in": "ContractPDFImporter",
      "when": "!(!extractedData) && validationErrors.length > 0",
      "text": "Errores de validación"
     },
     {
      "kind": "value",
-     "line": 563,
+     "line": 566,
      "in": "ContractPDFImporter",
      "when": "!(!extractedData) && validationErrors.length > 0 && each validationErrors",
      "text": "{error.message}"
     },
     {
      "kind": "text",
-     "line": 580,
+     "line": 583,
      "in": "ContractPDFImporter",
      "when": "extractedData && requiresReview",
      "text": "⚠️ Se requiere revisión manual de los datos extraídos"
     },
     {
      "kind": "button",
-     "line": 585,
+     "line": 588,
      "in": "ContractPDFImporter",
      "text": "Cancelar",
      "action": "{onCancel}"
     },
     {
      "kind": "button",
-     "line": 591,
+     "line": 594,
      "in": "ContractPDFImporter",
      "text": "Confirmar e Importar",
      "action": "{handleConfirm}",
@@ -7041,7 +7286,7 @@
     },
     {
      "kind": "string",
-     "line": 501,
+     "line": 504,
      "in": "ContractPDFImporter",
      "text": "RUT Representante"
     }
@@ -9728,7 +9973,7 @@
     "/contract-print/[id]",
     "/contracts"
    ],
-   "lines": 127,
+   "lines": 128,
    "rows": [
     {
      "kind": "list",
@@ -9974,11 +10219,44 @@
    ],
    "db": []
   },
+  "lib/contracts/cuotas-math.ts": {
+   "usedBy": [
+    "/contracts"
+   ],
+   "lines": 63,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 60,
+     "in": "precisionMessage",
+     "text": "subject",
+     "items": [
+      "el precio total / la cuota {target.cuota}"
+     ]
+    },
+    {
+     "kind": "string",
+     "line": 61,
+     "in": "precisionMessage",
+     "text": "Los montos en CLP no llevan decimales; en UF, hasta dos. Corrija {subject}."
+    },
+    {
+     "kind": "list",
+     "line": 61,
+     "in": "precisionMessage",
+     "text": "precisionMessage()",
+     "items": [
+      "Los montos en CLP no llevan decimales; en UF, hasta dos. Corrija {subject}."
+     ]
+    }
+   ],
+   "db": []
+  },
   "lib/contracts/extractionError.ts": {
    "usedBy": [
     "/contracts"
    ],
-   "lines": 15,
+   "lines": 23,
    "rows": [
     {
      "kind": "list",
@@ -9989,8 +10267,16 @@
      ]
     },
     {
-     "kind": "string",
+     "kind": "list",
      "line": 13,
+     "text": "TOO_LARGE_MESSAGE",
+     "items": [
+      "El PDF es demasiado grande para leerlo automáticamente (máximo 2,9 MB). Ingrese los datos manualmente."
+     ]
+    },
+    {
+     "kind": "string",
+     "line": 21,
      "in": "extractionErrorMessage",
      "text": "Error al procesar el PDF"
     }
@@ -10064,11 +10350,25 @@
    "usedBy": [
     "/contracts"
    ],
-   "lines": 298,
+   "lines": 476,
    "rows": [
     {
+     "kind": "hook",
+     "line": 140,
+     "in": "fetchWithTimeout",
+     "text": "setTimeout(…, UF_FETCH_TIMEOUT_MS)",
+     "type": "timer"
+    },
+    {
+     "kind": "hook",
+     "line": 244,
+     "in": "storeLastLive",
+     "text": "localStorage: {LAST_LIVE_KEY}",
+     "type": "storage"
+    },
+    {
      "kind": "message",
-     "line": 167,
+     "line": 349,
      "in": "fetchFromCMF",
      "when": "!response.ok",
      "text": "CMF API error: {response.status}",
@@ -10076,7 +10376,7 @@
     },
     {
      "kind": "message",
-     "line": 195,
+     "line": 375,
      "in": "fetchFromCMFByDate",
      "when": "!response.ok",
      "text": "CMF API error: {response.status}",
@@ -10084,7 +10384,7 @@
     },
     {
      "kind": "message",
-     "line": 217,
+     "line": 398,
      "in": "fetchFromSII",
      "when": "!response.ok",
      "text": "SII API error: {response.status}",
@@ -10092,7 +10392,7 @@
     },
     {
      "kind": "message",
-     "line": 244,
+     "line": 424,
      "in": "fetchFromPublicAPI",
      "when": "!response.ok",
      "text": "API error: {response.status}",
@@ -10100,7 +10400,7 @@
     },
     {
      "kind": "list",
-     "line": 278,
+     "line": 455,
      "in": "formatCurrency",
      "text": "formatCurrency()",
      "items": [
@@ -10387,6 +10687,7 @@
    "referencedIn": [
     "__tests__/api/contracts/extract-pdf.test.ts",
     "__tests__/api/forged-session-sweep.test.ts",
+    "__tests__/components/contracts/ContractPDFImporter.size-limit.test.tsx",
     "components/contracts/ContractPDFImporter.tsx"
    ]
   },
@@ -10432,10 +10733,13 @@
    "referencedIn": [
     "__tests__/api/admin/assignment-matrix-quotes-forged-session.test.ts",
     "__tests__/api/quotes/public-quote-fields.test.ts",
+    "__tests__/api/quotes/update-groups.test.ts",
+    "__tests__/api/quotes/valid-until.test.ts",
     "pages/admin/quotes/[id]/edit.tsx",
     "pages/admin/quotes/index.tsx",
     "pages/quote/[id].tsx",
-    "scripts/redesign/harness/seed/50-gestion-licitaciones.mjs"
+    "scripts/redesign/harness/seed/50-gestion-licitaciones.mjs",
+    "supabase/migrations/20261118104000_quote_groups_save.sql"
    ]
   },
   {
@@ -10457,6 +10761,7 @@
    "referencedIn": [
     "__tests__/api/admin/assignment-matrix-quotes-forged-session.test.ts",
     "__tests__/api/quotes/groups-owner-read.test.ts",
+    "__tests__/api/quotes/update-groups.test.ts",
     "components/quotes/QuoteFormV2.tsx"
    ]
   },
@@ -10484,6 +10789,7 @@
    ],
    "referencedIn": [
     "__tests__/api/admin/assignment-matrix-quotes-forged-session.test.ts",
+    "__tests__/api/quotes/valid-until.test.ts",
     "pages/admin/quotes/new.tsx"
    ]
   },
@@ -10530,6 +10836,9 @@
     "/contracts"
    ],
    "referencedIn": [
+    "__tests__/api/uf-value.test.ts",
+    "__tests__/lib/uf-service.honest.test.ts",
+    "__tests__/lib/uf-service.timeout.test.ts",
     "lib/uf-service.ts"
    ]
   }

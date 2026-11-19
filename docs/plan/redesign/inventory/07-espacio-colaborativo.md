@@ -1,9 +1,9 @@
 # Espacio Colaborativo y comunidades
 
 Area `07-espacio-colaborativo`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `d701100d0` (2026-11-18).
+Read from commit `ca9dad512` (2026-11-19).
 
-4 screen files, 18 API files, 73 pieces.
+4 screen files, 19 API files, 73 pieces.
 
 ## Screens
 
@@ -11,7 +11,7 @@ Read from commit `d701100d0` (2026-11-18).
 |---|---|---|---|---|
 | `/admin/growth-communities/[id]/members` | `pages/admin/growth-communities/[id]/members.tsx` | 1100 | — |  |
 | `/admin/growth-communities` | `pages/admin/growth-communities/index.tsx` | 1071 | Comunidades |  |
-| `/community/workspace` | `pages/community/workspace.tsx` | 2995 | Espacio Colaborativo › Vista General; Espacio Colaborativo › Sesiones; Espacio Colaborativo › Gestión Comunidades |  |
+| `/community/workspace` | `pages/community/workspace.tsx` | 3061 | Espacio Colaborativo › Vista General; Espacio Colaborativo › Sesiones; Espacio Colaborativo › Gestión Comunidades |  |
 | `/user/[userId]` | `pages/user/[userId].tsx` | 392 | — |  |
 
 ## /admin/growth-communities/[id]/members
@@ -268,7 +268,7 @@ File `pages/admin/growth-communities/index.tsx` · 1071 lines · frame: MainLayo
   - l.93 `server redirect → /dashboard  (when !edRow \|\| edRow.school_id === null \|\| edRow.school_id === undefined)`
   - l.99 `server redirect → /dashboard  (when !Number.isFinite(schoolId))`
   - l.256 `router.push → /login`
-- Linked from: `components/layout/Sidebar.tsx:384`, `middleware.ts:237`, `pages/admin/growth-communities/[id]/members.tsx:509`
+- Linked from: `components/layout/Sidebar.tsx:384`, `middleware.ts:238`, `pages/admin/growth-communities/[id]/members.tsx:509`
 - Tests: no browser test that CI runs; unit tests of the page: `__tests__/components/GrowthCommunitiesIndexPage.crud.test.tsx`, `__tests__/lib/api-auth.server-side-user.test.ts`.
 
 | Role | Sees it in the menu | Middleware |
@@ -473,7 +473,7 @@ File `pages/admin/growth-communities/index.tsx` · 1071 lines · frame: MainLayo
 
 ## /community/workspace
 
-File `pages/community/workspace.tsx` · 2995 lines · frame: MainLayout
+File `pages/community/workspace.tsx` · 3061 lines · frame: MainLayout
 
 ### Who reaches it
 
@@ -482,12 +482,11 @@ File `pages/community/workspace.tsx` · 2995 lines · frame: MainLayout
 - Menu: Espacio Colaborativo › «Gestión Comunidades» → `/community/workspace?section=communities` — permission: manage_communities_all; the group: needs a community (admin and consultor pass) (`Sidebar.tsx` l.230)
 - Middleware: the workspace rule. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page:
-  - l.337 `router.push → /login  (when !(!authLoading && user) && !authLoading && !user)`
-  - l.341 `location.href → /login  (when !(!authLoading && user) && !authLoading && !user)`
-  - l.870 `router.push → /dashboard  (when error)`
-  - l.2752 `No tienes permisos para ver los mensajes de esta comunidad.`
-- Linked from: `components/layout/Sidebar.tsx:1286`, `components/layout/Sidebar.tsx:221`, `components/layout/Sidebar.tsx:227`, `components/layout/Sidebar.tsx:232`, `components/panel/CommunityCardNuevo.tsx:125`, `components/panel/PanelClasico.tsx:205`, `components/panel/PanelClasico.tsx:206`, `lib/auth/forced-password-change.ts:175`, `lib/notifications/catalog.ts:170`, `lib/notifications/catalog.ts:325`, `lib/notifications/catalog.ts:331`, `lib/notifications/catalog.ts:336` and 17 more
-- Tests: browser tests that CI runs: `tests/e2e/auth-lifecycle.spec.ts`, `tests/e2e/community-document-links.spec.ts`, `tests/e2e/meeting-create-and-access.spec.ts`; browser tests CI skips: `tests/e2e/meeting-agreements-tasks.spec.ts`, `tests/e2e/meeting-finalize-email-outcome.spec.ts`, `tests/e2e/messaging-notifications.spec.ts`, `tests/e2e/notification-catalog-links.spec.ts`, `tests/e2e/panel-pin.spec.ts`, `tests/e2e/urgent-anonymous-boundaries.spec.ts`, `tests/e2e/urgent-anonymous-current.spec.ts`; unit tests of the page: `__tests__/pages/community/workspace.documents.test.tsx`, `__tests__/pages/community/workspace.mention-scope.test.tsx`, `__tests__/pages/community/workspace.messages.test.tsx`, `components/__tests__/GroupAssignmentsContent.test.skip.tsx`, `components/__tests__/GroupAssignmentsContent.test.tsx`.
+  - l.351 `location.href → /login  (when !(!authLoading && user) && !authLoading && !user)`
+  - l.912 `router.push → /dashboard  (when error)`
+  - l.2818 `No tienes permisos para ver los mensajes de esta comunidad.`
+- Linked from: `components/layout/Sidebar.tsx:1286`, `components/layout/Sidebar.tsx:221`, `components/layout/Sidebar.tsx:227`, `components/layout/Sidebar.tsx:232`, `components/panel/CommunityCardNuevo.tsx:125`, `components/panel/PanelClasico.tsx:205`, `components/panel/PanelClasico.tsx:206`, `lib/auth/forced-password-change.ts:177`, `lib/notifications/catalog.ts:170`, `lib/notifications/catalog.ts:325`, `lib/notifications/catalog.ts:331`, `lib/notifications/catalog.ts:336` and 17 more
+- Tests: browser tests that CI runs: `tests/e2e/auth-lifecycle.spec.ts`, `tests/e2e/community-document-links.spec.ts`, `tests/e2e/meeting-create-and-access.spec.ts`; browser tests CI skips: `tests/e2e/meeting-agreements-tasks.spec.ts`, `tests/e2e/meeting-finalize-email-outcome.spec.ts`, `tests/e2e/messaging-notifications.spec.ts`, `tests/e2e/notification-catalog-links.spec.ts`, `tests/e2e/panel-pin.spec.ts`, `tests/e2e/urgent-anonymous-boundaries.spec.ts`, `tests/e2e/urgent-anonymous-current.spec.ts`; unit tests of the page: `__tests__/pages/community/workspace.documents.test.tsx`, `__tests__/pages/community/workspace.mention-scope.test.tsx`, `__tests__/pages/community/workspace.messages.test.tsx`, `__tests__/pages/community/workspace.sendback3.test.tsx`, `__tests__/pages/community/workspace.shell.test.tsx`, `__tests__/pages/community/workspace.switch.test.tsx`, `components/__tests__/GroupAssignmentsContent.test.skip.tsx`, `components/__tests__/GroupAssignmentsContent.test.tsx`.
 - QA scenarios that name this address: admin 7, consultor 2, lider_comunidad 5.
 
 | Role | Sees it in the menu | Middleware |
@@ -508,299 +507,300 @@ File `pages/community/workspace.tsx` · 2995 lines · frame: MainLayout
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «Selecciona una Comunidad» | h3 | `!currentWorkspace` | renderMainContent · l.638 |
-| «Miembros de la Comunidad» | h2 | `!(!currentWorkspace)` | renderMainContent · l.654 |
-| «Gestión de Comunidades» | h2 |  | renderMainContent · l.756 |
-| «Sin Acceso al Espacio Colaborativo» | h3 | `error` | CommunityWorkspacePage · l.863 |
-| «{currentWorkspace.custom_name} / {currentWorkspace.name}» | h1 | `currentWorkspace` | CommunityWorkspacePage · l.967 |
-| «{currentWorkspace.custom_name} / {currentWorkspace.name}» | h3 | `currentWorkspace && activeSection !== 'overview' && activeSection !== 'communities' && false` | CommunityWorkspacePage · l.1019 |
-| «No hay espacio de trabajo seleccionado» | h3 | `!workspace` | MeetingsTabContent · l.1214 |
-| «Reuniones de {workspace.community?.name}» | h2 |  | MeetingsTabContent · l.1229 |
-| «No hay reuniones» | h3 | `!(loading) && !(meetings.length > 0)` | MeetingsTabContent · l.1319 |
-| «No hay espacio de trabajo seleccionado» | h3 | `!workspace` | DocumentsTabContent · l.1789 |
-| «Documentos en {currentFolder.folder_name} / Documentos» | h2 |  | DocumentsTabContent · l.1825 |
-| «Cambiar nombre del documento» | h3 | `renameTarget` | DocumentsTabContent · l.1933 |
-| «Mover documento» | h3 | `moveTargets` | DocumentsTabContent · l.2000 |
-| «No hay espacio de trabajo seleccionado» | h3 | `!workspace` | MessagingTabContent · l.2734 |
-| «Sin permisos de acceso» | h3 | `!permissions.can_view_messages` | MessagingTabContent · l.2748 |
-| «Mensajería de {workspace.community?.name}» | h2 |  | MessagingTabContent · l.2763 |
-| «{thread.thread_title}» | h3 | `(activeView === 'threads' \|\| !selectedThread) && !(loading) && threads.length > 0 && each filterThreadsBySearch(threads)` | MessagingTabContent · l.2821 |
-| «No hay hilos de conversación» | h3 | `(activeView === 'threads' \|\| !selectedThread) && !(loading) && !(threads.length > 0)` | MessagingTabContent · l.2860 |
-| «{selectedThread.thread_title}» | h3 | `!(activeView === 'threads' \|\| !selectedThread)` | MessagingTabContent · l.2887 |
+| «Selecciona una Comunidad» | h3 | `!currentWorkspace` | renderMainContent · l.671 |
+| «Miembros de la Comunidad» | h2 | `!(!currentWorkspace)` | renderMainContent · l.687 |
+| «Gestión de Comunidades» | h2 |  | renderMainContent · l.789 |
+| «Sin Acceso al Espacio Colaborativo» | h3 | `error` | CommunityWorkspacePage · l.905 |
+| «{currentWorkspace.custom_name} / {currentWorkspace.name}» | h1 | `currentWorkspace` | CommunityWorkspacePage · l.1009 |
+| «{currentWorkspace.custom_name} / {currentWorkspace.name}» | h3 | `currentWorkspace && activeSection !== 'overview' && activeSection !== 'communities' && false` | CommunityWorkspacePage · l.1063 |
+| «No hay espacio de trabajo seleccionado» | h3 | `!workspace` | MeetingsTabContent · l.1259 |
+| «Reuniones de {workspace.community?.name}» | h2 |  | MeetingsTabContent · l.1274 |
+| «No hay reuniones» | h3 | `!(loading) && !(meetings.length > 0)` | MeetingsTabContent · l.1364 |
+| «No hay espacio de trabajo seleccionado» | h3 | `!workspace` | DocumentsTabContent · l.1807 |
+| «Documentos en {currentFolder.folder_name} / Documentos» | h2 |  | DocumentsTabContent · l.1843 |
+| «Cambiar nombre del documento» | h3 | `renameTarget` | DocumentsTabContent · l.1951 |
+| «Mover documento» | h3 | `moveTargets` | DocumentsTabContent · l.2018 |
+| «No hay espacio de trabajo seleccionado» | h3 | `!workspace` | MessagingTabContent · l.2800 |
+| «Sin permisos de acceso» | h3 | `!permissions.can_view_messages` | MessagingTabContent · l.2814 |
+| «Mensajería de {workspace.community?.name}» | h2 |  | MessagingTabContent · l.2829 |
+| «{thread.thread_title}» | h3 | `(activeView === 'threads' \|\| !selectedThread) && !(loading) && threads.length > 0 && each filterThreadsBySearch(threads)` | MessagingTabContent · l.2887 |
+| «No hay hilos de conversación» | h3 | `(activeView === 'threads' \|\| !selectedThread) && !(loading) && !(threads.length > 0)` | MessagingTabContent · l.2926 |
+| «{selectedThread.thread_title}» | h3 | `!(activeView === 'threads' \|\| !selectedThread)` | MessagingTabContent · l.2953 |
 
 **Buttons** (23)
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «{selectedCommunity?.display_name} / {selectedCommunity?.name} / Seleccionar Comunidad [{selectedCommunity.school_name} - {selectedCommunity.generation_name}]» | `{() => setShowCommunitySelector(!showCommunitySelector)}` |  |  |  | renderCommunitySelector · l.560 |
-| «{community.display_name} / {community.name} {community.school_name} - {community.generation_name}» | `{() => handleCommunityChange(community.id)}` | `showCommunitySelector && each workspaceAccess.availableCommunities` |  |  | renderCommunitySelector · l.585 |
-| «[icon X]» · aria «Cerrar aviso» | `{() => setThreadLinkFailed(false)}` | `threadLinkFailed` |  | `testid=thread-link-unavailable-dismiss` | renderMainContent · l.621 |
-| «[icon ChevronDownIcon]» |  | `!(!currentWorkspace)` |  |  | renderMainContent · l.671 |
-| «Volver al Panel Principal» | `{() => router.push('/dashboard')}` | `error` |  |  | CommunityWorkspacePage · l.869 |
-| «[icon Settings]» · tooltip «Editar nombre e imagen de la comunidad» | `{() => setShowWorkspaceSettings(true)}` | `currentWorkspace && canEditWorkspace` |  |  | CommunityWorkspacePage · l.981 |
-| «Configuración de la comunidad» | `{() => setShowWorkspaceSettings(true)}` | `currentWorkspace && activeSection !== 'overview' && activeSection !== 'communities' && false && canEditWorkspace` |  |  | CommunityWorkspacePage · l.1028 |
-| «Nueva Reunión» | `{handleCreateMeeting}` | `canManage` |  |  | MeetingsTabContent · l.1238 |
-| «{label}» | `{() => handleSortChange(field)}` | `each [ { field: 'meeting_date' as const, label: 'Fecha…` |  |  | MeetingsTabContent · l.1265 |
-| «Crear Primera Reunión» | `{handleCreateMeeting}` | `!(loading) && !(meetings.length > 0) && canManage` |  |  | MeetingsTabContent · l.1328 |
-| «Subir Documento» | `{() => setShowUploadModal(true)}` | `permissions.can_view` |  |  | DocumentsTabContent · l.1834 |
-| «Mover» | `{() => openMoveDialog(documents.filter(doc => selectedDocuments.includes(doc.id)…}` | `selectedDocuments.length > 0` |  |  | DocumentsTabContent · l.1852 |
-| «Descargar» | `{() => toast('Descargar múltiples próximamente', { icon: 'ℹ️' })}` | `selectedDocuments.length > 0` |  |  | DocumentsTabContent · l.1858 |
-| «Cancelar» | `{() => setSelectedDocuments([])}` | `selectedDocuments.length > 0` |  |  | DocumentsTabContent · l.1864 |
-| «[icon X]» | `{() => setRenameTarget(null)}` | `renameTarget` | `{actionBusy}` |  | DocumentsTabContent · l.1936 |
-| «Cancelar» | `{() => setRenameTarget(null)}` | `renameTarget` | `{actionBusy}` |  | DocumentsTabContent · l.1963 |
-| «Guardar» (submits the form) |  | `renameTarget` | `{actionBusy}` | `testid=document-rename-save` | DocumentsTabContent · l.1971 |
-| «[icon X]» | `{() => setMoveTargets(null)}` | `moveTargets` | `{actionBusy}` |  | DocumentsTabContent · l.2003 |
-| «Cancelar» | `{() => setMoveTargets(null)}` | `moveTargets` | `{actionBusy}` |  | DocumentsTabContent · l.2028 |
-| «Mover» | `{() => void handleMoveSave()}` | `moveTargets` | `{actionBusy}` | `testid=document-move-save` | DocumentsTabContent · l.2036 |
-| «Nuevo Hilo» | `{() => setShowThreadCreationModal(true)}` | `permissions.can_create_threads` |  |  | MessagingTabContent · l.2772 |
-| «Crear Primer Hilo» | `{() => setShowThreadCreationModal(true)}` | `(activeView === 'threads' \|\| !selectedThread) && !(loading) && !(threads.length > 0) && permissions.can_create_threads` |  |  | MessagingTabContent · l.2869 |
-| «[icon X]» | `{() => { setSelectedThread(null); setActiveView('threads'); }}` | `!(activeView === 'threads' \|\| !selectedThread)` |  |  | MessagingTabContent · l.2890 |
+| «{selectedCommunity?.display_name} / {selectedCommunity?.name} / Seleccionar Comunidad [{selectedCommunity.school_name} - {selectedCommunity.generation_name}]» | `{() => setShowCommunitySelector(!showCommunitySelector)}` |  |  |  | renderCommunitySelector · l.593 |
+| «{community.display_name} / {community.name} {community.school_name} - {community.generation_name}» | `{() => handleCommunityChosen(community.id)}` | `showCommunitySelector && each workspaceAccess.availableCommunities` |  |  | renderCommunitySelector · l.618 |
+| «[icon X]» · aria «Cerrar aviso» | `{() => setThreadLinkFailed(false)}` | `threadLinkFailed` |  | `testid=thread-link-unavailable-dismiss` | renderMainContent · l.654 |
+| «[icon ChevronDownIcon]» |  | `!(!currentWorkspace)` |  |  | renderMainContent · l.704 |
+| «Volver al Panel Principal» | `{() => router.push('/dashboard')}` | `error` |  |  | CommunityWorkspacePage · l.911 |
+| «[icon Settings]» · tooltip «Editar nombre e imagen de la comunidad» | `{() => setShowWorkspaceSettings(true)}` | `currentWorkspace && ((canEditWorkspace \|\| workspaceAccess?.accessType === 'community_member' \|\| workspaceAccess?.accessType === 'admin'))` |  |  | CommunityWorkspacePage · l.1025 |
+| «Configuración de la comunidad» | `{() => setShowWorkspaceSettings(true)}` | `currentWorkspace && activeSection !== 'overview' && activeSection !== 'communities' && false && canEditWorkspace` |  |  | CommunityWorkspacePage · l.1072 |
+| «Nueva Reunión» | `{handleCreateMeeting}` | `canManage` |  |  | MeetingsTabContent · l.1283 |
+| «{label}» | `{() => handleSortChange(field)}` | `each [ { field: 'meeting_date' as const, label: 'Fecha…` |  |  | MeetingsTabContent · l.1310 |
+| «Crear Primera Reunión» | `{handleCreateMeeting}` | `!(loading) && !(meetings.length > 0) && canManage` |  |  | MeetingsTabContent · l.1373 |
+| «Subir Documento» | `{() => setShowUploadModal(true)}` | `permissions.can_view` |  |  | DocumentsTabContent · l.1852 |
+| «Mover» | `{() => openMoveDialog(documents.filter(doc => selectedDocuments.includes(doc.id)…}` | `selectedDocuments.length > 0` |  |  | DocumentsTabContent · l.1870 |
+| «Descargar» | `{() => toast('Descargar múltiples próximamente', { icon: 'ℹ️' })}` | `selectedDocuments.length > 0` |  |  | DocumentsTabContent · l.1876 |
+| «Cancelar» | `{() => setSelectedDocuments([])}` | `selectedDocuments.length > 0` |  |  | DocumentsTabContent · l.1882 |
+| «[icon X]» | `{() => setRenameTarget(null)}` | `renameTarget` | `{actionBusy}` |  | DocumentsTabContent · l.1954 |
+| «Cancelar» | `{() => setRenameTarget(null)}` | `renameTarget` | `{actionBusy}` |  | DocumentsTabContent · l.1981 |
+| «Guardar» (submits the form) |  | `renameTarget` | `{actionBusy}` | `testid=document-rename-save` | DocumentsTabContent · l.1989 |
+| «[icon X]» | `{() => setMoveTargets(null)}` | `moveTargets` | `{actionBusy}` |  | DocumentsTabContent · l.2021 |
+| «Cancelar» | `{() => setMoveTargets(null)}` | `moveTargets` | `{actionBusy}` |  | DocumentsTabContent · l.2046 |
+| «Mover» | `{() => void handleMoveSave()}` | `moveTargets` | `{actionBusy}` | `testid=document-move-save` | DocumentsTabContent · l.2054 |
+| «Nuevo Hilo» | `{() => setShowThreadCreationModal(true)}` | `permissions.can_create_threads` |  |  | MessagingTabContent · l.2838 |
+| «Crear Primer Hilo» | `{() => setShowThreadCreationModal(true)}` | `(activeView === 'threads' \|\| !selectedThread) && !(loading) && !(threads.length > 0) && permissions.can_create_threads` |  |  | MessagingTabContent · l.2935 |
+| «[icon X]» | `{() => { setSelectedThread(null); setActiveView('threads'); }}` | `!(activeView === 'threads' \|\| !selectedThread)` |  |  | MessagingTabContent · l.2956 |
 
 **Links** (1)
 
 | Text | Goes to | Shown when | Hook | Where |
 |---|---|---|---|---|
-| «{member.first_name?.charAt(0)} / U {member.last_name?.charAt(0)} {member.first_name} {member.last_name} / {member.email} / Usuario sin nombre {member.user_roles?.map((role: any) …}» | `/user/[*]` | `showMembers && !(membersError) && communityMembers.length > 0 && each communityMembers` |  | renderMainContent · l.689 |
+| «{member.first_name?.charAt(0)} / U {member.last_name?.charAt(0)} {member.first_name} {member.last_name} / {member.email} / Usuario sin nombre {member.user_roles?.map((role: any) …}» | `/user/[*]` | `showMembers && !(membersError) && communityMembers.length > 0 && each communityMembers` |  | renderMainContent · l.722 |
 
 **Other things that react to a click** (2)
 
 | Element | Text | Does | Shown when | Where |
 |---|---|---|---|---|
-| `div` | «Miembros de la Comunidad ( — / {communityMembers.length} ) [Error al cargar]» | `{() => setShowMembers(!showMembers)}` | `!(!currentWorkspace)` | renderMainContent · l.649 |
-| `div` | «{thread.thread_title} {thread.category_config.label} [{thread.description}] Por {thread.creator_name} {thread.message_c…» | `{() => handleThreadSelect(thread)}` | `(activeView === 'threads' \|\| !selectedThread) && !(loading) && threads.length > 0 && each filterThreadsBySearch(threads)` | MessagingTabContent · l.2815 |
+| `div` | «Miembros de la Comunidad ( — / {communityMembers.length} ) [Error al cargar]» | `{() => setShowMembers(!showMembers)}` | `!(!currentWorkspace)` | renderMainContent · l.682 |
+| `div` | «{thread.thread_title} {thread.category_config.label} [{thread.description}] Por {thread.creator_name} {thread.message_c…» | `{() => handleThreadSelect(thread)}` | `(activeView === 'threads' \|\| !selectedThread) && !(loading) && threads.length > 0 && each filterThreadsBySearch(threads)` | MessagingTabContent · l.2881 |
 
 **Fields** (2)
 
 | Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
 |---|---|---|---|---|---|---|
-| «Nombre del documento» | text | `maxLength={200}` |  | `renameTarget` | `testid=document-rename-input` | DocumentsTabContent · l.1951 |
-| «Carpeta de destino» | select |  | «Sin carpeta», «(lista) {folder.folder_name}» | `moveTargets` | `testid=document-move-folder` | DocumentsTabContent · l.2012 |
+| «Nombre del documento» | text | `maxLength={200}` |  | `renameTarget` | `testid=document-rename-input` | DocumentsTabContent · l.1969 |
+| «Carpeta de destino» | select |  | «Sin carpeta», «(lista) {folder.folder_name}» | `moveTargets` | `testid=document-move-folder` | DocumentsTabContent · l.2030 |
 
 **Embedded media** (3)
 
 | What | Shown when | Hook | Where |
 |---|---|---|---|
-| img · alt {`${member.first_name} ${member.last_name}`} · {member.avatar_url} | `!(membersError) && communityMembers.length > 0 && each communityMembers && member.avatar_url` |  | renderMainContent · l.695 |
-| img · alt {currentWorkspace.custom_name \|\| currentWorkspace.name} · {currentWorkspace.image_url} | `currentWorkspace && currentWorkspace.image_url` |  | CommunityWorkspacePage · l.956 |
-| img · alt {currentWorkspace.custom_name \|\| currentWorkspace.name} · {currentWorkspace.image_url} | `currentWorkspace && activeSection !== 'overview' && activeSection !== 'communities' && false && currentWorkspace.image_url` |  | CommunityWorkspacePage · l.1008 |
+| img · alt {`${member.first_name} ${member.last_name}`} · {member.avatar_url} | `!(membersError) && communityMembers.length > 0 && each communityMembers && member.avatar_url` |  | renderMainContent · l.728 |
+| img · alt {currentWorkspace.custom_name \|\| currentWorkspace.name} · {currentWorkspace.image_url} | `currentWorkspace && currentWorkspace.image_url` |  | CommunityWorkspacePage · l.998 |
+| img · alt {currentWorkspace.custom_name \|\| currentWorkspace.name} · {currentWorkspace.image_url} | `currentWorkspace && activeSection !== 'overview' && activeSection !== 'communities' && false && currentWorkspace.image_url` |  | CommunityWorkspacePage · l.1052 |
 
 **Forms** (1)
 
 | On submit | Shown when | Where |
 |---|---|---|
-| `{(e) => { e.preventDefault(); void handleRenameSave(); }}` | `renameTarget` | DocumentsTabContent · l.1944 |
+| `{(e) => { e.preventDefault(); void handleRenameSave(); }}` | `renameTarget` | DocumentsTabContent · l.1962 |
 
 **Pop-ups** (14)
 
 | Name or title | How | Opens when | Texts passed to it | Where |
 |---|---|---|---|---|
-| `WorkspaceSettingsModal` | component | `{showWorkspaceSettings}` |  | CommunityWorkspacePage · l.1052 |
-| `MeetingDocumentationModal` | component | `{showCreateModal}` |  | MeetingsTabContent · l.1341 |
-| `MeetingDetailsModal` | component | `{showDetailsModal}` |  | MeetingsTabContent · l.1359 |
-| `MeetingDeletionModal` | component | `{showDeleteModal}` |  | MeetingsTabContent · l.1377 |
-| `DocumentUploadModal` | component | `{showUploadModal}` |  | DocumentsTabContent · l.1893 |
-| `DocumentPreview` | component | `{showPreviewModal}` |  | DocumentsTabContent · l.1906 |
-| «Cambiar nombre del documento» | written in this file | `renameTarget` |  | DocumentsTabContent · l.1920 |
-| «Cambiar nombre del documento» | written in this file | `renameTarget` |  | DocumentsTabContent · l.1924 |
-| «Mover documento» | written in this file | `moveTargets` |  | DocumentsTabContent · l.1987 |
-| «Mover documento» | written in this file | `moveTargets` |  | DocumentsTabContent · l.1991 |
-| `ConfirmModal` | component | `{true}` | title: Eliminar documento · message: El documento «{deleteTarget.title}» dejará de verse en este espacio. ¿Continuar? · confirmText: Eliminar · cancelText: Cancelar | DocumentsTabContent · l.2053 |
-| `AttachmentPreview` | component | `{showAttachmentPreview}` |  | MessagingTabContent · l.2951 |
-| `ThreadCreationModal` | component | `{showThreadCreationModal}` |  | MessagingTabContent · l.2968 |
-| `ConfirmModal` | component | `{showDeleteConfirm}` | title: Eliminar mensaje · message: ¿Estás seguro de que deseas eliminar este mensaje? Esta acción no se puede deshacer. · confirmText: Eliminar · cancelText: Cancelar | MessagingTabContent · l.2977 |
+| `WorkspaceSettingsModal` | component | `{showWorkspaceSettings}` |  | CommunityWorkspacePage · l.1096 |
+| `MeetingDocumentationModal` | component | `{showCreateModal}` |  | MeetingsTabContent · l.1386 |
+| `MeetingDetailsModal` | component | `{showDetailsModal}` |  | MeetingsTabContent · l.1404 |
+| `MeetingDeletionModal` | component | `{showDeleteModal}` |  | MeetingsTabContent · l.1422 |
+| `DocumentUploadModal` | component | `{showUploadModal}` |  | DocumentsTabContent · l.1911 |
+| `DocumentPreview` | component | `{showPreviewModal}` |  | DocumentsTabContent · l.1924 |
+| «Cambiar nombre del documento» | written in this file | `renameTarget` |  | DocumentsTabContent · l.1938 |
+| «Cambiar nombre del documento» | written in this file | `renameTarget` |  | DocumentsTabContent · l.1942 |
+| «Mover documento» | written in this file | `moveTargets` |  | DocumentsTabContent · l.2005 |
+| «Mover documento» | written in this file | `moveTargets` |  | DocumentsTabContent · l.2009 |
+| `ConfirmModal` | component | `{true}` | title: Eliminar documento · message: El documento «{deleteTarget.title}» dejará de verse en este espacio. ¿Continuar? · confirmText: Eliminar · cancelText: Cancelar | DocumentsTabContent · l.2071 |
+| `AttachmentPreview` | component | `{showAttachmentPreview}` |  | MessagingTabContent · l.3017 |
+| `ThreadCreationModal` | component | `{showThreadCreationModal}` |  | MessagingTabContent · l.3034 |
+| `ConfirmModal` | component | `{showDeleteConfirm}` | title: Eliminar mensaje · message: ¿Estás seguro de que deseas eliminar este mensaje? Esta acción no se puede deshacer. · confirmText: Eliminar · cancelText: Cancelar | MessagingTabContent · l.3043 |
 
-**Toasts** (41)
+**Toasts** (43)
 
 | Kind | Text | When | Where |
 |---|---|---|---|
-| error | «No se pudieron cargar los miembros de la comunidad. Intenta nuevamente.» | `membersErrorToastRef.current !== communityId` | notifyError · l.211 |
-| error | «Error al cargar el espacio colaborativo» |  | initializeWorkspace · l.402 |
-| error | «No se pudo cargar el espacio de trabajo» | `!(workspace)` | loadWorkspace · l.429 |
-| error | «Error al cargar el espacio de trabajo» |  | loadWorkspace · l.434 |
-| success | «Configuración actualizada» | `currentWorkspace` | CommunityWorkspacePage · l.1065 |
-| error | «Error al cargar las reuniones» |  | loadMeetings · l.1136 |
-| error | «Error al cargar los documentos» |  | loadDocuments · l.1509 |
-| success | «Carpeta creada exitosamente» |  | handleCreateFolder · l.1588 |
-| error | «Error al crear la carpeta» |  | handleCreateFolder · l.1591 |
-| error | «El enlace del documento no es válido» | `action === 'download' && document.storage_path && !documentUrl` | handleDocumentAction · l.1619 |
-| loading | «Preparando descarga...» | `action === 'download' && document.storage_path` | handleDocumentAction · l.1634 |
-| success | «Descarga completada» | `action === 'download' && document.storage_path` | handleDocumentAction · l.1667 |
-| plain | «Compartir documentos próximamente» | `action === 'share'` | handleDocumentAction · l.1691 |
-| success | «Nombre actualizado» |  | handleRenameSave · l.1716 |
-| error | «{(error as Error).message}» |  | handleRenameSave · l.1719 |
-| success | «Documento movido» | `!moveBulk` | handleMoveSave · l.1734 |
-| error | «{(error as Error).message}» | `!moveBulk` | handleMoveSave · l.1736 |
-| success | «{moved} documento(s) movido(s)» | `!(!moveBulk) && refused === 0` | handleMoveSave · l.1753 |
-| error | «{moved} documento(s) movido(s). {refused} no se pudieron mover: solo quien los subió o el líder de la comunidad puede moverlos.» | `!(!moveBulk) && !(refused === 0)` | handleMoveSave · l.1755 |
-| success | «Documento eliminado» |  | handleHideConfirm · l.1768 |
-| error | «{(error as Error).message}» |  | handleHideConfirm · l.1771 |
-| success | «{uploadedDocuments.length} documento(s) subido(s) exitosamente» |  | handleUploadComplete · l.1778 |
-| plain | «Descargar múltiples próximamente» | `selectedDocuments.length > 0` | DocumentsTabContent · l.1859 |
-| error | «Error al cargar los hilos de conversación» |  | loadThreads · l.2247 |
-| error | «Error al cargar los mensajes» |  | loadThreadMessages · l.2264 |
-| success | «Hilo de conversación creado exitosamente» |  | handleThreadCreate · l.2431 |
-| error | «No se pudo crear la conversación. Tu texto sigue aquí; inténtalo de nuevo.» | `typeof error?.threadId === 'string'` | handleThreadCreate · l.2437 |
-| error | «Error al crear el hilo: {error?.message \|\| 'Error de…}» | `!(typeof error?.threadId === 'string')` | handleThreadCreate · l.2439 |
-| success | «Mensaje enviado» |  | handleMessageSend · l.2476 |
-| error | «Error al enviar el mensaje» |  | handleMessageSend · l.2479 |
-| loading | «Preparando descarga...» | `attachment.storage_path` | handleAttachmentDownload · l.2499 |
-| success | «Descarga completada» | `attachment.storage_path` | handleAttachmentDownload · l.2527 |
-| error | «Error al editar el mensaje» | `error` | handleSaveEdit · l.2569 |
-| success | «Mensaje editado» |  | handleSaveEdit · l.2580 |
-| error | «Error al editar el mensaje» |  | handleSaveEdit · l.2583 |
-| error | «Error al quitar la reacción» | `existingReaction && deleteError` | handleReaction · l.2615 |
-| error | «Error al agregar la reacción» | `!(existingReaction) && insertError` | handleReaction · l.2645 |
-| error | «Error al procesar la reacción» |  | handleReaction · l.2690 |
-| error | «Error al eliminar el mensaje» | `error` | confirmDeleteMessage · l.2714 |
-| success | «Mensaje eliminado» |  | confirmDeleteMessage · l.2720 |
-| error | «Error al eliminar el mensaje» |  | confirmDeleteMessage · l.2723 |
+| error | «No se pudieron cargar los miembros de la comunidad. Intenta nuevamente.» | `membersErrorToastRef.current !== communityId` | notifyError · l.212 |
+| error | «Error al cargar el espacio colaborativo» |  | initializeWorkspace · l.412 |
+| error | «No se pudo cargar el espacio de trabajo» | `!(workspace)` | loadWorkspace · l.439 |
+| error | «Error al cargar el espacio de trabajo» |  | loadWorkspace · l.444 |
+| success | «Configuración actualizada» | `currentWorkspace` | CommunityWorkspacePage · l.1110 |
+| error | «Error al cargar las reuniones» |  | loadMeetings · l.1181 |
+| error | «Error al cargar los documentos» |  | loadDocuments · l.1554 |
+| success | «Carpeta creada exitosamente» |  | handleCreateFolder · l.1633 |
+| error | «Error al crear la carpeta» |  | handleCreateFolder · l.1636 |
+| error | «Tu sesión expiró. Vuelve a iniciar sesión para descargar el documento.» | `action === 'download' && !session?.access_token` | handleDocumentAction · l.1668 |
+| loading | «Preparando descarga...» | `action === 'download'` | handleDocumentAction · l.1672 |
+| success | «Descarga completada» | `action === 'download'` | handleDocumentAction · l.1681 |
+| error | «Tu sesión expiró. Vuelve a iniciar sesión para descargar el documento.» | `action === 'download' && (error as { reason?: string } \| null)?.reason === 'session'` | handleDocumentAction · l.1685 |
+| error | «No se pudo abrir el documento. Inténtalo de nuevo.» | `action === 'download' && !((error as { reason?: string } \| null)?.reason === 'session')` | handleDocumentAction · l.1688 |
+| plain | «Compartir documentos próximamente» | `action === 'share'` | handleDocumentAction · l.1708 |
+| success | «Nombre actualizado» |  | handleRenameSave · l.1733 |
+| error | «{(error as Error).message}» |  | handleRenameSave · l.1736 |
+| success | «Documento movido» | `!moveBulk` | handleMoveSave · l.1751 |
+| error | «{(error as Error).message}» | `!moveBulk` | handleMoveSave · l.1753 |
+| success | «{moved} documento(s) movido(s)» | `!(!moveBulk) && refused === 0` | handleMoveSave · l.1770 |
+| error | «{moved} documento(s) movido(s). {refused} no se pudieron mover: solo quien los subió o el líder de la comunidad puede moverlos.» | `!(!moveBulk) && !(refused === 0)` | handleMoveSave · l.1772 |
+| success | «Documento eliminado» |  | handleHideConfirm · l.1785 |
+| error | «{(error as Error).message}» |  | handleHideConfirm · l.1788 |
+| success | «{uploadedDocuments.length} documento(s) subido(s) exitosamente» |  | handleUploadComplete · l.1796 |
+| plain | «Descargar múltiples próximamente» | `selectedDocuments.length > 0` | DocumentsTabContent · l.1877 |
+| error | «Error al cargar los hilos de conversación» |  | loadThreads · l.2265 |
+| error | «Error al cargar los mensajes» |  | loadThreadMessages · l.2282 |
+| success | «Hilo de conversación creado exitosamente» |  | handleThreadCreate · l.2451 |
+| error | «No se pudo crear la conversación. Tu texto sigue aquí; inténtalo de nuevo.» | `typeof error?.threadId === 'string'` | handleThreadCreate · l.2457 |
+| error | «Error al crear el hilo: {error?.message \|\| 'Error de…}» | `!(typeof error?.threadId === 'string')` | handleThreadCreate · l.2459 |
+| success | «Mensaje enviado» | `failedAttachments.length === 0` | handleMessageSend · l.2529 |
+| error | «Mensaje enviado, pero no se adjuntó: {names.join(', ')}. / {names.length > 1 ? 'Adjúnta…} en un nuevo mensaje.» |  | handleMessageSend · l.2533 |
+| error | «Error al enviar el mensaje» |  | handleMessageSend · l.2544 |
+| loading | «Preparando descarga...» | `attachment.storage_path` | handleAttachmentDownload · l.2566 |
+| success | «Descarga completada» | `attachment.storage_path` | handleAttachmentDownload · l.2594 |
+| success | «Mensaje editado» |  | handleSaveEdit · l.2643 |
+| error | «Error al editar el mensaje» |  | handleSaveEdit · l.2646 |
+| error | «Error al quitar la reacción» | `existingReaction && deleteError` | handleReaction · l.2680 |
+| error | «Error al agregar la reacción» | `!(existingReaction) && insertError` | handleReaction · l.2710 |
+| error | «Error al procesar la reacción» |  | handleReaction · l.2755 |
+| error | «Error al eliminar el mensaje» | `error` | confirmDeleteMessage · l.2779 |
+| success | «Mensaje eliminado» |  | confirmDeleteMessage · l.2786 |
+| error | «Error al eliminar el mensaje» |  | confirmDeleteMessage · l.2789 |
 
 **Messages set on the page** (4)
 
 | Text | Set by | When | Where |
 |---|---|---|---|
-| «No tienes acceso a ningún espacio colaborativo. Contacta al administrador.» | `setError` | `!access.canAccess` | initializeWorkspace · l.366 |
-| «Error al cargar el espacio colaborativo» | `setError` |  | initializeWorkspace · l.401 |
-| «No se pudo cargar el espacio de trabajo» | `setError` | `!(workspace)` | loadWorkspace · l.428 |
-| «Error al cargar el espacio de trabajo» | `setError` |  | loadWorkspace · l.433 |
+| «No tienes acceso a ningún espacio colaborativo. Contacta al administrador.» | `setError` | `!access.canAccess` | initializeWorkspace · l.376 |
+| «Error al cargar el espacio colaborativo» | `setError` |  | initializeWorkspace · l.411 |
+| «No se pudo cargar el espacio de trabajo» | `setError` | `!(workspace)` | loadWorkspace · l.438 |
+| «Error al cargar el espacio de trabajo» | `setError` |  | loadWorkspace · l.443 |
 
-**Downloads and printing** (4)
+**Downloads and printing** (2)
 
 | How | When | Where |
 |---|---|---|
-| `window.URL.createObjectURL()` | `action === 'download' && document.storage_path` | handleDocumentAction · l.1654 |
-| `archivo: {document.file_name}` | `action === 'download' && document.storage_path` | handleDocumentAction · l.1658 |
-| `window.URL.createObjectURL()` | `attachment.storage_path` | handleAttachmentDownload · l.2516 |
-| `archivo: {attachment.file_name}` | `attachment.storage_path` | handleAttachmentDownload · l.2520 |
+| `window.URL.createObjectURL()` | `attachment.storage_path` | handleAttachmentDownload · l.2583 |
+| `archivo: {attachment.file_name}` | `attachment.storage_path` | handleAttachmentDownload · l.2587 |
 
-**Moves to another page from code** (10)
+**Moves to another page from code** (8)
 
 | Goes to | How | When | Where |
 |---|---|---|---|
-| `/mi-aprendizaje/tareas[*]` | `router.replace` | `urlSection === 'group-assignments'` | CommunityWorkspacePage · l.273 |
-| `/login` | `router.push` | `!(!authLoading && user) && !authLoading && !user` | CommunityWorkspacePage · l.337 |
-| `/login` | `location.href` | `!(!authLoading && user) && !authLoading && !user` | CommunityWorkspacePage · l.341 |
-| `/dashboard` | `router.push` | `error` | CommunityWorkspacePage · l.870 |
-| `{documentUrl}` | `window.open` | `action === 'download' && document.storage_path && !session?.access_token` | handleDocumentAction · l.1630 |
-| `{documentUrl}` | `window.open` | `action === 'download' && document.storage_path && !response.ok` | handleDocumentAction · l.1648 |
-| `{documentUrl}` | `window.open` | `action === 'download' && document.storage_path` | handleDocumentAction · l.1672 |
-| `{attachment.storage_path}` | `window.open` | `attachment.storage_path && !session?.access_token` | handleAttachmentDownload · l.2495 |
-| `{attachment.storage_path}` | `window.open` | `attachment.storage_path && !response.ok` | handleAttachmentDownload · l.2511 |
-| `{attachment.storage_path}` | `window.open` | `attachment.storage_path` | handleAttachmentDownload · l.2531 |
+| `/mi-aprendizaje/tareas[*]` | `router.replace` | `urlSection === 'group-assignments'` | CommunityWorkspacePage · l.274 |
+| `/login` | `location.href` | `!(!authLoading && user) && !authLoading && !user` | CommunityWorkspacePage · l.351 |
+| `[*][*]` | `router.replace` | `typeof window !== 'undefined' && params.has('thread')` | handleCommunityChosen · l.473 |
+| `/dashboard` | `router.push` | `error` | CommunityWorkspacePage · l.912 |
+| `{downloadUrl}` | `window.location.assign` | `action === 'download'` | handleDocumentAction · l.1680 |
+| `{attachment.storage_path}` | `window.open` | `attachment.storage_path && !session?.access_token` | handleAttachmentDownload · l.2562 |
+| `{attachment.storage_path}` | `window.open` | `attachment.storage_path && !response.ok` | handleAttachmentDownload · l.2578 |
+| `{attachment.storage_path}` | `window.open` | `attachment.storage_path` | handleAttachmentDownload · l.2598 |
 
-**Draws nothing when** (2)
+**Draws nothing when** (3)
 
 | Condition | Where |
 |---|---|
-| `!workspaceAccess?.canAccess` | CommunityWorkspacePage · l.300 |
-| `!targetThreadId \|\| !workspace \|\| loading` | MessagingTabContent · l.2214 |
+| `!workspaceAccess?.canAccess` | CommunityWorkspacePage · l.301 |
+| `startedForUserRef.current === user.id` | CommunityWorkspacePage · l.340 |
+| `!targetThreadId \|\| !workspace \|\| loading` | MessagingTabContent · l.2232 |
 
 **Pieces placed here, with the texts and settings handed to them** (17)
 
 | Piece | Texts and settings | Shown when | Hook | Where |
 |---|---|---|---|---|
-| `FeedContainer` | userName: Usuario | `!(!currentWorkspace)` |  | renderMainContent · l.744 |
-| `WorkspaceSessionsTab` |  |  |  | renderMainContent · l.782 |
-| `MainLayout` |  | `authLoading \|\| loading` |  | CommunityWorkspacePage · l.829 |
-| `LoadingSkeleton` |  | `authLoading \|\| loading` |  | CommunityWorkspacePage · l.840 |
-| `MainLayout` |  | `error` |  | CommunityWorkspacePage · l.848 |
-| `MainLayout` |  |  |  | CommunityWorkspacePage · l.928 |
-| `ResponsiveFunctionalPageHeader` | title: Espacio Colaborativo · subtitle: {selectedCommunity.name} • {selectedCommunity.school_na…} / Herramientas de colaboración para comunidades · searchPlaceholder: Buscar en documentos, mensajes, reuniones... |  |  | CommunityWorkspacePage · l.937 |
-| `HelpButton` | sectionId: espacio-colaborativo |  |  | CommunityWorkspacePage · l.945 |
-| `WorkspaceTabNavigation` |  |  |  | CommunityWorkspacePage · l.995 |
-| `MeetingFilters` |  |  |  | MeetingsTabContent · l.1249 |
-| `MeetingCard` |  | `!(loading) && meetings.length > 0 && each filterMeetingsBySearch(meetings)` |  | MeetingsTabContent · l.1303 |
-| `FolderNavigation` |  |  |  | DocumentsTabContent · l.1802 |
-| `DocumentFilters` |  |  |  | DocumentsTabContent · l.1812 |
-| `DocumentGrid` |  |  |  | DocumentsTabContent · l.1876 |
-| `MessageFilters` |  |  |  | MessagingTabContent · l.2783 |
-| `MessageCard` |  | `(!(activeView === 'threads' \|\| !selectedThread)) && messages.length > 0 && each messages` |  | MessagingTabContent · l.2906 |
-| `MessageComposer` |  | `(!(activeView === 'threads' \|\| !selectedThread)) && permissions.can_send_messages` |  | MessagingTabContent · l.2930 |
+| `FeedContainer` | userName: Usuario | `!(!currentWorkspace)` |  | renderMainContent · l.777 |
+| `WorkspaceSessionsTab` |  |  |  | renderMainContent · l.819 |
+| `MainLayout` |  | `authLoading \|\| loading` |  | CommunityWorkspacePage · l.871 |
+| `LoadingSkeleton` |  | `authLoading \|\| loading` |  | CommunityWorkspacePage · l.882 |
+| `MainLayout` |  | `error` |  | CommunityWorkspacePage · l.890 |
+| `MainLayout` |  |  |  | CommunityWorkspacePage · l.970 |
+| `ResponsiveFunctionalPageHeader` | title: Espacio Colaborativo · subtitle: {selectedCommunity.name} • {selectedCommunity.school_na…} / Herramientas de colaboración para comunidades · searchPlaceholder: Buscar en documentos, mensajes, reuniones... |  |  | CommunityWorkspacePage · l.979 |
+| `HelpButton` | sectionId: espacio-colaborativo |  |  | CommunityWorkspacePage · l.987 |
+| `WorkspaceTabNavigation` |  |  |  | CommunityWorkspacePage · l.1039 |
+| `MeetingFilters` |  |  |  | MeetingsTabContent · l.1294 |
+| `MeetingCard` |  | `!(loading) && meetings.length > 0 && each filterMeetingsBySearch(meetings)` |  | MeetingsTabContent · l.1348 |
+| `FolderNavigation` |  |  |  | DocumentsTabContent · l.1820 |
+| `DocumentFilters` |  |  |  | DocumentsTabContent · l.1830 |
+| `DocumentGrid` |  |  |  | DocumentsTabContent · l.1894 |
+| `MessageFilters` |  |  |  | MessagingTabContent · l.2849 |
+| `MessageCard` |  | `(!(activeView === 'threads' \|\| !selectedThread)) && messages.length > 0 && each messages` |  | MessagingTabContent · l.2972 |
+| `MessageComposer` |  | `(!(activeView === 'threads' \|\| !selectedThread)) && permissions.can_send_messages` |  | MessagingTabContent · l.2996 |
 
 **Texts kept in lists and helpers in the code (labels, options, status names)** (4)
 
 | Name | Texts | Where |
 |---|---|---|
-| `communityParam` | «?communityId={query.communityId}&from=workspace / ?from=workspace» | CommunityWorkspacePage · l.272 |
-| `breadcrumbs` | «Espacio Colaborativo» | getBreadcrumbs · l.905 |
-| `renderMainContent()` | «Administrador», «Consultor», «Equipo Directivo», «Líder de Generación», «Líder de Comunidad», «Docente» | renderMainContent · l.717 |
-| `getPageTitle()` | «Vista General - Espacio Colaborativo», «Gestión de Comunidades», «Reuniones», «Documentos», «Mensajería», «Espacio Colaborativo» | getPageTitle · l.895 |
+| `communityParam` | «?communityId={query.communityId}&from=workspace / ?from=workspace» | CommunityWorkspacePage · l.273 |
+| `breadcrumbs` | «Espacio Colaborativo» | getBreadcrumbs · l.947 |
+| `renderMainContent()` | «Administrador», «Consultor», «Equipo Directivo», «Líder de Generación», «Líder de Comunidad», «Docente» | renderMainContent · l.750 |
+| `getPageTitle()` | «Vista General - Espacio Colaborativo», «Gestión de Comunidades», «Reuniones», «Documentos», «Mensajería», «Espacio Colaborativo» | getPageTitle · l.937 |
 
-**Other texts written in the code (safety net: not tied to an element by the script)** (14)
+**Other texts written in the code (safety net: not tied to an element by the script)** (16)
 
 | Text | Where |
 |---|---|
-| «Administrador» | CommunityWorkspacePage · l.717 |
-| «Consultor» | CommunityWorkspacePage · l.718 |
-| «Equipo Directivo» | CommunityWorkspacePage · l.719 |
-| «Líder de Generación» | CommunityWorkspacePage · l.720 |
-| «Líder de Comunidad» | CommunityWorkspacePage · l.721 |
-| «Docente» | CommunityWorkspacePage · l.722 |
-| «Vista General - Espacio Colaborativo» | CommunityWorkspacePage · l.895 |
-| «Fecha» | MeetingsTabContent · l.1260 |
-| «Título» | MeetingsTabContent · l.1261 |
-| «Estado» | MeetingsTabContent · l.1262 |
-| «Creación» | MeetingsTabContent · l.1263 |
-| «Usuario desconocido» | DocumentsTabContent · l.1496 |
-| «Bearer {session.access_token}» | DocumentsTabContent · l.1641 |
-| «Error desconocido» | MessagingTabContent · l.2439 |
+| «Administrador» | CommunityWorkspacePage · l.750 |
+| «Consultor» | CommunityWorkspacePage · l.751 |
+| «Equipo Directivo» | CommunityWorkspacePage · l.752 |
+| «Líder de Generación» | CommunityWorkspacePage · l.753 |
+| «Líder de Comunidad» | CommunityWorkspacePage · l.754 |
+| «Docente» | CommunityWorkspacePage · l.755 |
+| «Vista General - Espacio Colaborativo» | CommunityWorkspacePage · l.937 |
+| «Fecha» | MeetingsTabContent · l.1305 |
+| «Título» | MeetingsTabContent · l.1306 |
+| «Estado» | MeetingsTabContent · l.1307 |
+| «Creación» | MeetingsTabContent · l.1308 |
+| «Usuario desconocido» | DocumentsTabContent · l.1541 |
+| «Error desconocido» | MessagingTabContent · l.2459 |
+| «Adjúntalos» | MessagingTabContent · l.2535 |
+| «Adjúntalo» | MessagingTabContent · l.2535 |
+| «Bearer {session.access_token}» | MessagingTabContent · l.2572 |
 
 **Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (7)
 
 | Kind | What | Where |
 |---|---|---|
-| storage | `localStorage: workspace-sidebar-collapsed` | CommunityWorkspacePage · l.256 |
-| listener | `window.addEventListener('resize')` | CommunityWorkspacePage · l.290 |
-| storage | `sessionStorage: workspace_return_community` | initializeWorkspace · l.377 |
-| role | `role=alert` | renderMainContent · l.615 |
-| mark | `testid=thread-link-unavailable` | renderMainContent · l.615 |
-| mark | `testid=document-delete-confirm` | DocumentsTabContent · l.2052 |
+| storage | `localStorage: workspace-sidebar-collapsed` | CommunityWorkspacePage · l.257 |
+| listener | `window.addEventListener('resize')` | CommunityWorkspacePage · l.291 |
+| storage | `sessionStorage: workspace_return_community` | initializeWorkspace · l.387 |
+| role | `role=alert` | renderMainContent · l.648 |
+| mark | `testid=thread-link-unavailable` | renderMainContent · l.648 |
+| mark | `testid=document-delete-confirm` | DocumentsTabContent · l.2070 |
 | address value | `?thread` | l.1 |
 
 **Values shown from data** (10)
 
-- `( — / {communityMembers.length} )` — renderMainContent · l.657, when `!(!currentWorkspace)`
-- `{error}` — CommunityWorkspacePage · l.866, when `error`
-- `{selectedCommunity?.school_name} • {selectedCommunity?.generation_name}` — CommunityWorkspacePage · l.970, when `currentWorkspace`
-- `{renderCommunitySelector()}` — CommunityWorkspacePage · l.974, when `currentWorkspace && workspaceAccess && workspaceAccess.availableCommunities.length > 1`
-- `{currentWorkspace.community?.school?…} - {currentWorkspace.community?.generat…}` — CommunityWorkspacePage · l.1022, when `currentWorkspace && activeSection !== 'overview' && activeSection !== 'communities' && false`
-- `{renderMainContent()}` — CommunityWorkspacePage · l.1045
-- `{thread.category_config.label}` — MessagingTabContent · l.2822, when `(activeView === 'threads' \|\| !selectedThread) && !(loading) && threads.length > 0 && each filterThreadsBySearch(threads)`
-- `{thread.description}` — MessagingTabContent · l.2834, when `!(loading) && threads.length > 0 && each filterThreadsBySearch(threads) && thread.description`
-- `{thread.latest_message.author_name} :` — MessagingTabContent · l.2850, when `!(loading) && threads.length > 0 && each filterThreadsBySearch(threads) && thread.latest_message`
-- `{thread.latest_message.content.slice…} ...` — MessagingTabContent · l.2851, when `!(loading) && threads.length > 0 && each filterThreadsBySearch(threads) && thread.latest_message`
+- `( — / {communityMembers.length} )` — renderMainContent · l.690, when `!(!currentWorkspace)`
+- `{error}` — CommunityWorkspacePage · l.908, when `error`
+- `{selectedCommunity?.school_name} • {selectedCommunity?.generation_name}` — CommunityWorkspacePage · l.1012, when `currentWorkspace`
+- `{renderCommunitySelector()}` — CommunityWorkspacePage · l.1016, when `currentWorkspace && workspaceAccess && workspaceAccess.availableCommunities.length > 1`
+- `{currentWorkspace.community?.school?…} - {currentWorkspace.community?.generat…}` — CommunityWorkspacePage · l.1066, when `currentWorkspace && activeSection !== 'overview' && activeSection !== 'communities' && false`
+- `{renderMainContent()}` — CommunityWorkspacePage · l.1089
+- `{thread.category_config.label}` — MessagingTabContent · l.2888, when `(activeView === 'threads' \|\| !selectedThread) && !(loading) && threads.length > 0 && each filterThreadsBySearch(threads)`
+- `{thread.description}` — MessagingTabContent · l.2900, when `!(loading) && threads.length > 0 && each filterThreadsBySearch(threads) && thread.description`
+- `{thread.latest_message.author_name} :` — MessagingTabContent · l.2916, when `!(loading) && threads.length > 0 && each filterThreadsBySearch(threads) && thread.latest_message`
+- `{thread.latest_message.content.slice…} ...` — MessagingTabContent · l.2917, when `!(loading) && threads.length > 0 && each filterThreadsBySearch(threads) && thread.latest_message`
 
 **Other texts on screen** (27)
 
-- «No pudimos abrir la conversación del enlace. Puede que ya no exista o que no tengas acceso a ella.» — renderMainContent · l.620, when `threadLinkFailed`
-- «Elige una comunidad de crecimiento para acceder a su espacio colaborativo.» — renderMainContent · l.642, when `!currentWorkspace`
-- «No se pudieron cargar los miembros de la comunidad» (title) — renderMainContent · l.661, when `!(!currentWorkspace) && membersError`
-- «Error al cargar» — renderMainContent · l.666, when `!(!currentWorkspace) && membersError`
-- «No se pudieron cargar los miembros de la comunidad.» — renderMainContent · l.681, when `!(!currentWorkspace) && showMembers && membersError`
-- «Revisa tu conexión e inténtalo nuevamente.» — renderMainContent · l.683, when `!(!currentWorkspace) && showMembers && membersError`
-- «Tú» (title) — renderMainContent · l.729, when `!(membersError) && communityMembers.length > 0 && each communityMembers && member.id === user?.id`
-- «No hay otros miembros en esta comunidad aún.» — renderMainContent · l.736, when `!(!currentWorkspace) && showMembers && !(membersError) && !(communityMembers.length > 0)`
-- «Administra las comunidades de crecimiento bajo tu supervisión.» — renderMainContent · l.760
-- «🚧 Gestión de comunidades en desarrollo. Próximamente podrás administrar múltiples comunidades desde aquí.» — renderMainContent · l.764
-- «Selecciona una comunidad para ver sus reuniones.» — MeetingsTabContent · l.1218, when `!workspace`
-- «Documentación y seguimiento de reuniones» — MeetingsTabContent · l.1233
-- «Ordenar por:» — MeetingsTabContent · l.1257
-- «Comienza creando la primera reunión de la comunidad. / No se han programado reuniones en esta comunidad.» — MeetingsTabContent · l.1322, when `!(loading) && !(meetings.length > 0)`
-- «Selecciona una comunidad para ver sus documentos.» — DocumentsTabContent · l.1793, when `!workspace`
-- «{documents.length} documento(s) • {folders.length} carpeta(s)» — DocumentsTabContent · l.1828
-- «{selectedDocuments.length} documento(s) seleccionados» — DocumentsTabContent · l.1848, when `selectedDocuments.length > 0`
-- «Selecciona una comunidad para acceder a la mensajería.» — MessagingTabContent · l.2738, when `!workspace`
-- «No tienes permisos para ver los mensajes de esta comunidad.» — MessagingTabContent · l.2752, when `!permissions.can_view_messages`
-- «Comunicación en tiempo real con los miembros de la comunidad» — MessagingTabContent · l.2767
-- «Por {thread.creator_name}» — MessagingTabContent · l.2838, when `(activeView === 'threads' \|\| !selectedThread) && !(loading) && threads.length > 0 && each filterThreadsBySearch(threads)`
-- «{thread.message_count} mensaje(s)» — MessagingTabContent · l.2840, when `(activeView === 'threads' \|\| !selectedThread) && !(loading) && threads.length > 0 && each filterThreadsBySearch(threads)`
-- «{thread.participant_count} participante(s)» — MessagingTabContent · l.2841, when `(activeView === 'threads' \|\| !selectedThread) && !(loading) && threads.length > 0 && each filterThreadsBySearch(threads)`
-- «Último: {new Date(thread.latest_message.crea…}» — MessagingTabContent · l.2843, when `!(loading) && threads.length > 0 && each filterThreadsBySearch(threads) && thread.latest_message`
-- «Comienza creando el primer hilo de conversación. / No se han creado hilos de conversación en esta comunidad.» — MessagingTabContent · l.2863, when `(activeView === 'threads' \|\| !selectedThread) && !(loading) && !(threads.length > 0)`
-- «{selectedThread.message_count} mensaje(s)» — MessagingTabContent · l.2888, when `!(activeView === 'threads' \|\| !selectedThread)`
-- «No hay mensajes en este hilo» — MessagingTabContent · l.2922, when `(!(activeView === 'threads' \|\| !selectedThread)) && !(messages.length > 0)`
+- «No pudimos abrir la conversación del enlace. Puede que ya no exista o que no tengas acceso a ella.» — renderMainContent · l.653, when `threadLinkFailed`
+- «Elige una comunidad de crecimiento para acceder a su espacio colaborativo.» — renderMainContent · l.675, when `!currentWorkspace`
+- «No se pudieron cargar los miembros de la comunidad» (title) — renderMainContent · l.694, when `!(!currentWorkspace) && membersError`
+- «Error al cargar» — renderMainContent · l.699, when `!(!currentWorkspace) && membersError`
+- «No se pudieron cargar los miembros de la comunidad.» — renderMainContent · l.714, when `!(!currentWorkspace) && showMembers && membersError`
+- «Revisa tu conexión e inténtalo nuevamente.» — renderMainContent · l.716, when `!(!currentWorkspace) && showMembers && membersError`
+- «Tú» (title) — renderMainContent · l.762, when `!(membersError) && communityMembers.length > 0 && each communityMembers && member.id === user?.id`
+- «No hay otros miembros en esta comunidad aún.» — renderMainContent · l.769, when `!(!currentWorkspace) && showMembers && !(membersError) && !(communityMembers.length > 0)`
+- «Administra las comunidades de crecimiento bajo tu supervisión.» — renderMainContent · l.793
+- «🚧 Gestión de comunidades en desarrollo. Próximamente podrás administrar múltiples comunidades desde aquí.» — renderMainContent · l.797
+- «Selecciona una comunidad para ver sus reuniones.» — MeetingsTabContent · l.1263, when `!workspace`
+- «Documentación y seguimiento de reuniones» — MeetingsTabContent · l.1278
+- «Ordenar por:» — MeetingsTabContent · l.1302
+- «Comienza creando la primera reunión de la comunidad. / No se han programado reuniones en esta comunidad.» — MeetingsTabContent · l.1367, when `!(loading) && !(meetings.length > 0)`
+- «Selecciona una comunidad para ver sus documentos.» — DocumentsTabContent · l.1811, when `!workspace`
+- «{documents.length} documento(s) • {folders.length} carpeta(s)» — DocumentsTabContent · l.1846
+- «{selectedDocuments.length} documento(s) seleccionados» — DocumentsTabContent · l.1866, when `selectedDocuments.length > 0`
+- «Selecciona una comunidad para acceder a la mensajería.» — MessagingTabContent · l.2804, when `!workspace`
+- «No tienes permisos para ver los mensajes de esta comunidad.» — MessagingTabContent · l.2818, when `!permissions.can_view_messages`
+- «Comunicación en tiempo real con los miembros de la comunidad» — MessagingTabContent · l.2833
+- «Por {thread.creator_name}» — MessagingTabContent · l.2904, when `(activeView === 'threads' \|\| !selectedThread) && !(loading) && threads.length > 0 && each filterThreadsBySearch(threads)`
+- «{thread.message_count} mensaje(s)» — MessagingTabContent · l.2906, when `(activeView === 'threads' \|\| !selectedThread) && !(loading) && threads.length > 0 && each filterThreadsBySearch(threads)`
+- «{thread.participant_count} participante(s)» — MessagingTabContent · l.2907, when `(activeView === 'threads' \|\| !selectedThread) && !(loading) && threads.length > 0 && each filterThreadsBySearch(threads)`
+- «Último: {new Date(thread.latest_message.crea…}» — MessagingTabContent · l.2909, when `!(loading) && threads.length > 0 && each filterThreadsBySearch(threads) && thread.latest_message`
+- «Comienza creando el primer hilo de conversación. / No se han creado hilos de conversación en esta comunidad.» — MessagingTabContent · l.2929, when `(activeView === 'threads' \|\| !selectedThread) && !(loading) && !(threads.length > 0)`
+- «{selectedThread.message_count} mensaje(s)» — MessagingTabContent · l.2954, when `!(activeView === 'threads' \|\| !selectedThread)`
+- «No hay mensajes en este hilo» — MessagingTabContent · l.2988, when `(!(activeView === 'threads' \|\| !selectedThread)) && !(messages.length > 0)`
 
-**Reads and writes the database directly:** `table:community_messages` (update), `table:message_reactions` (delete, insert, select), `table:profiles` (select)
+**Reads and writes the database directly:** `table:community_messages` (update), `table:message_reactions` (delete, insert, select), `table:message_threads` (select), `table:profiles` (select)
 
 ### Pieces it uses (each is listed once, under "Pieces" below)
 
@@ -881,19 +881,20 @@ File `pages/community/workspace.tsx` · 2995 lines · frame: MainLayout
 
 | Address | Method | Called from |
 |---|---|---|
-| `/api/community/ensure-workspace` | POST | `utils/workspaceUtils.ts:386` |
-| `/api/community/members` | GET | `lib/community/fetchCommunityMembers.ts:45`, `pages/community/workspace.tsx:226` |
-| `/api/community/search-users` | GET | `components/feed/CreatePostModal.tsx:55` |
-| `/api/community/workspace-message-notifications` | POST | `utils/messagingUtils-simple.ts:829` |
-| `/api/meetings/[id]/autosave` | POST | `components/meetings/MeetingDocumentationModal.tsx:619` |
-| `/api/meetings/[id]/finalize` | POST | `components/meetings/FinalizeMeetingDialog.tsx:131` |
-| `/api/meetings/[id]/recipients` | GET | `components/meetings/FinalizeMeetingDialog.tsx:100` |
-| `/api/meetings/[id]/work-session/[sessionId]/end` | ? | `components/meetings/MeetingDocumentationModal.tsx:369` |
-| `/api/meetings/[id]/work-session/start` | POST | `components/meetings/MeetingDocumentationModal.tsx:579` |
+| `/api/community/documents/[id]/link` | ? | `utils/documentUtils.ts:620` |
+| `/api/community/ensure-workspace` | POST | `utils/workspaceUtils.ts:390` |
+| `/api/community/members` | GET | `lib/community/fetchCommunityMembers.ts:45`, `pages/community/workspace.tsx:227` |
+| `/api/community/search-users` | GET | `components/feed/CreatePostModal.tsx:62` |
+| `/api/community/workspace-message-notifications` | POST | `utils/messagingUtils-simple.ts:896` |
+| `/api/meetings/[id]/autosave` | POST | `components/meetings/MeetingDocumentationModal.tsx:733` |
+| `/api/meetings/[id]/finalize` | POST | `components/meetings/FinalizeMeetingDialog.tsx:151` |
+| `/api/meetings/[id]/recipients` | GET | `components/meetings/FinalizeMeetingDialog.tsx:118` |
+| `/api/meetings/[id]/work-session/[sessionId]/end` | ? | `components/meetings/MeetingDocumentationModal.tsx:458` |
+| `/api/meetings/[id]/work-session/start` | POST | `components/meetings/MeetingDocumentationModal.tsx:671` |
 | `/api/meetings/delete` | POST | `utils/meetingDeletion.ts:52` |
-| `/api/messaging/mention` | POST | `lib/services/feedService.ts:259` |
+| `/api/messaging/mention` | POST | `lib/services/feedService.ts:365` |
 | `/api/sessions` | GET | `components/workspace/WorkspaceSessionsTab.tsx:124` |
-| `/api/storage/download` | ? | `pages/community/workspace.tsx:1637`, `pages/community/workspace.tsx:2501` |
+| `/api/storage/download` | ? | `pages/community/workspace.tsx:2568` |
 
 ## /user/[userId]
 
@@ -910,7 +911,7 @@ File `pages/user/[userId].tsx` · 392 lines · frame: MainLayout
   - l.132 `roles = await getUserRoles(supabase, targetUserId)`
   - l.189 `router.push → /login`
   - l.227 `El perfil que buscas no existe o no tienes permisos para verlo.`
-- Linked from: `components/community/MemberProfileModal.tsx:166`, `components/community/MemberProfileModal.tsx:167`, `components/community/MemberProfileNuevo.tsx:45`, `middleware.ts:358`, `pages/community/workspace.tsx:689`, `pages/community/workspace.tsx:691`
+- Linked from: `components/community/MemberProfileModal.tsx:166`, `components/community/MemberProfileModal.tsx:167`, `components/community/MemberProfileNuevo.tsx:45`, `middleware.ts:364`, `pages/community/workspace.tsx:722`, `pages/community/workspace.tsx:724`
 - Tests: browser tests that CI runs: `tests/e2e/look-panel.spec.ts`; browser tests CI skips: `tests/e2e/sentry-replay-disabled.spec.ts`; unit tests of the page: `__tests__/pages/user-profile-view.test.tsx`.
 
 | Role | Sees it in the menu | Middleware |
@@ -1084,50 +1085,51 @@ Used by: `/community/workspace`
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «Configuración de la Comunidad» | h3 |  | WorkspaceSettingsModal · l.49 |
+| «Configuración de la Comunidad» | h3 |  | WorkspaceSettingsModal · l.52 |
 
 **Buttons** (4)
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «[icon X]» | `{onClose}` |  | `{isLoading}` |  | WorkspaceSettingsModal · l.52 |
-| «[icon X]» | `{handleRemoveImage}` | `imagePreview` |  |  | WorkspaceSettingsModal · l.96 |
-| «Cancelar» | `{onClose}` |  | `{isLoading}` |  | WorkspaceSettingsModal · l.138 |
-| «Guardando... / Guardar cambios» | `{handleSave}` |  | `{saveDisabled}` |  | WorkspaceSettingsModal · l.145 |
+| «[icon X]» | `{onClose}` |  | `{isLoading}` |  | WorkspaceSettingsModal · l.55 |
+| «[icon X]» | `{handleRemoveImage}` | `canChangePicture && imagePreview` |  |  | WorkspaceSettingsModal · l.100 |
+| «Cancelar» | `{onClose}` |  | `{isLoading}` |  | WorkspaceSettingsModal · l.146 |
+| «Guardando... / Guardar cambios» | `{handleSave}` |  | `{saveDisabled}` |  | WorkspaceSettingsModal · l.153 |
 
 **Fields** (2)
 
 | Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
 |---|---|---|---|---|---|---|
-| «Nombre de la Comunidad» | text | «Ingresa un nombre personalizado» · `maxLength={100}` |  |  |  | WorkspaceSettingsModal · l.67 |
-| «Subir imagen» | file | accepts `image/jpeg,image/jpg,image/png,image/webp` |  | hidden by its class (`hidden`); another control opens it or it is for screen readers | `id=community-image-upload (id used by code)` | WorkspaceSettingsModal · l.113 |
+| «Nombre de la Comunidad» | text | «Ingresa un nombre personalizado» · `maxLength={100}` |  |  |  | WorkspaceSettingsModal · l.70 |
+| «Subir imagen» | file | accepts `image/jpeg,image/jpg,image/png,image/webp` |  | `canChangePicture` · hidden by its class (`hidden`); another control opens it or it is for screen readers | `id=community-image-upload (id used by code)` | WorkspaceSettingsModal · l.117 |
 
 **Embedded media** (1)
 
 | What | Shown when | Hook | Where |
 |---|---|---|---|
-| img · alt Vista previa · {imagePreview} | `imagePreview` |  | WorkspaceSettingsModal · l.91 |
+| img · alt Vista previa · {imagePreview} | `canChangePicture && imagePreview` |  | WorkspaceSettingsModal · l.95 |
 
 **Pop-ups** (2)
 
 | Name or title | How | Opens when | Texts passed to it | Where |
 |---|---|---|---|---|
-| `WorkspaceSettingsNuevo` | component | `{isOpen}` |  | WorkspaceSettingsModal · l.41 |
-| «Configuración de la Comunidad» | written in this file |  |  | WorkspaceSettingsModal · l.46 |
+| `WorkspaceSettingsNuevo` | component | `{isOpen}` |  | WorkspaceSettingsModal · l.44 |
+| «Configuración de la Comunidad» | written in this file |  |  | WorkspaceSettingsModal · l.49 |
 
 **Draws nothing when** (1)
 
 | Condition | Where |
 |---|---|
-| `!isOpen` | WorkspaceSettingsModal · l.43 |
+| `!isOpen` | WorkspaceSettingsModal · l.46 |
 
-**Other texts on screen** (5)
+**Other texts on screen** (6)
 
-- «Nombre de la Comunidad» (label) — WorkspaceSettingsModal · l.64
-- «Cualquier miembro puede cambiar el nombre del grupo» — WorkspaceSettingsModal · l.76
-- «Imagen de la Comunidad» (label) — WorkspaceSettingsModal · l.82
-- «Subir imagen» (label) — WorkspaceSettingsModal · l.121
-- «Máx. 5MB (JPEG, PNG, WebP)» — WorkspaceSettingsModal · l.129
+- «Nombre de la Comunidad» (label) — WorkspaceSettingsModal · l.67
+- «Cualquier miembro puede cambiar el nombre del grupo» — WorkspaceSettingsModal · l.79
+- «Imagen de la Comunidad» (label) — WorkspaceSettingsModal · l.86, when `canChangePicture`
+- «Subir imagen» (label) — WorkspaceSettingsModal · l.125, when `canChangePicture`
+- «Máx. 5MB (JPEG, PNG, WebP)» — WorkspaceSettingsModal · l.133, when `canChangePicture`
+- «La imagen la cambian los administradores y el gestor de la comunidad.» — WorkspaceSettingsModal · l.138, when `canChangePicture`
 
 ### components/community/WorkspaceSettingsNuevo.tsx
 
@@ -1137,62 +1139,64 @@ Used by: `/community/workspace`
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «Cancelar» | `{onClose}` |  | `{isLoading}` | `testid=workspace-settings-cancel` | WorkspaceSettingsNuevo · l.46 |
-| «Guardando... / Guardar cambios» | `{handleSave}` |  | `{saveDisabled}` | `testid=workspace-settings-save` | WorkspaceSettingsNuevo · l.49 |
-| «[icon X]» · tooltip «Quitar imagen» · aria «Quitar imagen» | `{handleRemoveImage}` | `imagePreview` |  | `testid=workspace-settings-remove-image` | WorkspaceSettingsNuevo · l.74 |
-| «Subir imagen» | `{() => fileInputRef.current?.click()}` |  |  | `testid=workspace-settings-upload` | WorkspaceSettingsNuevo · l.99 |
+| «Cancelar» | `{onClose}` |  | `{isLoading}` | `testid=workspace-settings-cancel` | WorkspaceSettingsNuevo · l.48 |
+| «Guardando... / Guardar cambios» | `{handleSave}` |  | `{saveDisabled}` | `testid=workspace-settings-save` | WorkspaceSettingsNuevo · l.51 |
+| «[icon X]» · tooltip «Quitar imagen» · aria «Quitar imagen» | `{handleRemoveImage}` | `canChangePicture && imagePreview` |  | `testid=workspace-settings-remove-image` | WorkspaceSettingsNuevo · l.77 |
+| «Subir imagen» | `{() => fileInputRef.current?.click()}` | `canChangePicture` |  | `testid=workspace-settings-upload` | WorkspaceSettingsNuevo · l.102 |
 
 **Fields** (2)
 
 | Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
 |---|---|---|---|---|---|---|
-| «Ingresa un nombre personalizado» | text | «Ingresa un nombre personalizado» · `maxLength={100}` |  |  | `testid=workspace-settings-name` | WorkspaceSettingsNuevo · l.56 |
-|  | file | accepts `image/jpeg,image/jpg,image/png,image/webp` |  | hidden by its class (`hidden`); another control opens it or it is for screen readers | `id=community-image-upload` | WorkspaceSettingsNuevo · l.91 |
+| «Ingresa un nombre personalizado» | text | «Ingresa un nombre personalizado» · `maxLength={100}` |  |  | `testid=workspace-settings-name` | WorkspaceSettingsNuevo · l.58 |
+|  | file | accepts `image/jpeg,image/jpg,image/png,image/webp` |  | `canChangePicture` · hidden by its class (`hidden`); another control opens it or it is for screen readers | `id=community-image-upload` | WorkspaceSettingsNuevo · l.94 |
 
 **Embedded media** (1)
 
 | What | Shown when | Hook | Where |
 |---|---|---|---|
-| img · alt Vista previa · {imagePreview} | `imagePreview` |  | WorkspaceSettingsNuevo · l.73 |
+| img · alt Vista previa · {imagePreview} | `canChangePicture && imagePreview` |  | WorkspaceSettingsNuevo · l.76 |
 
 **Pop-ups** (1)
 
 | Name or title | How | Opens when | Texts passed to it | Where |
 |---|---|---|---|---|
-| `Dialog` | component | `{isOpen}` | eyebrow: Mi Comunidad de Crecimiento · title: Configuración de la Comunidad | WorkspaceSettingsNuevo · l.37 |
+| `Dialog` | component | `{isOpen}` | eyebrow: Mi Comunidad de Crecimiento · title: Configuración de la Comunidad | WorkspaceSettingsNuevo · l.39 |
 
 **Pieces placed here, with the texts and settings handed to them** (4)
 
 | Piece | Texts and settings | Shown when | Hook | Where |
 |---|---|---|---|---|
-| `Field` | label: Nombre de la Comunidad · help: Cualquier miembro puede cambiar el nombre del grupo |  |  | WorkspaceSettingsNuevo · l.55 |
-| `X` | aria-hidden: true | `imagePreview` |  | WorkspaceSettingsNuevo · l.82 |
-| `Camera` | aria-hidden: true | `!(imagePreview)` |  | WorkspaceSettingsNuevo · l.87 |
-| `Upload` | aria-hidden: true |  |  | WorkspaceSettingsNuevo · l.100 |
+| `Field` | label: Nombre de la Comunidad · help: Cualquier miembro puede cambiar el nombre del grupo |  |  | WorkspaceSettingsNuevo · l.57 |
+| `X` | aria-hidden: true | `canChangePicture && imagePreview` |  | WorkspaceSettingsNuevo · l.85 |
+| `Camera` | aria-hidden: true | `canChangePicture && !(imagePreview)` |  | WorkspaceSettingsNuevo · l.90 |
+| `Upload` | aria-hidden: true | `canChangePicture` |  | WorkspaceSettingsNuevo · l.103 |
 
 **Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (1)
 
 | Kind | What | Where |
 |---|---|---|
-| role | `role=group` | WorkspaceSettingsNuevo · l.66 |
+| role | `role=group` | WorkspaceSettingsNuevo · l.69 |
 
-**Other texts on screen** (2)
+**Other texts on screen** (3)
 
-- «Imagen de la Comunidad» — WorkspaceSettingsNuevo · l.68
-- «Máx. 5MB (JPEG, PNG, WebP)» — WorkspaceSettingsNuevo · l.104
+- «Imagen de la Comunidad» — WorkspaceSettingsNuevo · l.71, when `canChangePicture`
+- «Máx. 5MB (JPEG, PNG, WebP)» — WorkspaceSettingsNuevo · l.107, when `canChangePicture`
+- «La imagen la cambian los administradores y el gestor de la comunidad.» — WorkspaceSettingsNuevo · l.112, when `canChangePicture`
 
 ### components/community/useWorkspaceSettings.ts
 
 Used by: `/community/workspace`
 
-**Toasts** (4)
+**Toasts** (5)
 
 | Kind | Text | When | Where |
 |---|---|---|---|
-| error | «La imagen debe ser menor a 5MB» | `file.size > 5 * 1024 * 1024` | handleImageSelect · l.45 |
-| error | «Solo se permiten imágenes (JPEG, PNG, WebP)» | `!allowedTypes.includes(file.type)` | handleImageSelect · l.52 |
-| success | «Configuración actualizada exitosamente» |  | handleSave · l.102 |
-| error | «Error al guardar la configuración» |  | handleSave · l.110 |
+| error | «La imagen debe ser menor a 5MB» | `file.size > 5 * 1024 * 1024` | handleImageSelect · l.53 |
+| error | «Solo se permiten imágenes (JPEG, PNG, WebP)» | `!allowedTypes.includes(file.type)` | handleImageSelect · l.60 |
+| error | «{renameError}» | `nameChanged && renameError` | handleSave · l.147 |
+| success | «Configuración actualizada exitosamente» |  | handleSave · l.155 |
+| error | «Error al guardar la configuración» |  | handleSave · l.160 |
 
 ### components/documents/DocumentFilters.tsx
 
@@ -1356,182 +1360,222 @@ Used by: `/community/workspace`
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «Vista previa no disponible» | h3 | `!canPreview` | renderPreviewContent · l.116 |
-| «{document.title}» | h2 |  | DocumentPreview · l.248 |
-| «Error al cargar» | h3 | `!(loading) && previewError` | DocumentPreview · l.311 |
-| «Información del Documento» | h3 |  | DocumentPreview · l.327 |
-| «Descripción» | h3 | `document.description` | DocumentPreview · l.376 |
-| «Etiquetas» | h3 | `document.tags.length > 0` | DocumentPreview · l.388 |
-| «Estadísticas» | h3 |  | DocumentPreview · l.407 |
-| «Ubicación» | h3 | `document.folder_name` | DocumentPreview · l.443 |
+| «Vista previa no disponible» | h3 | `!canPreview` | renderPreviewContent · l.326 |
+| «{document.title}» | h2 |  | DocumentPreview · l.462 |
+| «Error al cargar» | h3 | `!(loading) && previewError` | DocumentPreview · l.525 |
+| «Información del Documento» | h3 |  | DocumentPreview · l.541 |
+| «Descripción» | h3 | `document.description` | DocumentPreview · l.590 |
+| «Etiquetas» | h3 | `document.tags.length > 0` | DocumentPreview · l.602 |
+| «Estadísticas» | h3 |  | DocumentPreview · l.621 |
+| «Ubicación» | h3 | `document.folder_name` | DocumentPreview · l.657 |
 
 **Buttons** (10)
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «Descargar» | `{handleDownload}` | `!canPreview` |  |  | renderPreviewContent · l.123 |
-| «Abrir» | `{handleExternalOpen}` | `!canPreview` |  |  | renderPreviewContent · l.130 |
-| «[icon ZoomOut]» | `{handleZoomOut}` | `document.mime_type.startsWith('image/')` | `{imageZoom <= 25}` |  | renderPreviewContent · l.150 |
-| «[icon ZoomIn]» | `{handleZoomIn}` | `document.mime_type.startsWith('image/')` | `{imageZoom >= 300}` |  | renderPreviewContent · l.160 |
-| «[icon RotateCw]» | `{handleRotate}` | `document.mime_type.startsWith('image/')` |  |  | renderPreviewContent · l.168 |
-| «Restablecer» | `{handleResetView}` | `document.mime_type.startsWith('image/')` |  |  | renderPreviewContent · l.174 |
-| «[icon Edit2]» · tooltip «Editar documento» | `{() => onEdit(document)}` | `canEdit && onEdit` |  |  | DocumentPreview · l.260 |
-| «[icon Share2]» · tooltip «Compartir documento» | `{() => onShare(document)}` | `onShare` |  |  | DocumentPreview · l.270 |
-| «Descargar» | `{handleDownload}` |  |  |  | DocumentPreview · l.279 |
-| «[icon X]» | `{onClose}` |  |  |  | DocumentPreview · l.287 |
+| «Descargar» | `{handleDownload}` | `!canPreview` |  |  | renderPreviewContent · l.333 |
+| «Abrir» | `{handleExternalOpen}` | `!canPreview` |  |  | renderPreviewContent · l.340 |
+| «[icon ZoomOut]» | `{handleZoomOut}` | `document.mime_type.startsWith('image/')` | `{imageZoom <= 25}` |  | renderPreviewContent · l.362 |
+| «[icon ZoomIn]» | `{handleZoomIn}` | `document.mime_type.startsWith('image/')` | `{imageZoom >= 300}` |  | renderPreviewContent · l.372 |
+| «[icon RotateCw]» | `{handleRotate}` | `document.mime_type.startsWith('image/')` |  |  | renderPreviewContent · l.380 |
+| «Restablecer» | `{handleResetView}` | `document.mime_type.startsWith('image/')` |  |  | renderPreviewContent · l.386 |
+| «[icon Edit2]» · tooltip «Editar documento» | `{() => onEdit(document)}` | `canEdit && onEdit` |  |  | DocumentPreview · l.474 |
+| «[icon Share2]» · tooltip «Compartir documento» | `{() => onShare(document)}` | `onShare` |  |  | DocumentPreview · l.484 |
+| «Descargar» | `{handleDownload}` |  |  |  | DocumentPreview · l.493 |
+| «[icon X]» | `{onClose}` |  |  |  | DocumentPreview · l.501 |
 
 **Embedded media** (3)
 
 | What | Shown when | Hook | Where |
 |---|---|---|---|
-| img · alt {document.title} · {documentUrl \|\| undefined} | `document.mime_type.startsWith('image/')` |  | renderPreviewContent · l.185 |
-| iframe · {document.title} · {`${documentUrl}#view=FitH`} | `document.mime_type === 'application/pdf'` |  | renderPreviewContent · l.204 |
-| video | `document.mime_type.startsWith('video/')` |  | renderPreviewContent · l.219 |
+| img · alt {document.title} · {documentUrl \|\| undefined} | `document.mime_type.startsWith('image/')` |  | renderPreviewContent · l.397 |
+| iframe · {document.title} · {`${documentUrl}#view=FitH`} | `document.mime_type === 'application/pdf'` |  | renderPreviewContent · l.416 |
+| video | `document.mime_type.startsWith('video/')` |  | renderPreviewContent · l.431 |
 
 **Pop-ups** (1)
 
 | Name or title | How | Opens when | Texts passed to it | Where |
 |---|---|---|---|---|
-| «{document.title}» | written in this file |  |  | DocumentPreview · l.236 |
+| «{document.title}» | written in this file |  |  | DocumentPreview · l.450 |
 
-**Messages set on the page** (3)
+**Messages set on the page** (1)
 
 | Text | Set by | When | Where |
 |---|---|---|---|
-| «Error al cargar la imagen» | `setPreviewError` | `document.mime_type.startsWith('image/')` | renderPreviewContent · l.193 |
-| «Error al cargar el PDF» | `setPreviewError` | `document.mime_type === 'application/pdf'` | renderPreviewContent · l.209 |
-| «Error al cargar el video» | `setPreviewError` | `document.mime_type.startsWith('video/')` | renderPreviewContent · l.223 |
+| «HTTP {response.status}» | `throw (shown by whoever catches it)` | `!response.ok` | fetchWhole · l.143 |
+
+**Downloads and printing** (1)
+
+| How | When | Where |
+|---|---|---|
+| `URL.createObjectURL()` | `kind === 'fetched'` | DocumentPreview · l.170 |
 
 **Moves to another page from code** (1)
 
 | Goes to | How | When | Where |
 |---|---|---|---|
-| `{documentUrl}` | `window.open` | `documentUrl` | handleExternalOpen · l.86 |
+|  | `window.open` |  | handleExternalOpen · l.286 |
 
-**Draws nothing when** (1)
+**Draws nothing when** (7)
 
 | Condition | Where |
 |---|---|
-| `!isOpen \|\| !document` | DocumentPreview · l.71 |
+| `!current()` | DocumentPreview · l.169 |
+| `!current()` | DocumentPreview · l.175 |
+| `!current()` | DocumentPreview · l.196 |
+| `!current()` | DocumentPreview · l.201 |
+| `kind !== 'video' \|\| !video \|\| !shownUrl \|\| !previous.url \|\| previous.documentId !== documentId` | DocumentPreview · l.231 |
+| `previous.url === shownUrl && previous.tick === reloadTick` | DocumentPreview · l.232 |
+| `!isOpen \|\| !document` | DocumentPreview · l.271 |
+
+**Texts kept in lists and helpers in the code (labels, options, status names)** (1)
+
+| Name | Texts | Where |
+|---|---|---|
+| `LINK_FAILED` | «No se pudo abrir el documento. Inténtalo de nuevo.» | l.39 |
+
+**Other texts written in the code (safety net: not tied to an element by the script)** (3)
+
+| Text | Where |
+|---|---|
+| «Error al cargar el PDF» | loadErrorOf · l.53 |
+| «Error al cargar el video» | loadErrorOf · l.55 |
+| «Error al cargar la imagen» | loadErrorOf · l.56 |
+
+**Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (3)
+
+| Kind | What | Where |
+|---|---|---|
+| timer | `setInterval(…, LINK_MAX_AGE_MS)` | DocumentPreview · l.206 |
+| listener | `video.addEventListener('loadedmetadata')` | DocumentPreview · l.240 |
+| lookup | `querySelector(source)` | DocumentPreview · l.241 |
 
 **Values shown from data** (12)
 
-- `{imageZoom} %` — renderPreviewContent · l.157, when `document.mime_type.startsWith('image/')`
-- `{document.file_name}` — DocumentPreview · l.251
-- `{previewError}` — DocumentPreview · l.314, when `!(loading) && previewError`
-- `{document.file_name}` — DocumentPreview · l.335
-- `{formatFileSize(document.file_size)}` — DocumentPreview · l.345
-- `{document.uploader_name}` — DocumentPreview · l.355
-- `{formatRelativeTime(document.created…}` — DocumentPreview · l.365
-- `{document.description}` — DocumentPreview · l.379, when `document.description`
-- `{document.view_count}` — DocumentPreview · l.416
-- `{document.download_count}` — DocumentPreview · l.425
-- `{document.current_version}` — DocumentPreview · l.433
-- `{document.folder_name}` — DocumentPreview · l.448, when `document.folder_name`
+- `{imageZoom} %` — renderPreviewContent · l.369, when `document.mime_type.startsWith('image/')`
+- `{document.file_name}` — DocumentPreview · l.465
+- `{previewError}` — DocumentPreview · l.528, when `!(loading) && previewError`
+- `{document.file_name}` — DocumentPreview · l.549
+- `{formatFileSize(document.file_size)}` — DocumentPreview · l.559
+- `{document.uploader_name}` — DocumentPreview · l.569
+- `{formatRelativeTime(document.created…}` — DocumentPreview · l.579
+- `{document.description}` — DocumentPreview · l.593, when `document.description`
+- `{document.view_count}` — DocumentPreview · l.630
+- `{document.download_count}` — DocumentPreview · l.639
+- `{document.current_version}` — DocumentPreview · l.647
+- `{document.folder_name}` — DocumentPreview · l.662, when `document.folder_name`
 
 **Other texts on screen** (10)
 
-- «Este tipo de archivo no se puede previsualizar en el navegador.» — renderPreviewContent · l.120, when `!canPreview`
-- «Tu navegador no soporta la reproducción de videos.» — renderPreviewContent · l.226, when `document.mime_type.startsWith('video/')`
-- «Cargando vista previa...» — DocumentPreview · l.304, when `loading`
-- «Archivo» — DocumentPreview · l.334
-- «Tamaño» — DocumentPreview · l.344
-- «Subido por» — DocumentPreview · l.354
-- «Fecha de subida» — DocumentPreview · l.364
-- «Visualizaciones» — DocumentPreview · l.414
-- «Descargas» — DocumentPreview · l.423
-- «Versión» — DocumentPreview · l.431
+- «Este tipo de archivo no se puede previsualizar en el navegador.» — renderPreviewContent · l.330, when `!canPreview`
+- «Tu navegador no soporta la reproducción de videos.» — renderPreviewContent · l.440, when `document.mime_type.startsWith('video/')`
+- «Cargando vista previa...» — DocumentPreview · l.518, when `loading`
+- «Archivo» — DocumentPreview · l.548
+- «Tamaño» — DocumentPreview · l.558
+- «Subido por» — DocumentPreview · l.568
+- «Fecha de subida» — DocumentPreview · l.578
+- «Visualizaciones» — DocumentPreview · l.628
+- «Descargas» — DocumentPreview · l.637
+- «Versión» — DocumentPreview · l.645
 
 ### components/documents/DocumentUploadModal.tsx
 
 Used by: `/community/workspace`
 
-**Titles** (3)
+**Titles** (4)
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «Subir Documentos» | h2 |  | DocumentUploadModal · l.270 |
-| «Archivos Seleccionados» | h3 | `formData.files.length > 0` | DocumentUploadModal · l.322 |
-| «Se encontraron errores:» | h3 | `errors.length > 0` | DocumentUploadModal · l.492 |
+| «Subir Documentos» | h2 |  | DocumentUploadModal · l.350 |
+| «Resultado de la subida» | h3 | `results.length > 0` | DocumentUploadModal · l.402 |
+| «Archivos Seleccionados» | h3 | `formData.files.length > 0` | DocumentUploadModal · l.435 |
+| «Se encontraron errores:» | h3 | `errors.length > 0` | DocumentUploadModal · l.611 |
 
 **Buttons** (8)
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «[icon X]» | `{onClose}` |  | `{uploading}` |  | DocumentUploadModal · l.271 |
-| «Seleccionar Archivos» | `{() => fileInputRef.current?.click()}` |  | `{uploading}` |  | DocumentUploadModal · l.309 |
-| «[icon X]» | `{() => removeFile(index)}` | `formData.files.length > 0 && each formData.files && !uploading` |  |  | DocumentUploadModal · l.348 |
-| «Nueva Carpeta» | `{() => setShowCreateFolder(!showCreateFolder)}` |  | `{uploading}` |  | DocumentUploadModal · l.400 |
-| «Crear» | `{handleCreateFolder}` | `showCreateFolder` | `{creatingFolder \|\| !newFolderName.trim()}` |  | DocumentUploadModal · l.421 |
-| «[icon X]» | `{() => removeTag(tag)}` | `formData.tags.length > 0 && each formData.tags && !uploading` |  |  | DocumentUploadModal · l.471 |
-| «Cancelar» | `{onClose}` |  | `{uploading}` |  | DocumentUploadModal · l.509 |
-| «Subiendo... / Subir Documentos» | `{handleUpload}` |  | `{uploading \|\| formData.files.length === 0 \|\| !formData.title.trim()}` |  | DocumentUploadModal · l.516 |
+| «[icon X]» | `{onClose}` |  | `{uploading}` |  | DocumentUploadModal · l.351 |
+| «Seleccionar Archivos» | `{() => fileInputRef.current?.click()}` |  | `{uploading}` |  | DocumentUploadModal · l.389 |
+| «[icon X]» | `{() => removeFile(index)}` | `formData.files.length > 0 && each formData.files && !uploading` |  |  | DocumentUploadModal · l.466 |
+| «Nueva Carpeta» | `{() => setShowCreateFolder(!showCreateFolder)}` |  | `{uploading}` |  | DocumentUploadModal · l.519 |
+| «Crear» | `{handleCreateFolder}` | `showCreateFolder` | `{creatingFolder \|\| !newFolderName.trim()}` |  | DocumentUploadModal · l.540 |
+| «[icon X]» | `{() => removeTag(tag)}` | `formData.tags.length > 0 && each formData.tags && !uploading` |  |  | DocumentUploadModal · l.590 |
+| «Cancelar» | `{onClose}` |  | `{uploading}` |  | DocumentUploadModal · l.628 |
+| «Subiendo... / Subir Documentos» | `{handleUpload}` |  | `{uploading \|\| formData.files.length === 0 \|\| !formData.title.trim()}` |  | DocumentUploadModal · l.635 |
 
 **Fields** (6)
 
 | Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
 |---|---|---|---|---|---|---|
-|  | file | accepts `{SUPPORTED_FILE_TYPES.map(type => type.extension).join(',')}` · `multiple=true` |  | hidden by its class (`hidden`); another control opens it or it is for screen readers |  | DocumentUploadModal · l.293 |
-| «Título *» | text | «Título del documento» · disabled: `{uploading}` |  |  |  | DocumentUploadModal · l.369 |
-| «Descripción» | textarea | «Descripción opcional del documento» · disabled: `{uploading}` |  |  |  | DocumentUploadModal · l.384 |
-| «Nombre de la carpeta» | text | «Nombre de la carpeta» · disabled: `{creatingFolder}` |  | `showCreateFolder` |  | DocumentUploadModal · l.413 |
-|  | select | disabled: `{uploading}` | «Carpeta raíz», «(lista) {folder.folder_name}» |  |  | DocumentUploadModal · l.431 |
-| «Etiquetas» | text | «Escribe una etiqueta y presiona Enter» · disabled: `{uploading}` · also `onKeyPress={handleTagKeyPress}` |  |  |  | DocumentUploadModal · l.452 |
+|  | file | accepts `{SUPPORTED_FILE_TYPES.map(type => type.extension).join(',')}` · `multiple=true` |  | hidden by its class (`hidden`); another control opens it or it is for screen readers |  | DocumentUploadModal · l.373 |
+| «Título *» | text | «Título del documento» · disabled: `{uploading}` · `maxLength={DOCUMENT_TITLE_MAX}` |  |  |  | DocumentUploadModal · l.487 |
+| «Descripción» | textarea | «Descripción opcional del documento» · disabled: `{uploading}` |  |  |  | DocumentUploadModal · l.503 |
+| «Nombre de la carpeta» | text | «Nombre de la carpeta» · disabled: `{creatingFolder}` |  | `showCreateFolder` |  | DocumentUploadModal · l.532 |
+|  | select | disabled: `{uploading}` | «Carpeta raíz», «(lista) {folder.folder_name}» |  |  | DocumentUploadModal · l.550 |
+| «Etiquetas» | text | «Escribe una etiqueta y presiona Enter» · disabled: `{uploading}` · also `onKeyPress={handleTagKeyPress}` |  |  |  | DocumentUploadModal · l.571 |
 
 **Other gestures (keys, hover, drag, blur)** (1)
 
 | Element | Reacts to | Shown when | Where |
 |---|---|---|---|
-| `div` | `onDrop={handleDrop} · onDragOver={handleDrag} · onDragEnter={handleDrag} · onDragLeave={handleDrag}` |  | DocumentUploadModal · l.282 |
+| `div` | `onDrop={handleDrop} · onDragOver={handleDrag} · onDragEnter={handleDrag} · onDragLeave={handleDrag}` |  | DocumentUploadModal · l.362 |
 
 **Pop-ups** (1)
 
 | Name or title | How | Opens when | Texts passed to it | Where |
 |---|---|---|---|---|
-| «Subir Documentos» | written in this file |  |  | DocumentUploadModal · l.266 |
+| «Subir Documentos» | written in this file |  |  | DocumentUploadModal · l.346 |
 
 **Messages set on the page** (2)
 
 | Text | Set by | When | Where |
 |---|---|---|---|
-| «Tipo de archivo no soportado: {file.name}» | `newErrors.push` | `!fileTypeConfig` | handleFiles · l.116 |
-| «Archivo demasiado grande: {file.name}. Máximo: {formatFileSize( fileTypeCon…}» | `newErrors.push` | `file.size > fileTypeConfig.max_size` | handleFiles · l.122 |
+| «Tipo de archivo no soportado: {file.name}» | `newErrors.push` | `!fileTypeConfig` | handleFiles · l.169 |
+| «Archivo demasiado grande: {file.name}. Máximo: {formatFileSize( fileTypeCon…}» | `newErrors.push` | `file.size > fileTypeConfig.max_size` | handleFiles · l.175 |
 
 **Draws nothing when** (1)
 
 | Condition | Where |
 |---|---|
-| `!isOpen` | DocumentUploadModal · l.259 |
+| `!isOpen` | DocumentUploadModal · l.339 |
 
-**Other texts written in the code (safety net: not tied to an element by the script)** (4)
+**Other texts written in the code (safety net: not tied to an element by the script)** (3)
 
 | Text | Where |
 |---|---|
-| «Error al crear la carpeta. Inténtalo de nuevo.» | DocumentUploadModal · l.201 |
-| «Selecciona al menos un archivo para subir.» | DocumentUploadModal · l.210 |
-| «El título es requerido.» | DocumentUploadModal · l.215 |
-| «Error al subir los documentos.» | DocumentUploadModal · l.250 |
+| «Error al crear la carpeta. Inténtalo de nuevo.» | DocumentUploadModal · l.255 |
+| «Selecciona al menos un archivo para subir.» | DocumentUploadModal · l.264 |
+| «El título es requerido.» | DocumentUploadModal · l.269 |
 
-**Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (1)
+**Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (4)
 
 | Kind | What | Where |
 |---|---|---|
-| timer | `setTimeout(…, 1500)` | handleUpload · l.245 |
+| timer | `setTimeout(…, 1500)` | handleUpload · l.332 |
+| mark | `testid=upload-results` | DocumentUploadModal · l.401 |
+| mark | `testid=upload-result` | DocumentUploadModal · l.404 |
+| mark | `testid=upload-selected-file` | DocumentUploadModal · l.439 |
 
-**Values shown from data** (3)
+**Values shown from data** (7)
 
-- `{file.name}` — DocumentUploadModal · l.333, when `formData.files.length > 0 && each formData.files`
-- `{formatFileSize(file.size)}` — DocumentUploadModal · l.334, when `formData.files.length > 0 && each formData.files`
-- `{error}` — DocumentUploadModal · l.498, when `errors.length > 0 && each errors`
+- `{outcome.fileName}` — DocumentUploadModal · l.419, when `results.length > 0 && each results`
+- `{outcome.message}` — DocumentUploadModal · l.423, when `results.length > 0 && each results && !(outcome.status === 'success')`
+- `{outcome.warning}` — DocumentUploadModal · l.425, when `results.length > 0 && each results && outcome.warning`
+- `{file.name}` — DocumentUploadModal · l.448, when `formData.files.length > 0 && each formData.files`
+- `{formatFileSize(file.size)}` — DocumentUploadModal · l.449, when `formData.files.length > 0 && each formData.files`
+- `{progress.error}` — DocumentUploadModal · l.451, when `formData.files.length > 0 && each formData.files && progress?.status === 'error' && progress.error`
+- `{error}` — DocumentUploadModal · l.617, when `errors.length > 0 && each errors`
 
-**Other texts on screen** (6)
+**Other texts on screen** (7)
 
-- «Arrastra archivos aquí o haz clic para seleccionar» — DocumentUploadModal · l.304
-- «Formatos soportados: PDF, DOC, XLS, PPT, imágenes, videos» — DocumentUploadModal · l.307
-- «Título *» (label) — DocumentUploadModal · l.366
-- «Descripción» (label) — DocumentUploadModal · l.381
-- «Carpeta» (label) — DocumentUploadModal · l.397
-- «Etiquetas» (label) — DocumentUploadModal · l.448
+- «Arrastra archivos aquí o haz clic para seleccionar» — DocumentUploadModal · l.384
+- «Formatos soportados: PDF, DOC, XLS, PPT, imágenes, videos» — DocumentUploadModal · l.387
+- «Subido» — DocumentUploadModal · l.421, when `results.length > 0 && each results && outcome.status === 'success'`
+- «Título *» (label) — DocumentUploadModal · l.484
+- «Descripción» (label) — DocumentUploadModal · l.500
+- «Carpeta» (label) — DocumentUploadModal · l.516
+- «Etiquetas» (label) — DocumentUploadModal · l.567
 
 ### components/documents/FolderNavigation.tsx
 
@@ -1726,91 +1770,87 @@ Used by: `/community/workspace`
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «Crear publicación» | h3 | screen size: `sm:block` | CreatePostModal · l.251 |
+| «Crear publicación» | h3 | screen size: `sm:block` | CreatePostModal · l.266 |
 
 **Buttons** (9)
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «[icon XIcon]» | `{handleClose}` | screen size: `sm:block` |  |  | CreatePostModal · l.252 |
-| «[icon XIcon]» | `{() => removeFile(index)}` | `selectedFiles.length > 0 && each selectedFiles && file.type.startsWith('image/')` · screen size: `sm:block` |  |  | CreatePostModal · l.300 |
-| «[icon XIcon]» | `{() => removeFile(index)}` | `selectedFiles.length > 0 && each selectedFiles && !(file.type.startsWith('image/'))` · screen size: `sm:block` |  |  | CreatePostModal · l.318 |
-| «[icon PhotographIcon]» · tooltip «Agregar imagen» | `{() => { setFileInputType('image'); setPostType('image'); setTimeout(() => fileI…}` | screen size: `sm:block` |  |  | CreatePostModal · l.349 |
-| «[icon DocumentIcon]» · tooltip «Agregar documento» | `{() => { setFileInputType('document'); setPostType('document'); setTimeout(() =>…}` | screen size: `sm:block` |  |  | CreatePostModal · l.360 |
-| «[icon LinkIcon]» · tooltip «Agregar enlace» | `{() => setPostType('link')}` | screen size: `sm:block` |  |  | CreatePostModal · l.371 |
-| «[icon HashtagIcon]» · tooltip «Agregar hashtag» |  | screen size: `sm:block` |  |  | CreatePostModal · l.378 |
-| «[icon AtSymbolIcon]» · tooltip «Mencionar a alguien» |  | screen size: `sm:block` |  |  | CreatePostModal · l.384 |
-| «Publicando... / Publicar» | `{handleSubmit}` | screen size: `sm:block` | `{(!editor?.getText().trim() && selectedFiles.length === 0 && !linkUrl) \|\| isSubm…}` |  | CreatePostModal · l.392 |
+| «[icon XIcon]» | `{handleClose}` | screen size: `sm:block` |  |  | CreatePostModal · l.267 |
+| «[icon XIcon]» | `{() => removeFile(index)}` | `selectedFiles.length > 0 && each selectedFiles && file.type.startsWith('image/')` · screen size: `sm:block` |  |  | CreatePostModal · l.315 |
+| «[icon XIcon]» | `{() => removeFile(index)}` | `selectedFiles.length > 0 && each selectedFiles && !(file.type.startsWith('image/'))` · screen size: `sm:block` |  |  | CreatePostModal · l.333 |
+| «[icon PhotographIcon]» · tooltip «Agregar imagen» | `{() => { setFileInputType('image'); setPostType('image'); setTimeout(() => fileI…}` | screen size: `sm:block` |  |  | CreatePostModal · l.370 |
+| «[icon DocumentIcon]» · tooltip «Agregar documento» | `{() => { setFileInputType('document'); setPostType('document'); setTimeout(() =>…}` | screen size: `sm:block` |  |  | CreatePostModal · l.381 |
+| «[icon LinkIcon]» · tooltip «Agregar enlace» | `{() => setPostType('link')}` | screen size: `sm:block` |  |  | CreatePostModal · l.392 |
+| «[icon HashtagIcon]» · tooltip «Agregar hashtag» |  | screen size: `sm:block` |  |  | CreatePostModal · l.399 |
+| «[icon AtSymbolIcon]» · tooltip «Mencionar a alguien» |  | screen size: `sm:block` |  |  | CreatePostModal · l.405 |
+| «Publicando... / Publicar» | `{handleSubmit}` | screen size: `sm:block` | `{(!editor?.getText().trim() && selectedFiles.length === 0 && !linkUrl) \|\| isSubm…}` |  | CreatePostModal · l.413 |
 
 **Fields** (2)
 
 | Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
 |---|---|---|---|---|---|---|
-| «Pega el enlace aquí» | url | «Pega el enlace aquí» |  | `postType === 'link'` · screen size: `sm:block` |  | CreatePostModal · l.334 |
-|  | file | accepts `{fileInputType === 'document' ? '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.rtf…}` · `multiple=true` |  | screen size: `sm:block hidden` |  | CreatePostModal · l.407 |
+| «Pega el enlace aquí» | url | «Pega el enlace aquí» |  | `postType === 'link'` · screen size: `sm:block` |  | CreatePostModal · l.349 |
+|  | file | accepts `{fileInputType === 'document' ? '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.rtf…}` · `multiple=true` |  | screen size: `sm:block hidden` |  | CreatePostModal · l.428 |
 
 **Embedded media** (2)
 
 | What | Shown when | Hook | Where |
 |---|---|---|---|
-| img · alt {authorName} · {authorAvatar} | `authorAvatar && authorAvatar.startsWith('http')` · screen size: `sm:block` |  | CreatePostModal · l.264 |
-| img · alt {`Preview ${index + 1}`} · {URL.createObjectURL(file)} | `selectedFiles.length > 0 && each selectedFiles && file.type.startsWith('image/')` · screen size: `sm:block` |  | CreatePostModal · l.295 |
+| img · alt {authorName} · {authorAvatar} | `authorAvatar && authorAvatar.startsWith('http')` · screen size: `sm:block` |  | CreatePostModal · l.279 |
+| img · alt {`Preview ${index + 1}`} · {URL.createObjectURL(file)} | `selectedFiles.length > 0 && each selectedFiles && file.type.startsWith('image/')` · screen size: `sm:block` |  | CreatePostModal · l.310 |
 
 **Pop-ups** (2)
 
 | Name or title | How | Opens when | Texts passed to it | Where |
 |---|---|---|---|---|
-| «Crear publicación» | written in this file |  |  | CreatePostModal · l.242 |
-| «(sin título)» | written in this file |  |  | CreatePostModal · l.244 |
+| «Crear publicación» | written in this file |  |  | CreatePostModal · l.257 |
+| «(sin título)» | written in this file |  |  | CreatePostModal · l.259 |
 
-**Browser alert()** (1)
-
-| Text | When | Where |
-|---|---|---|
-| «{errorMessage}» |  | handleSubmit · l.203 |
-
-**Messages set on the page** (1)
+**Messages set on the page** (2)
 
 | Text | Set by | When | Where |
 |---|---|---|---|
-| «Failed to fetch users» | `throw (shown by whoever catches it)` | `!response.ok` | CreatePostModal · l.61 |
+| «Failed to fetch users» | `throw (shown by whoever catches it)` | `!response.ok` | CreatePostModal · l.68 |
+| «No se pudo publicar. Inténtalo de nuevo.» | `setPublishError` |  | handleSubmit · l.201 |
 
 **Downloads and printing** (1)
 
 | How | When | Where |
 |---|---|---|
-| `URL.createObjectURL()` | `selectedFiles.length > 0 && each selectedFiles && file.type.startsWith('image/')` · screen size: `sm:block` | CreatePostModal · l.296 |
+| `URL.createObjectURL()` | `selectedFiles.length > 0 && each selectedFiles && file.type.startsWith('image/')` · screen size: `sm:block` | CreatePostModal · l.311 |
 
 **Draws nothing when** (2)
 
 | Condition | Where |
 |---|---|
-| `!props.clientRect` | CreatePostModal · l.79 |
-| `!isOpen` | CreatePostModal · l.239 |
+| `!props.clientRect` | CreatePostModal · l.86 |
+| `!isOpen` | CreatePostModal · l.254 |
 
-**Texts kept in lists and helpers in the code (labels, options, status names)** (1)
-
-| Name | Texts | Where |
-|---|---|---|
-| `errorMessage` | «Error al crear la publicación. Por favor, intenta de nuevo.» | handleSubmit · l.188 |
-
-**Other texts written in the code (safety net: not tied to an element by the script)** (2)
+**Other texts written in the code (safety net: not tied to an element by the script)** (1)
 
 | Text | Where |
 |---|---|
-| «Cargando...» | CreatePostModal · l.170 |
-| «No tienes permisos para publicar en esta comunidad. Verifica que estés asignado a la comunidad.» | CreatePostModal · l.200 |
+| «Cargando...» | CreatePostModal · l.181 |
 
-**Values shown from data** (3)
+**Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (2)
 
-- `{authorName.split(' ').map(n => n[0]…}` — CreatePostModal · l.270, when `!(authorAvatar && authorAvatar.startsWith('http'))`, screen size: `sm:block`
-- `{authorName}` — CreatePostModal · l.276, screen size: `sm:block`
-- `{file.name}` — CreatePostModal · l.311, when `selectedFiles.length > 0 && each selectedFiles && !(file.type.startsWith('image/'))`, screen size: `sm:block`
+| Kind | What | Where |
+|---|---|---|
+| role | `role=alert` | CreatePostModal · l.361 |
+| mark | `testid=create-post-error` | CreatePostModal · l.361 |
+
+**Values shown from data** (4)
+
+- `{authorName.split(' ').map(n => n[0]…}` — CreatePostModal · l.285, when `!(authorAvatar && authorAvatar.startsWith('http'))`, screen size: `sm:block`
+- `{authorName}` — CreatePostModal · l.291, screen size: `sm:block`
+- `{file.name}` — CreatePostModal · l.326, when `selectedFiles.length > 0 && each selectedFiles && !(file.type.startsWith('image/'))`, screen size: `sm:block`
+- `{publishError}` — CreatePostModal · l.361, when `publishError`, screen size: `sm:block`
 
 **Other texts on screen** (2)
 
-- «Publicando en tu comunidad» — CreatePostModal · l.277, screen size: `sm:block`
-- «{(file.size / 1024 / 1024).toFixed(2)} MB» — CreatePostModal · l.314, when `selectedFiles.length > 0 && each selectedFiles && !(file.type.startsWith('image/'))`, screen size: `sm:block`
+- «Publicando en tu comunidad» — CreatePostModal · l.292, screen size: `sm:block`
+- «{(file.size / 1024 / 1024).toFixed(2)} MB» — CreatePostModal · l.329, when `selectedFiles.length > 0 && each selectedFiles && !(file.type.startsWith('image/'))`, screen size: `sm:block`
 
 ### components/feed/FeedContainer.tsx
 
@@ -1841,7 +1881,7 @@ Used by: `/community/workspace`
 | Name or title | How | Opens when | Texts passed to it | Where |
 |---|---|---|---|---|
 | `CreatePostModal` | component | `{showCreateModal}` |  | FeedContainer · l.222 |
-| `CommentModal` | component | `{showCommentModal}` |  | FeedContainer · l.232 |
+| `CommentModal` | component | `{showCommentModal}` |  | FeedContainer · l.233 |
 
 **Draws nothing when** (2)
 
@@ -2048,83 +2088,85 @@ Used by: `/community/workspace`
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «Cancelar» | `{() => onOpenChange(false)}` |  | `{submitting}` |  | FinalizeMeetingDialog · l.232 |
-| «Enviando… / Finalizar y enviar» | `{handleSubmit}` |  | `{submitting}` |  | FinalizeMeetingDialog · l.240 |
+| «Cancelar» | `{() => onOpenChange(false)}` |  | `{submitting}` |  | FinalizeMeetingDialog · l.257 |
+| «Enviando… / Finalizar y enviar» | `{handleSubmit}` |  | `{submitting \|\| (recipients.kind === 'ready' && recipients.count === 0)}` |  | FinalizeMeetingDialog · l.265 |
 
 **Fields** (2)
 
 | Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
 |---|---|---|---|---|---|---|
-| «{AUDIENCE_PICKER_LABELS.with_access}» | radio | `audience` · disabled: `{submitting}` |  |  |  | FinalizeMeetingDialog · l.185 |
-| «{AUDIENCE_PICKER_LABELS.attended}» | radio | `audience` · disabled: `{submitting}` |  |  |  | FinalizeMeetingDialog · l.197 |
+| «{AUDIENCE_PICKER_LABELS.with_access}» | radio | `audience` · disabled: `{submitting}` |  |  |  | FinalizeMeetingDialog · l.205 |
+| «{AUDIENCE_PICKER_LABELS.attended} [La asistencia aún no se registra en la plataforma.]» | radio | `audience` · disabled: `{submitting \|\| nobodyAttended}` |  |  |  | FinalizeMeetingDialog · l.217 |
 
 **Pop-ups** (1)
 
 | Name or title | How | Opens when | Texts passed to it | Where |
 |---|---|---|---|---|
-| `Dialog` | component | `{open}` |  | FinalizeMeetingDialog · l.172 |
+| `Dialog` | component | `{open}` |  | FinalizeMeetingDialog · l.192 |
 
 **Toasts** (5)
 
 | Kind | Text | When | Where |
 |---|---|---|---|
-| error | «No se pudo finalizar la reunión» | `res.status === 409` | handleSubmit · l.141 |
-| error | «Error al finalizar la reunión» | `!res.ok` | handleSubmit · l.151 |
-| error | «{warning}» | `warning` | handleSubmit · l.159 |
-| success | «Reunión finalizada. Resumen enviado a {recipientLabel(result.sent …}.» | `!(warning)` | handleSubmit · l.161 |
-| error | «Error al finalizar la reunión» |  | handleSubmit · l.166 |
+| error | «No se pudo finalizar la reunión» | `res.status === 409` | handleSubmit · l.161 |
+| error | «Error al finalizar la reunión» | `!res.ok` | handleSubmit · l.171 |
+| error | «{warning}» | `warning` | handleSubmit · l.179 |
+| success | «Reunión finalizada. Resumen enviado a {recipientLabel(result.sent …}.» | `!(warning)` | handleSubmit · l.181 |
+| error | «Error al finalizar la reunión» |  | handleSubmit · l.186 |
 
 **Messages set on the page** (1)
 
 | Text | Set by | When | Where |
 |---|---|---|---|
-| «HTTP {res.status}» | `throw (shown by whoever catches it)` | `!res.ok` | FinalizeMeetingDialog · l.102 |
+| «HTTP {res.status}» | `throw (shown by whoever catches it)` | `!res.ok` | FinalizeMeetingDialog · l.120 |
 
 **Draws nothing when** (2)
 
 | Condition | Where |
 |---|---|
-| `!open` | FinalizeMeetingDialog · l.92 |
-| `cancelled` | FinalizeMeetingDialog · l.105 |
+| `!open` | FinalizeMeetingDialog · l.110 |
+| `cancelled` | FinalizeMeetingDialog · l.123 |
 
 **Pieces placed here, with the texts and settings handed to them** (6)
 
 | Piece | Texts and settings | Shown when | Hook | Where |
 |---|---|---|---|---|
-| `DialogContent` |  |  |  | FinalizeMeetingDialog · l.173 |
-| `DialogHeader` |  |  |  | FinalizeMeetingDialog · l.174 |
-| `DialogTitle` |  |  |  | FinalizeMeetingDialog · l.175 |
-| `DialogDescription` |  |  |  | FinalizeMeetingDialog · l.176 |
-| `TipTapEditor` | placeholder: Agrega un mensaje para los destinatarios… |  |  | FinalizeMeetingDialog · l.221 |
-| `DialogFooter` |  |  |  | FinalizeMeetingDialog · l.231 |
+| `DialogContent` |  |  |  | FinalizeMeetingDialog · l.193 |
+| `DialogHeader` |  |  |  | FinalizeMeetingDialog · l.194 |
+| `DialogTitle` |  |  |  | FinalizeMeetingDialog · l.195 |
+| `DialogDescription` |  |  |  | FinalizeMeetingDialog · l.196 |
+| `TipTapEditor` | placeholder: Agrega un mensaje para los destinatarios… |  |  | FinalizeMeetingDialog · l.246 |
+| `DialogFooter` |  |  |  | FinalizeMeetingDialog · l.256 |
 
 **Texts kept in lists and helpers in the code (labels, options, status names)** (2)
 
 | Name | Texts | Where |
 |---|---|---|
-| `CONFLICT_MESSAGES` | «La reunión ya no está en borrador», «La reunión ya fue finalizada por otro usuario» | l.22 |
-| `emailWarning()` | «Reunión finalizada, pero el resumen no se envió por correo: los envíos están desactivados en este entorno de pruebas.», «Reunión finalizada, pero el resumen no se envió por correo: el envío no está autorizado para esta comunidad.», «Reunión finalizada, pero el resumen no se envió por correo: no hay destinatarios.», «Reunión finalizada, pero el resumen solo se envió a {sent} de {recipientLabel(sent + faile…}.», «Reunión finalizada, pero no se pudo enviar el resumen por correo.» | emailWarning · l.44 |
+| `CONFLICT_MESSAGES` | «La reunión ya no está en borrador», «La reunión ya fue finalizada por otro usuario», «La asistencia aún no se registra en la plataforma. Elige «Las personas con acceso a la reunión».» | l.22 |
+| `emailWarning()` | «Reunión finalizada, pero el resumen no se envió por correo: los envíos están desactivados en este entorno de pruebas.», «Reunión finalizada, pero el resumen no se envió por correo: el envío no está autorizado para esta comunidad.», «Reunión finalizada, pero el resumen no se envió por correo: no hay destinatarios.», «Reunión finalizada, pero el servicio de correo rechazó todos los envíos: nadie recibió el resumen.», «Reunión finalizada, pero no se pudo preparar el envío del resumen: nadie lo recibió.», «Reunión finalizada, pero el resumen solo se envió a {sent} de {recipientLabel(sent + faile…}.», «Reunión finalizada, pero no se pudo enviar el resumen por correo.» | emailWarning · l.45 |
 
-**Other texts written in the code (safety net: not tied to an element by the script)** (5)
+**Other texts written in the code (safety net: not tied to an element by the script)** (7)
 
 | Text | Where |
 |---|---|
-| «Reunión finalizada, pero el resumen no se envió por correo: los envíos están desactivados en este entorno de pruebas.» | emailWarning · l.44 |
-| «Reunión finalizada, pero el resumen no se envió por correo: el envío no está autorizado para esta comunidad.» | emailWarning · l.46 |
-| «Reunión finalizada, pero el resumen no se envió por correo: no hay destinatarios.» | emailWarning · l.48 |
-| «Reunión finalizada, pero el resumen solo se envió a {sent} de {recipientLabel(sent + faile…}.» | emailWarning · l.51 |
-| «Reunión finalizada, pero no se pudo enviar el resumen por correo.» | emailWarning · l.53 |
+| «Reunión finalizada, pero el resumen no se envió por correo: los envíos están desactivados en este entorno de pruebas.» | emailWarning · l.45 |
+| «Reunión finalizada, pero el resumen no se envió por correo: el envío no está autorizado para esta comunidad.» | emailWarning · l.47 |
+| «Reunión finalizada, pero el resumen no se envió por correo: no hay destinatarios.» | emailWarning · l.49 |
+| «Reunión finalizada, pero el servicio de correo rechazó todos los envíos: nadie recibió el resumen.» | emailWarning · l.53 |
+| «Reunión finalizada, pero no se pudo preparar el envío del resumen: nadie lo recibió.» | emailWarning · l.55 |
+| «Reunión finalizada, pero el resumen solo se envió a {sent} de {recipientLabel(sent + faile…}.» | emailWarning · l.58 |
+| «Reunión finalizada, pero no se pudo enviar el resumen por correo.» | emailWarning · l.60 |
 
 **Other texts on screen** (8)
 
-- «Finalizar reunión» — FinalizeMeetingDialog · l.175
-- «Al finalizar “ {meetingTitle} ”, se enviará un resumen por correo y la reunión pasará a completada. Esta acción no se puede deshacer.» — FinalizeMeetingDialog · l.176
-- «Destinatarios» (label) — FinalizeMeetingDialog · l.183
-- «{AUDIENCE_PICKER_LABELS.with_access}» (label) — FinalizeMeetingDialog · l.184
-- «{AUDIENCE_PICKER_LABELS.attended}» (label) — FinalizeMeetingDialog · l.196
-- «Calculando…» — FinalizeMeetingDialog · l.210, when `recipients.kind === 'loading'`
-- «Se enviará a {recipients.count} destinatarios» — FinalizeMeetingDialog · l.212, when `recipients.kind === 'ready'`
-- «Mensaje del facilitador (opcional)» (label) — FinalizeMeetingDialog · l.218
+- «Finalizar reunión» — FinalizeMeetingDialog · l.195
+- «Al finalizar “ {meetingTitle} ”, se enviará un resumen por correo y la reunión pasará a completada. Esta acción no se puede deshacer.» — FinalizeMeetingDialog · l.196
+- «Destinatarios» (label) — FinalizeMeetingDialog · l.203
+- «{AUDIENCE_PICKER_LABELS.with_access}» (label) — FinalizeMeetingDialog · l.204
+- «{AUDIENCE_PICKER_LABELS.attended} [La asistencia aún no se registra en la plataforma.]» (label) — FinalizeMeetingDialog · l.216
+- «Calculando…» — FinalizeMeetingDialog · l.235, when `recipients.kind === 'loading'`
+- «Se enviará a {recipients.count} destinatarios» — FinalizeMeetingDialog · l.237, when `recipients.kind === 'ready'`
+- «Mensaje del facilitador (opcional)» (label) — FinalizeMeetingDialog · l.243
 
 ### components/meetings/MeetingCard.tsx
 
@@ -2317,121 +2359,120 @@ Used by: `/community/workspace`
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «{meeting.title}» | h2 | `!(loading) && meeting` · screen size: `sm:block` | MeetingDetailsModal · l.178 |
-| «Resumen» | h3 | `!(loading) && meeting && activeTab === 'summary' && hasSummary` · screen size: `sm:block` | MeetingDetailsModal · l.364 |
-| «Notas» | h3 | `!(loading) && meeting && activeTab === 'summary' && hasNotes` · screen size: `sm:block` | MeetingDetailsModal · l.370 |
+| «{meeting.title}» | h2 | `!(loading) && meeting` · screen size: `sm:block` | MeetingDetailsModal · l.183 |
+| «Resumen» | h3 | `!(loading) && meeting && activeTab === 'summary' && hasSummary` · screen size: `sm:block` | MeetingDetailsModal · l.369 |
+| «Notas» | h3 | `!(loading) && meeting && activeTab === 'summary' && hasNotes` · screen size: `sm:block` | MeetingDetailsModal · l.375 |
 
 **Buttons** (7)
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «[icon XIcon]» | `{onClose}` | `!(loading) && meeting` · screen size: `sm:block` |  |  | MeetingDetailsModal · l.195 |
-| «Enviar correo de actualización» · tooltip «Disponible próximamente» |  | `!(loading) && meeting && meeting.status === 'completada' && meeting.finalized_at` · screen size: `sm:block` | `true` |  | MeetingDetailsModal · l.224 |
-| «{tab.label} ({tab.count})» | `{() => setActiveTab(tab.id)}` | `!(loading) && meeting && each ([ { id: 'summary', label: 'Resumen y Notas', ico…` · screen size: `sm:block` |  |  | MeetingDetailsModal · l.331 |
-| «[icon DownloadIcon]» · tooltip «Descargar documento» | `{() => handleDownload(attachment)}` | `canReadContent && activeTab === 'documents' && !(loadingAttachments) && attachments.length > 0 && each attachments` · screen size: `sm:block` |  |  | MeetingDetailsModal · l.522 |
-| «Cerrar» | `{onClose}` | `!(loading) && meeting` · screen size: `sm:block` |  |  | MeetingDetailsModal · l.544 |
-| «Eliminar Reunión» | `{() => { onClose(); // Small delay so the modal's close transition finishes // b…}` | `!(loading) && meeting && canDelete && onDelete` · screen size: `sm:block` |  |  | MeetingDetailsModal · l.551 |
-| «Editar Reunión» | `{() => { onEdit(meeting.id); onClose(); }}` | `!(loading) && meeting && canEdit && onEdit` · screen size: `sm:block` |  |  | MeetingDetailsModal · l.568 |
+| «[icon XIcon]» | `{onClose}` | `!(loading) && meeting` · screen size: `sm:block` |  |  | MeetingDetailsModal · l.200 |
+| «Enviar correo de actualización» · tooltip «Disponible próximamente» |  | `!(loading) && meeting && meeting.status === 'completada' && meeting.finalized_at` · screen size: `sm:block` | `true` |  | MeetingDetailsModal · l.229 |
+| «{tab.label} ({tab.count})» | `{() => setActiveTab(tab.id)}` | `!(loading) && meeting && each ([ { id: 'summary', label: 'Resumen y Notas', ico…` · screen size: `sm:block` |  |  | MeetingDetailsModal · l.336 |
+| «[icon DownloadIcon]» · tooltip «Descargar documento» | `{() => handleDownload(attachment)}` | `canReadContent && activeTab === 'documents' && !(loadingAttachments) && attachments.length > 0 && each attachments` · screen size: `sm:block` |  |  | MeetingDetailsModal · l.527 |
+| «Cerrar» | `{onClose}` | `!(loading) && meeting` · screen size: `sm:block` |  |  | MeetingDetailsModal · l.549 |
+| «Eliminar Reunión» | `{() => { onClose(); // Small delay so the modal's close transition finishes // b…}` | `!(loading) && meeting && canDelete && onDelete` · screen size: `sm:block` |  |  | MeetingDetailsModal · l.556 |
+| «Editar Reunión» | `{() => { onEdit(meeting.id); onClose(); }}` | `!(loading) && meeting && canEdit && onEdit` · screen size: `sm:block` |  |  | MeetingDetailsModal · l.573 |
 
 **Other things that react to a click** (1)
 
 | Element | Text | Does | Shown when | Where |
 |---|---|---|---|---|
-| `div` |  | `{onClose}` | screen size: `sm:block` | MeetingDetailsModal · l.159 |
+| `div` |  | `{onClose}` | screen size: `sm:block` | MeetingDetailsModal · l.164 |
 
 **Embedded media** (1)
 
 | What | Shown when | Hook | Where |
 |---|---|---|---|
-| img · alt {profileName(attendee.user_profile, 'Asistente')} · {attendee.user_profile.avatar_url} | `activeTab === 'attendees' && meeting.attendees && meeting.attendees.length > 0 && each meeting.attendees && attendee.user_profile && attendee.user_profile.avatar_url` · screen size: `sm:block` |  | MeetingDetailsModal · l.391 |
+| img · alt {profileName(attendee.user_profile, 'Asistente')} · {attendee.user_profile.avatar_url} | `activeTab === 'attendees' && meeting.attendees && meeting.attendees.length > 0 && each meeting.attendees && attendee.user_profile && attendee.user_profile.avatar_url` · screen size: `sm:block` |  | MeetingDetailsModal · l.396 |
 
 **Pop-ups** (2)
 
 | Name or title | How | Opens when | Texts passed to it | Where |
 |---|---|---|---|---|
-| «{meeting.title}» | written in this file |  |  | MeetingDetailsModal · l.155 |
-| «(sin título)» | written in this file |  |  | MeetingDetailsModal · l.158 |
+| «{meeting.title}» | written in this file |  |  | MeetingDetailsModal · l.160 |
+| «(sin título)» | written in this file |  |  | MeetingDetailsModal · l.163 |
 
 **Toasts** (4)
 
 | Kind | Text | When | Where |
 |---|---|---|---|
-| error | «No se pudo cargar la información de la reunión» | `!(details)` | loadMeetingDetails · l.90 |
-| error | «Error al cargar los detalles de la reunión» |  | loadMeetingDetails · l.94 |
-| error | «No se pudo abrir el archivo» | `!url` | handleDownload · l.142 |
-| error | «Error al descargar el archivo» |  | handleDownload · l.148 |
+| error | «No se pudo cargar la información de la reunión» | `!(details)` | loadMeetingDetails · l.95 |
+| error | «Error al cargar los detalles de la reunión» |  | loadMeetingDetails · l.99 |
+| error | «No se pudo abrir el archivo» | `!url` | handleDownload · l.147 |
+| error | «Error al descargar el archivo» |  | handleDownload · l.153 |
 
 **Moves to another page from code** (1)
 
 | Goes to | How | When | Where |
 |---|---|---|---|
-| `{url}` | `window.open` |  | handleDownload · l.145 |
+| `{url}` | `window.open` |  | handleDownload · l.150 |
 
 **Draws nothing when** (1)
 
 | Condition | Where |
 |---|---|
-| `!isOpen` | MeetingDetailsModal · l.152 |
+| `!isOpen` | MeetingDetailsModal · l.157 |
 
 **Pieces placed here, with the texts and settings handed to them** (5)
 
 | Piece | Texts and settings | Shown when | Hook | Where |
 |---|---|---|---|---|
-| `RichTextView` |  | `!(loading) && meeting && activeTab === 'summary' && hasSummary` · screen size: `sm:block` |  | MeetingDetailsModal · l.365 |
-| `RichTextView` |  | `!(loading) && meeting && activeTab === 'summary' && hasNotes` · screen size: `sm:block` |  | MeetingDetailsModal · l.371 |
-| `RichTextView` |  | `meeting && canReadContent && activeTab === 'agreements' && meeting.agreements && meeting.agreements.length > 0 && each meeting.agreements` · screen size: `sm:block` |  | MeetingDetailsModal · l.435 |
-| `TaskTracker` | itemType: commitment | `meeting && canReadContent && activeTab === 'commitments' && meeting.commitments.length > 0 && each meeting.commitments` · screen size: `sm:block` |  | MeetingDetailsModal · l.464 |
-| `TaskTracker` | itemType: task | `meeting && canReadContent && activeTab === 'tasks' && meeting.tasks.length > 0 && each meeting.tasks` · screen size: `sm:block` |  | MeetingDetailsModal · l.486 |
+| `RichTextView` |  | `!(loading) && meeting && activeTab === 'summary' && hasSummary` · screen size: `sm:block` |  | MeetingDetailsModal · l.370 |
+| `RichTextView` |  | `!(loading) && meeting && activeTab === 'summary' && hasNotes` · screen size: `sm:block` |  | MeetingDetailsModal · l.376 |
+| `RichTextView` |  | `meeting && canReadContent && activeTab === 'agreements' && meeting.agreements && meeting.agreements.length > 0 && each meeting.agreements` · screen size: `sm:block` |  | MeetingDetailsModal · l.440 |
+| `TaskTracker` | itemType: commitment | `meeting && canReadContent && activeTab === 'commitments' && meeting.commitments.length > 0 && each meeting.commitments` · screen size: `sm:block` |  | MeetingDetailsModal · l.469 |
+| `TaskTracker` | itemType: task | `meeting && canReadContent && activeTab === 'tasks' && meeting.tasks.length > 0 && each meeting.tasks` · screen size: `sm:block` |  | MeetingDetailsModal · l.491 |
 
-**Other texts written in the code (safety net: not tied to an element by the script)** (9)
+**Other texts written in the code (safety net: not tied to an element by the script)** (8)
 
 | Text | Where |
 |---|---|
-| «Sin asignar» | MeetingDetailsModal · l.249 |
-| «Sin nombre» | MeetingDetailsModal · l.257 |
-| «Resumen y Notas» | MeetingDetailsModal · l.282 |
-| «Participantes» | MeetingDetailsModal · l.289 |
-| «Acuerdos» | MeetingDetailsModal · l.296 |
-| «Compromisos» | MeetingDetailsModal · l.305 |
-| «Tareas» | MeetingDetailsModal · l.312 |
-| «Documentos» | MeetingDetailsModal · l.319 |
-| «Usuario sin nombre» | MeetingDetailsModal · l.404 |
+| «Usuario» | MeetingDetailsModal · l.219 |
+| «Resumen y Notas» | MeetingDetailsModal · l.287 |
+| «Participantes» | MeetingDetailsModal · l.294 |
+| «Acuerdos» | MeetingDetailsModal · l.301 |
+| «Compromisos» | MeetingDetailsModal · l.310 |
+| «Tareas» | MeetingDetailsModal · l.317 |
+| «Documentos» | MeetingDetailsModal · l.324 |
+| «Usuario sin nombre» | MeetingDetailsModal · l.409 |
 
 **Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (2)
 
 | Kind | What | Where |
 |---|---|---|
-| mark | `testid=meeting-content-hidden` | MeetingDetailsModal · l.352 |
-| timer | `setTimeout(…, CLOSE_BEFORE_DELETE_MS)` | MeetingDetailsModal · l.556 |
+| mark | `testid=meeting-content-hidden` | MeetingDetailsModal · l.357 |
+| timer | `setTimeout(…, CLOSE_BEFORE_DELETE_MS)` | MeetingDetailsModal · l.561 |
 
 **Values shown from data** (9)
 
-- `{meetingStatusLabels[meeting.status]} / {meeting.status}` — MeetingDetailsModal · l.182, when `!(loading) && meeting`, screen size: `sm:block`
-- `{formatDate(meeting.meeting_date)}` — MeetingDetailsModal · l.187, when `!(loading) && meeting`, screen size: `sm:block`
-- `{meeting.location}` — MeetingDetailsModal · l.242, when `!(loading) && meeting && meeting.location`, screen size: `sm:block`
-- `{MEETING_CONTENT_HIDDEN_TEXT}` — MeetingDetailsModal · l.352, when `!(loading) && meeting && !canReadContent`, screen size: `sm:block`
-- `{index + 1}` — MeetingDetailsModal · l.431, when `meeting && canReadContent && activeTab === 'agreements' && meeting.agreements && meeting.agreements.length > 0 && each meeting.agreements`, screen size: `sm:block`
-- `{agreement.category}` — MeetingDetailsModal · l.441, when `canReadContent && activeTab === 'agreements' && meeting.agreements && meeting.agreements.length > 0 && each meeting.agreements && agreement.category`, screen size: `sm:block`
-- `{getFileIcon(attachment.file_type)}` — MeetingDetailsModal · l.516, when `canReadContent && activeTab === 'documents' && !(loadingAttachments) && attachments.length > 0 && each attachments`, screen size: `sm:block`
-- `{attachment.filename}` — MeetingDetailsModal · l.518, when `canReadContent && activeTab === 'documents' && !(loadingAttachments) && attachments.length > 0 && each attachments`, screen size: `sm:block`
-- `{formatFileSize(attachment.file_size)}` — MeetingDetailsModal · l.519, when `canReadContent && activeTab === 'documents' && !(loadingAttachments) && attachments.length > 0 && each attachments`, screen size: `sm:block`
+- `{meetingStatusLabels[meeting.status]} / {meeting.status}` — MeetingDetailsModal · l.187, when `!(loading) && meeting`, screen size: `sm:block`
+- `{formatDate(meeting.meeting_date)}` — MeetingDetailsModal · l.192, when `!(loading) && meeting`, screen size: `sm:block`
+- `{meeting.location}` — MeetingDetailsModal · l.247, when `!(loading) && meeting && meeting.location`, screen size: `sm:block`
+- `{MEETING_CONTENT_HIDDEN_TEXT}` — MeetingDetailsModal · l.357, when `!(loading) && meeting && !canReadContent`, screen size: `sm:block`
+- `{index + 1}` — MeetingDetailsModal · l.436, when `meeting && canReadContent && activeTab === 'agreements' && meeting.agreements && meeting.agreements.length > 0 && each meeting.agreements`, screen size: `sm:block`
+- `{agreement.category}` — MeetingDetailsModal · l.446, when `canReadContent && activeTab === 'agreements' && meeting.agreements && meeting.agreements.length > 0 && each meeting.agreements && agreement.category`, screen size: `sm:block`
+- `{getFileIcon(attachment.file_type)}` — MeetingDetailsModal · l.521, when `canReadContent && activeTab === 'documents' && !(loadingAttachments) && attachments.length > 0 && each attachments`, screen size: `sm:block`
+- `{attachment.filename}` — MeetingDetailsModal · l.523, when `canReadContent && activeTab === 'documents' && !(loadingAttachments) && attachments.length > 0 && each attachments`, screen size: `sm:block`
+- `{formatFileSize(attachment.file_size)}` — MeetingDetailsModal · l.524, when `canReadContent && activeTab === 'documents' && !(loadingAttachments) && attachments.length > 0 && each attachments`, screen size: `sm:block`
 
 **Other texts on screen** (14)
 
-- «{meeting.duration_minutes} min» — MeetingDetailsModal · l.191, when `!(loading) && meeting`, screen size: `sm:block`
-- «Finalizada el» — MeetingDetailsModal · l.212, when `!(loading) && meeting && meeting.status === 'completada' && meeting.finalized_at`, screen size: `sm:block`
-- «por» — MeetingDetailsModal · l.214, when `!(loading) && meeting && meeting.status === 'completada' && meeting.finalized_at && meeting.finalized_by_profile`, screen size: `sm:block`
-- «Resumen enviado a {audienceProseLabel(meeting.finalize…} .» — MeetingDetailsModal · l.218, when `!(loading) && meeting && meeting.status === 'completada' && meeting.finalized_at && meeting.finalize_audience`, screen size: `sm:block`
-- «Facilitador: {profileName(meeting.facilitator, 'S…}» — MeetingDetailsModal · l.248, when `!(loading) && meeting && meeting.facilitator`, screen size: `sm:block`
-- «Creado por: {profileName(meeting.created_by_prof…}» — MeetingDetailsModal · l.256, when `!(loading) && meeting && meeting.created_by_profile`, screen size: `sm:block`
-- «{meeting.attendees.length} participante s» — MeetingDetailsModal · l.264, when `!(loading) && meeting && meeting.attendees && meeting.attendees.length > 0`, screen size: `sm:block`
-- «No hay resumen o notas para esta reunión.» — MeetingDetailsModal · l.376, when `!(loading) && meeting && activeTab === 'summary' && !hasSummary && !hasNotes`, screen size: `sm:block`
-- «{profileName(attendee.user_profile, …} / Participante» — MeetingDetailsModal · l.402, when `meeting && activeTab === 'attendees' && meeting.attendees && meeting.attendees.length > 0 && each meeting.attendees`, screen size: `sm:block`
-- «Facilitador / Secretario / {attendee.role}» — MeetingDetailsModal · l.408, when `activeTab === 'attendees' && meeting.attendees && meeting.attendees.length > 0 && each meeting.attendees && attendee.role && attendee.role !== 'participant'`, screen size: `sm:block`
-- «No se registraron participantes para esta reunión.» — MeetingDetailsModal · l.418, when `!(loading) && meeting && activeTab === 'attendees' && !(meeting.attendees && meeting.attendees.length > 0)`, screen size: `sm:block`
-- «No hay acuerdos registrados para esta reunión.» — MeetingDetailsModal · l.451, when `!(loading) && meeting && canReadContent && activeTab === 'agreements' && !(meeting.agreements && meeting.agreements.length > 0)`, screen size: `sm:block`
-- «No hay documentos adjuntos a esta reunión.» — MeetingDetailsModal · l.534, when `meeting && canReadContent && activeTab === 'documents' && !(loadingAttachments) && !(attachments.length > 0)`, screen size: `sm:block`
-- «No se pudo cargar la información de la reunión.» — MeetingDetailsModal · l.582, when `!(loading) && !(meeting)`, screen size: `sm:block`
+- «{meeting.duration_minutes} min» — MeetingDetailsModal · l.196, when `!(loading) && meeting`, screen size: `sm:block`
+- «Finalizada el» — MeetingDetailsModal · l.217, when `!(loading) && meeting && meeting.status === 'completada' && meeting.finalized_at`, screen size: `sm:block`
+- «por» — MeetingDetailsModal · l.219, when `!(loading) && meeting && meeting.status === 'completada' && meeting.finalized_at && meeting.finalized_by_profile`, screen size: `sm:block`
+- «Resumen enviado a {audienceProseLabel(meeting.finalize…} .» — MeetingDetailsModal · l.223, when `!(loading) && meeting && meeting.status === 'completada' && meeting.finalized_at && meeting.finalize_audience`, screen size: `sm:block`
+- «Facilitador: {profileName(nameOnly(meeting.facili…}» — MeetingDetailsModal · l.253, when `!(loading) && meeting && meeting.facilitator`, screen size: `sm:block`
+- «Creado por: {profileName(nameOnly(meeting.create…}» — MeetingDetailsModal · l.261, when `!(loading) && meeting && meeting.created_by_profile`, screen size: `sm:block`
+- «{meeting.attendees.length} participante s» — MeetingDetailsModal · l.269, when `!(loading) && meeting && meeting.attendees && meeting.attendees.length > 0`, screen size: `sm:block`
+- «No hay resumen o notas para esta reunión.» — MeetingDetailsModal · l.381, when `!(loading) && meeting && activeTab === 'summary' && !hasSummary && !hasNotes`, screen size: `sm:block`
+- «{profileName(attendee.user_profile, …} / Participante» — MeetingDetailsModal · l.407, when `meeting && activeTab === 'attendees' && meeting.attendees && meeting.attendees.length > 0 && each meeting.attendees`, screen size: `sm:block`
+- «Facilitador / Secretario / {attendee.role}» — MeetingDetailsModal · l.413, when `activeTab === 'attendees' && meeting.attendees && meeting.attendees.length > 0 && each meeting.attendees && attendee.role && attendee.role !== 'participant'`, screen size: `sm:block`
+- «No se registraron participantes para esta reunión.» — MeetingDetailsModal · l.423, when `!(loading) && meeting && activeTab === 'attendees' && !(meeting.attendees && meeting.attendees.length > 0)`, screen size: `sm:block`
+- «No hay acuerdos registrados para esta reunión.» — MeetingDetailsModal · l.456, when `!(loading) && meeting && canReadContent && activeTab === 'agreements' && !(meeting.agreements && meeting.agreements.length > 0)`, screen size: `sm:block`
+- «No hay documentos adjuntos a esta reunión.» — MeetingDetailsModal · l.539, when `meeting && canReadContent && activeTab === 'documents' && !(loadingAttachments) && !(attachments.length > 0)`, screen size: `sm:block`
+- «No se pudo cargar la información de la reunión.» — MeetingDetailsModal · l.587, when `!(loading) && !(meeting)`, screen size: `sm:block`
 
 **Reads and writes the database directly:** `table:meeting_attachments` (select)
 
@@ -2443,209 +2484,222 @@ Used by: `/community/workspace`
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «Editar Reunión / Documentar Reunión» | h2 |  | MeetingDocumentationModal · l.1367 |
-| «Documentos» | h3 | `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS` | MeetingDocumentationModal · l.1691 |
-| «Archivos existentes ( {existingAttachments.length} )» | h4 | `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && existingAttachments.length > 0` | MeetingDocumentationModal · l.1722 |
-| «Archivos seleccionados ( {selectedFiles.length} )» | h4 | `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && selectedFiles.length > 0` | MeetingDocumentationModal · l.1749 |
-| «Acuerdos» | h3 | `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS` | MeetingDocumentationModal · l.1769 |
-| «Compromisos» | h3 | `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS` | MeetingDocumentationModal · l.1827 |
-| «Tareas» | h3 | `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS` | MeetingDocumentationModal · l.1911 |
+| «Editar Reunión / Documentar Reunión» | h2 |  | MeetingDocumentationModal · l.1577 |
+| «Documentos» | h3 | `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS` | MeetingDocumentationModal · l.1913 |
+| «Archivos existentes ( {existingAttachments.length} )» | h4 | `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && existingAttachments.length > 0` | MeetingDocumentationModal · l.1944 |
+| «Archivos seleccionados ( {selectedFiles.length} )» | h4 | `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && selectedFiles.length > 0` | MeetingDocumentationModal · l.1971 |
+| «Acuerdos» | h3 | `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS` | MeetingDocumentationModal · l.1991 |
+| «Compromisos» | h3 | `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS` | MeetingDocumentationModal · l.2049 |
+| «Tareas» | h3 | `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS` | MeetingDocumentationModal · l.2133 |
 
 **Buttons** (7)
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «[icon XIcon]» | `{handleClose}` |  | `{isSubmitting}` |  | MeetingDocumentationModal · l.1390 |
-| «Agregar Acuerdo» | `{addAgreement}` | `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS` |  |  | MeetingDocumentationModal · l.1772 |
-| «[icon TrashIcon]» | `{() => removeAgreement(index)}` | `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && !(formData.agreements.length === 0) && each formData.agreements` |  |  | MeetingDocumentationModal · l.1793 |
-| «Agregar Compromiso» | `{addCommitment}` | `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS` |  |  | MeetingDocumentationModal · l.1830 |
-| «[icon TrashIcon]» | `{() => removeCommitment(index)}` | `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && !(formData.commitments.length === 0) && each formData.commitments` |  |  | MeetingDocumentationModal · l.1855 |
-| «Agregar Tarea» | `{addTask}` | `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS` |  |  | MeetingDocumentationModal · l.1914 |
-| «[icon TrashIcon]» · aria «Eliminar tarea» | `{() => removeTask(index)}` | `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && !(formData.tasks.length === 0) && each formData.tasks` |  | `testid=meeting-task-remove-{index}` | MeetingDocumentationModal · l.1937 |
+| «[icon XIcon]» | `{handleClose}` |  | `{isSubmitting}` | `testid=meeting-modal-close` | MeetingDocumentationModal · l.1607 |
+| «Agregar Acuerdo» | `{addAgreement}` | `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS` |  |  | MeetingDocumentationModal · l.1994 |
+| «[icon TrashIcon]» | `{() => removeAgreement(index)}` | `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && !(formData.agreements.length === 0) && each formData.agreements` |  |  | MeetingDocumentationModal · l.2015 |
+| «Agregar Compromiso» | `{addCommitment}` | `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS` |  |  | MeetingDocumentationModal · l.2052 |
+| «[icon TrashIcon]» | `{() => removeCommitment(index)}` | `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && !(formData.commitments.length === 0) && each formData.commitments` |  |  | MeetingDocumentationModal · l.2077 |
+| «Agregar Tarea» | `{addTask}` | `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS` |  |  | MeetingDocumentationModal · l.2136 |
+| «[icon TrashIcon]» · aria «Eliminar tarea» | `{() => removeTask(index)}` | `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && !(formData.tasks.length === 0) && each formData.tasks` |  | `testid=meeting-task-remove-{index}` | MeetingDocumentationModal · l.2159 |
 
 **Other things that react to a click** (1)
 
 | Element | Text | Does | Shown when | Where |
 |---|---|---|---|---|
-| `div` |  | `{handleClose}` |  | MeetingDocumentationModal · l.1361 |
+| `div` |  | `{handleClose}` |  | MeetingDocumentationModal · l.1571 |
 
 **Fields** (17)
 
 | Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
 |---|---|---|---|---|---|---|
-| «Título de la Reunión *» | text | «Ej: Reunión de planificación semanal» |  | `!(loadingMeeting) && currentStep === MeetingFormStep.INFORMATION` |  | MeetingDocumentationModal · l.1462 |
-| «Fecha y Hora *» | datetime-local | also `onBlur={(e) => setMeetingDateIncomplete(e.currentTarget.validity.badInput)}` |  | `!(loadingMeeting) && currentStep === MeetingFormStep.INFORMATION` | `testid=meeting-date` | MeetingDocumentationModal · l.1476 |
-| «Duración (minutos)» | number | `min=15 max=480` |  | `!(loadingMeeting) && currentStep === MeetingFormStep.INFORMATION` |  | MeetingDocumentationModal · l.1498 |
-| «Ubicación» | text | «Ej: Sala de reuniones, Zoom, etc.» |  | `!(loadingMeeting) && currentStep === MeetingFormStep.INFORMATION` |  | MeetingDocumentationModal · l.1513 |
-| «{profileName(user, 'Usuario sin nomb…} [( {PROTECTED_ROLE_LABELS[protectedAtte…} )]» | checkbox | disabled: `{protectedAttendees.has(user.id)}` |  | `!(loadingMeeting) && currentStep === MeetingFormStep.INFORMATION && each availableUsers` | `testid=meeting-attendee-{user.id}` | MeetingDocumentationModal · l.1531 |
-| «Usuario fuera de la comunidad» | checkbox | disabled: `true` · `readOnly=true` |  | `!(loadingMeeting) && currentStep === MeetingFormStep.INFORMATION && each historicalAttendeeIds` |  | MeetingDocumentationModal · l.1562 |
-| «{profileName(user, 'Usuario sin nomb…}» | checkbox |  |  | `!(loadingMeeting) && currentStep === MeetingFormStep.INFORMATION && each readerCandidates` | `testid=meeting-reader-{user.id}` | MeetingDocumentationModal · l.1606 |
-| «Estado de la Reunión» | select |  | «(lista) {label}» | `!(loadingMeeting) && currentStep === MeetingFormStep.SUMMARY` |  | MeetingDocumentationModal · l.1635 |
-| «Seleccionar archivos» | file | `file-upload` · accepts `.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.gif` · `multiple=true` |  | `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS` · hidden by its class (`sr-only`); another control opens it or it is for screen readers | `id=file-upload (id used by code)` | MeetingDocumentationModal · l.1702 |
-|  | select | disabled: `{assigneePickerDisabled}` | «Asignar a…», «(lista) {profileName(user, 'Usuario sin nomb…}» | `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && !(formData.commitments.length === 0) && each formData.commitments` | `testid=meeting-commitment-assignee-{index}` | MeetingDocumentationModal · l.1875 |
-| «Fecha límite del compromiso» | date |  |  | `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && !(formData.commitments.length === 0) && each formData.commitments` | `testid=meeting-commitment-due-{index}` | MeetingDocumentationModal · l.1891 |
-| «Título de la tarea...» | text | «Título de la tarea...» |  | `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && !(formData.tasks.length === 0) && each formData.tasks` | `testid=meeting-task-title-{index}` | MeetingDocumentationModal · l.1948 |
-|  | select | disabled: `{assigneePickerDisabled}` | «Asignar a…», «(lista) {profileName(user, 'Usuario sin nomb…}» | `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && !(formData.tasks.length === 0) && each formData.tasks` | `testid=meeting-task-assignee-{index}` | MeetingDocumentationModal · l.1968 |
-| «Fecha límite de la tarea» | date |  |  | `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && !(formData.tasks.length === 0) && each formData.tasks` | `testid=meeting-task-due-{index}` | MeetingDocumentationModal · l.1984 |
-|  | select |  | «(lista) {label}» | `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && !(formData.tasks.length === 0) && each formData.tasks` |  | MeetingDocumentationModal · l.1993 |
-| «Categoría (opcional)» | text | «Categoría (opcional)» |  | `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && !(formData.tasks.length === 0) && each formData.tasks` |  | MeetingDocumentationModal · l.2005 |
-| «Horas estimadas» | number | «Horas estimadas» · `min=0 step=0.5` |  | `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && !(formData.tasks.length === 0) && each formData.tasks` |  | MeetingDocumentationModal · l.2013 |
+| «Título de la Reunión *» | text | «Ej: Reunión de planificación semanal» |  | `!(loadingMeeting) && currentStep === MeetingFormStep.INFORMATION` |  | MeetingDocumentationModal · l.1680 |
+| «Fecha y Hora *» | datetime-local | also `onBlur={(e) => setMeetingDateIncomplete(e.currentTarget.validity.badInput)}` |  | `!(loadingMeeting) && currentStep === MeetingFormStep.INFORMATION` | `testid=meeting-date` | MeetingDocumentationModal · l.1694 |
+| «Duración (minutos)» | number | `min=15 max=480` |  | `!(loadingMeeting) && currentStep === MeetingFormStep.INFORMATION` |  | MeetingDocumentationModal · l.1716 |
+| «Ubicación» | text | «Ej: Sala de reuniones, Zoom, etc.» |  | `!(loadingMeeting) && currentStep === MeetingFormStep.INFORMATION` |  | MeetingDocumentationModal · l.1731 |
+| «{profileName(user, 'Usuario sin nomb…} [( {PROTECTED_ROLE_LABELS[protectedAtte…} )]» | checkbox | disabled: `{protectedAttendees.has(user.id)}` |  | `!(loadingMeeting) && currentStep === MeetingFormStep.INFORMATION && each availableUsers` | `testid=meeting-attendee-{user.id}` | MeetingDocumentationModal · l.1749 |
+| «Usuario fuera de la comunidad» | checkbox | disabled: `true` · `readOnly=true` |  | `!(loadingMeeting) && currentStep === MeetingFormStep.INFORMATION && each historicalAttendeeIds` |  | MeetingDocumentationModal · l.1780 |
+| «{profileName(user, 'Usuario sin nomb…}» | checkbox |  |  | `!(loadingMeeting) && currentStep === MeetingFormStep.INFORMATION && each readerCandidates` | `testid=meeting-reader-{user.id}` | MeetingDocumentationModal · l.1824 |
+| «Estado de la Reunión» | select | disabled: `{isFinalized}` | «(lista) {label}» | `!(loadingMeeting) && currentStep === MeetingFormStep.SUMMARY` | `testid=meeting-status-select` | MeetingDocumentationModal · l.1853 |
+| «Seleccionar archivos» | file | `file-upload` · accepts `.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.gif` · `multiple=true` |  | `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS` · hidden by its class (`sr-only`); another control opens it or it is for screen readers | `id=file-upload (id used by code)` | MeetingDocumentationModal · l.1924 |
+|  | select | disabled: `{assigneePickerDisabled}` | «Asignar a…», «(lista) {profileName(user, 'Usuario sin nomb…}» | `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && !(formData.commitments.length === 0) && each formData.commitments` | `testid=meeting-commitment-assignee-{index}` | MeetingDocumentationModal · l.2097 |
+| «Fecha límite del compromiso» | date |  |  | `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && !(formData.commitments.length === 0) && each formData.commitments` | `testid=meeting-commitment-due-{index}` | MeetingDocumentationModal · l.2113 |
+| «Título de la tarea...» | text | «Título de la tarea...» |  | `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && !(formData.tasks.length === 0) && each formData.tasks` | `testid=meeting-task-title-{index}` | MeetingDocumentationModal · l.2170 |
+|  | select | disabled: `{assigneePickerDisabled}` | «Asignar a…», «(lista) {profileName(user, 'Usuario sin nomb…}» | `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && !(formData.tasks.length === 0) && each formData.tasks` | `testid=meeting-task-assignee-{index}` | MeetingDocumentationModal · l.2190 |
+| «Fecha límite de la tarea» | date |  |  | `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && !(formData.tasks.length === 0) && each formData.tasks` | `testid=meeting-task-due-{index}` | MeetingDocumentationModal · l.2206 |
+|  | select |  | «(lista) {label}» | `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && !(formData.tasks.length === 0) && each formData.tasks` |  | MeetingDocumentationModal · l.2215 |
+| «Categoría (opcional)» | text | «Categoría (opcional)» |  | `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && !(formData.tasks.length === 0) && each formData.tasks` |  | MeetingDocumentationModal · l.2227 |
+| «Horas estimadas» | number | «Horas estimadas» · `min=0 step=0.5` |  | `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && !(formData.tasks.length === 0) && each formData.tasks` |  | MeetingDocumentationModal · l.2235 |
 
 **Pop-ups** (2)
 
 | Name or title | How | Opens when | Texts passed to it | Where |
 |---|---|---|---|---|
-| «Editar Reunión / Documentar Reunión» | written in this file |  |  | MeetingDocumentationModal · l.1359 |
-| `FinalizeMeetingDialog` | component | `{finalizeOpen}` |  | MeetingDocumentationModal · l.2058 |
+| «Editar Reunión / Documentar Reunión» | written in this file |  |  | MeetingDocumentationModal · l.1569 |
+| `FinalizeMeetingDialog` | component | `{finalizeOpen}` |  | MeetingDocumentationModal · l.2281 |
 
-**Browser confirm()** (1)
+**Browser confirm()** (3)
 
 | Question | When | Where |
 |---|---|---|
-| «Esta reunión fue modificada{who} mientras editabas. / ¿Recargar para ver los últimos cambios? Se perderán los cambios locales no guardados.» | `res.status === 409` | MeetingDocumentationModal · l.652 |
+| «Esta reunión fue modificada{who} mientras editabas. / ¿Recargar para ver los últimos cambios? Se perderán los cambios locales no guardados.» | `res.status === 409` | MeetingDocumentationModal · l.766 |
+| «{UNSAVED_CLOSE_QUESTION}» |  | closeForm · l.831 |
+| «{SAVE_CONFLICT_MESSAGE} ¿Recargar ahora?» | `targetMeetingId && updateResult.conflict` | persistMeetingData · l.1002 |
 
 **Browser alert()** (1)
 
 | Text | When | Where |
 |---|---|---|
-| «{msg}» | `res.status === 409 && (body?.code === 'meeting_finalized_concurrently' \|\| body?.code === 'meeting_not_draft') && typeof window !== 'undefined'` | MeetingDocumentationModal · l.646 |
+| «{msg}» | `res.status === 409 && (body?.code === 'meeting_finalized_concurrently' \|\| body?.code === 'meeting_not_draft') && typeof window !== 'undefined'` | MeetingDocumentationModal · l.760 |
 
-**Toasts** (15)
+**Toasts** (17)
 
 | Kind | Text | When | Where |
 |---|---|---|---|
-| error | «{MEMBERS_LOAD_ERROR_MESSAGE}» |  | MeetingDocumentationModal · l.331 |
-| error | «Error al cargar los datos de la reunión» |  | loadMeetingData · l.526 |
-| error | «Por favor completa los campos requeridos» | `runValidations && !validateStep(currentStep)` | persistMeetingData · l.771 |
-| error | «{meetingInfoProblem()}» | `!formData.meeting_info.title \|\| !meetingDateIso` | persistMeetingData · l.780 |
-| error | «{saveFailureSummary(itemProblems)}» | `itemProblems.length > 0` | persistMeetingData · l.792 |
-| error | «No se pudo guardar la reunión.» | `!targetMeetingId \|\| problems.length > 0` | persistMeetingData · l.853 |
-| error | «{saveFailureSummary(problems)}» | `problems.length > 0` | persistMeetingData · l.920 |
-| success | «Borrador guardado» |  | handleSaveDraft · l.989 |
-| error | «Error inesperado al guardar el borrador» |  | handleSaveDraft · l.993 |
-| error | «No se pudo guardar la reunión antes de finalizarla.» |  | handleOpenFinalize · l.1014 |
-| error | «Por favor completa los campos requeridos» | `!validateStep(currentStep)` | handleNext · l.1043 |
-| error | «Error inesperado al {mode === 'edit' ? 'actualiz…} la reunión» |  | handleSubmit · l.1069 |
-| success | «Reunión actualizada correctamente / Reunión guardada como borrador. Ábrela y pulsa «Finalizar reunión» para enviar el resumen.» | `saved && mountedRef.current` | handleSubmit · l.1078 |
-| error | «Tipo de archivo no permitido: {file.name}» | `!ALLOWED_ATTACHMENT_MIME_TYPES.includes(file.type)` | handleFileSelect · l.1217 |
-| error | «Archivo demasiado grande: {file.name}. Máximo {MAX_ATTACHMENT_LABEL}.» | `file.size > MAX_ATTACHMENT_BYTES` | handleFileSelect · l.1224 |
+| error | «{MEMBERS_LOAD_ERROR_MESSAGE}» |  | MeetingDocumentationModal · l.420 |
+| error | «Error al cargar los datos de la reunión» |  | loadMeetingData · l.618 |
+| error | «Por favor completa los campos requeridos» | `runValidations && !validateStep(currentStep)` | persistMeetingData · l.911 |
+| error | «{meetingInfoProblem()}» | `!formData.meeting_info.title \|\| !meetingDateIso` | persistMeetingData · l.920 |
+| error | «{saveFailureSummary(itemProblems)}» | `itemProblems.length > 0` | persistMeetingData · l.932 |
+| error | «{AUTOSAVE_STILL_RUNNING_MESSAGE}» | `inFlightAutosave && !answered` | persistMeetingData · l.972 |
+| error | «{SAVE_CONFLICT_MESSAGE}» | `targetMeetingId && updateResult.conflict` | persistMeetingData · l.1000 |
+| error | «No se pudo guardar la reunión.» | `!targetMeetingId \|\| problems.length > 0` | persistMeetingData · l.1050 |
+| error | «{saveFailureSummary(problems)}» | `problems.length > 0` | persistMeetingData · l.1117 |
+| success | «Borrador guardado» |  | handleSaveDraft · l.1199 |
+| error | «Error inesperado al guardar el borrador» |  | handleSaveDraft · l.1203 |
+| error | «No se pudo guardar la reunión antes de finalizarla.» |  | handleOpenFinalize · l.1224 |
+| error | «Por favor completa los campos requeridos» | `!validateStep(currentStep)` | handleNext · l.1253 |
+| error | «Error inesperado al {mode === 'edit' ? 'actualiz…} la reunión» |  | handleSubmit · l.1279 |
+| success | «Reunión actualizada correctamente / Reunión guardada como borrador. Ábrela y pulsa «Finalizar reunión» para enviar el resumen.» | `saved && mountedRef.current` | handleSubmit · l.1288 |
+| error | «Tipo de archivo no permitido: {file.name}» | `!ALLOWED_ATTACHMENT_MIME_TYPES.includes(file.type)` | handleFileSelect · l.1427 |
+| error | «Archivo demasiado grande: {file.name}. Máximo {MAX_ATTACHMENT_LABEL}.» | `file.size > MAX_ATTACHMENT_BYTES` | handleFileSelect · l.1434 |
 
-**Draws nothing when** (11)
+**Draws nothing when** (13)
 
 | Condition | Where |
 |---|---|
-| `!isOpen` | MeetingDocumentationModal · l.312 |
-| `!active` | MeetingDocumentationModal · l.322 |
-| `!active \|\| controller.signal.aborted` | MeetingDocumentationModal · l.327 |
-| `!isOpen \|\| !lastSavedAt` | MeetingDocumentationModal · l.343 |
-| `workSessionEndedRef.current` | MeetingDocumentationModal · l.367 |
-| `typeof window === 'undefined'` | MeetingDocumentationModal · l.392 |
-| `!id \|\| autosaveInFlightRef.current` | MeetingDocumentationModal · l.614 |
-| `storedStatusRef.current !== MEETING_STATUS.BORRADOR` | MeetingDocumentationModal · l.615 |
-| `!currentMeetingId` | MeetingDocumentationModal · l.689 |
-| `storedStatusRef.current !== MEETING_STATUS.BORRADOR` | MeetingDocumentationModal · l.690 |
-| `!isOpen` | MeetingDocumentationModal · l.1356 |
+| `!isOpen` | MeetingDocumentationModal · l.401 |
+| `!active` | MeetingDocumentationModal · l.411 |
+| `!active \|\| controller.signal.aborted` | MeetingDocumentationModal · l.416 |
+| `!isOpen \|\| !lastSavedAt` | MeetingDocumentationModal · l.432 |
+| `workSessionEndedRef.current` | MeetingDocumentationModal · l.456 |
+| `typeof window === 'undefined'` | MeetingDocumentationModal · l.481 |
+| `!id \|\| autosaveInFlightRef.current` | MeetingDocumentationModal · l.717 |
+| `currentMeetingIdRef.current !== id` | MeetingDocumentationModal · l.721 |
+| `saveInFlightRef.current` | MeetingDocumentationModal · l.723 |
+| `storedStatusRef.current !== MEETING_STATUS.BORRADOR` | MeetingDocumentationModal · l.724 |
+| `!currentMeetingId` | MeetingDocumentationModal · l.813 |
+| `storedStatusRef.current !== MEETING_STATUS.BORRADOR` | MeetingDocumentationModal · l.814 |
+| `!isOpen` | MeetingDocumentationModal · l.1566 |
 
 **Pieces placed here, with the texts and settings handed to them** (9)
 
 | Piece | Texts and settings | Shown when | Hook | Where |
 |---|---|---|---|---|
-| `WorkSessionBanner` |  | `formData.summary_info.status === MEETING_STATUS.BORRADOR` |  | MeetingDocumentationModal · l.1402 |
-| `TipTapEditor` | placeholder: Resumen de la reunión… | `!(loadingMeeting) && currentStep === MeetingFormStep.SUMMARY` |  | MeetingDocumentationModal · l.1652 |
-| `TipTapEditor` | placeholder: Notas adicionales, observaciones… | `!(loadingMeeting) && currentStep === MeetingFormStep.SUMMARY` |  | MeetingDocumentationModal · l.1671 |
-| `AttachmentRow` |  | `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && existingAttachments.length > 0 && each existingAttachments` |  | MeetingDocumentationModal · l.1727 |
-| `AttachmentRow` |  | `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && selectedFiles.length > 0 && each selectedFiles` |  | MeetingDocumentationModal · l.1752 |
-| `TipTapEditor` | placeholder: Describe el acuerdo… | `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && !(formData.agreements.length === 0) && each formData.agreements` |  | MeetingDocumentationModal · l.1801 |
-| `TipTapEditor` | placeholder: Describe el compromiso… | `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && !(formData.commitments.length === 0) && each formData.commitments` |  | MeetingDocumentationModal · l.1864 |
-| `TipTapEditor` | placeholder: Describe la tarea… | `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && !(formData.tasks.length === 0) && each formData.tasks` |  | MeetingDocumentationModal · l.1957 |
-| `MeetingModalFooter` |  |  |  | MeetingDocumentationModal · l.2037 |
+| `WorkSessionBanner` |  | `formData.summary_info.status === MEETING_STATUS.BORRADOR` |  | MeetingDocumentationModal · l.1620 |
+| `TipTapEditor` | placeholder: Resumen de la reunión… | `!(loadingMeeting) && currentStep === MeetingFormStep.SUMMARY` |  | MeetingDocumentationModal · l.1872 |
+| `TipTapEditor` | placeholder: Notas adicionales, observaciones… | `!(loadingMeeting) && currentStep === MeetingFormStep.SUMMARY` |  | MeetingDocumentationModal · l.1892 |
+| `AttachmentRow` |  | `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && existingAttachments.length > 0 && each existingAttachments` |  | MeetingDocumentationModal · l.1949 |
+| `AttachmentRow` |  | `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && selectedFiles.length > 0 && each selectedFiles` |  | MeetingDocumentationModal · l.1974 |
+| `TipTapEditor` | placeholder: Describe el acuerdo… | `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && !(formData.agreements.length === 0) && each formData.agreements` |  | MeetingDocumentationModal · l.2023 |
+| `TipTapEditor` | placeholder: Describe el compromiso… | `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && !(formData.commitments.length === 0) && each formData.commitments` |  | MeetingDocumentationModal · l.2086 |
+| `TipTapEditor` | placeholder: Describe la tarea… | `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && !(formData.tasks.length === 0) && each formData.tasks` |  | MeetingDocumentationModal · l.2179 |
+| `MeetingModalFooter` |  |  |  | MeetingDocumentationModal · l.2259 |
 
-**Texts kept in lists and helpers in the code (labels, options, status names)** (6)
+**Texts kept in lists and helpers in the code (labels, options, status names)** (10)
 
 | Name | Texts | Where |
 |---|---|---|
-| `MEMBERS_LOAD_ERROR_MESSAGE` | «No se pudieron cargar los miembros de la comunidad. Intenta nuevamente.» | l.108 |
-| `STEPS` | «Información», «Datos básicos de la reunión», «Resumen», «Resumen y notas de la reunión», «Acuerdos y Compromisos», «Acuerdos, compromisos y tareas» | l.147 |
-| `msg` | «Esta reunión fue finalizada mientras editabas. Recargando… / Esta reunión ya no está en borrador. Recargando…» | MeetingDocumentationModal · l.642 |
-| `who` | «por {body.updated_by_name}» | MeetingDocumentationModal · l.651 |
-| `meetingInfoProblem()` | «Escribe el título de la reunión.», «La fecha y hora están incompletas: completa día, mes, año, hora y minutos.», «Indica la fecha y hora de la reunión.» | meetingInfoProblem · l.1036 |
-| `historicalAssigneeLabel()` | «Usuario fuera de la comunidad», «No se pudo verificar la membresía», «Verificando membresía…» | historicalAssigneeLabel · l.1258 |
+| `FINALIZED_STATE_LOCKED_MESSAGE` | «Esta reunión ya fue finalizada: su estado no se puede cambiar.» | l.109 |
+| `SAVE_CONFLICT_MESSAGE` | «Otra persona guardó esta reunión mientras editabas. Recarga para ver sus cambios; lo que escribiste no se guardó.» | l.113 |
+| `UNSAVED_CLOSE_QUESTION` | «Tienes cambios sin guardar. ¿Cerrar y descartarlos?» | l.117 |
+| `AUTOSAVE_STILL_RUNNING_MESSAGE` | «No se pudo guardar: el guardado automático sigue en curso. Inténtalo de nuevo en unos segundos.» | l.164 |
+| `MEMBERS_LOAD_ERROR_MESSAGE` | «No se pudieron cargar los miembros de la comunidad. Intenta nuevamente.» | l.168 |
+| `STEPS` | «Información», «Datos básicos de la reunión», «Resumen», «Resumen y notas de la reunión», «Acuerdos y Compromisos», «Acuerdos, compromisos y tareas» | l.207 |
+| `msg` | «Esta reunión fue finalizada mientras editabas. Recargando… / Esta reunión ya no está en borrador. Recargando…» | MeetingDocumentationModal · l.756 |
+| `who` | «por {body.updated_by_name}» | MeetingDocumentationModal · l.765 |
+| `meetingInfoProblem()` | «Escribe el título de la reunión.», «La fecha y hora están incompletas: completa día, mes, año, hora y minutos.», «Indica la fecha y hora de la reunión.» | meetingInfoProblem · l.1246 |
+| `historicalAssigneeLabel()` | «Usuario fuera de la comunidad», «No se pudo verificar la membresía», «Verificando membresía…» | historicalAssigneeLabel · l.1468 |
 
 **Other texts written in the code (safety net: not tied to an element by the script)** (7)
 
 | Text | Where |
 |---|---|
-| «Escribe el título de la reunión.» | MeetingDocumentationModal · l.1036 |
-| «Indica la fecha y hora de la reunión.» | MeetingDocumentationModal · l.1038 |
-| «{profileName(member, 'Usuari…} (no es participante)» | MeetingDocumentationModal · l.1257 |
-| «Usuario sin nombre» | MeetingDocumentationModal · l.1257 |
-| «No se pudo verificar la membresía» | MeetingDocumentationModal · l.1259 |
-| «Verificando membresía…» | MeetingDocumentationModal · l.1260 |
-| «Una persona» | MeetingDocumentationModal · l.1321 |
+| «Escribe el título de la reunión.» | MeetingDocumentationModal · l.1246 |
+| «Indica la fecha y hora de la reunión.» | MeetingDocumentationModal · l.1248 |
+| «{profileName(member, 'Usuari…} (no es participante)» | MeetingDocumentationModal · l.1467 |
+| «Usuario sin nombre» | MeetingDocumentationModal · l.1467 |
+| «No se pudo verificar la membresía» | MeetingDocumentationModal · l.1469 |
+| «Verificando membresía…» | MeetingDocumentationModal · l.1470 |
+| «Una persona» | MeetingDocumentationModal · l.1531 |
 
-**Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (14)
+**Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (16)
 
 | Kind | What | Where |
 |---|---|---|
-| timer | `setInterval(…, SAVED_TICK_INTERVAL_MS)` | MeetingDocumentationModal · l.344 |
-| listener | `window.addEventListener('beforeunload')` | MeetingDocumentationModal · l.398 |
-| listener | `window.addEventListener('pagehide')` | MeetingDocumentationModal · l.399 |
-| timer | `setTimeout(…, AUTOSAVE_DEBOUNCE_MS)` | MeetingDocumentationModal · l.692 |
-| mark | `testid=meeting-{kind}-{index}-errors` | renderItemMessages · l.1293 |
-| mark | `testid=meeting-no-participants-{scope}` | renderNoParticipantsHint · l.1303 |
-| mark | `testid=meeting-members-status-{scope}` | renderMembersStatus · l.1334 |
-| mark | `testid=meeting-members-status-{scope}` | renderMembersStatus · l.1341 |
-| mark | `testid=meeting-members-status-{scope}` | renderMembersStatus · l.1348 |
-| mark | `testid=meeting-step-body` | MeetingDocumentationModal · l.1437 |
-| mark | `testid=meeting-save-problems` | MeetingDocumentationModal · l.1445 |
-| mark | `testid=meeting-date-incomplete` | MeetingDocumentationModal · l.1488 |
-| mark | `testid=meeting-assignee-not-participant-warning` | MeetingDocumentationModal · l.1574 |
-| mark | `testid=meeting-readers` | MeetingDocumentationModal · l.1599 |
+| timer | `setInterval(…, SAVED_TICK_INTERVAL_MS)` | MeetingDocumentationModal · l.433 |
+| listener | `window.addEventListener('beforeunload')` | MeetingDocumentationModal · l.487 |
+| listener | `window.addEventListener('pagehide')` | MeetingDocumentationModal · l.488 |
+| timer | `setTimeout(…, AUTOSAVE_DEBOUNCE_MS)` | MeetingDocumentationModal · l.816 |
+| timer | `setTimeout(…, AUTOSAVE_WAIT_LIMIT_MS)` | persistMeetingData · l.966 |
+| mark | `testid=meeting-{kind}-{index}-errors` | renderItemMessages · l.1503 |
+| mark | `testid=meeting-no-participants-{scope}` | renderNoParticipantsHint · l.1513 |
+| mark | `testid=meeting-members-status-{scope}` | renderMembersStatus · l.1544 |
+| mark | `testid=meeting-members-status-{scope}` | renderMembersStatus · l.1551 |
+| mark | `testid=meeting-members-status-{scope}` | renderMembersStatus · l.1558 |
+| mark | `testid=meeting-unsaved-changes` | MeetingDocumentationModal · l.1603 |
+| mark | `testid=meeting-step-body` | MeetingDocumentationModal · l.1655 |
+| mark | `testid=meeting-save-problems` | MeetingDocumentationModal · l.1663 |
+| mark | `testid=meeting-date-incomplete` | MeetingDocumentationModal · l.1706 |
+| mark | `testid=meeting-assignee-not-participant-warning` | MeetingDocumentationModal · l.1792 |
+| mark | `testid=meeting-readers` | MeetingDocumentationModal · l.1817 |
 
 **Values shown from data** (6)
 
-- `{problem.message}` — renderItemMessages · l.1295, when `each messages`
-- `{STEPS[currentStep].title} : {STEPS[currentStep].description}` — MeetingDocumentationModal · l.1370
-- `{step.title}` — MeetingDocumentationModal · l.1421, when `each STEPS`
-- `{problem.message}` — MeetingDocumentationModal · l.1449, when `!(loadingMeeting) && meetingLevelProblems.length > 0 && each meetingLevelProblems`
-- `{index + 1}` — MeetingDocumentationModal · l.1790, when `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && !(formData.agreements.length === 0) && each formData.agreements`
-- `{index + 1}` — MeetingDocumentationModal · l.1852, when `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && !(formData.commitments.length === 0) && each formData.commitments`
+- `{problem.message}` — renderItemMessages · l.1505, when `each messages`
+- `{STEPS[currentStep].title} : {STEPS[currentStep].description}` — MeetingDocumentationModal · l.1580
+- `{step.title}` — MeetingDocumentationModal · l.1639, when `each STEPS`
+- `{problem.message}` — MeetingDocumentationModal · l.1667, when `!(loadingMeeting) && meetingLevelProblems.length > 0 && each meetingLevelProblems`
+- `{index + 1}` — MeetingDocumentationModal · l.2012, when `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && !(formData.agreements.length === 0) && each formData.agreements`
+- `{index + 1}` — MeetingDocumentationModal · l.2074, when `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && !(formData.commitments.length === 0) && each formData.commitments`
 
-**Other texts on screen** (33)
+**Other texts on screen** (34)
 
-- «Marca primero a los participantes en el paso 1 (Información): solo a ellos se les puede asignar.» — renderNoParticipantsHint · l.1304, when `membersLoadState === 'success' && participantOptions.length === 0`
-- «Cargando miembros de la comunidad…» — renderMembersStatus · l.1335, when `membersLoadState === 'idle' \|\| membersLoadState === 'loading'`
-- «No se pudieron cargar los miembros de la comunidad.» — renderMembersStatus · l.1342, when `membersLoadState === 'error'`
-- «Esta comunidad aún no tiene miembros asignados.» — renderMembersStatus · l.1349, when `availableUsers.length === 0`
-- «Guardando…» — MeetingDocumentationModal · l.1378, when `currentMeetingId && storedStatusRef.current === MEETING_STATUS.BORRADOR && savingIndicator === 'saving'`
-- «Error al guardar» — MeetingDocumentationModal · l.1380, when `currentMeetingId && storedStatusRef.current === MEETING_STATUS.BORRADOR && savingIndicator === 'error'`
-- «Guardado hace {formatDistanceToNowStrict(lastSaved…}» — MeetingDocumentationModal · l.1383, when `currentMeetingId && storedStatusRef.current === MEETING_STATUS.BORRADOR && savingIndicator === 'idle' && lastSavedAt`
-- «No se guardó todo:» — MeetingDocumentationModal · l.1446, when `!(loadingMeeting) && meetingLevelProblems.length > 0`
-- «Título de la Reunión *» (label) — MeetingDocumentationModal · l.1459, when `!(loadingMeeting) && currentStep === MeetingFormStep.INFORMATION`
-- «Fecha y Hora *» (label) — MeetingDocumentationModal · l.1473, when `!(loadingMeeting) && currentStep === MeetingFormStep.INFORMATION`
-- «La fecha y hora están incompletas: completa día, mes, año, hora y minutos.» — MeetingDocumentationModal · l.1489, when `!(loadingMeeting) && currentStep === MeetingFormStep.INFORMATION && meetingDateIncomplete`
-- «Duración (minutos)» (label) — MeetingDocumentationModal · l.1495, when `!(loadingMeeting) && currentStep === MeetingFormStep.INFORMATION`
-- «Ubicación» (label) — MeetingDocumentationModal · l.1510, when `!(loadingMeeting) && currentStep === MeetingFormStep.INFORMATION`
-- «Asistentes» (label) — MeetingDocumentationModal · l.1524, when `!(loadingMeeting) && currentStep === MeetingFormStep.INFORMATION`
-- «{profileName(user, 'Usuario sin nomb…} [( {PROTECTED_ROLE_LABELS[protectedAtte…} )]» (label) — MeetingDocumentationModal · l.1530, when `!(loadingMeeting) && currentStep === MeetingFormStep.INFORMATION && each availableUsers`
-- «Usuario fuera de la comunidad» (label) — MeetingDocumentationModal · l.1557, when `!(loadingMeeting) && currentStep === MeetingFormStep.INFORMATION && each historicalAttendeeIds`
-- «{person.name} ya no es participante, pero tiene [{person.commitments} compromiso{person.commitments === 1 ? …}] [y] [{person.tasks} tarea{person.tasks === 1 ? '' : '…}] asignad o / os . Vuelve a marcarla o reasigna en el paso 3 antes de gu…» — MeetingDocumentationModal · l.1579, when `!(loadingMeeting) && currentStep === MeetingFormStep.INFORMATION && assigneesNotParticipating.length > 0 && each assigneesNotParticipating`
-- «Otras personas con acceso» (label) — MeetingDocumentationModal · l.1593, when `!(loadingMeeting) && currentStep === MeetingFormStep.INFORMATION`
-- «Por ejemplo, alguien que no pudo asistir. Podrán ver los acuerdos, compromisos, tareas y documentos de esta reunión.» — MeetingDocumentationModal · l.1597, when `!(loadingMeeting) && currentStep === MeetingFormStep.INFORMATION`
-- «Todos los miembros de la comunidad son participantes.» — MeetingDocumentationModal · l.1602, when `!(loadingMeeting) && currentStep === MeetingFormStep.INFORMATION && membersLoadState === 'success' && availableUsers.length > 0 && readerCandidates.length === 0`
-- «{profileName(user, 'Usuario sin nomb…}» (label) — MeetingDocumentationModal · l.1605, when `!(loadingMeeting) && currentStep === MeetingFormStep.INFORMATION && each readerCandidates`
-- «Estado de la Reunión» (label) — MeetingDocumentationModal · l.1632, when `!(loadingMeeting) && currentStep === MeetingFormStep.SUMMARY`
-- «Resumen de la Reunión *» (label) — MeetingDocumentationModal · l.1649, when `!(loadingMeeting) && currentStep === MeetingFormStep.SUMMARY`
-- «Puedes incluir enlaces en el resumen. Los enlaces se mostrarán como texto clickeable.» — MeetingDocumentationModal · l.1663, when `!(loadingMeeting) && currentStep === MeetingFormStep.SUMMARY`
-- «Notas Adicionales» (label) — MeetingDocumentationModal · l.1668, when `!(loadingMeeting) && currentStep === MeetingFormStep.SUMMARY`
-- «Seleccionar archivos» (label) — MeetingDocumentationModal · l.1700, when `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS`
-- «o arrastrar y soltar» — MeetingDocumentationModal · l.1712, when `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS`
-- «PDF, Word, Excel, PowerPoint, o imágenes hasta {MAX_ATTACHMENT_LABEL}» — MeetingDocumentationModal · l.1714, when `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS`
-- «No se han agregado acuerdos.» — MeetingDocumentationModal · l.1783, when `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && formData.agreements.length === 0`
-- «No se han agregado compromisos.» — MeetingDocumentationModal · l.1842, when `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && formData.commitments.length === 0`
-- «Los compromisos son opcionales.» — MeetingDocumentationModal · l.1843, when `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && formData.commitments.length === 0`
-- «No se han agregado tareas.» — MeetingDocumentationModal · l.1925, when `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && formData.tasks.length === 0`
-- «T {index + 1}» — MeetingDocumentationModal · l.1934, when `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && !(formData.tasks.length === 0) && each formData.tasks`
+- «Marca primero a los participantes en el paso 1 (Información): solo a ellos se les puede asignar.» — renderNoParticipantsHint · l.1514, when `membersLoadState === 'success' && participantOptions.length === 0`
+- «Cargando miembros de la comunidad…» — renderMembersStatus · l.1545, when `membersLoadState === 'idle' \|\| membersLoadState === 'loading'`
+- «No se pudieron cargar los miembros de la comunidad.» — renderMembersStatus · l.1552, when `membersLoadState === 'error'`
+- «Esta comunidad aún no tiene miembros asignados.» — renderMembersStatus · l.1559, when `availableUsers.length === 0`
+- «Guardando…» — MeetingDocumentationModal · l.1588, when `currentMeetingId && storedStatusRef.current === MEETING_STATUS.BORRADOR && savingIndicator === 'saving'`
+- «Error al guardar» — MeetingDocumentationModal · l.1590, when `currentMeetingId && storedStatusRef.current === MEETING_STATUS.BORRADOR && savingIndicator === 'error'`
+- «Guardado hace {formatDistanceToNowStrict(lastSaved…}» — MeetingDocumentationModal · l.1593, when `currentMeetingId && storedStatusRef.current === MEETING_STATUS.BORRADOR && savingIndicator === 'idle' && lastSavedAt`
+- «· Cambios sin guardar» — MeetingDocumentationModal · l.1604, when `isDirty`
+- «No se guardó todo:» — MeetingDocumentationModal · l.1664, when `!(loadingMeeting) && meetingLevelProblems.length > 0`
+- «Título de la Reunión *» (label) — MeetingDocumentationModal · l.1677, when `!(loadingMeeting) && currentStep === MeetingFormStep.INFORMATION`
+- «Fecha y Hora *» (label) — MeetingDocumentationModal · l.1691, when `!(loadingMeeting) && currentStep === MeetingFormStep.INFORMATION`
+- «La fecha y hora están incompletas: completa día, mes, año, hora y minutos.» — MeetingDocumentationModal · l.1707, when `!(loadingMeeting) && currentStep === MeetingFormStep.INFORMATION && meetingDateIncomplete`
+- «Duración (minutos)» (label) — MeetingDocumentationModal · l.1713, when `!(loadingMeeting) && currentStep === MeetingFormStep.INFORMATION`
+- «Ubicación» (label) — MeetingDocumentationModal · l.1728, when `!(loadingMeeting) && currentStep === MeetingFormStep.INFORMATION`
+- «Asistentes» (label) — MeetingDocumentationModal · l.1742, when `!(loadingMeeting) && currentStep === MeetingFormStep.INFORMATION`
+- «{profileName(user, 'Usuario sin nomb…} [( {PROTECTED_ROLE_LABELS[protectedAtte…} )]» (label) — MeetingDocumentationModal · l.1748, when `!(loadingMeeting) && currentStep === MeetingFormStep.INFORMATION && each availableUsers`
+- «Usuario fuera de la comunidad» (label) — MeetingDocumentationModal · l.1775, when `!(loadingMeeting) && currentStep === MeetingFormStep.INFORMATION && each historicalAttendeeIds`
+- «{person.name} ya no es participante, pero tiene [{person.commitments} compromiso{person.commitments === 1 ? …}] [y] [{person.tasks} tarea{person.tasks === 1 ? '' : '…}] asignad o / os . Vuelve a marcarla o reasigna en el paso 3 antes de gu…» — MeetingDocumentationModal · l.1797, when `!(loadingMeeting) && currentStep === MeetingFormStep.INFORMATION && assigneesNotParticipating.length > 0 && each assigneesNotParticipating`
+- «Otras personas con acceso» (label) — MeetingDocumentationModal · l.1811, when `!(loadingMeeting) && currentStep === MeetingFormStep.INFORMATION`
+- «Por ejemplo, alguien que no pudo asistir. Podrán ver los acuerdos, compromisos, tareas y documentos de esta reunión.» — MeetingDocumentationModal · l.1815, when `!(loadingMeeting) && currentStep === MeetingFormStep.INFORMATION`
+- «Todos los miembros de la comunidad son participantes.» — MeetingDocumentationModal · l.1820, when `!(loadingMeeting) && currentStep === MeetingFormStep.INFORMATION && membersLoadState === 'success' && availableUsers.length > 0 && readerCandidates.length === 0`
+- «{profileName(user, 'Usuario sin nomb…}» (label) — MeetingDocumentationModal · l.1823, when `!(loadingMeeting) && currentStep === MeetingFormStep.INFORMATION && each readerCandidates`
+- «Estado de la Reunión» (label) — MeetingDocumentationModal · l.1850, when `!(loadingMeeting) && currentStep === MeetingFormStep.SUMMARY`
+- «Resumen de la Reunión *» (label) — MeetingDocumentationModal · l.1869, when `!(loadingMeeting) && currentStep === MeetingFormStep.SUMMARY`
+- «Puedes incluir enlaces en el resumen. Los enlaces se mostrarán como texto clickeable.» — MeetingDocumentationModal · l.1884, when `!(loadingMeeting) && currentStep === MeetingFormStep.SUMMARY`
+- «Notas Adicionales» (label) — MeetingDocumentationModal · l.1889, when `!(loadingMeeting) && currentStep === MeetingFormStep.SUMMARY`
+- «Seleccionar archivos» (label) — MeetingDocumentationModal · l.1922, when `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS`
+- «o arrastrar y soltar» — MeetingDocumentationModal · l.1934, when `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS`
+- «PDF, Word, Excel, PowerPoint, o imágenes hasta {MAX_ATTACHMENT_LABEL}» — MeetingDocumentationModal · l.1936, when `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS`
+- «No se han agregado acuerdos.» — MeetingDocumentationModal · l.2005, when `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && formData.agreements.length === 0`
+- «No se han agregado compromisos.» — MeetingDocumentationModal · l.2064, when `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && formData.commitments.length === 0`
+- «Los compromisos son opcionales.» — MeetingDocumentationModal · l.2065, when `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && formData.commitments.length === 0`
+- «No se han agregado tareas.» — MeetingDocumentationModal · l.2147, when `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && formData.tasks.length === 0`
+- «T {index + 1}» — MeetingDocumentationModal · l.2156, when `!(loadingMeeting) && currentStep === MeetingFormStep.AGREEMENTS && !(formData.tasks.length === 0) && each formData.tasks`
 
 **Reads and writes the database directly:** `table:meeting_attachments` (select), `table:meeting_read_grants` (select), `table:meeting_work_sessions` (select), `table:profiles` (select)
 
@@ -2697,12 +2751,12 @@ Used by: `/community/workspace`
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «Anterior» | `{onPrevious}` |  | `{currentStep === MeetingFormStep.INFORMATION \|\| isSubmitting \|\| isSavingDraft}` |  | MeetingModalFooter · l.63 |
-| «Cancelar» | `{onClose}` |  | `{isSubmitting \|\| isSavingDraft}` |  | MeetingModalFooter · l.73 |
-| «Guardando… / Guardar borrador» · tooltip «Guarda el estado actual como borrador sin validar el resumen» | `{onSaveDraft}` |  | `{isSubmitting \|\| isSavingDraft}` |  | MeetingModalFooter · l.81 |
-| «Siguiente» | `{onNext}` | `currentStep < MeetingFormStep.AGREEMENTS` | `{isSubmitting \|\| isSavingDraft}` |  | MeetingModalFooter · l.91 |
-| «Subiendo {selectedFileCount} archivo{selectedFileCount !== 1 ? '…}… / Guardando… / Guardar Cambios / Crear Reunión» | `{onSubmit}` | `!(currentStep < MeetingFormStep.AGREEMENTS)` | `{isSubmitting \|\| isSavingDraft}` |  | MeetingModalFooter · l.100 |
-| «Finalizar reunión» | `{onOpenFinalize}` | `showFinalize` | `{isSubmitting \|\| isSavingDraft}` |  | MeetingModalFooter · l.122 |
+| «Anterior» | `{onPrevious}` |  | `{currentStep === MeetingFormStep.INFORMATION \|\| isSubmitting \|\| isSavingDraft}` |  | MeetingModalFooter · l.67 |
+| «Cancelar» | `{onClose}` |  | `{isSubmitting \|\| isSavingDraft}` |  | MeetingModalFooter · l.77 |
+| «Guardando… / Guardar borrador» · tooltip «Guarda el estado actual como borrador sin validar el resumen» | `{onSaveDraft}` | `canSaveDraft` | `{isSubmitting \|\| isSavingDraft}` |  | MeetingModalFooter · l.86 |
+| «Siguiente» | `{onNext}` | `currentStep < MeetingFormStep.AGREEMENTS` | `{isSubmitting \|\| isSavingDraft}` |  | MeetingModalFooter · l.97 |
+| «Subiendo {selectedFileCount} archivo{selectedFileCount !== 1 ? '…}… / Guardando… / Guardar Cambios / Crear Reunión» | `{onSubmit}` | `!(currentStep < MeetingFormStep.AGREEMENTS)` | `{isSubmitting \|\| isSavingDraft}` |  | MeetingModalFooter · l.106 |
+| «Finalizar reunión» | `{onOpenFinalize}` | `showFinalize` | `{isSubmitting \|\| isSavingDraft}` |  | MeetingModalFooter · l.128 |
 
 ### components/meetings/RichTextView.tsx
 
@@ -3049,86 +3103,85 @@ Used by: `/community/workspace`
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «[icon X]» | `{editingMessage ? onCancelEdit : onCancelReply}` | `(replyToMessage \|\| editingMessage)` |  |  | MessageComposer · l.372 |
-| «[icon Loader2]» | `{handleSubmit}` |  | `{(!content.trim() && attachments.length === 0) \|\| isSubmitting \|\| disabled}` |  | MessageComposer · l.406 |
-| «[icon X]» | `{() => removeAttachment(index)}` | `attachments.length > 0 && each attachments` |  |  | MessageComposer · l.468 |
-| «[icon Paperclip]» · tooltip «Adjuntar archivo» | `{() => fileInputRef.current?.click()}` | `allowAttachments` | `{disabled \|\| isSubmitting}` |  | MessageComposer · l.499 |
-| «[icon Smile]» · tooltip «Agregar emoji» | `{() => setShowEmojiPicker(!showEmojiPicker)}` |  | `{disabled \|\| isSubmitting}` |  | MessageComposer · l.520 |
-| «{emoji}» | `{() => { setContent(prev => prev + emoji); setShowEmojiPicker(false); }}` | `showEmojiPicker && each quickEmojis` |  |  | MessageComposer · l.536 |
-| «[icon AtSign]» · tooltip «Mencionar usuario» | `{() => { if (textareaRef.current) { const cursorPosition = textareaRef.current.s…}` | `allowMentions` | `{disabled \|\| isSubmitting}` |  | MessageComposer · l.553 |
-| «Cancelar» | `{editingMessage ? onCancelEdit : onCancelReply}` | `(replyToMessage \|\| editingMessage)` | `{isSubmitting}` |  | MessageComposer · l.577 |
-| «Enviando... / Guardar cambios / Enviar mensaje» | `{handleSubmit}` |  | `{(!content.trim() && attachments.length === 0) \|\| isSubmitting \|\| disabled}` |  | MessageComposer · l.585 |
+| «[icon X]» | `{editingMessage ? onCancelEdit : onCancelReply}` | `(replyToMessage \|\| editingMessage)` |  |  | MessageComposer · l.375 |
+| «[icon Loader2]» | `{handleSubmit}` |  | `{(!content.trim() && attachments.length === 0) \|\| isSubmitting \|\| disabled}` |  | MessageComposer · l.409 |
+| «[icon X]» | `{() => removeAttachment(index)}` | `attachments.length > 0 && each attachments` |  |  | MessageComposer · l.471 |
+| «[icon Paperclip]» · tooltip «Adjuntar archivo» | `{() => fileInputRef.current?.click()}` | `allowAttachments` | `{disabled \|\| isSubmitting}` |  | MessageComposer · l.502 |
+| «[icon Smile]» · tooltip «Agregar emoji» | `{() => setShowEmojiPicker(!showEmojiPicker)}` |  | `{disabled \|\| isSubmitting}` |  | MessageComposer · l.523 |
+| «{emoji}» | `{() => { setContent(prev => prev + emoji); setShowEmojiPicker(false); }}` | `showEmojiPicker && each quickEmojis` |  |  | MessageComposer · l.539 |
+| «[icon AtSign]» · tooltip «Mencionar usuario» | `{() => { if (textareaRef.current) { const cursorPosition = textareaRef.current.s…}` | `allowMentions` | `{disabled \|\| isSubmitting}` |  | MessageComposer · l.556 |
+| «Cancelar» | `{editingMessage ? onCancelEdit : onCancelReply}` | `(replyToMessage \|\| editingMessage)` | `{isSubmitting}` |  | MessageComposer · l.580 |
+| «Enviando... / Guardar cambios / Enviar mensaje» | `{handleSubmit}` |  | `{(!content.trim() && attachments.length === 0) \|\| isSubmitting \|\| disabled}` |  | MessageComposer · l.588 |
 
 **Fields** (2)
 
 | Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
 |---|---|---|---|---|---|---|
-| «{placeholder}» | textarea | «{placeholder}» · disabled: `{disabled \|\| isSubmitting}` · `maxLength={maxLength}` · also `onKeyDown={handleKeyPress}` |  |  |  | MessageComposer · l.388 |
-|  | file | accepts `{DEFAULT_MESSAGING_CONFIG.allowed_attachment_types.join(',')}` · `multiple=true` |  | `allowAttachments` · hidden by its class (`hidden`); another control opens it or it is for screen readers |  | MessageComposer · l.507 |
+| «{placeholder}» | textarea | «{placeholder}» · disabled: `{disabled \|\| isSubmitting}` · `maxLength={maxLength}` · also `onKeyDown={handleKeyPress}` |  |  |  | MessageComposer · l.391 |
+|  | file | accepts `{DEFAULT_MESSAGING_CONFIG.allowed_attachment_types.join(',')}` · `multiple=true` |  | `allowAttachments` · hidden by its class (`hidden`); another control opens it or it is for screen readers |  | MessageComposer · l.510 |
 
 **Other gestures (keys, hover, drag, blur)** (1)
 
 | Element | Reacts to | Shown when | Where |
 |---|---|---|---|
-| `div` | `onDrop={handleDrop} · onDragOver={handleDragOver}` |  | MessageComposer · l.382 |
+| `div` | `onDrop={handleDrop} · onDragOver={handleDragOver}` |  | MessageComposer · l.385 |
 
 **Embedded media** (1)
 
 | What | Shown when | Hook | Where |
 |---|---|---|---|
-| Image | `attachments.length > 0 && each attachments && file.type.startsWith('image/')` |  | MessageComposer · l.461 |
+| Image | `attachments.length > 0 && each attachments && file.type.startsWith('image/')` |  | MessageComposer · l.464 |
 
 **Pop-ups** (1)
 
 | Name or title | How | Opens when | Texts passed to it | Where |
 |---|---|---|---|---|
-| `MentionPicker` | component | `{showMentionPicker}` |  | MessageComposer · l.425 |
+| `MentionPicker` | component | `{showMentionPicker}` |  | MessageComposer · l.428 |
 
-**Browser alert()** (4)
+**Browser alert()** (3)
 
 | Text | When | Where |
 |---|---|---|
-| «Archivo no válido: {file.name}» | `!isValidAttachment(file)` | MessageComposer · l.197 |
-| «No se pueden adjuntar más de {DEFAULT_MESSAGING_CONFIG.ma…} archivos» | `attachments.length + validFiles.length > DEFAULT_MESSAGING_CONFIG.max_attachments_per_message` | MessageComposer · l.204 |
-| «{validationResult.errors.join('\n')}» | `!validationResult.is_valid` | MessageComposer · l.270 |
-| «Error al enviar el mensaje. Inténtalo de nuevo.» |  | MessageComposer · l.292 |
+| «Archivo no válido: {file.name}» | `!isValidAttachment(file)` | MessageComposer · l.198 |
+| «No se pueden adjuntar más de {DEFAULT_MESSAGING_CONFIG.ma…} archivos» | `attachments.length + validFiles.length > DEFAULT_MESSAGING_CONFIG.max_attachments_per_message` | MessageComposer · l.205 |
+| «{validationResult.errors.join('\n')}» | `!validationResult.is_valid` | MessageComposer · l.271 |
 
 **Draws nothing when** (3)
 
 | Condition | Where |
 |---|---|
-| `!mentionPosition` | MessageComposer · l.162 |
-| `!content.trim() && attachments.length === 0` | MessageComposer · l.241 |
-| `isSubmitting \|\| disabled` | MessageComposer · l.242 |
+| `!mentionPosition` | MessageComposer · l.163 |
+| `!content.trim() && attachments.length === 0` | MessageComposer · l.242 |
+| `isSubmitting \|\| disabled` | MessageComposer · l.243 |
 
 **Other texts written in the code (safety net: not tied to an element by the script)** (1)
 
 | Text | Where |
 |---|---|
-| «Escribe un mensaje...» | MessageComposer · l.70 |
+| «Escribe un mensaje...» | MessageComposer · l.71 |
 
 **Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (4)
 
 | Kind | What | Where |
 |---|---|---|
-| focus | `textareaRef.current.focus()` | MessageComposer · l.112 |
-| focus | `textareaRef.current.focus()` | MessageComposer · l.185 |
-| listener | `document.addEventListener('mousedown')` | MessageComposer · l.343 |
-| focus | `textareaRef.current.focus()` | MessageComposer · l.559 |
+| focus | `textareaRef.current.focus()` | MessageComposer · l.113 |
+| focus | `textareaRef.current.focus()` | MessageComposer · l.186 |
+| listener | `document.addEventListener('mousedown')` | MessageComposer · l.346 |
+| focus | `textareaRef.current.focus()` | MessageComposer · l.562 |
 
 **Values shown from data** (6)
 
-- `{replyToMessage.author_name}` — MessageComposer · l.359, when `((replyToMessage \|\| editingMessage)) && replyToMessage`
-- `{replyToMessage.content.substring(0,…} ...` — MessageComposer · l.360, when `((replyToMessage \|\| editingMessage)) && replyToMessage`
-- `{content.length} / {maxLength}` — MessageComposer · l.401
-- `{file.name}` — MessageComposer · l.465, when `attachments.length > 0 && each attachments`
-- `( {formatFileSize(file.size)} )` — MessageComposer · l.466, when `attachments.length > 0 && each attachments`
-- `{error}` — MessageComposer · l.486, when `validation && !validation.is_valid && each validation.errors`
+- `{replyToMessage.author_name}` — MessageComposer · l.362, when `((replyToMessage \|\| editingMessage)) && replyToMessage`
+- `{replyToMessage.content.substring(0,…} ...` — MessageComposer · l.363, when `((replyToMessage \|\| editingMessage)) && replyToMessage`
+- `{content.length} / {maxLength}` — MessageComposer · l.404
+- `{file.name}` — MessageComposer · l.468, when `attachments.length > 0 && each attachments`
+- `( {formatFileSize(file.size)} )` — MessageComposer · l.469, when `attachments.length > 0 && each attachments`
+- `{error}` — MessageComposer · l.489, when `validation && !validation.is_valid && each validation.errors`
 
 **Other texts on screen** (2)
 
-- «Respondiendo a» — MessageComposer · l.359, when `((replyToMessage \|\| editingMessage)) && replyToMessage`
-- «Editando mensaje» — MessageComposer · l.368, when `((replyToMessage \|\| editingMessage)) && editingMessage`
+- «Respondiendo a» — MessageComposer · l.362, when `((replyToMessage \|\| editingMessage)) && replyToMessage`
+- «Editando mensaje» — MessageComposer · l.371, when `((replyToMessage \|\| editingMessage)) && editingMessage`
 
 ### components/messaging/MessageFilters.tsx
 
@@ -3704,27 +3757,29 @@ Used by: `/community/workspace`, `/user/[userId]`
 
 Used by: `/community/workspace`
 
-**Messages set on the page** (3)
+**Messages set on the page** (4)
 
 | Text | Set by | When | Where |
 |---|---|---|---|
-| «No se proporcionó ningún archivo» | `throw (shown by whoever catches it)` | `!file` | uploadCommunityImage · l.54 |
-| «El archivo debe ser menor a 5MB» | `throw (shown by whoever catches it)` | `file.size > maxSize` | uploadCommunityImage · l.60 |
-| «Solo se permiten imágenes (JPEG, PNG, WebP)» | `throw (shown by whoever catches it)` | `!allowedTypes.includes(file.type)` | uploadCommunityImage · l.66 |
+| «workspace not found» | `throw (shown by whoever catches it)` | `!data` | getWorkspaceSettings · l.70 |
+| «No se proporcionó ningún archivo» | `throw (shown by whoever catches it)` | `!file` | uploadCommunityImage · l.114 |
+| «El archivo debe ser menor a 5MB» | `throw (shown by whoever catches it)` | `file.size > maxSize` | uploadCommunityImage · l.120 |
+| «Solo se permiten imágenes (JPEG, PNG, WebP)» | `throw (shown by whoever catches it)` | `!allowedTypes.includes(file.type)` | uploadCommunityImage · l.126 |
 
 **Access checks in the code** (1)
 
 | Line of code | Where |
 |---|---|
-| `canEdit = canEditWorkspaceWithRoles(roles, workspace.community_id)` | canEditWorkspace · l.173 |
+| `canEdit = canEditWorkspaceWithRoles(roles, workspace.community_id)` | canEditWorkspace · l.233 |
 
-**Texts kept in lists and helpers in the code (labels, options, status names)** (1)
+**Texts kept in lists and helpers in the code (labels, options, status names)** (2)
 
 | Name | Texts | Where |
 |---|---|---|
-| `communityWorkspaceService` | «No se proporcionó ningún archivo», «El archivo debe ser menor a 5MB», «Solo se permiten imágenes (JPEG, PNG, WebP)», «Error al subir la imagen» | l.21 |
+| `WORKSPACE_RENAME_MESSAGES` | «Solo los miembros de la comunidad pueden cambiar su nombre.», «El nombre debe tener entre 1 y 100 caracteres, con al menos una letra o un número, sin caracteres invisibles.», «No se pudo guardar. Inténtalo de nuevo.» | l.25 |
+| `communityWorkspaceService` | «workspace not found», «No se proporcionó ningún archivo», «El archivo debe ser menor a 5MB», «Solo se permiten imágenes (JPEG, PNG, WebP)», «Error al subir la imagen» | l.31 |
 
-**Reads and writes the database directly:** `bucket:community-images` (getPublicUrl, remove, upload), `table:community_workspaces` (select, update), `table:user_roles` (select)
+**Reads and writes the database directly:** `bucket:community-images` (getPublicUrl, remove, upload), `rpc:rename_community_workspace`, `table:community_workspaces` (select, update), `table:user_roles` (select)
 
 ### lib/services/feedService.ts
 
@@ -3734,37 +3789,40 @@ Used by: `/community/workspace`
 
 | Kind | Text | When | Where |
 |---|---|---|---|
-| error | «{MENTION_NOTIFICATION_FAILED}» | `input.mentions && input.mentions.length > 0 && mentionNotificationFailed` | createPost · l.289 |
+| error | «{MENTION_NOTIFICATION_FAILED}» | `input.mentions && input.mentions.length > 0 && mentionNotificationFailed` | createPost · l.395 |
 
-**Messages set on the page** (7)
+**Messages set on the page** (8)
 
 | Text | Set by | When | Where |
 |---|---|---|---|
-| «Usuario no autenticado» | `throw (shown by whoever catches it)` | `!user` | createPost · l.155 |
-| «No tienes permisos para publicar en esta comunidad. Verifica que estés asignado a la comunidad.» | `throw (shown by whoever catches it)` | `!canAccess.data` | createPost · l.164 |
-| «Las tablas del feed no están configuradas. Por favor, contacta al administrador.» | `throw (shown by whoever catches it)` | `postError && postError.message.includes('relation "community_posts" does not exist')` | createPost · l.183 |
-| «Error al subir archivos: {mediaError.message}» | `throw (shown by whoever catches it)` | `input.media && input.media.length > 0 && mediaError` | createPost · l.231 |
-| «Usuario no autenticado» | `throw (shown by whoever catches it)` | `!user` | toggleReaction · l.363 |
-| «Usuario no autenticado» | `throw (shown by whoever catches it)` | `!user` | addComment · l.407 |
-| «Usuario no autenticado» | `throw (shown by whoever catches it)` | `!user` | toggleSavePost · l.492 |
+| «Usuario no autenticado» | `throw (shown by whoever catches it)` | `!user` | createPost · l.203 |
+| «No se pudo subir «{failedUpload.file.name}». La publicación no se guardó; inténtalo de nuevo.» | `throw (shown by whoever catches it)` | `failedUpload` | createPost · l.231 |
+| «Las tablas del feed no están configuradas. Por favor, contacta al administrador.» | `throw (shown by whoever catches it)` | `postError && !((postError as { code?: string }).code === '23505') && postError.message?.includes('relation "community_posts" does not exist')` | createPost · l.267 |
+| «La publicación se guardó sin sus archivos. Elimínala desde el feed e inténtalo de nuevo.» | `throw (shown by whoever catches it)` | `uploads.length > 0 && mediaData.length > 0 && mediaError && (removeError \|\| !Array.isArray(removed) \|\| removed.length === 0)` | createPost · l.331 |
+| «No se pudo guardar la publicación con sus archivos. Inténtalo de nuevo.» | `throw (shown by whoever catches it)` | `uploads.length > 0 && mediaData.length > 0 && mediaError` | createPost · l.336 |
+| «Usuario no autenticado» | `throw (shown by whoever catches it)` | `!user` | toggleReaction · l.469 |
+| «Usuario no autenticado» | `throw (shown by whoever catches it)` | `!user` | addComment · l.513 |
+| «Usuario no autenticado» | `throw (shown by whoever catches it)` | `!user` | toggleSavePost · l.598 |
 
 **Access checks in the code** (1)
 
 | Line of code | Where |
 |---|---|
-| `canAccess = await supabase.rpc('can_access_workspace', { p_user_id: user.id, p_workspace_id: workspaceId })` | createPost · l.158 |
+| `canAccess = await supabase.rpc('can_access_workspace', { p_user_id: user.id, p_workspace_id: workspaceId })` | createPost · l.206 |
 
-**Texts kept in lists and helpers in the code (labels, options, status names)** (1)
+**Texts kept in lists and helpers in the code (labels, options, status names)** (3)
 
 | Name | Texts | Where |
 |---|---|---|
 | `MENTION_NOTIFICATION_FAILED` | «Tu publicación se guardó, pero no pudimos enviar la notificación de mención.» | l.16 |
+| `NO_PERMISSION` | «No tienes permisos para publicar en esta comunidad. Verifica que estés asignado a la comunidad.» | l.19 |
+| `PUBLISH_FAILED` | «No se pudo publicar. Inténtalo de nuevo.» | l.21 |
 
 **Other texts written in the code (safety net: not tied to an element by the script)** (1)
 
 | Text | Where |
 |---|---|
-| «Bearer {session.access_token}» | FeedService · l.263 |
+| «Bearer {session.access_token}» | FeedService · l.369 |
 
 **Reads and writes the database directly:** `bucket:post-media` (getPublicUrl, upload), `rpc:can_access_workspace`, `rpc:increment_post_view_count`, `table:community_posts` (delete, insert, select, update), `table:post_comments` (insert, select), `table:post_hashtags` (insert, select), `table:post_media` (insert, select), `table:post_mentions` (insert), `table:post_reactions` (delete, insert, select), `table:posts_with_engagement` (select), `table:saved_posts` (delete, insert, select)
 
@@ -3962,32 +4020,36 @@ Used by: `/community/workspace`, `/user/[userId]`
 
 Used by: `/community/workspace`
 
-**Messages set on the page** (2)
-
-| Text | Set by | When | Where |
-|---|---|---|---|
-| «Tipo de archivo no soportado: {file.type}» | `throw (shown by whoever catches it)` | `!fileTypeConfig` | uploadDocument · l.240 |
-| «Archivo demasiado grande: {file.name}. Máximo permitido: {formatFileSize( fileTypeCon…}» | `throw (shown by whoever catches it)` | `file.size > fileTypeConfig.max_size` | uploadDocument · l.244 |
-
-**Texts kept in lists and helpers in the code (labels, options, status names)** (3)
+**Texts kept in lists and helpers in the code (labels, options, status names)** (7)
 
 | Name | Texts | Where |
 |---|---|---|
-| `folderPath` | «folder-{uploadData.folder_id} / root» | uploadDocument · l.254 |
-| `DOCUMENT_ACTION_MESSAGES` | «Solo quien subió el documento o el líder de la comunidad puede hacerlo.», «El nombre debe tener entre 1 y 200 caracteres.», «La carpeta ya no existe en este espacio.», «No se pudo completar la acción. Inténtalo de nuevo.» | l.349 |
-| `formatRelativeTime()` | «Hace un momento», «Hace {Math.floor(diffInSeconds / …} minutos», «Hace {Math.floor(diffInSeconds / …} horas», «Hace {Math.floor(diffInSeconds / …} días» | formatRelativeTime · l.577 |
+| `UPLOAD_FAILED_MESSAGE` | «No se pudo subir el archivo. Inténtalo de nuevo.» | l.241 |
+| `RECORD_FAILED_MESSAGE` | «El archivo se subió, pero el documento no se pudo guardar. Inténtalo de nuevo.» | l.242 |
+| `VERSION_WARNING_MESSAGE` | «El documento se guardó, pero no su historial de versiones.» | l.244 |
+| `folderPath` | «folder-{folderId} / root» | buildDocumentStoragePath · l.273 |
+| `DOCUMENT_ACTION_MESSAGES` | «Solo quien subió el documento o el líder de la comunidad puede hacerlo.», «El nombre debe tener entre 1 y 200 caracteres.», «La carpeta ya no existe en este espacio.», «No se pudo completar la acción. Inténtalo de nuevo.» | l.480 |
+| `checkFileBeforeUpload()` | «El nombre del archivo es demasiado largo (máximo {DOCUMENT_FILE_NAME_MAX} caracteres). Cámbiale el nombre e inténtalo de nuevo.», «El título no puede tener más de {DOCUMENT_TITLE_MAX} caracteres.», «No se reconoce el tipo del archivo (máximo {DOCUMENT_MIME_TYPE_MAX} caracteres).», «Tipo de archivo no soportado: {file.type}», «Archivo demasiado grande: {file.name}. Máximo permitido: {formatFileSize( fileTypeCon…}» | checkFileBeforeUpload · l.285 |
+| `formatRelativeTime()` | «Hace un momento», «Hace {Math.floor(diffInSeconds / …} minutos», «Hace {Math.floor(diffInSeconds / …} horas», «Hace {Math.floor(diffInSeconds / …} días» | formatRelativeTime · l.760 |
 
-**Other texts written in the code (safety net: not tied to an element by the script)** (5)
+**Other texts written in the code (safety net: not tied to an element by the script)** (12)
 
 | Text | Where |
 |---|---|
-| «Usuario» | getWorkspaceDocuments · l.126 |
-| «Hace un momento» | formatRelativeTime · l.577 |
-| «Hace {Math.floor(diffInSeconds / …} minutos» | formatRelativeTime · l.578 |
-| «Hace {Math.floor(diffInSeconds / …} horas» | formatRelativeTime · l.579 |
-| «Hace {Math.floor(diffInSeconds / …} días» | formatRelativeTime · l.580 |
+| «El nombre del archivo es demasiado largo (máximo {DOCUMENT_FILE_NAME_MAX} caracteres). Cámbiale el nombre e inténtalo de nuevo.» | checkFileBeforeUpload · l.285 |
+| «El título no puede tener más de {DOCUMENT_TITLE_MAX} caracteres.» | checkFileBeforeUpload · l.288 |
+| «No se reconoce el tipo del archivo (máximo {DOCUMENT_MIME_TYPE_MAX} caracteres).» | checkFileBeforeUpload · l.291 |
+| «Tipo de archivo no soportado: {file.type}» | checkFileBeforeUpload · l.295 |
+| «Archivo demasiado grande: {file.name}. Máximo permitido: {formatFileSize( fileTypeCon…}» | checkFileBeforeUpload · l.298 |
+| «Document link failed» | DocumentLinkError · l.595 |
+| «Bearer {session.access_token}» | getDocumentLink · l.625 |
+| «Hace un momento» | formatRelativeTime · l.760 |
+| «Hace {Math.floor(diffInSeconds / …} minutos» | formatRelativeTime · l.761 |
+| «Hace {Math.floor(diffInSeconds / …} horas» | formatRelativeTime · l.762 |
+| «Hace {Math.floor(diffInSeconds / …} días» | formatRelativeTime · l.763 |
+| «File» | getFileTypeIcon · l.784 |
 
-**Reads and writes the database directly:** `bucket:{STORAGE_BUCKET}` (upload), `rpc:can_manage_workspace_documents`, `rpc:get_folder_breadcrumb`, `rpc:hide_community_document`, `rpc:increment_document_counter`, `rpc:move_community_document`, `rpc:rename_community_document`, `table:community_documents` (insert, select), `table:document_access_log` (insert), `table:document_folders` (insert, select), `table:document_versions` (insert)
+**Reads and writes the database directly:** `bucket:{DOCUMENTS_BUCKET}` (upload), `rpc:can_manage_workspace_documents`, `rpc:get_document_statistics`, `rpc:get_folder_breadcrumb`, `rpc:get_recent_document_activity`, `rpc:hide_community_document`, `rpc:increment_document_counter`, `rpc:move_community_document`, `rpc:rename_community_document`, `table:community_documents` (insert, select), `table:document_access_log` (insert), `table:document_folders` (insert, select), `table:document_versions` (insert, select)
 
 ### utils/meetingDeletion.ts
 
@@ -4013,12 +4075,18 @@ Used by: `/community/workspace`
 
 Used by: `/community/workspace`
 
+**Texts kept in lists and helpers in the code (labels, options, status names)** (1)
+
+| Name | Texts | Where |
+|---|---|---|
+| `refusal` | «The meeting update reached no row (refused)» | updateMeeting · l.338 |
+
 **Other texts written in the code (safety net: not tied to an element by the script)** (2)
 
 | Text | Where |
 |---|---|
-| «Error al actualizar {itemType === 'task' ? 'tare…}» | updateTaskStatus · l.481 |
-| «Error inesperado al actualizar estado» | updateTaskStatus · l.488 |
+| «Error al actualizar {itemType === 'task' ? 'tare…}» | updateTaskStatus · l.586 |
+| «Error inesperado al actualizar estado» | updateTaskStatus · l.593 |
 
 **Reads and writes the database directly:** `rpc:get_my_meeting_rights`, `rpc:update_meeting_item_progress`, `table:community_meetings` (select, update), `table:community_workspaces` (select), `table:meeting_agreements` (select), `table:meeting_attendees` (select), `table:meeting_commitments` (select), `table:meeting_tasks` (select), `table:user_roles` (select)
 
@@ -4030,18 +4098,20 @@ Used by: `/community/workspace`
 
 | Text | Set by | When | Where |
 |---|---|---|---|
-| «Messaging feature not yet implemented» | `throw (shown by whoever catches it)` | `threadError && (threadError?.code === '42P01' \|\| threadError?.message?.includes('does not exist'))` | createThread · l.469 |
-| «Messaging feature not yet implemented» | `throw (shown by whoever catches it)` | `error && (error?.code === '42P01' \|\| error?.message?.includes('does not exist'))` | sendMessage · l.563 |
+| «Messaging feature not yet implemented» | `throw (shown by whoever catches it)` | `threadError && (threadError?.code === '42P01' \|\| threadError?.message?.includes('does not exist'))` | createThread · l.516 |
+| «Messaging feature not yet implemented» | `throw (shown by whoever catches it)` | `error && (error?.code === '42P01' \|\| error?.message?.includes('does not exist'))` | sendMessage · l.626 |
 
-**Other texts written in the code (safety net: not tied to an element by the script)** (3)
+**Other texts written in the code (safety net: not tied to an element by the script)** (5)
 
 | Text | Where |
 |---|---|
-| «Usuario» | withMessageDetails · l.301 |
-| «No se pudo crear la conversación» | ThreadCreationIncompleteError · l.379 |
-| «Bearer {session.access_token}» | requestMessageNotifications · l.833 |
+| «Usuario» | withMessageDetails · l.346 |
+| «No se pudo crear la conversación» | ThreadCreationIncompleteError · l.424 |
+| «Error desconocido» | failureReason · l.579 |
+| «No se guardó el registro del archivo» | sendMessage · l.683 |
+| «Bearer {session.access_token}» | requestMessageNotifications · l.900 |
 
-**Reads and writes the database directly:** `bucket:message-attachments` (getPublicUrl, upload), `table:community_messages` (insert, select), `table:community_workspaces` (select), `table:message_attachments` (insert, select), `table:message_reactions` (select), `table:message_threads` (insert, select, update), `table:profiles` (select)
+**Reads and writes the database directly:** `bucket:message-attachments` (getPublicUrl, upload), `table:community_messages` (insert, select), `table:community_workspaces` (select), `table:message_attachments` (insert, select), `table:message_reactions` (select), `table:message_threads` (insert, select), `table:profiles` (select)
 
 ### utils/messagingUtils.ts
 
@@ -4096,14 +4166,14 @@ Used by: `/community/workspace`
 
 | Line of code | Where |
 |---|---|
-| `isAdmin = userRoles.some(role => role.role_type === 'admin')` | getUserWorkspaceAccess · l.90 |
+| `isAdmin = userRoles.some(role => role.role_type === 'admin')` | getUserWorkspaceAccess · l.91 |
 
 **Other texts written in the code (safety net: not tied to an element by the script)** (2)
 
 | Text | Where |
 |---|---|
-| «Sin escuela» | getAllCommunitiesForAdmin · l.205 |
-| «Sin generación» | getAllCommunitiesForAdmin · l.206 |
+| «Sin escuela» | getAllCommunitiesForAdmin · l.210 |
+| «Sin generación» | getAllCommunitiesForAdmin · l.211 |
 
 **Reads and writes the database directly:** `rpc:can_access_workspace`, `table:community_workspaces` (select), `table:growth_communities` (select), `table:user_roles` (select), `table:workspace_activities` (insert)
 
@@ -4115,18 +4185,19 @@ Used by: `/community/workspace`
 | `/api/admin/growth-communities/[id]/leaders` | `pages/api/admin/growth-communities/[id]/leaders.ts` |  | `/admin/growth-communities/[id]/members` | `__tests__/api/admin/growth-communities-leaders.test.ts`, `__tests__/components/GrowthCommunityMembersPage.leaders.test.tsx`, `pages/admin/growth-communities/[id]/members.tsx` |
 | `/api/admin/growth-communities/[id]/members` | `pages/api/admin/growth-communities/[id]/members.ts` |  | `/admin/growth-communities/[id]/members` | `__tests__/api/admin/growth-communities-members.test.ts`, `__tests__/components/GrowthCommunityMembersPage.leaders.test.tsx`, `pages/admin/growth-communities/[id]/members.tsx` |
 | `/api/admin/growth-communities` | `pages/api/admin/growth-communities/index.ts` | GET, POST | `/admin/growth-communities` | `__tests__/components/GrowthCommunitiesIndexPage.crud.test.tsx`, `pages/admin/growth-communities/index.tsx` |
-| `/api/community/ensure-workspace` | `pages/api/community/ensure-workspace.ts` | POST | `/community/workspace`, `/dashboard` | `__tests__/api/group-quiz-notifications.test.ts`, `__tests__/api/reports/forged-session.test.ts`, `tests/e2e/panel-pin.spec.ts`, `utils/workspaceUtils.ts` |
-| `/api/community/members` | `pages/api/community/members.ts` | GET | `/community/workspace`, `/dashboard` | `__tests__/api/community/members.test.ts`, `__tests__/api/reports/forged-session.test.ts`, `__tests__/components/meetings/MeetingDocumentationModal.clear-rich-text.test.tsx`, `__tests__/components/meetings/MeetingDocumentationModal.end-dedup.test.tsx`, `__tests__/components/meetings/MeetingDocumentationModal.members.test.tsx` +12 |
-| `/api/community/search-users` | `pages/api/community/search-users.ts` | GET | `/community/workspace` | `__tests__/api/community/search-users.test.ts`, `components/feed/CreatePostModal.tsx`, `tests/e2e/messaging-notifications.spec.ts` |
+| `/api/community/documents/[id]/link` | `pages/api/community/documents/[id]/link.ts` | GET | `/community/workspace` | `__tests__/api/community/document-link.test.ts`, `__tests__/utils/documentUtils.private-store.test.ts`, `tests/e2e/community-document-links.spec.ts`, `utils/documentUtils.ts` |
+| `/api/community/ensure-workspace` | `pages/api/community/ensure-workspace.ts` | POST | `/community/workspace`, `/dashboard` | `__tests__/api/community/ensure-workspace.test.ts`, `__tests__/api/group-quiz-notifications.test.ts`, `__tests__/api/reports/forged-session.test.ts`, `tests/e2e/panel-pin.spec.ts`, `utils/workspaceUtils.ts` |
+| `/api/community/members` | `pages/api/community/members.ts` | GET | `/community/workspace`, `/dashboard` | `__tests__/api/community/members.test.ts`, `__tests__/api/reports/forged-session.test.ts`, `__tests__/components/meetings/MeetingDocumentationModal.clear-rich-text.test.tsx`, `__tests__/components/meetings/MeetingDocumentationModal.end-dedup.test.tsx`, `__tests__/components/meetings/MeetingDocumentationModal.finalize-refresh.test.tsx` +14 |
+| `/api/community/search-users` | `pages/api/community/search-users.ts` | GET | `/community/workspace` | `__tests__/api/community/search-users.test.ts`, `__tests__/components/feed/CreatePostModal.mention-workspace.test.tsx`, `components/feed/CreatePostModal.tsx`, `tests/e2e/messaging-notifications.spec.ts` |
 | `/api/community/workspace-message-notifications` | `pages/api/community/workspace-message-notifications.ts` | POST | `/community/workspace`, `/community/workspace/assignments/[id]/discussion` | `__tests__/api/community/workspace-message-notifications.test.ts`, `tests/e2e/messaging-notifications.spec.ts`, `utils/messagingUtils-simple.ts` |
 | `/api/meetings/[id]/autosave` | `pages/api/meetings/[id]/autosave.ts` | POST | `/community/workspace` | `__tests__/api/meetings/autosave.test.ts`, `components/meetings/MeetingDocumentationModal.tsx`, `tests/e2e/meeting-agreements-tasks.spec.ts`, `tests/e2e/meeting-create-and-access.spec.ts`, `tests/e2e/meeting-finalize-email-outcome.spec.ts` |
 | `/api/meetings/[id]/finalize` | `pages/api/meetings/[id]/finalize.ts` | POST | `/community/workspace` | `__tests__/api/meetings/finalize.test.ts`, `__tests__/components/meetings/FinalizeMeetingDialog.test.tsx`, `__tests__/lib/notificationService.producer-contract.test.ts`, `components/meetings/FinalizeMeetingDialog.tsx`, `tests/e2e/messaging-notifications.spec.ts` |
-| `/api/meetings/[id]/recipients` | `pages/api/meetings/[id]/recipients.ts` | GET | `/community/workspace` | `components/meetings/FinalizeMeetingDialog.tsx`, `tests/e2e/meeting-create-and-access.spec.ts`, `tests/e2e/meeting-finalize-email-outcome.spec.ts` |
+| `/api/meetings/[id]/recipients` | `pages/api/meetings/[id]/recipients.ts` | GET | `/community/workspace` | `__tests__/api/meetings/recipients.test.ts`, `components/meetings/FinalizeMeetingDialog.tsx`, `tests/e2e/meeting-create-and-access.spec.ts`, `tests/e2e/meeting-finalize-email-outcome.spec.ts` |
 | `/api/meetings/[id]/work-session/[sessionId]/end` | `pages/api/meetings/[id]/work-session/[sessionId]/end.ts` | POST | `/community/workspace` | `__tests__/api/meetings/work-session-end.test.ts`, `components/meetings/MeetingDocumentationModal.tsx`, `tests/e2e/meeting-agreements-tasks.spec.ts`, `tests/e2e/meeting-create-and-access.spec.ts`, `tests/e2e/meeting-finalize-email-outcome.spec.ts` |
 | `/api/meetings/[id]/work-session/start` | `pages/api/meetings/[id]/work-session/start.ts` | POST | `/community/workspace` | `__tests__/api/meetings/work-session-start.test.ts`, `components/meetings/MeetingDocumentationModal.tsx`, `tests/e2e/meeting-agreements-tasks.spec.ts`, `tests/e2e/meeting-create-and-access.spec.ts`, `tests/e2e/meeting-finalize-email-outcome.spec.ts` |
 | `/api/meetings/delete` | `pages/api/meetings/delete.ts` | POST | `/community/workspace` | `__tests__/api/meetings/delete.test.ts`, `tests/e2e/meeting-create-and-access.spec.ts`, `utils/meetingDeletion.ts` |
 | `/api/messaging/mention` | `pages/api/messaging/mention.ts` | POST | `/community/workspace` | `__tests__/api/messaging/mention.test.ts`, `__tests__/lib/notificationService.producer-contract.test.ts`, `lib/services/feedService.ts`, `tests/e2e/messaging-notifications.spec.ts` |
 | `/api/messaging/send` | `pages/api/messaging/send.ts` | POST | **no screen** | `__tests__/api/messaging/send.test.ts`, `__tests__/lib/notificationService.producer-contract.test.ts`, `__tests__/lib/notificationService.source-context.test.ts`, `tests/e2e/messaging-notifications.spec.ts` |
 | `/api/storage/download-url` | `pages/api/storage/download-url.ts` | POST | **no screen** | `__tests__/api/storage/download-authorization.test.ts` |
-| `/api/storage/download` | `pages/api/storage/download.ts` | GET | `/community/workspace`, `/student/lesson/[lessonId]` | `__tests__/api/storage/download-authorization.test.ts`, `__tests__/pages/community/workspace.messages.test.tsx`, `components/student/StudentBlockRenderer.tsx`, `pages/community/workspace.tsx`, `scripts/seed-qa-phase2-final.js` +4 |
+| `/api/storage/download` | `pages/api/storage/download.ts` | GET | `/community/workspace`, `/student/lesson/[lessonId]` | `__tests__/api/storage/download-authorization.test.ts`, `__tests__/pages/community/workspace.documents.test.tsx`, `__tests__/pages/community/workspace.messages.test.tsx`, `components/student/StudentBlockRenderer.tsx`, `pages/community/workspace.tsx` +5 |
 

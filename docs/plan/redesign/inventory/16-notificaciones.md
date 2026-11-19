@@ -1,7 +1,7 @@
 # Notificaciones
 
 Area `16-notificaciones`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `d701100d0` (2026-11-18).
+Read from commit `ca9dad512` (2026-11-19).
 
 6 screen files, 10 API files, 20 pieces.
 
@@ -14,7 +14,7 @@ Read from commit `d701100d0` (2026-11-18).
 | `/configuracion/notificaciones` | `pages/configuracion/notificaciones.tsx` | 451 | — |  |
 | `/configuracion/piezas` | `pages/configuracion/piezas.tsx` | 555 | — |  |
 | `/notificaciones/baja` | `pages/notificaciones/baja.tsx` | 192 | — |  |
-| `/notifications` | `pages/notifications.tsx` | 653 | — |  |
+| `/notifications` | `pages/notifications.tsx` | 656 | — |  |
 
 ## /configuracion/apariencia
 
@@ -149,7 +149,7 @@ File `pages/configuracion/index.tsx` · 14 lines · frame: none · getServerSide
 - Menu: no entry.
 - Middleware: no role rule. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: yes.
 - In the page: no access check found by the script.
-- Linked from: `lib/auth/forced-password-change.ts:135`, `middleware.ts:330`
+- Linked from: `lib/auth/forced-password-change.ts:135`, `middleware.ts:336`
 - Tests: browser tests that CI runs: `tests/e2e/look-switch.spec.ts`, `tests/e2e/notification-settings.spec.ts`; unit tests of the page: `__tests__/pages/notification-settings.test.tsx`.
 
 | Role | Sees it in the menu | Middleware |
@@ -182,7 +182,7 @@ File `pages/configuracion/notificaciones.tsx` · 451 lines · frame: MainLayout 
 - Middleware: no role rule. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: yes.
 - In the page:
   - l.121 `server redirect → /login?next=[*]  (when !viewer)`
-- Linked from: `components/notifications/ModernNotificationCenter.tsx:475`, `components/notifications/ModernNotificationCenter.tsx:476`, `components/notifications/NotificationDropdown.tsx:187`, `components/notifications/NotificationDropdown.tsx:188`, `lib/email/notifications.ts:30`, `pages/admin/configuration.tsx:396`, `pages/admin/configuration.tsx:397`, `pages/configuracion/apariencia.tsx:24`, `pages/configuracion/index.tsx:8`, `pages/configuracion/piezas.tsx:397`, `pages/configuracion/piezas.tsx:55`, `pages/notifications.tsx:381` and 2 more
+- Linked from: `components/notifications/ModernNotificationCenter.tsx:475`, `components/notifications/ModernNotificationCenter.tsx:476`, `components/notifications/NotificationDropdown.tsx:187`, `components/notifications/NotificationDropdown.tsx:188`, `lib/email/notifications.ts:30`, `pages/admin/configuration.tsx:396`, `pages/admin/configuration.tsx:397`, `pages/configuracion/apariencia.tsx:24`, `pages/configuracion/index.tsx:8`, `pages/configuracion/piezas.tsx:397`, `pages/configuracion/piezas.tsx:55`, `pages/notifications.tsx:384` and 2 more
 - Tests: browser tests that CI runs: `tests/e2e/look-kit.spec.ts`, `tests/e2e/look-switch.spec.ts`, `tests/e2e/notification-settings.spec.ts`; unit tests of the page: `__tests__/pages/notification-settings.test.tsx`.
 
 | Role | Sees it in the menu | Middleware |
@@ -712,7 +712,7 @@ File `pages/notificaciones/baja.tsx` · 192 lines · frame: none · getServerSid
 
 ## /notifications
 
-File `pages/notifications.tsx` · 653 lines · frame: MainLayout
+File `pages/notifications.tsx` · 656 lines · frame: MainLayout
 
 ### Who reaches it
 
@@ -720,10 +720,10 @@ File `pages/notifications.tsx` · 653 lines · frame: MainLayout
 - Middleware: no role rule. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: yes.
 - In the page:
   - l.112 `userRole = await getUserPrimaryRole(session.user.id)`
-  - l.129 `router.push → /login  (when !(session) && session === null)`
-  - l.257 `router.push → /dashboard  (when notification.related_url)`
-- Linked from: `components/DynamicFavicon.tsx:28`, `components/notifications/ModernNotificationCenter.tsx:604`, `components/notifications/NotificationDropdown.tsx:174`, `lib/auth/forced-password-change.ts:155`, `lib/email/notifications.ts:27`, `middleware.ts:350`
-- Tests: browser tests that CI runs: `tests/e2e/notification-settings.spec.ts`; browser tests CI skips: `tests/e2e/messaging-notifications.spec.ts`; unit tests of the page: `__tests__/notifications/entry-points.test.tsx`.
+  - l.132 `router.push → /login?next=[*]  (when !(session) && session === null)`
+  - l.260 `router.push → /dashboard  (when notification.related_url)`
+- Linked from: `components/DynamicFavicon.tsx:28`, `components/notifications/ModernNotificationCenter.tsx:604`, `components/notifications/NotificationDropdown.tsx:174`, `lib/auth/forced-password-change.ts:155`, `lib/email/notifications.ts:27`, `middleware.ts:356`
+- Tests: browser tests that CI runs: `tests/e2e/notification-settings.spec.ts`; browser tests CI skips: `tests/e2e/messaging-notifications.spec.ts`; unit tests of the page: `__tests__/notifications/entry-points.test.tsx`, `__tests__/pages/notifications.direct-open.test.tsx`.
 
 | Role | Sees it in the menu | Middleware |
 |---|---|---|
@@ -743,49 +743,49 @@ File `pages/notifications.tsx` · 653 lines · frame: MainLayout
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «Todas las Notificaciones» | h1 |  | NotificationsPage · l.375 |
-| «No hay notificaciones» | h3 | `paginatedNotifications.length === 0` | NotificationsPage · l.483 |
+| «Todas las Notificaciones» | h1 |  | NotificationsPage · l.378 |
+| «No hay notificaciones» | h3 | `paginatedNotifications.length === 0` | NotificationsPage · l.486 |
 
 **Buttons** (7)
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «[icon RefreshIcon]» · tooltip «Refrescar» | `{handleRefresh}` |  | `{refreshing}` |  | NotificationsPage · l.384 |
-| «[icon FilterIcon]» · tooltip «Filtros» | `{() => setShowFilters(!showFilters)}` |  |  |  | NotificationsPage · l.387 |
-| «Marcar como leídas» | `{() => handleMarkAsRead(Array.from(selectedNotifications))}` | `selectedNotifications.size > 0` |  |  | NotificationsPage · l.453 |
-| «Marcar como no leídas» | `{() => handleMarkAsUnread(Array.from(selectedNotifications))}` | `selectedNotifications.size > 0` |  |  | NotificationsPage · l.460 |
-| «Eliminar» | `{() => handleDeleteClick(Array.from(selectedNotifications))}` | `selectedNotifications.size > 0` |  |  | NotificationsPage · l.467 |
-| «Anterior» | `{() => setCurrentPage(prev => Math.max(1, prev - 1))}` | `!(paginatedNotifications.length === 0) && totalPages > 1` | `{currentPage === 1}` |  | NotificationsPage · l.614 |
-| «Siguiente» | `{() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}` | `!(paginatedNotifications.length === 0) && totalPages > 1` | `{currentPage === totalPages}` |  | NotificationsPage · l.626 |
+| «[icon RefreshIcon]» · tooltip «Refrescar» | `{handleRefresh}` |  | `{refreshing}` |  | NotificationsPage · l.387 |
+| «[icon FilterIcon]» · tooltip «Filtros» | `{() => setShowFilters(!showFilters)}` |  |  |  | NotificationsPage · l.390 |
+| «Marcar como leídas» | `{() => handleMarkAsRead(Array.from(selectedNotifications))}` | `selectedNotifications.size > 0` |  |  | NotificationsPage · l.456 |
+| «Marcar como no leídas» | `{() => handleMarkAsUnread(Array.from(selectedNotifications))}` | `selectedNotifications.size > 0` |  |  | NotificationsPage · l.463 |
+| «Eliminar» | `{() => handleDeleteClick(Array.from(selectedNotifications))}` | `selectedNotifications.size > 0` |  |  | NotificationsPage · l.470 |
+| «Anterior» | `{() => setCurrentPage(prev => Math.max(1, prev - 1))}` | `!(paginatedNotifications.length === 0) && totalPages > 1` | `{currentPage === 1}` |  | NotificationsPage · l.617 |
+| «Siguiente» | `{() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}` | `!(paginatedNotifications.length === 0) && totalPages > 1` | `{currentPage === totalPages}` |  | NotificationsPage · l.629 |
 
 **Links** (1)
 
 | Text | Goes to | Shown when | Hook | Where |
 |---|---|---|---|---|
-| «[icon CogIcon]» · aria «Configuración de notificaciones» | `/configuracion/notificaciones` |  | `testid=notifications-page-settings` | NotificationsPage · l.381 |
+| «[icon CogIcon]» · aria «Configuración de notificaciones» | `/configuracion/notificaciones` |  | `testid=notifications-page-settings` | NotificationsPage · l.384 |
 
 **Other things that react to a click** (1)
 
 | Element | Text | Does | Shown when | Where |
 |---|---|---|---|---|
-| `div` | «{notification.title} [{notification.description}] {getRelativeTime(notification.create…} [{getCategoryName(notification…» | `{() => handleNotificationClick(notification)}` | `!(paginatedNotifications.length === 0) && each paginatedNotifications` | NotificationsPage · l.548 |
+| `div` | «{notification.title} [{notification.description}] {getRelativeTime(notification.create…} [{getCategoryName(notification…» | `{() => handleNotificationClick(notification)}` | `!(paginatedNotifications.length === 0) && each paginatedNotifications` | NotificationsPage · l.551 |
 
 **Fields** (6)
 
 | Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
 |---|---|---|---|---|---|---|
-| «Buscar notificaciones...» | text | «Buscar notificaciones...» |  | `showFilters` |  | NotificationsPage · l.400 |
-|  | select |  | «Todas las categorías», «Administración», «Tareas», «Cursos», «Mensajes», «Social», «Feedback», «Sistema», «Workspace» | `showFilters` |  | NotificationsPage · l.408 |
-|  | select |  | «Todas», «No leídas», «Leídas» | `showFilters` |  | NotificationsPage · l.423 |
-|  | select |  | «Todo el tiempo», «Hoy», «Última semana», «Último mes» | `showFilters` |  | NotificationsPage · l.432 |
-| «Seleccionar todas» | checkbox |  |  | `!(paginatedNotifications.length === 0)` |  | NotificationsPage · l.498 |
-|  | checkbox |  |  | `!(paginatedNotifications.length === 0) && each paginatedNotifications` |  | NotificationsPage · l.528 |
+| «Buscar notificaciones...» | text | «Buscar notificaciones...» |  | `showFilters` |  | NotificationsPage · l.403 |
+|  | select |  | «Todas las categorías», «Administración», «Tareas», «Cursos», «Mensajes», «Social», «Feedback», «Sistema», «Workspace» | `showFilters` |  | NotificationsPage · l.411 |
+|  | select |  | «Todas», «No leídas», «Leídas» | `showFilters` |  | NotificationsPage · l.426 |
+|  | select |  | «Todo el tiempo», «Hoy», «Última semana», «Último mes» | `showFilters` |  | NotificationsPage · l.435 |
+| «Seleccionar todas» | checkbox |  |  | `!(paginatedNotifications.length === 0)` |  | NotificationsPage · l.501 |
+|  | checkbox |  |  | `!(paginatedNotifications.length === 0) && each paginatedNotifications` |  | NotificationsPage · l.531 |
 
 **Pop-ups** (1)
 
 | Name or title | How | Opens when | Texts passed to it | Where |
 |---|---|---|---|---|
-| `NotificationDeleteModal` | component | `{showDeleteModal}` |  | NotificationsPage · l.642 |
+| `NotificationDeleteModal` | component | `{showDeleteModal}` |  | NotificationsPage · l.645 |
 
 **Toasts** (8)
 
@@ -793,21 +793,21 @@ File `pages/notifications.tsx` · 653 lines · frame: MainLayout
 |---|---|---|---|
 | error | «Error al cargar notificaciones.» |  | NotificationsPage · l.95 |
 | error | «Error al cargar los datos iniciales.» |  | NotificationsPage · l.119 |
-| success | «{notificationIds.length} notificación(es) marcada(s) como leída(s)» |  | handleMarkAsRead · l.192 |
-| error | «Error al marcar como leído» |  | handleMarkAsRead · l.195 |
-| success | «{notificationIds.length} notificación(es) marcada(s) como no leída(s)» |  | handleMarkAsUnread · l.210 |
-| error | «Error al marcar como no leído» |  | handleMarkAsUnread · l.213 |
-| success | «{deleteTargetIds.length} notificación(es) eliminada(s)» |  | handleDeleteConfirm · l.231 |
-| error | «Error al eliminar notificaciones» |  | handleDeleteConfirm · l.234 |
+| success | «{notificationIds.length} notificación(es) marcada(s) como leída(s)» |  | handleMarkAsRead · l.195 |
+| error | «Error al marcar como leído» |  | handleMarkAsRead · l.198 |
+| success | «{notificationIds.length} notificación(es) marcada(s) como no leída(s)» |  | handleMarkAsUnread · l.213 |
+| error | «Error al marcar como no leído» |  | handleMarkAsUnread · l.216 |
+| success | «{deleteTargetIds.length} notificación(es) eliminada(s)» |  | handleDeleteConfirm · l.234 |
+| error | «Error al eliminar notificaciones» |  | handleDeleteConfirm · l.237 |
 
 **Moves to another page from code** (4)
 
 | Goes to | How | When | Where |
 |---|---|---|---|
-| `/login` | `router.push` | `!(session) && session === null` | NotificationsPage · l.129 |
-| `{notification.related_url}` | `router.push` | `notification.related_url` | handleNotificationClick · l.254 |
-| `/dashboard` | `router.push` | `notification.related_url` | handleNotificationClick · l.257 |
-| `{fallbackUrl}` | `router.push` | `!(notification.related_url)` | handleNotificationClick · l.291 |
+| `/login?next=[*]` | `router.push` | `!(session) && session === null` | NotificationsPage · l.132 |
+| `{notification.related_url}` | `router.push` | `notification.related_url` | handleNotificationClick · l.257 |
+| `/dashboard` | `router.push` | `notification.related_url` | handleNotificationClick · l.260 |
+| `{fallbackUrl}` | `router.push` | `!(notification.related_url)` | handleNotificationClick · l.294 |
 
 **Access checks in the code** (1)
 
@@ -815,47 +815,48 @@ File `pages/notifications.tsx` · 653 lines · frame: MainLayout
 |---|---|
 | `userRole = await getUserPrimaryRole(session.user.id)` | NotificationsPage · l.112 |
 
-**Draws nothing when** (2)
+**Draws nothing when** (3)
 
 | Condition | Where |
 |---|---|
 | `!session` | NotificationsPage · l.76 |
 | `!session` | NotificationsPage · l.102 |
+| `isLoading` | NotificationsPage · l.128 |
 
 **Pieces placed here, with the texts and settings handed to them** (3)
 
 | Piece | Texts and settings | Shown when | Hook | Where |
 |---|---|---|---|---|
-| `MainLayout` | pageTitle: Notificaciones | `loading` |  | NotificationsPage · l.360 |
-| `MainLayout` | pageTitle: Notificaciones |  |  | NotificationsPage · l.369 |
-| `CogIcon` | aria-hidden: true |  |  | NotificationsPage · l.382 |
+| `MainLayout` | pageTitle: Notificaciones | `loading` |  | NotificationsPage · l.363 |
+| `MainLayout` | pageTitle: Notificaciones |  |  | NotificationsPage · l.372 |
+| `CogIcon` | aria-hidden: true |  |  | NotificationsPage · l.385 |
 
 **Texts kept in lists and helpers in the code (labels, options, status names)** (2)
 
 | Name | Texts | Where |
 |---|---|---|
-| `nameMap` | «Administración», «Tareas», «Cursos», «Mensajes», «Social», «Feedback», «Sistema», «Workspace» | getCategoryName · l.328 |
-| `getRelativeTime()` | «hace {Math.floor(days / 30)} mes(es)», «hace {days} día(s)», «hace {hours} hora(s)», «hace {minutes} minuto(s)», «justo ahora» | getRelativeTime · l.351 |
+| `nameMap` | «Administración», «Tareas», «Cursos», «Mensajes», «Social», «Feedback», «Sistema», «Workspace» | getCategoryName · l.331 |
+| `getRelativeTime()` | «hace {Math.floor(days / 30)} mes(es)», «hace {days} día(s)», «hace {hours} hora(s)», «hace {minutes} minuto(s)», «justo ahora» | getRelativeTime · l.354 |
 
 **Other texts written in the code (safety net: not tied to an element by the script)** (1)
 
 | Text | Where |
 |---|---|
-| «hace {days} día(s)» | NotificationsPage · l.352 |
+| «hace {days} día(s)» | NotificationsPage · l.355 |
 
 **Values shown from data** (3)
 
-- `{notification.title}` — NotificationsPage · l.554, when `!(paginatedNotifications.length === 0) && each paginatedNotifications`
-- `{notification.description}` — NotificationsPage · l.562, when `!(paginatedNotifications.length === 0) && each paginatedNotifications && notification.description`
-- `{getCategoryName(notification.notifi…}` — NotificationsPage · l.578, when `!(paginatedNotifications.length === 0) && each paginatedNotifications && notification.notification_type`
+- `{notification.title}` — NotificationsPage · l.557, when `!(paginatedNotifications.length === 0) && each paginatedNotifications`
+- `{notification.description}` — NotificationsPage · l.565, when `!(paginatedNotifications.length === 0) && each paginatedNotifications && notification.description`
+- `{getCategoryName(notification.notifi…}` — NotificationsPage · l.581, when `!(paginatedNotifications.length === 0) && each paginatedNotifications && notification.notification_type`
 
 **Other texts on screen** (5)
 
-- «{filteredNotifications.length} notificación(es) • {filteredNotifications.filter(n => !…} sin leer» — NotificationsPage · l.376
-- «{selectedNotifications.size} notificación(es) seleccionada(s)» — NotificationsPage · l.449, when `selectedNotifications.size > 0`
-- «No se encontraron notificaciones con los filtros aplicados / No tienes notificaciones en este momento» — NotificationsPage · l.486, when `paginatedNotifications.length === 0`
-- «Seleccionar todas» (label) — NotificationsPage · l.497, when `!(paginatedNotifications.length === 0)`
-- «Página {currentPage} de {totalPages}» — NotificationsPage · l.622, when `!(paginatedNotifications.length === 0) && totalPages > 1`
+- «{filteredNotifications.length} notificación(es) • {filteredNotifications.filter(n => !…} sin leer» — NotificationsPage · l.379
+- «{selectedNotifications.size} notificación(es) seleccionada(s)» — NotificationsPage · l.452, when `selectedNotifications.size > 0`
+- «No se encontraron notificaciones con los filtros aplicados / No tienes notificaciones en este momento» — NotificationsPage · l.489, when `paginatedNotifications.length === 0`
+- «Seleccionar todas» (label) — NotificationsPage · l.500, when `!(paginatedNotifications.length === 0)`
+- «Página {currentPage} de {totalPages}» — NotificationsPage · l.625, when `!(paginatedNotifications.length === 0) && totalPages > 1`
 
 **Reads and writes the database directly:** `table:profiles` (select), `table:user_notifications` (delete, select, update)
 
@@ -1272,7 +1273,7 @@ Used by: `/configuracion/apariencia`, `/configuracion/notificaciones`, `/configu
 
 | Name | Texts | Where |
 |---|---|---|
-| `verdictFromProfile()` | «required / allowed» | verdictFromProfile · l.249 |
+| `verdictFromProfile()` | «required / allowed» | verdictFromProfile · l.254 |
 
 ### lib/look.ts
 

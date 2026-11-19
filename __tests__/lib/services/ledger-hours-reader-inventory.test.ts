@@ -4584,6 +4584,7 @@ const LEDGER_UPDATE_SHAPES: Record<string, string[][]> = {
 
 const DIRECT_TS_TOUCHES: Record<string, UseClass[]> = {
   'components/workspace/WorkspaceSessionsTab.tsx': ['status-only'],
+  'hooks/useSessionsList.ts': ['status-only'],
   'lib/services/hour-tracking.ts': [
     'write', 'status-only', 'write', 'status-only', 'write', 'write',
   ],
@@ -4598,7 +4599,6 @@ const DIRECT_TS_TOUCHES: Record<string, UseClass[]> = {
   'pages/api/contracts/[id]/hours/ledger/index.ts': ['historical', 'write'],
   'pages/api/sessions/[id]/approve.ts': ['write'],
   'pages/api/sessions/reports/analytics.ts': ['aggregate'],
-  'pages/consultor/sessions/index.tsx': ['status-only'],
 };
 
 interface SqlObjectDefinition {
@@ -4680,12 +4680,12 @@ function indirectCalls(source: string, targets: Set<string>, file = 'probe.ts'):
 
 /** Source-order role + authority; `non-authoritative` means no financial write trusts it. */
 const INDIRECT_TS_CONSUMERS: Record<string, string[]> = {
+  'hooks/useSessionCreate.ts': ['get_bucket_summary:financial-preview/non-authoritative'],
   'lib/services/hour-tracking.ts': [
     'get_bucket_summary:write-precondition/fail-closed',
     'apply_session_reschedule:write/fail-closed',
   ],
   'lib/services/school-hours-report.ts': ['get_bucket_summary:aggregate/fail-closed'],
-  'pages/admin/sessions/create.tsx': ['get_bucket_summary:financial-preview/non-authoritative'],
   'pages/api/admin/sessions/[id]/hour-override.ts': [
     'apply_session_hour_override:write/fail-closed-admin-db-auth',
   ],
@@ -8476,6 +8476,7 @@ describe('contract_hours_ledger production consumer inventory', () => {
     // unsupported or unexplained result.
     expect(census).toEqual({
       'components/workspace/WorkspaceSessionsTab.tsx': ['sort-comparator', 'sort-comparator'],
+      'hooks/useSessionsList.ts': ['sort-comparator', 'sort-comparator'],
       'lib/auth/password-completion.ts': ['Symbol'],
       'pages/admin/sessions/index.tsx': ['sort-comparator'],
       'pages/api/sessions/reports/analytics.ts': [
@@ -8484,7 +8485,6 @@ describe('contract_hours_ledger production consumer inventory', () => {
       ],
       'pages/api/webhooks/resend.ts': ['Symbol'],
       'pages/api/zoom/webhook.ts': ['Symbol'],
-      'pages/consultor/sessions/index.tsx': ['sort-comparator', 'sort-comparator'],
     });
     // Authority classification is mechanical: the four comparator files carry executable
     // ledger authority; the webhook route provably carries none (zero direct touches, zero
@@ -8492,12 +8492,12 @@ describe('contract_hours_ledger production consumer inventory', () => {
     // non-authority hazard, not a substring claim.
     expect(authorityByFile).toEqual({
       'components/workspace/WorkspaceSessionsTab.tsx': true,
+      'hooks/useSessionsList.ts': true,
       'lib/auth/password-completion.ts': false,
       'pages/admin/sessions/index.tsx': true,
       'pages/api/sessions/reports/analytics.ts': true,
       'pages/api/webhooks/resend.ts': false,
       'pages/api/zoom/webhook.ts': false,
-      'pages/consultor/sessions/index.tsx': true,
     });
     for (const file of Object.keys(census).filter((name) => authorityByFile[name])) {
       expect(Object.keys(DIRECT_TS_TOUCHES), file).toContain(file);

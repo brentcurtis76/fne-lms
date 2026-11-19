@@ -1,11 +1,11 @@
 # Marco (the frame around every screen)
 
 Area `00-marco`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `d701100d0` (2026-11-18).
+Read from commit `ca9dad512` (2026-11-19).
 
 The app shell, the menu, the top bar, the bell, the footer and the feedback button. Its pieces are listed here once and not repeated under each screen.
 
-2 screen files, 1 API files, 31 pieces.
+2 screen files, 2 API files, 31 pieces.
 
 ## Approved changes (decided by Brent with the mock-ups; not losses)
 
@@ -449,81 +449,87 @@ Used by: `(the frame)`
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «¡Gracias! 🎉» | h3 | `isSuccess` | FeedbackModal · l.212 |
-| «¿Qué sucedió? 💭» | h2 | `!(isSuccess)` | FeedbackModal · l.229 |
+| «¡Gracias! 🎉» | h3 | `isSuccess` | FeedbackModal · l.213 |
+| «¿Qué sucedió? 💭» | h2 | `!(isSuccess)` | FeedbackModal · l.230 |
 
 **Buttons** (7)
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «✓ Cerrar» | `{() => { reset(); onClose(); }}` | `isSuccess` |  |  | FeedbackModal · l.215 |
-| «[icon X]» | `{() => { reset(); onClose(); }}` | `!(isSuccess)` |  |  | FeedbackModal · l.230 |
-| «[icon X]» | `{(e) => { e.stopPropagation(); setScreenshot(null); setScreenshotPreview(null); }}` | `!(isSuccess) && screenshotPreview` |  |  | FeedbackModal · l.272 |
-| «Problema» | `{() => setType('bug')}` | `!(isSuccess)` |  |  | FeedbackModal · l.308 |
-| «Idea» | `{() => setType('idea')}` | `!(isSuccess)` |  |  | FeedbackModal · l.320 |
-| «Cancelar» | `{() => { reset(); onClose(); }}` | `!(isSuccess)` | `{isSubmitting}` |  | FeedbackModal · l.337 |
-| «Enviando... / Enviar →» | `{handleSubmit}` | `!(isSuccess)` | `{isSubmitting \|\| !description.trim()}` |  | FeedbackModal · l.347 |
+| «✓ Cerrar» | `{() => { reset(); onClose(); }}` | `isSuccess` |  |  | FeedbackModal · l.216 |
+| «[icon X]» | `{() => { reset(); onClose(); }}` | `!(isSuccess)` |  |  | FeedbackModal · l.231 |
+| «[icon X]» | `{(e) => { e.stopPropagation(); setScreenshot(null); setScreenshotPreview(null); }}` | `!(isSuccess) && screenshotPreview` |  |  | FeedbackModal · l.273 |
+| «Problema» | `{() => setType('bug')}` | `!(isSuccess)` |  |  | FeedbackModal · l.309 |
+| «Idea» | `{() => setType('idea')}` | `!(isSuccess)` |  |  | FeedbackModal · l.321 |
+| «Cancelar» | `{() => { reset(); onClose(); }}` | `!(isSuccess)` | `{isSubmitting}` |  | FeedbackModal · l.348 |
+| «Enviando... / Enviar →» | `{handleSubmit}` | `!(isSuccess)` | `{isSubmitting \|\| !description.trim()}` |  | FeedbackModal · l.358 |
+
+**Links** (1)
+
+| Text | Goes to | Shown when | Hook | Where |
+|---|---|---|---|---|
+| «Ver mis reportes» · aria «Ver mis reportes (se abre en otra pestaña)» | `/profile/reportes` (new tab) | `!(isSuccess)` | `testid=feedback-my-reports-link` | FeedbackModal · l.338 |
 
 **Other things that react to a click** (1)
 
 | Element | Text | Does | Shown when | Where |
 |---|---|---|---|---|
-| `div` | «[img: Preview] / Arrastra una imagen o haz clic para seleccionar» · also `onDrop={handleDrop} · onDragOver={handleDragOver}` | `{() => fileInputRef.current?.click()}` | `!(isSuccess)` | FeedbackModal · l.259 |
+| `div` | «[img: Preview] / Arrastra una imagen o haz clic para seleccionar» · also `onDrop={handleDrop} · onDragOver={handleDragOver}` | `{() => fileInputRef.current?.click()}` | `!(isSuccess)` | FeedbackModal · l.260 |
 
 **Fields** (2)
 
 | Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
 |---|---|---|---|---|---|---|
-| «El botón no funciona cuando...» | textarea | «El botón no funciona cuando...» |  | `!(isSuccess)` |  | FeedbackModal · l.244 |
-| «📸 Adjuntar captura (opcional)» | file | accepts `image/*` |  | `!(isSuccess)` · hidden by its class (`hidden`); another control opens it or it is for screen readers |  | FeedbackModal · l.292 |
+| «El botón no funciona cuando...» | textarea | «El botón no funciona cuando...» |  | `!(isSuccess)` |  | FeedbackModal · l.245 |
+| «📸 Adjuntar captura (opcional)» | file | accepts `image/*` |  | `!(isSuccess)` · hidden by its class (`hidden`); another control opens it or it is for screen readers |  | FeedbackModal · l.293 |
 
 **Embedded media** (1)
 
 | What | Shown when | Hook | Where |
 |---|---|---|---|
-| img · alt Preview · {screenshotPreview} | `!(isSuccess) && screenshotPreview` |  | FeedbackModal · l.267 |
+| img · alt Preview · {screenshotPreview} | `!(isSuccess) && screenshotPreview` |  | FeedbackModal · l.268 |
 
 **Pop-ups** (1)
 
 | Name or title | How | Opens when | Texts passed to it | Where |
 |---|---|---|---|---|
-| «¡Gracias! 🎉» | written in this file |  |  | FeedbackModal · l.204 |
+| «¡Gracias! 🎉» | written in this file |  |  | FeedbackModal · l.205 |
 
 **Toasts** (4)
 
 | Kind | Text | When | Where |
 |---|---|---|---|
-| error | «La imagen no puede superar 5MB» | `file && file.size > 5 * 1024 * 1024` | handleFileSelect · l.29 |
-| error | «La imagen no puede superar 5MB» | `file && file.type.startsWith('image/') && file.size > 5 * 1024 * 1024` | FeedbackModal · l.47 |
-| error | «Por favor describe el problema o sugerencia» | `!description.trim()` | handleSubmit · l.98 |
-| error | «Error al enviar el feedback» |  | handleSubmit · l.186 |
+| error | «La imagen no puede superar 5MB» | `file && file.size > 5 * 1024 * 1024` | handleFileSelect · l.30 |
+| error | «La imagen no puede superar 5MB» | `file && file.type.startsWith('image/') && file.size > 5 * 1024 * 1024` | FeedbackModal · l.48 |
+| error | «Por favor describe el problema o sugerencia» | `!description.trim()` | handleSubmit · l.99 |
+| error | «Error al enviar el feedback» |  | handleSubmit · l.187 |
 
 **Messages set on the page** (2)
 
 | Text | Set by | When | Where |
 |---|---|---|---|
-| «Error al subir la imagen» | `throw (shown by whoever catches it)` | `error` | uploadScreenshot · l.85 |
-| «Usuario no autenticado» | `throw (shown by whoever catches it)` | `!user` | handleSubmit · l.108 |
+| «Error al subir la imagen» | `throw (shown by whoever catches it)` | `error` | uploadScreenshot · l.86 |
+| «Usuario no autenticado» | `throw (shown by whoever catches it)` | `!user` | handleSubmit · l.109 |
 
 **Draws nothing when** (1)
 
 | Condition | Where |
 |---|---|
-| `!isOpen` | FeedbackModal · l.201 |
+| `!isOpen` | FeedbackModal · l.202 |
 
 **Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (1)
 
 | Kind | What | Where |
 |---|---|---|
-| timer | `setTimeout(…, 3000)` | handleSubmit · l.175 |
+| timer | `setTimeout(…, 3000)` | handleSubmit · l.176 |
 
 **Other texts on screen** (5)
 
-- «Tu reporte fue enviado.» — FeedbackModal · l.213, when `isSuccess`
-- «Número: #FB- {feedbackId?.slice(0, 8).toUpperCase…}» — FeedbackModal · l.214, when `isSuccess`
-- «📸 Adjuntar captura (opcional)» (label) — FeedbackModal · l.256, when `!(isSuccess)`
-- «Arrastra una imagen o haz clic para seleccionar» — FeedbackModal · l.288, when `!(isSuccess) && !(screenshotPreview)`
-- «Tipo:» (label) — FeedbackModal · l.304, when `!(isSuccess)`
+- «Tu reporte fue enviado.» — FeedbackModal · l.214, when `isSuccess`
+- «Número: #FB- {feedbackId?.slice(0, 8).toUpperCase…}» — FeedbackModal · l.215, when `isSuccess`
+- «📸 Adjuntar captura (opcional)» (label) — FeedbackModal · l.257, when `!(isSuccess)`
+- «Arrastra una imagen o haz clic para seleccionar» — FeedbackModal · l.289, when `!(isSuccess) && !(screenshotPreview)`
+- «Tipo:» (label) — FeedbackModal · l.305, when `!(isSuccess)`
 
 **Reads and writes the database directly:** `bucket:feedback-screenshots` (getPublicUrl, upload), `table:platform_feedback` (insert, select)
 
@@ -1455,5 +1461,6 @@ Used by: `(the frame)`
 
 | Address | File | Methods | Screens that call it | Also named in |
 |---|---|---|---|---|
-| `/api/feedback/notify-admins` | `pages/api/feedback/notify-admins.ts` | POST | **no screen** | `__tests__/api/feedback/notify-admins.test.ts`, `components/feedback/FeedbackModal.tsx`, `tests/e2e/feedback-notify-admins.spec.ts` |
+| `/api/feedback/notify-admins` | `pages/api/feedback/notify-admins.ts` | POST | **no screen** | `__tests__/api/feedback/notify-admins.test.ts`, `__tests__/components/feedback/FeedbackModal.reportes-link.test.tsx`, `components/feedback/FeedbackModal.tsx`, `tests/e2e/feedback-notify-admins.spec.ts` |
+| `/api/feedback/reply` | `pages/api/feedback/reply.ts` | POST | `/admin/feedback` | `__tests__/api/feedback/reply.test.ts`, `__tests__/components/feedback/FeedbackDetail.reply.test.tsx`, `components/feedback/FeedbackDetail.tsx` |
 

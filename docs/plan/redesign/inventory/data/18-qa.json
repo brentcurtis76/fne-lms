@@ -4,8 +4,8 @@
  "note": "Gets the new values only, no individual redesign work (PLAN.md, phase 6). Its tours hang on data-tour marks.",
  "routesOnly": false,
  "readFrom": {
-  "commit": "d701100d014e948bec5766fb68836675e13355b6",
-  "date": "2026-11-18T15:21:06-03:00"
+  "commit": "ca9dad512fc0b65bf1db627e23a6d84edd80dd28",
+  "date": "2026-11-19T14:41:10-03:00"
  },
  "screens": [
   {
@@ -9750,7 +9750,7 @@
      "lib/auth/forced-password-change.ts:157",
      "lib/notificationEvents.ts:454",
      "lib/notifications/catalog.ts:376",
-     "middleware.ts:352",
+     "middleware.ts:358",
      "pages/admin/qa/assignments.tsx:399",
      "pages/admin/qa/assignments.tsx:400",
      "pages/admin/qa/index.tsx:485",

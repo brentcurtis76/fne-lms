@@ -1,9 +1,9 @@
 # Licitaciones (processes, templates, proposals)
 
 Area `10-licitaciones`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `d701100d0` (2026-11-18).
+Read from commit `ca9dad512` (2026-11-19).
 
-11 screen files, 42 API files, 29 pieces.
+11 screen files, 42 API files, 32 pieces.
 
 ## Screens
 
@@ -14,8 +14,8 @@ Read from commit `d701100d0` (2026-11-18).
 | `/admin/licitaciones/documentos-propuesta` | `pages/admin/licitaciones/documentos-propuesta.tsx` | 625 | — |  |
 | `/admin/licitaciones/feriados` | `pages/admin/licitaciones/feriados.tsx` | 535 | Gestión › Feriados |  |
 | `/admin/licitaciones/templates` | `pages/admin/licitaciones/templates.tsx` | 753 | Gestión › Plantillas de Bases |  |
-| `/licitaciones/[id]` | `pages/licitaciones/[id].tsx` | 964 | — |  |
-| `/licitaciones/[id]/evaluacion` | `pages/licitaciones/[id]/evaluacion.tsx` | 1117 | — |  |
+| `/licitaciones/[id]` | `pages/licitaciones/[id].tsx` | 966 | — |  |
+| `/licitaciones/[id]/evaluacion` | `pages/licitaciones/[id]/evaluacion.tsx` | 1137 | — |  |
 | `/licitaciones/importar` | `pages/licitaciones/importar.tsx` | 360 | — |  |
 | `/licitaciones` | `pages/licitaciones/index.tsx` | 689 | Gestión › Procesos |  |
 | `/licitaciones/nueva` | `pages/licitaciones/nueva.tsx` | 598 | — |  |
@@ -33,7 +33,7 @@ File `pages/admin/licitaciones/consultores.tsx` · 854 lines · frame: MainLayou
   - l.132 `router.push → /login  (when !user)`
   - l.144 `router.push → /dashboard  (when !roles.includes('admin'))`
   - l.153 `router.push → /login`
-- Linked from: `components/licitaciones/ProposalConfigPanel.tsx:1070`, `components/licitaciones/ProposalConfigPanel.tsx:1071`
+- Linked from: `components/licitaciones/ProposalConfigPanel.tsx:1110`, `components/licitaciones/ProposalConfigPanel.tsx:1111`
 - Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/flows/proposal-consultant-crud.spec.ts`.
 
 | Role | Sees it in the menu | Middleware |
@@ -370,7 +370,7 @@ File `pages/admin/licitaciones/documentos-propuesta.tsx` · 625 lines · frame: 
   - l.146 `router.push → /login  (when !user)`
   - l.158 `router.push → /dashboard  (when !roles.includes('admin'))`
   - l.167 `router.push → /login`
-- Linked from: `components/licitaciones/ProposalConfigPanel.tsx:1454`, `components/licitaciones/ProposalConfigPanel.tsx:1455`, `components/licitaciones/ProposalConfigPanel.tsx:1526`, `components/licitaciones/ProposalConfigPanel.tsx:1527`
+- Linked from: `components/licitaciones/ProposalConfigPanel.tsx:1500`, `components/licitaciones/ProposalConfigPanel.tsx:1501`, `components/licitaciones/ProposalConfigPanel.tsx:1572`, `components/licitaciones/ProposalConfigPanel.tsx:1573`
 - Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/flows/proposal-document-library.spec.ts`.
 
 | Role | Sees it in the menu | Middleware |
@@ -839,17 +839,17 @@ File `pages/admin/licitaciones/templates.tsx` · 753 lines · frame: MainLayout
 
 ## /licitaciones/[id]
 
-File `pages/licitaciones/[id].tsx` · 964 lines · frame: MainLayout
+File `pages/licitaciones/[id].tsx` · 966 lines · frame: MainLayout
 
 ### Who reaches it
 
 - Menu: no entry.
 - Middleware: no role rule. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: yes.
 - In the page:
-  - l.209 `router.push → /login  (when !user)`
-  - l.221 `router.push → /dashboard  (when !adminAccess && !encargadoAccess)`
-  - l.231 `router.push → /login`
-- Linked from: `middleware.ts:345`, `pages/contracts.tsx:836`, `pages/contracts.tsx:837`, `pages/licitaciones/[id]/evaluacion.tsx:280`, `pages/licitaciones/[id]/evaluacion.tsx:624`, `pages/licitaciones/[id]/evaluacion.tsx:667`, `pages/licitaciones/importar.tsx:197`, `pages/licitaciones/index.tsx:427`, `pages/licitaciones/index.tsx:607`, `pages/licitaciones/index.tsx:611`, `pages/licitaciones/index.tsx:612`, `pages/licitaciones/index.tsx:614` and 1 more
+  - l.210 `router.push → /login  (when !user)`
+  - l.222 `router.push → /dashboard  (when !adminAccess && !encargadoAccess)`
+  - l.232 `router.push → /login`
+- Linked from: `middleware.ts:351`, `pages/contracts.tsx:845`, `pages/contracts.tsx:846`, `pages/licitaciones/[id]/evaluacion.tsx:280`, `pages/licitaciones/[id]/evaluacion.tsx:634`, `pages/licitaciones/[id]/evaluacion.tsx:677`, `pages/licitaciones/importar.tsx:197`, `pages/licitaciones/index.tsx:427`, `pages/licitaciones/index.tsx:607`, `pages/licitaciones/index.tsx:611`, `pages/licitaciones/index.tsx:612`, `pages/licitaciones/index.tsx:614` and 1 more
 - Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/flows/proposal-admin-visibility.spec.ts`, `tests/e2e/flows/proposal-buckets.spec.ts`, `tests/e2e/flows/proposal-config.spec.ts`, `tests/e2e/flows/proposal-versioning.spec.ts`; unit tests of the page: `__tests__/pages/licitaciones/licitacion-detail-step2.test.tsx`, `__tests__/pages/licitaciones/licitacion-detail-step6-carta.test.tsx`.
 
 | Role | Sees it in the menu | Middleware |
@@ -870,178 +870,178 @@ File `pages/licitaciones/[id].tsx` · 964 lines · frame: MainLayout
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «{licitacion.nombre_licitacion}» | h1 |  | LicitacionDetailPage · l.509 |
-| «1 Creacion de Licitacion [(Completado)]» | h2 | `!(historicalView === 'pending') && !(historicalView === 'archive')` | LicitacionDetailPage · l.555 |
-| «Informacion General» | h3 | `!(historicalView === 'pending') && !(historicalView === 'archive')` | LicitacionDetailPage · l.564 |
-| «Presupuesto y Plazos» | h3 | `!(historicalView === 'pending') && !(historicalView === 'archive')` | LicitacionDetailPage · l.571 |
-| «Cliente» | h3 | `!(historicalView === 'pending') && !(historicalView === 'archive') && licitacion.cliente` | LicitacionDetailPage · l.581 |
-| «2 Publicacion [(Completado)]» | h2 | `!(historicalView === 'pending') && !(historicalView === 'archive')` | LicitacionDetailPage · l.595 |
-| «Bases [(Completado)] [(Disponible cuando la publicacion este confirmada)]» | h2 | `!(historicalView === 'pending') && !(historicalView === 'archive')` | LicitacionDetailPage · l.780 |
-| «Propuestas [(Completado)] [(Disponible en Paso 3)]» | h2 | `!(historicalView === 'pending') && !(historicalView === 'archive')` | LicitacionDetailPage · l.811 |
-| «Evaluacion [(Completado)] [(Disponible en Paso 4)]» | h2 | `!(historicalView === 'pending') && !(historicalView === 'archive')` | LicitacionDetailPage · l.842 |
-| «Adjudicacion [(Completado)] [(Disponible en Paso 5)]» | h2 | `!(historicalView === 'pending') && !(historicalView === 'archive')` | LicitacionDetailPage · l.890 |
-| «Contrato [(Completado)] [(Disponible en Paso 6)]» | h2 | `!(historicalView === 'pending') && !(historicalView === 'archive')` | LicitacionDetailPage · l.920 |
+| «{licitacion.nombre_licitacion}» | h1 |  | LicitacionDetailPage · l.510 |
+| «1 Creacion de Licitacion [(Completado)]» | h2 | `!(historicalView === 'pending') && !(historicalView === 'archive')` | LicitacionDetailPage · l.556 |
+| «Informacion General» | h3 | `!(historicalView === 'pending') && !(historicalView === 'archive')` | LicitacionDetailPage · l.565 |
+| «Presupuesto y Plazos» | h3 | `!(historicalView === 'pending') && !(historicalView === 'archive')` | LicitacionDetailPage · l.572 |
+| «Cliente» | h3 | `!(historicalView === 'pending') && !(historicalView === 'archive') && licitacion.cliente` | LicitacionDetailPage · l.582 |
+| «2 Publicacion [(Completado)]» | h2 | `!(historicalView === 'pending') && !(historicalView === 'archive')` | LicitacionDetailPage · l.596 |
+| «Bases [(Completado)] [(Disponible cuando la publicacion este confirmada)]» | h2 | `!(historicalView === 'pending') && !(historicalView === 'archive')` | LicitacionDetailPage · l.781 |
+| «Propuestas [(Completado)] [(Disponible en Paso 3)]» | h2 | `!(historicalView === 'pending') && !(historicalView === 'archive')` | LicitacionDetailPage · l.812 |
+| «Evaluacion [(Completado)] [(Disponible en Paso 4)]» | h2 | `!(historicalView === 'pending') && !(historicalView === 'archive')` | LicitacionDetailPage · l.843 |
+| «Adjudicacion [(Completado)] [(Disponible en Paso 5)]» | h2 | `!(historicalView === 'pending') && !(historicalView === 'archive')` | LicitacionDetailPage · l.891 |
+| «Contrato [(Completado)] [(Disponible en Paso 6)]» | h2 | `!(historicalView === 'pending') && !(historicalView === 'archive')` | LicitacionDetailPage · l.921 |
 
 **Buttons** (9)
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «Copiado! / Copiar texto» | `{handleCopyText}` |  | `{!publicacionText \|\| timelinePendingForChosenDate}` |  | LicitacionDetailPage · l.458 |
-| «Volver a Licitaciones» | `{() => router.push('/licitaciones')}` |  |  |  | LicitacionDetailPage · l.497 |
-| «Eliminando... / Eliminar» | `{() => { if (window.confirm( '¿Eliminar la licitacion "${licitacion.numero_licit…}` | `isAdmin` | `{deleting}` |  | LicitacionDetailPage · l.517 |
-| «Cancelar ajuste / Ajustar fechas (admin)» | `{() => { // Start from the stored dates (after a reload nothing else is loaded).…}` | `!(historicalView === 'pending') && !(historicalView === 'archive') && step2Done && isAdmin` |  |  | LicitacionDetailPage · l.624 |
-| «Guardando... / Guardar fechas ajustadas» | `{handleSaveDates}` | `!(historicalView === 'archive') && step2Done && isAdmin && editingTimeline` | `{savingDates}` |  | LicitacionDetailPage · l.658 |
-| «Subiendo... / Subir» | `{handleUploadImage}` | `!(step2Done) && step2Active && canConfirmPublicacion && imageFile` | `{uploadingImage}` |  | LicitacionDetailPage · l.724 |
-| «Confirmando... / Confirmar Publicacion» | `{() => { if (window.confirm('Esta acción no se puede deshacer. ¿Confirmar la pub…}` | `!(historicalView === 'archive') && !(step2Done) && step2Active && canConfirmPublicacion` | `{confirmingPublicacion \|\| !fechaPublicacion}` |  | LicitacionDetailPage · l.746 |
-| «Ir a Evaluacion de Propuestas →» | `{() => router.push('/licitaciones/${id}/evaluacion')}` | `!(historicalView === 'pending') && !(historicalView === 'archive') && !isStep5Locked && isStep5Active` |  |  | LicitacionDetailPage · l.858 |
-| «Ver resumen de evaluacion» | `{() => router.push('/licitaciones/${id}/evaluacion')}` | `!(historicalView === 'pending') && !(historicalView === 'archive') && !isStep5Locked && !(isStep5Active)` |  |  | LicitacionDetailPage · l.868 |
+| «Copiado! / Copiar texto» | `{handleCopyText}` |  | `{!publicacionText \|\| timelinePendingForChosenDate}` |  | LicitacionDetailPage · l.459 |
+| «Volver a Licitaciones» | `{() => router.push('/licitaciones')}` |  |  |  | LicitacionDetailPage · l.498 |
+| «Eliminando... / Eliminar» | `{() => { if (window.confirm( '¿Eliminar la licitacion "${licitacion.numero_licit…}` | `isAdmin` | `{deleting}` |  | LicitacionDetailPage · l.518 |
+| «Cancelar ajuste / Ajustar fechas (admin)» | `{() => { // Start from the stored dates (after a reload nothing else is loaded).…}` | `!(historicalView === 'pending') && !(historicalView === 'archive') && step2Done && isAdmin` |  |  | LicitacionDetailPage · l.625 |
+| «Guardando... / Guardar fechas ajustadas» | `{handleSaveDates}` | `!(historicalView === 'archive') && step2Done && isAdmin && editingTimeline` | `{savingDates}` |  | LicitacionDetailPage · l.659 |
+| «Subiendo... / Subir» | `{handleUploadImage}` | `!(step2Done) && step2Active && canConfirmPublicacion && imageFile` | `{uploadingImage}` |  | LicitacionDetailPage · l.725 |
+| «Confirmando... / Confirmar Publicacion» | `{() => { if (window.confirm('Esta acción no se puede deshacer. ¿Confirmar la pub…}` | `!(historicalView === 'archive') && !(step2Done) && step2Active && canConfirmPublicacion` | `{confirmingPublicacion \|\| !fechaPublicacion}` |  | LicitacionDetailPage · l.747 |
+| «Ir a Evaluacion de Propuestas →» | `{() => router.push('/licitaciones/${id}/evaluacion')}` | `!(historicalView === 'pending') && !(historicalView === 'archive') && !isStep5Locked && isStep5Active` |  |  | LicitacionDetailPage · l.859 |
+| «Ver resumen de evaluacion» | `{() => router.push('/licitaciones/${id}/evaluacion')}` | `!(historicalView === 'pending') && !(historicalView === 'archive') && !isStep5Locked && !(isStep5Active)` |  |  | LicitacionDetailPage · l.869 |
 
 **Fields** (3)
 
 | Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
 |---|---|---|---|---|---|---|
-| «{key.replace(/_/g, ' ')}» | date |  |  | `step2Done && isAdmin && editingTimeline && each (Object.keys(editedDates) as Array<keyof Timeline…` |  | LicitacionDetailPage · l.650 |
-| «Fecha de publicacion *» | date |  |  | `!(historicalView === 'pending') && !(historicalView === 'archive') && !(step2Done) && step2Active` |  | LicitacionDetailPage · l.681 |
-| «Imagen de publicacion (opcional)» | file | accepts `image/png,image/jpeg,image/jpg,image/webp` |  | `!(historicalView === 'archive') && !(step2Done) && step2Active && canConfirmPublicacion` |  | LicitacionDetailPage · l.717 |
+| «{key.replace(/_/g, ' ')}» | date |  |  | `step2Done && isAdmin && editingTimeline && each (Object.keys(editedDates) as Array<keyof Timeline…` |  | LicitacionDetailPage · l.651 |
+| «Fecha de publicacion *» | date |  |  | `!(historicalView === 'pending') && !(historicalView === 'archive') && !(step2Done) && step2Active` |  | LicitacionDetailPage · l.682 |
+| «Imagen de publicacion (opcional)» | file | accepts `image/png,image/jpeg,image/jpg,image/webp` |  | `!(historicalView === 'archive') && !(step2Done) && step2Active && canConfirmPublicacion` |  | LicitacionDetailPage · l.718 |
 
 **Browser confirm()** (2)
 
 | Question | When | Where |
 |---|---|---|
-| «¿Eliminar la licitacion "{licitacion.numero_licitacion}"? / Se eliminaran permanentemente todos los datos asociados: ATEs, documentos, evaluaciones, historial, etc. / Esta accion no se puede deshacer.» | `isAdmin` | LicitacionDetailPage · l.519 |
-| «Esta acción no se puede deshacer. ¿Confirmar la publicación?» | `!(historicalView === 'archive') && !(step2Done) && step2Active && canConfirmPublicacion` | LicitacionDetailPage · l.748 |
+| «¿Eliminar la licitacion "{licitacion.numero_licitacion}"? / Se eliminaran permanentemente todos los datos asociados: ATEs, documentos, evaluaciones, historial, etc. / Esta accion no se puede deshacer.» | `isAdmin` | LicitacionDetailPage · l.520 |
+| «Esta acción no se puede deshacer. ¿Confirmar la publicación?» | `!(historicalView === 'archive') && !(step2Done) && step2Active && canConfirmPublicacion` | LicitacionDetailPage · l.749 |
 
 **Toasts** (17)
 
 | Kind | Text | When | Where |
 |---|---|---|---|
-| error | «No tiene permisos para acceder a licitaciones» | `!adminAccess && !encargadoAccess` | checkAuth · l.220 |
-| error | «Error al cargar licitacion» | `!res.ok` | fetchLicitacion · l.250 |
-| error | «Error al cargar licitacion» |  | fetchLicitacion · l.264 |
-| error | «Error al calcular cronograma» | `latestFechaRef.current === fecha` | LicitacionDetailPage · l.298 |
-| error | «Error al subir imagen» | `!res.ok` | handleUploadImage · l.321 |
-| success | «Imagen subida exitosamente» |  | handleUploadImage · l.325 |
-| error | «Error al subir imagen» |  | handleUploadImage · l.329 |
-| error | «Ingrese la fecha de publicacion» | `!fechaPublicacion \|\| !id` | handleConfirmPublicacion · l.337 |
-| error | «Error al confirmar publicacion» | `!res.ok` | handleConfirmPublicacion · l.357 |
-| success | «Publicacion confirmada exitosamente» |  | handleConfirmPublicacion · l.361 |
-| error | «Error al confirmar publicacion» |  | handleConfirmPublicacion · l.364 |
-| error | «Error al guardar fechas» | `!res.ok` | handleSaveDates · l.383 |
-| success | «Fechas actualizadas correctamente» |  | handleSaveDates · l.387 |
-| error | «Error al guardar fechas» |  | handleSaveDates · l.391 |
-| error | «Error al eliminar licitacion» | `!res.ok` | handleDeleteLicitacion · l.404 |
-| success | «Licitacion eliminada exitosamente» |  | handleDeleteLicitacion · l.407 |
-| error | «Error al eliminar licitacion» |  | handleDeleteLicitacion · l.410 |
+| error | «No tiene permisos para acceder a licitaciones» | `!adminAccess && !encargadoAccess` | checkAuth · l.221 |
+| error | «Error al cargar licitacion» | `!res.ok` | fetchLicitacion · l.251 |
+| error | «Error al cargar licitacion» |  | fetchLicitacion · l.265 |
+| error | «Error al calcular cronograma» | `latestFechaRef.current === fecha` | LicitacionDetailPage · l.299 |
+| error | «Error al subir imagen» | `!res.ok` | handleUploadImage · l.322 |
+| success | «Imagen subida exitosamente» |  | handleUploadImage · l.326 |
+| error | «Error al subir imagen» |  | handleUploadImage · l.330 |
+| error | «Ingrese la fecha de publicacion» | `!fechaPublicacion \|\| !id` | handleConfirmPublicacion · l.338 |
+| error | «Error al confirmar publicacion» | `!res.ok` | handleConfirmPublicacion · l.358 |
+| success | «Publicacion confirmada exitosamente» |  | handleConfirmPublicacion · l.362 |
+| error | «Error al confirmar publicacion» |  | handleConfirmPublicacion · l.365 |
+| error | «Error al guardar fechas» | `!res.ok` | handleSaveDates · l.384 |
+| success | «Fechas actualizadas correctamente» |  | handleSaveDates · l.388 |
+| error | «Error al guardar fechas» |  | handleSaveDates · l.392 |
+| error | «Error al eliminar licitacion» | `!res.ok` | handleDeleteLicitacion · l.405 |
+| success | «Licitacion eliminada exitosamente» |  | handleDeleteLicitacion · l.408 |
+| error | «Error al eliminar licitacion» |  | handleDeleteLicitacion · l.411 |
 
 **Moves to another page from code** (9)
 
 | Goes to | How | When | Where |
 |---|---|---|---|
-| `/login` | `router.push` | `!user` | checkAuth · l.209 |
-| `/dashboard` | `router.push` | `!adminAccess && !encargadoAccess` | checkAuth · l.221 |
-| `/login` | `router.push` |  | checkAuth · l.231 |
-| `/licitaciones` | `router.push` | `!res.ok` | fetchLicitacion · l.251 |
-| `/licitaciones` | `router.push` |  | fetchLicitacion · l.265 |
-| `/licitaciones` | `router.push` |  | handleDeleteLicitacion · l.408 |
-| `/licitaciones` | `router.push` |  | LicitacionDetailPage · l.498 |
-| `/licitaciones/[*]/evaluacion` | `router.push` | `!(historicalView === 'pending') && !(historicalView === 'archive') && !isStep5Locked && isStep5Active` | LicitacionDetailPage · l.859 |
-| `/licitaciones/[*]/evaluacion` | `router.push` | `!(historicalView === 'pending') && !(historicalView === 'archive') && !isStep5Locked && !(isStep5Active)` | LicitacionDetailPage · l.869 |
+| `/login` | `router.push` | `!user` | checkAuth · l.210 |
+| `/dashboard` | `router.push` | `!adminAccess && !encargadoAccess` | checkAuth · l.222 |
+| `/login` | `router.push` |  | checkAuth · l.232 |
+| `/licitaciones` | `router.push` | `!res.ok` | fetchLicitacion · l.252 |
+| `/licitaciones` | `router.push` |  | fetchLicitacion · l.266 |
+| `/licitaciones` | `router.push` |  | handleDeleteLicitacion · l.409 |
+| `/licitaciones` | `router.push` |  | LicitacionDetailPage · l.499 |
+| `/licitaciones/[*]/evaluacion` | `router.push` | `!(historicalView === 'pending') && !(historicalView === 'archive') && !isStep5Locked && isStep5Active` | LicitacionDetailPage · l.860 |
+| `/licitaciones/[*]/evaluacion` | `router.push` | `!(historicalView === 'pending') && !(historicalView === 'archive') && !isStep5Locked && !(isStep5Active)` | LicitacionDetailPage · l.870 |
 
 **Draws nothing when** (4)
 
 | Condition | Where |
 |---|---|
-| `!authReady` | LicitacionDetailPage · l.162 |
-| `!licitacion` | LicitacionDetailPage · l.172 |
-| `licitacion.estado !== 'cerrada'` | LicitacionDetailPage · l.173 |
-| `latestFechaRef.current !== fecha` | LicitacionDetailPage · l.293 |
+| `!authReady` | LicitacionDetailPage · l.163 |
+| `!licitacion` | LicitacionDetailPage · l.173 |
+| `licitacion.estado !== 'cerrada'` | LicitacionDetailPage · l.174 |
+| `latestFechaRef.current !== fecha` | LicitacionDetailPage · l.294 |
 
 **Pieces placed here, with the texts and settings handed to them** (35)
 
 | Piece | Texts and settings | Shown when | Hook | Where |
 |---|---|---|---|---|
-| `MainLayout` | pageTitle: Licitacion | `loading \|\| !licitacion` |  | LicitacionDetailPage · l.428 |
-| `Check` | aria-hidden: true | `copied` |  | LicitacionDetailPage · l.463 |
-| `Copy` | aria-hidden: true | `!(copied)` |  | LicitacionDetailPage · l.463 |
-| `MainLayout` |  |  |  | LicitacionDetailPage · l.488 |
-| `ArchiveView` |  | `!(historicalView === 'pending') && historicalView === 'archive'` |  | LicitacionDetailPage · l.542 |
-| `InfoRow` | label: Numero | `!(historicalView === 'pending') && !(historicalView === 'archive')` |  | LicitacionDetailPage · l.565 |
-| `InfoRow` | label: Programa | `!(historicalView === 'pending') && !(historicalView === 'archive')` |  | LicitacionDetailPage · l.566 |
-| `InfoRow` | label: Ano | `!(historicalView === 'pending') && !(historicalView === 'archive')` |  | LicitacionDetailPage · l.567 |
-| `InfoRow` | label: Correo licitacion | `!(historicalView === 'pending') && !(historicalView === 'archive')` |  | LicitacionDetailPage · l.568 |
-| `InfoRow` | label: Monto minimo | `!(historicalView === 'pending') && !(historicalView === 'archive')` |  | LicitacionDetailPage · l.572 |
-| `InfoRow` | label: Monto maximo | `!(historicalView === 'pending') && !(historicalView === 'archive')` |  | LicitacionDetailPage · l.573 |
-| `InfoRow` | label: Duracion minima | `!(historicalView === 'pending') && !(historicalView === 'archive')` |  | LicitacionDetailPage · l.574 |
-| `InfoRow` | label: Duracion maxima | `!(historicalView === 'pending') && !(historicalView === 'archive')` |  | LicitacionDetailPage · l.575 |
-| `InfoRow` | label: Peso tecnico | `!(historicalView === 'pending') && !(historicalView === 'archive')` |  | LicitacionDetailPage · l.576 |
-| `InfoRow` | label: Peso economico | `!(historicalView === 'pending') && !(historicalView === 'archive')` |  | LicitacionDetailPage · l.577 |
-| `InfoRow` | label: Nombre legal | `!(historicalView === 'pending') && !(historicalView === 'archive') && licitacion.cliente` |  | LicitacionDetailPage · l.582 |
-| `InfoRow` | label: RUT | `!(historicalView === 'pending') && !(historicalView === 'archive') && licitacion.cliente` |  | LicitacionDetailPage · l.583 |
-| `InfoRow` | label: Representante | `!(historicalView === 'pending') && !(historicalView === 'archive') && licitacion.cliente` |  | LicitacionDetailPage · l.584 |
-| `InfoRow` | label: Comuna | `!(historicalView === 'pending') && !(historicalView === 'archive') && licitacion.cliente` |  | LicitacionDetailPage · l.585 |
-| `InfoRow` | label: Limite solicitud de bases | `!(historicalView === 'pending') && !(historicalView === 'archive') && step2Done` |  | LicitacionDetailPage · l.615 |
-| `InfoRow` | label: Limite consultas | `!(historicalView === 'pending') && !(historicalView === 'archive') && step2Done` |  | LicitacionDetailPage · l.616 |
-| `InfoRow` | label: Inicio propuestas | `!(historicalView === 'pending') && !(historicalView === 'archive') && step2Done` |  | LicitacionDetailPage · l.617 |
-| `InfoRow` | label: Limite propuestas | `!(historicalView === 'pending') && !(historicalView === 'archive') && step2Done` |  | LicitacionDetailPage · l.618 |
-| `InfoRow` | label: Limite evaluacion | `!(historicalView === 'pending') && !(historicalView === 'archive') && step2Done` |  | LicitacionDetailPage · l.619 |
-| `InfoRow` | label: Limite solicitud de bases (+5 dias habiles) | `!(historicalView === 'archive') && !(step2Done) && step2Active && displayTimeline.fecha_limite_solicitud_bases` |  | LicitacionDetailPage · l.701 |
-| `InfoRow` | label: Limite consultas (+3 dias habiles) | `!(historicalView === 'archive') && !(step2Done) && step2Active && displayTimeline.fecha_limite_solicitud_bases` |  | LicitacionDetailPage · l.702 |
-| `InfoRow` | label: Inicio recepcion propuestas (+1 dia habil) | `!(historicalView === 'archive') && !(step2Done) && step2Active && displayTimeline.fecha_limite_solicitud_bases` |  | LicitacionDetailPage · l.703 |
-| `InfoRow` | label: Limite propuestas (+5 dias habiles) | `!(historicalView === 'archive') && !(step2Done) && step2Active && displayTimeline.fecha_limite_solicitud_bases` |  | LicitacionDetailPage · l.704 |
-| `InfoRow` | label: Limite evaluacion (+3 dias habiles) | `!(historicalView === 'archive') && !(step2Done) && step2Active && displayTimeline.fecha_limite_solicitud_bases` |  | LicitacionDetailPage · l.705 |
-| `Step3Bases` |  | `!(historicalView === 'pending') && !(historicalView === 'archive') && !isStep3Locked` |  | LicitacionDetailPage · l.791 |
-| `Step4Propuestas` |  | `!(historicalView === 'pending') && !(historicalView === 'archive') && !isStep4Locked` |  | LicitacionDetailPage · l.822 |
-| `Step6Adjudicacion` |  | `!(historicalView === 'pending') && !(historicalView === 'archive') && !isStep6Locked` |  | LicitacionDetailPage · l.901 |
-| `Step7Contrato` |  | `!(historicalView === 'pending') && !(historicalView === 'archive') && !isStep7Locked` |  | LicitacionDetailPage · l.931 |
-| `ProposalConfigPanel` |  | `!(historicalView === 'pending') && !(historicalView === 'archive') && isAdmin` |  | LicitacionDetailPage · l.944 |
-| `DocumentCenter` |  | `!(historicalView === 'pending') && !(historicalView === 'archive') && activeStep >= 2` |  | LicitacionDetailPage · l.952 |
+| `MainLayout` | pageTitle: Licitacion | `loading \|\| !licitacion` |  | LicitacionDetailPage · l.429 |
+| `Check` | aria-hidden: true | `copied` |  | LicitacionDetailPage · l.464 |
+| `Copy` | aria-hidden: true | `!(copied)` |  | LicitacionDetailPage · l.464 |
+| `MainLayout` |  |  |  | LicitacionDetailPage · l.489 |
+| `ArchiveView` |  | `!(historicalView === 'pending') && historicalView === 'archive'` |  | LicitacionDetailPage · l.543 |
+| `InfoRow` | label: Numero | `!(historicalView === 'pending') && !(historicalView === 'archive')` |  | LicitacionDetailPage · l.566 |
+| `InfoRow` | label: Programa | `!(historicalView === 'pending') && !(historicalView === 'archive')` |  | LicitacionDetailPage · l.567 |
+| `InfoRow` | label: Ano | `!(historicalView === 'pending') && !(historicalView === 'archive')` |  | LicitacionDetailPage · l.568 |
+| `InfoRow` | label: Correo licitacion | `!(historicalView === 'pending') && !(historicalView === 'archive')` |  | LicitacionDetailPage · l.569 |
+| `InfoRow` | label: Monto minimo | `!(historicalView === 'pending') && !(historicalView === 'archive')` |  | LicitacionDetailPage · l.573 |
+| `InfoRow` | label: Monto maximo | `!(historicalView === 'pending') && !(historicalView === 'archive')` |  | LicitacionDetailPage · l.574 |
+| `InfoRow` | label: Duracion minima | `!(historicalView === 'pending') && !(historicalView === 'archive')` |  | LicitacionDetailPage · l.575 |
+| `InfoRow` | label: Duracion maxima | `!(historicalView === 'pending') && !(historicalView === 'archive')` |  | LicitacionDetailPage · l.576 |
+| `InfoRow` | label: Peso tecnico | `!(historicalView === 'pending') && !(historicalView === 'archive')` |  | LicitacionDetailPage · l.577 |
+| `InfoRow` | label: Peso economico | `!(historicalView === 'pending') && !(historicalView === 'archive')` |  | LicitacionDetailPage · l.578 |
+| `InfoRow` | label: Nombre legal | `!(historicalView === 'pending') && !(historicalView === 'archive') && licitacion.cliente` |  | LicitacionDetailPage · l.583 |
+| `InfoRow` | label: RUT | `!(historicalView === 'pending') && !(historicalView === 'archive') && licitacion.cliente` |  | LicitacionDetailPage · l.584 |
+| `InfoRow` | label: Representante | `!(historicalView === 'pending') && !(historicalView === 'archive') && licitacion.cliente` |  | LicitacionDetailPage · l.585 |
+| `InfoRow` | label: Comuna | `!(historicalView === 'pending') && !(historicalView === 'archive') && licitacion.cliente` |  | LicitacionDetailPage · l.586 |
+| `InfoRow` | label: Limite solicitud de bases | `!(historicalView === 'pending') && !(historicalView === 'archive') && step2Done` |  | LicitacionDetailPage · l.616 |
+| `InfoRow` | label: Limite consultas | `!(historicalView === 'pending') && !(historicalView === 'archive') && step2Done` |  | LicitacionDetailPage · l.617 |
+| `InfoRow` | label: Inicio propuestas | `!(historicalView === 'pending') && !(historicalView === 'archive') && step2Done` |  | LicitacionDetailPage · l.618 |
+| `InfoRow` | label: Limite propuestas | `!(historicalView === 'pending') && !(historicalView === 'archive') && step2Done` |  | LicitacionDetailPage · l.619 |
+| `InfoRow` | label: Limite evaluacion | `!(historicalView === 'pending') && !(historicalView === 'archive') && step2Done` |  | LicitacionDetailPage · l.620 |
+| `InfoRow` | label: Limite solicitud de bases (+5 dias habiles) | `!(historicalView === 'archive') && !(step2Done) && step2Active && displayTimeline.fecha_limite_solicitud_bases` |  | LicitacionDetailPage · l.702 |
+| `InfoRow` | label: Limite consultas (+3 dias habiles) | `!(historicalView === 'archive') && !(step2Done) && step2Active && displayTimeline.fecha_limite_solicitud_bases` |  | LicitacionDetailPage · l.703 |
+| `InfoRow` | label: Inicio recepcion propuestas (+1 dia habil) | `!(historicalView === 'archive') && !(step2Done) && step2Active && displayTimeline.fecha_limite_solicitud_bases` |  | LicitacionDetailPage · l.704 |
+| `InfoRow` | label: Limite propuestas (+5 dias habiles) | `!(historicalView === 'archive') && !(step2Done) && step2Active && displayTimeline.fecha_limite_solicitud_bases` |  | LicitacionDetailPage · l.705 |
+| `InfoRow` | label: Limite evaluacion (+3 dias habiles) | `!(historicalView === 'archive') && !(step2Done) && step2Active && displayTimeline.fecha_limite_solicitud_bases` |  | LicitacionDetailPage · l.706 |
+| `Step3Bases` |  | `!(historicalView === 'pending') && !(historicalView === 'archive') && !isStep3Locked` |  | LicitacionDetailPage · l.792 |
+| `Step4Propuestas` |  | `!(historicalView === 'pending') && !(historicalView === 'archive') && !isStep4Locked` |  | LicitacionDetailPage · l.823 |
+| `Step6Adjudicacion` |  | `!(historicalView === 'pending') && !(historicalView === 'archive') && !isStep6Locked` |  | LicitacionDetailPage · l.902 |
+| `Step7Contrato` |  | `!(historicalView === 'pending') && !(historicalView === 'archive') && !isStep7Locked` |  | LicitacionDetailPage · l.932 |
+| `ProposalConfigPanel` |  | `!(historicalView === 'pending') && !(historicalView === 'archive') && isAdmin` |  | LicitacionDetailPage · l.945 |
+| `DocumentCenter` |  | `!(historicalView === 'pending') && !(historicalView === 'archive') && activeStep >= 2` |  | LicitacionDetailPage · l.953 |
 
 **Texts kept in lists and helpers in the code (labels, options, status names)** (1)
 
 | Name | Texts | Where |
 |---|---|---|
-| `STEPS` | «Creacion», «Publicacion», «Bases», «Propuestas», «Evaluacion», «Adjudicacion», «Contrato» | l.21 |
+| `STEPS` | «Creacion», «Publicacion», «Bases», «Propuestas», «Evaluacion», «Adjudicacion», «Contrato» | l.22 |
 
 **Other texts written in the code (safety net: not tied to an element by the script)** (1)
 
 | Text | Where |
 |---|---|
-| «Imagen publicacion - {licitacion?.numero_licitaci…}» | LicitacionDetailPage · l.312 |
+| «Imagen publicacion - {licitacion?.numero_licitaci…}» | LicitacionDetailPage · l.313 |
 
 **Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (2)
 
 | Kind | What | Where |
 |---|---|---|
-| timer | `setTimeout(…, 2000)` | handleCopyText · l.274 |
+| timer | `setTimeout(…, 2000)` | handleCopyText · l.275 |
 | address value | `[id] (part of the address)` | l.1 |
 
 **Values shown from data** (7)
 
-- `{step.label}` — Stepper · l.72, when `each STEPS`
-- `{label}` — InfoRow · l.89
-- `{value} / -` — InfoRow · l.90
-- `{info.label}` — EstadoBadge · l.98
-- `{licitacion.numero_licitacion}` — LicitacionDetailPage · l.508
-- `{licitacion.school?.name} — {licitacion.year}` — LicitacionDetailPage · l.510
-- `{formatDate(licitacion.fecha_publica…}` — LicitacionDetailPage · l.610, when `!(historicalView === 'pending') && !(historicalView === 'archive') && step2Done`
+- `{step.label}` — Stepper · l.73, when `each STEPS`
+- `{label}` — InfoRow · l.90
+- `{value} / -` — InfoRow · l.91
+- `{info.label}` — EstadoBadge · l.99
+- `{licitacion.numero_licitacion}` — LicitacionDetailPage · l.509
+- `{licitacion.school?.name} — {licitacion.year}` — LicitacionDetailPage · l.511
+- `{formatDate(licitacion.fecha_publica…}` — LicitacionDetailPage · l.611, when `!(historicalView === 'pending') && !(historicalView === 'archive') && step2Done`
 
 **Other texts on screen** (15)
 
-- «Texto de publicacion» — LicitacionDetailPage · l.454
-- «{publicacionText} / Seleccione una escuela con cliente vinculado para generar el texto.» — LicitacionDetailPage · l.455
-- «Cargando» (aria-label) — LicitacionDetailPage · l.539, when `historicalView === 'pending'`
-- «Fecha de publicacion» — LicitacionDetailPage · l.609, when `!(historicalView === 'pending') && !(historicalView === 'archive') && step2Done`
-- «Cronograma calculado» — LicitacionDetailPage · l.613, when `!(historicalView === 'pending') && !(historicalView === 'archive') && step2Done`
-- «{key.replace(/_/g, ' ')}» (label) — LicitacionDetailPage · l.647, when `step2Done && isAdmin && editingTimeline && each (Object.keys(editedDates) as Array<keyof Timeline…`
-- «Fecha de publicacion *» (label) — LicitacionDetailPage · l.677, when `!(historicalView === 'pending') && !(historicalView === 'archive') && !(step2Done) && step2Active`
-- «Calculando cronograma...» — LicitacionDetailPage · l.688, when `!(historicalView === 'archive') && !(step2Done) && step2Active && timelineLoading`
-- «Cronograma calculado (dias habiles, sin feriados chilenos)» — LicitacionDetailPage · l.698, when `!(historicalView === 'archive') && !(step2Done) && step2Active && displayTimeline.fecha_limite_solicitud_bases`
-- «Imagen de publicacion (opcional)» (label) — LicitacionDetailPage · l.713, when `!(historicalView === 'archive') && !(step2Done) && step2Active && canConfirmPublicacion`
-- «Imagen subida» — LicitacionDetailPage · l.736, when `!(step2Done) && step2Active && canConfirmPublicacion && uploadedImageUrl`
-- «Al confirmar, el estado cambiara a &ldquo;Recepcion de Bases&rdquo; y el cronograma quedara registrado.» — LicitacionDetailPage · l.758, when `!(historicalView === 'archive') && !(step2Done) && step2Active && canConfirmPublicacion`
-- «Este paso estara disponible cuando la licitacion avance al estado &ldquo;Publicacion Pendiente&rdquo;.» — LicitacionDetailPage · l.766, when `!(historicalView === 'pending') && !(historicalView === 'archive') && !(step2Done) && !(step2Active)`
-- «Complete la evaluacion de propuestas de cada ATE usando la pagina de evaluacion.» — LicitacionDetailPage · l.856, when `!(historicalView === 'pending') && !(historicalView === 'archive') && !isStep5Locked && isStep5Active`
-- «La evaluacion fue completada. El Acta de Reunion fue firmada y subida.» — LicitacionDetailPage · l.867, when `!(historicalView === 'pending') && !(historicalView === 'archive') && !isStep5Locked && !(isStep5Active)`
+- «Texto de publicacion» — LicitacionDetailPage · l.455
+- «{publicacionText} / Seleccione una escuela con cliente vinculado para generar el texto.» — LicitacionDetailPage · l.456
+- «Cargando» (aria-label) — LicitacionDetailPage · l.540, when `historicalView === 'pending'`
+- «Fecha de publicacion» — LicitacionDetailPage · l.610, when `!(historicalView === 'pending') && !(historicalView === 'archive') && step2Done`
+- «Cronograma calculado» — LicitacionDetailPage · l.614, when `!(historicalView === 'pending') && !(historicalView === 'archive') && step2Done`
+- «{key.replace(/_/g, ' ')}» (label) — LicitacionDetailPage · l.648, when `step2Done && isAdmin && editingTimeline && each (Object.keys(editedDates) as Array<keyof Timeline…`
+- «Fecha de publicacion *» (label) — LicitacionDetailPage · l.678, when `!(historicalView === 'pending') && !(historicalView === 'archive') && !(step2Done) && step2Active`
+- «Calculando cronograma...» — LicitacionDetailPage · l.689, when `!(historicalView === 'archive') && !(step2Done) && step2Active && timelineLoading`
+- «Cronograma calculado (dias habiles, sin feriados chilenos)» — LicitacionDetailPage · l.699, when `!(historicalView === 'archive') && !(step2Done) && step2Active && displayTimeline.fecha_limite_solicitud_bases`
+- «Imagen de publicacion (opcional)» (label) — LicitacionDetailPage · l.714, when `!(historicalView === 'archive') && !(step2Done) && step2Active && canConfirmPublicacion`
+- «Imagen subida» — LicitacionDetailPage · l.737, when `!(step2Done) && step2Active && canConfirmPublicacion && uploadedImageUrl`
+- «Al confirmar, el estado cambiara a &ldquo;Recepcion de Bases&rdquo; y el cronograma quedara registrado.» — LicitacionDetailPage · l.759, when `!(historicalView === 'archive') && !(step2Done) && step2Active && canConfirmPublicacion`
+- «Este paso estara disponible cuando la licitacion avance al estado &ldquo;Publicacion Pendiente&rdquo;.» — LicitacionDetailPage · l.767, when `!(historicalView === 'pending') && !(historicalView === 'archive') && !(step2Done) && !(step2Active)`
+- «Complete la evaluacion de propuestas de cada ATE usando la pagina de evaluacion.» — LicitacionDetailPage · l.857, when `!(historicalView === 'pending') && !(historicalView === 'archive') && !isStep5Locked && isStep5Active`
+- «La evaluacion fue completada. El Acta de Reunion fue firmada y subida.» — LicitacionDetailPage · l.868, when `!(historicalView === 'pending') && !(historicalView === 'archive') && !isStep5Locked && !(isStep5Active)`
 
 ### Pieces it uses (each is listed once, under "Pieces" below)
 
@@ -1055,7 +1055,10 @@ File `pages/licitaciones/[id].tsx` · 964 lines · frame: MainLayout
 - `components/licitaciones/Step4Propuestas.tsx`
 - `components/licitaciones/Step6Adjudicacion.tsx`
 - `components/licitaciones/Step7Contrato.tsx`
+- `components/licitaciones/mensajesEstado.ts`
 - `lib/licitaciones/documentPreview.ts`
+- `lib/licitaciones/estados.ts`
+- `lib/licitaciones/formato.ts`
 - `lib/licitaciones/publicacionText.ts`
 - `lib/propuestas-web/constants.ts`
 - `lib/propuestas-web/pdf-generator.ts`
@@ -1067,35 +1070,35 @@ File `pages/licitaciones/[id].tsx` · 964 lines · frame: MainLayout
 
 | Address | Method | Called from |
 |---|---|---|
-| `/api/auth/my-roles` | GET | `pages/licitaciones/[id].tsx:213` |
-| `/api/licitaciones/[id]` | DELETE, GET, PATCH | `pages/licitaciones/[id].tsx:245`, `pages/licitaciones/[id].tsx:375`, `pages/licitaciones/[id].tsx:401` |
-| `/api/licitaciones/[id]/adjudicacion` | POST | `components/licitaciones/Step6Adjudicacion.tsx:129` |
-| `/api/licitaciones/[id]/adjudicacion-confirmar` | POST | `components/licitaciones/Step6Adjudicacion.tsx:240` |
-| `/api/licitaciones/[id]/advance` | POST | `components/licitaciones/Step3Bases.tsx:327`, `components/licitaciones/Step4Propuestas.tsx:239` |
-| `/api/licitaciones/[id]/ates` | DELETE, GET, PATCH, POST, PUT | `components/licitaciones/Step3Bases.tsx:153`, `components/licitaciones/Step3Bases.tsx:180`, `components/licitaciones/Step3Bases.tsx:208`, `components/licitaciones/Step3Bases.tsx:88` +4 |
-| `/api/licitaciones/[id]/close` | POST | `components/licitaciones/Step7Contrato.tsx:128` |
-| `/api/licitaciones/[id]/consultas` | GET, POST | `components/licitaciones/Step3Bases.tsx:286`, `components/licitaciones/Step3Bases.tsx:89` |
-| `/api/licitaciones/[id]/documentos` | DELETE, GET | `components/licitaciones/ArchiveView.tsx:61`, `components/licitaciones/DocumentCenter.tsx:115`, `components/licitaciones/DocumentCenter.tsx:215`, `components/licitaciones/Step3Bases.tsx:360` +1 |
-| `/api/licitaciones/[id]/download-doc` | GET | `components/licitaciones/ArchiveView.tsx:82`, `components/licitaciones/DocumentCenter.tsx:143`, `components/licitaciones/DocumentPreview.tsx:40` |
-| `/api/licitaciones/[id]/download-zip` | POST | `components/licitaciones/DocumentCenter.tsx:179` |
-| `/api/licitaciones/[id]/evaluacion` | GET | `pages/licitaciones/[id].tsx:178` |
-| `/api/licitaciones/[id]/generate-bases` | GET | `components/licitaciones/Step3Bases.tsx:248` |
-| `/api/licitaciones/[id]/generate-carta` | GET | `components/licitaciones/Step6Adjudicacion.tsx:171`, `components/licitaciones/Step7Contrato.tsx:103` |
-| `/api/licitaciones/[id]/generate-propuesta` | POST | `components/licitaciones/ProposalConfigPanel.tsx:682` |
-| `/api/licitaciones/[id]/propuestas` | GET | `components/licitaciones/ProposalConfigPanel.tsx:248`, `components/licitaciones/ProposalConfigPanel.tsx:711` |
-| `/api/licitaciones/[id]/publicacion` | POST | `pages/licitaciones/[id].tsx:348` |
-| `/api/licitaciones/[id]/timeline` | GET | `pages/licitaciones/[id].tsx:289` |
-| `/api/licitaciones/[id]/upload` | POST | `components/licitaciones/ArchiveView.tsx:111`, `components/licitaciones/Step6Adjudicacion.tsx:206`, `components/licitaciones/Step7Contrato.tsx:68`, `pages/licitaciones/[id].tsx:314` |
-| `/api/licitaciones/check-deadlines` | POST | `pages/licitaciones/[id].tsx:163` |
-| `/api/propuestas/bloques` | GET | `components/licitaciones/ProposalConfigPanel.tsx:247` |
-| `/api/propuestas/consultores` | GET | `components/licitaciones/ProposalConfigPanel.tsx:245` |
-| `/api/propuestas/documentos` | GET | `components/licitaciones/ProposalConfigPanel.tsx:246` |
-| `/api/propuestas/fichas` | GET | `components/licitaciones/ProposalConfigPanel.tsx:244` |
-| `/api/propuestas/plantillas` | GET | `components/licitaciones/ProposalConfigPanel.tsx:243` |
+| `/api/auth/my-roles` | GET | `pages/licitaciones/[id].tsx:214` |
+| `/api/licitaciones/[id]` | DELETE, GET, PATCH | `pages/licitaciones/[id].tsx:246`, `pages/licitaciones/[id].tsx:376`, `pages/licitaciones/[id].tsx:402` |
+| `/api/licitaciones/[id]/adjudicacion` | POST | `components/licitaciones/Step6Adjudicacion.tsx:135` |
+| `/api/licitaciones/[id]/adjudicacion-confirmar` | POST | `components/licitaciones/Step6Adjudicacion.tsx:257` |
+| `/api/licitaciones/[id]/advance` | POST | `components/licitaciones/Step3Bases.tsx:341`, `components/licitaciones/Step4Propuestas.tsx:245` |
+| `/api/licitaciones/[id]/ates` | DELETE, GET, PATCH, POST, PUT | `components/licitaciones/Step3Bases.tsx:102`, `components/licitaciones/Step3Bases.tsx:167`, `components/licitaciones/Step3Bases.tsx:194`, `components/licitaciones/Step3Bases.tsx:222` +4 |
+| `/api/licitaciones/[id]/close` | POST | `components/licitaciones/Step7Contrato.tsx:129` |
+| `/api/licitaciones/[id]/consultas` | GET, POST | `components/licitaciones/Step3Bases.tsx:103`, `components/licitaciones/Step3Bases.tsx:300` |
+| `/api/licitaciones/[id]/documentos` | DELETE, GET | `components/licitaciones/ArchiveView.tsx:61`, `components/licitaciones/DocumentCenter.tsx:120`, `components/licitaciones/DocumentCenter.tsx:220`, `components/licitaciones/Step3Bases.tsx:104` +1 |
+| `/api/licitaciones/[id]/download-doc` | GET | `components/licitaciones/ArchiveView.tsx:82`, `components/licitaciones/DocumentCenter.tsx:148`, `components/licitaciones/DocumentPreview.tsx:40` |
+| `/api/licitaciones/[id]/download-zip` | POST | `components/licitaciones/DocumentCenter.tsx:184` |
+| `/api/licitaciones/[id]/evaluacion` | GET | `pages/licitaciones/[id].tsx:179` |
+| `/api/licitaciones/[id]/generate-bases` | GET | `components/licitaciones/Step3Bases.tsx:262` |
+| `/api/licitaciones/[id]/generate-carta` | GET | `components/licitaciones/Step6Adjudicacion.tsx:183`, `components/licitaciones/Step7Contrato.tsx:104` |
+| `/api/licitaciones/[id]/generate-propuesta` | POST | `components/licitaciones/ProposalConfigPanel.tsx:722` |
+| `/api/licitaciones/[id]/propuestas` | GET, POST | `components/licitaciones/ProposalConfigPanel.tsx:254`, `components/licitaciones/ProposalConfigPanel.tsx:611`, `components/licitaciones/ProposalConfigPanel.tsx:751` |
+| `/api/licitaciones/[id]/publicacion` | POST | `pages/licitaciones/[id].tsx:349` |
+| `/api/licitaciones/[id]/timeline` | GET | `pages/licitaciones/[id].tsx:290` |
+| `/api/licitaciones/[id]/upload` | POST | `components/licitaciones/ArchiveView.tsx:111`, `components/licitaciones/Step6Adjudicacion.tsx:219`, `components/licitaciones/Step7Contrato.tsx:69`, `pages/licitaciones/[id].tsx:315` |
+| `/api/licitaciones/check-deadlines` | POST | `pages/licitaciones/[id].tsx:164` |
+| `/api/propuestas/bloques` | GET | `components/licitaciones/ProposalConfigPanel.tsx:253` |
+| `/api/propuestas/consultores` | GET | `components/licitaciones/ProposalConfigPanel.tsx:251` |
+| `/api/propuestas/documentos` | GET | `components/licitaciones/ProposalConfigPanel.tsx:252` |
+| `/api/propuestas/fichas` | GET | `components/licitaciones/ProposalConfigPanel.tsx:250` |
+| `/api/propuestas/plantillas` | GET | `components/licitaciones/ProposalConfigPanel.tsx:249` |
 
 ## /licitaciones/[id]/evaluacion
 
-File `pages/licitaciones/[id]/evaluacion.tsx` · 1117 lines · frame: MainLayout
+File `pages/licitaciones/[id]/evaluacion.tsx` · 1137 lines · frame: MainLayout
 
 ### Who reaches it
 
@@ -1105,8 +1108,8 @@ File `pages/licitaciones/[id]/evaluacion.tsx` · 1117 lines · frame: MainLayout
   - l.236 `router.push → /login  (when !user)`
   - l.253 `router.push → /dashboard  (when !adminAccess && !encargadoAccess)`
   - l.262 `router.push → /login`
-- Linked from: `pages/licitaciones/[id].tsx:859`, `pages/licitaciones/[id].tsx:869`
-- Tests: no browser test that CI runs.
+- Linked from: `pages/licitaciones/[id].tsx:860`, `pages/licitaciones/[id].tsx:870`
+- Tests: no browser test that CI runs; unit tests of the page: `__tests__/pages/licitaciones/evaluacion-page.test.tsx`.
 
 | Role | Sees it in the menu | Middleware |
 |---|---|---|
@@ -1126,68 +1129,68 @@ File `pages/licitaciones/[id]/evaluacion.tsx` · 1117 lines · frame: MainLayout
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «Evaluacion de Propuestas» | h1 |  | EvaluacionPage · l.678 |
-| «Comision Evaluadora» | h2 |  | EvaluacionPage · l.701 |
-| «Datos de la Reunion» | h2 |  | EvaluacionPage · l.777 |
-| «Puntajes por ATE» | h2 | `!(ates.length === 0)` | EvaluacionPage · l.829 |
-| «A. Evaluacion Tecnica» | h3 | `!(ates.length === 0) && each ates` · hidden by its class (`hidden`); another control opens it or it is for screen readers | EvaluacionPage · l.863 |
-| «B. Evaluacion Economica» | h3 | `!(ates.length === 0) && each ates` · hidden by its class (`hidden`); another control opens it or it is for screen readers | EvaluacionPage · l.964 |
-| «Acciones» | h2 | `isEditable` | EvaluacionPage · l.1012 |
-| «Subir Acta Firmada» | h3 | `isEditable` | EvaluacionPage · l.1055 |
-| «Ranking en Tiempo Real» | h2 |  | EvaluacionPage · l.1102 |
+| «Evaluacion de Propuestas» | h1 |  | EvaluacionPage · l.688 |
+| «Comision Evaluadora» | h2 |  | EvaluacionPage · l.711 |
+| «Datos de la Reunion» | h2 |  | EvaluacionPage · l.787 |
+| «Puntajes por ATE» | h2 | `!(ates.length === 0)` | EvaluacionPage · l.839 |
+| «A. Evaluacion Tecnica» | h3 | `!(ates.length === 0) && each ates` · hidden by its class (`hidden`); another control opens it or it is for screen readers | EvaluacionPage · l.873 |
+| «B. Evaluacion Economica» | h3 | `!(ates.length === 0) && each ates` · hidden by its class (`hidden`); another control opens it or it is for screen readers | EvaluacionPage · l.974 |
+| «Acciones» | h2 | `isEditable` | EvaluacionPage · l.1022 |
+| «Subir Acta Firmada» | h3 | `isEditable` | EvaluacionPage · l.1075 |
+| «Ranking en Tiempo Real» | h2 |  | EvaluacionPage · l.1122 |
 
 **Tabs** (1)
 
 | Text | Does | Shown when | Where |
 |---|---|---|---|
-| «{ate.nombre_ate}» | `{() => setActiveAteId(ate.id)}` | `!(ates.length === 0) && each ates` | EvaluacionPage · l.835 |
+| «{ate.nombre_ate}» | `{() => setActiveAteId(ate.id)}` | `!(ates.length === 0) && each ates` | EvaluacionPage · l.845 |
 
 **Buttons** (4)
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «Volver a Licitacion» | `{() => router.push('/licitaciones/${id}')}` |  |  |  | EvaluacionPage · l.666 |
-| «Guardando... / Guardar Evaluacion» | `{handleSave}` | `isEditable` | `{saving}` |  | EvaluacionPage · l.1015 |
-| «Generando... / Generar Acta de Reunion» · tooltip «{!canGenerateActa() ? 'Complete la comision y los puntajes de al menos 1 ATE par…}» | `{handleGenerateActa}` | `isEditable` | `{generatingActa \|\| !canGenerateActa()}` |  | EvaluacionPage · l.1027 |
-| «Procesando... / Subir Acta Firmada» | `{() => fileInputRef.current?.click()}` | `isEditable && !(actaSigned)` | `{uploadingActa \|\| advancing}` |  | EvaluacionPage · l.1080 |
+| «Volver a Licitacion» | `{() => router.push('/licitaciones/${id}')}` |  |  |  | EvaluacionPage · l.676 |
+| «Guardando... / Guardar Evaluacion» | `{handleSave}` | `isEditable` | `{saving}` |  | EvaluacionPage · l.1025 |
+| «Generando... / Generar Acta de Reunion» · tooltip «{!canGenerateActa() ? 'Complete la comision y los puntajes de al menos 1 ATE par…}» | `{handleGenerateActa}` | `isEditable && hasCriterios` | `{generatingActa \|\| !canGenerateActa()}` |  | EvaluacionPage · l.1038 |
+| «Procesando... / Subir Acta Firmada» | `{() => fileInputRef.current?.click()}` | `isEditable && !(actaSigned)` | `{uploadingActa \|\| advancing}` |  | EvaluacionPage · l.1100 |
 
 **Links** (1)
 
 | Text | Goes to | Shown when | Hook | Where |
 |---|---|---|---|---|
-| «Acta generada — descargar» | `{actaUrl}` (new tab) | `isEditable && actaUrl` |  | EvaluacionPage · l.1047 |
+| «Acta generada — descargar» | `{actaUrl}` (new tab) | `isEditable && actaUrl` |  | EvaluacionPage · l.1067 |
 
 **Fields** (10)
 
 | Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
 |---|---|---|---|---|---|---|
-| «Nombre *» | text | «Nombre completo» · disabled: `{!isEditable}` |  | `each committee` | `id=cm-nombre-{idx}` | EvaluacionPage · l.713 |
-| «RUT» | text | «12.345.678-9» · disabled: `{!isEditable}` |  | `each committee` | `id=cm-rut-{idx}` | EvaluacionPage · l.734 |
-| «Cargo» | text | «Director / Jefe UTP» · disabled: `{!isEditable}` |  | `each committee` | `id=cm-cargo-{idx}` | EvaluacionPage · l.755 |
-| «Fecha de evaluacion» | date | disabled: `{!isEditable}` |  |  | `id=fecha-evaluacion (id used by code)` | EvaluacionPage · l.783 |
-| «Hora inicio (HH:MM)» | time | disabled: `{!isEditable}` |  |  | `id=hora-inicio (id used by code)` | EvaluacionPage · l.796 |
-| «Hora fin (HH:MM)» | time | disabled: `{!isEditable}` |  |  | `id=hora-fin (id used by code)` | EvaluacionPage · l.809 |
-| «{criterio.nombre_criterio} — Puntaje (maximo: {criterio.puntaje_maximo} )» | number | «0» · disabled: `{!isEditable}` · `min={0} max={criterio.puntaje_maximo} step={1}` |  | `!(ates.length === 0) && each ates && each criterios` · hidden by its class (`hidden`); another control opens it or it is for screen readers | `id=score-{ate.id}-{criterio.id}` | EvaluacionPage · l.893 |
-| «Comentario para {criterio.nombre_criterio} (opcional)» | textarea | «Comentario (opcional)» · disabled: `{!isEditable}` |  | `!(ates.length === 0) && each ates && each criterios` · hidden by its class (`hidden`); another control opens it or it is for screen readers | `id=comment-{ate.id}-{criterio.id}` | EvaluacionPage · l.928 |
-| «Monto propuesto (CLP)» | number | «15000000» · disabled: `{!isEditable}` · `min={1} step={1000}` |  | `!(ates.length === 0) && each ates` · hidden by its class (`hidden`); another control opens it or it is for screen readers | `id=monto-{ate.id}` | EvaluacionPage · l.976 |
-|  | file | accepts `.pdf,.png,.jpg,.jpeg` |  | `isEditable && !(actaSigned)` · hidden by its class (`hidden`); another control opens it or it is for screen readers | `id=acta-upload` | EvaluacionPage · l.1069 |
+| «Nombre *» | text | «Nombre completo» · disabled: `{!isEditable}` |  | `each committee` | `id=cm-nombre-{idx}` | EvaluacionPage · l.723 |
+| «RUT» | text | «12.345.678-9» · disabled: `{!isEditable}` |  | `each committee` | `id=cm-rut-{idx}` | EvaluacionPage · l.744 |
+| «Cargo» | text | «Director / Jefe UTP» · disabled: `{!isEditable}` |  | `each committee` | `id=cm-cargo-{idx}` | EvaluacionPage · l.765 |
+| «Fecha de evaluacion» | date | disabled: `{!isEditable}` |  |  | `id=fecha-evaluacion (id used by code)` | EvaluacionPage · l.793 |
+| «Hora inicio (HH:MM)» | time | disabled: `{!isEditable}` |  |  | `id=hora-inicio (id used by code)` | EvaluacionPage · l.806 |
+| «Hora fin (HH:MM)» | time | disabled: `{!isEditable}` |  |  | `id=hora-fin (id used by code)` | EvaluacionPage · l.819 |
+| «{criterio.nombre_criterio} — Puntaje (maximo: {criterio.puntaje_maximo} )» | number | «0» · disabled: `{!isEditable}` · `min={0} max={criterio.puntaje_maximo} step={1}` |  | `!(ates.length === 0) && each ates && each criterios` · hidden by its class (`hidden`); another control opens it or it is for screen readers | `id=score-{ate.id}-{criterio.id}` | EvaluacionPage · l.903 |
+| «Comentario para {criterio.nombre_criterio} (opcional)» | textarea | «Comentario (opcional)» · disabled: `{!isEditable}` |  | `!(ates.length === 0) && each ates && each criterios` · hidden by its class (`hidden`); another control opens it or it is for screen readers | `id=comment-{ate.id}-{criterio.id}` | EvaluacionPage · l.938 |
+| «Monto propuesto ({licitacion.tipo_moneda})» | number | «{licitacion.tipo_moneda === 'UF' ? '450' : '15000000'}» · disabled: `{!isEditable}` · `min={1} step={licitacion.tipo_moneda === 'UF' ? 0.01 : 1}` |  | `!(ates.length === 0) && each ates` · hidden by its class (`hidden`); another control opens it or it is for screen readers | `id=monto-{ate.id}` | EvaluacionPage · l.986 |
+|  | file | accepts `.pdf,.png,.jpg,.jpeg` |  | `isEditable && !(actaSigned)` · hidden by its class (`hidden`); another control opens it or it is for screen readers | `id=acta-upload` | EvaluacionPage · l.1089 |
 
 **Table columns** (6)
 
 | Text | Shown when | Where |
 |---|---|---|
-| «ATE» |  | RankingPanel · l.128 |
-| «Tec.» |  | RankingPanel · l.129 |
-| «Eco.» |  | RankingPanel · l.130 |
-| «T.Pond.» |  | RankingPanel · l.131 |
-| «E.Pond.» |  | RankingPanel · l.132 |
-| «Total» |  | RankingPanel · l.133 |
+| «ATE» |  | RankingPanel · l.129 |
+| «Tec.» |  | RankingPanel · l.130 |
+| «Eco.» |  | RankingPanel · l.131 |
+| «T.Pond.» |  | RankingPanel · l.132 |
+| «E.Pond.» |  | RankingPanel · l.133 |
+| «Total» |  | RankingPanel · l.134 |
 
 **Browser confirm()** (1)
 
 | Question | When | Where |
 |---|---|---|
-| «ATENCION: Esta accion es irreversible. Al confirmar: - El Acta firmada quedara registrada - El proceso avanzara a "Adjudicacion Pendiente" - No sera posible volver a la etapa de Evaluacion ¿Confirmar?» |  | handleUploadActa · l.580 |
+| «ATENCION: Esta accion es irreversible. Al confirmar: - El Acta firmada quedara registrada - El proceso avanzara a "Adjudicacion Pendiente" - No sera posible volver a la etapa de Evaluacion ¿Confirmar?» |  | handleUploadActa · l.590 |
 
 **Toasts** (15)
 
@@ -1195,19 +1198,19 @@ File `pages/licitaciones/[id]/evaluacion.tsx` · 1117 lines · frame: MainLayout
 |---|---|---|---|
 | error | «No tiene permisos para acceder a evaluaciones» | `!adminAccess && !encargadoAccess` | checkAuth · l.252 |
 | error | «Error al cargar licitacion» | `!licRes.ok` | EvaluacionPage · l.279 |
-| error | «Error al cargar datos de evaluacion» |  | EvaluacionPage · l.352 |
-| error | «Error al guardar evaluacion» | `!res.ok` | handleSave · l.522 |
-| success | «Evaluacion guardada exitosamente» |  | handleSave · l.526 |
-| error | «Error al guardar evaluacion» |  | handleSave · l.528 |
-| error | «Corrija los errores en la Comision Evaluadora antes de generar el Acta» | `!validateCommittee()` | handleGenerateActa · l.542 |
-| error | «Error al generar el Acta» | `!res.ok` | handleGenerateActa · l.555 |
-| success | «Acta de Reunion generada exitosamente» |  | handleGenerateActa · l.560 |
-| error | «Error al generar el Acta» |  | handleGenerateActa · l.566 |
-| error | «Error al subir el Acta» | `!uploadRes.ok` | handleUploadActa · l.602 |
-| success | «Acta firmada subida. Avanzando estado...» |  | handleUploadActa · l.607 |
-| error | «Error al avanzar estado» | `!advanceRes.ok` | handleUploadActa · l.619 |
-| success | «Estado avanzado a Adjudicacion Pendiente» |  | handleUploadActa · l.623 |
-| error | «Error al procesar el Acta firmada» |  | handleUploadActa · l.626 |
+| error | «Error al cargar datos de evaluacion» |  | EvaluacionPage · l.353 |
+| error | «Error al guardar evaluacion» | `!res.ok` | handleSave · l.529 |
+| success | «Evaluacion guardada exitosamente» |  | handleSave · l.533 |
+| error | «Error al guardar evaluacion» |  | handleSave · l.536 |
+| error | «Corrija los errores en la Comision Evaluadora antes de generar el Acta» | `!validateCommittee()` | handleGenerateActa · l.551 |
+| error | «Error al generar el Acta» | `!res.ok` | handleGenerateActa · l.565 |
+| success | «Acta de Reunion generada exitosamente» |  | handleGenerateActa · l.570 |
+| error | «Error al generar el Acta» |  | handleGenerateActa · l.576 |
+| error | «Error al subir el Acta» | `!uploadRes.ok` | handleUploadActa · l.612 |
+| success | «Acta firmada subida. Avanzando estado...» |  | handleUploadActa · l.617 |
+| error | «Error al avanzar estado» | `!advanceRes.ok` | handleUploadActa · l.629 |
+| success | «Estado avanzado a Adjudicacion Pendiente» |  | handleUploadActa · l.633 |
+| error | «Error al procesar el Acta firmada» |  | handleUploadActa · l.636 |
 
 **Moves to another page from code** (7)
 
@@ -1217,79 +1220,80 @@ File `pages/licitaciones/[id]/evaluacion.tsx` · 1117 lines · frame: MainLayout
 | `/dashboard` | `router.push` | `!adminAccess && !encargadoAccess` | checkAuth · l.253 |
 | `/login` | `router.push` |  | checkAuth · l.262 |
 | `/licitaciones/[*]` | `router.push` | `!licRes.ok` | EvaluacionPage · l.280 |
-| `{json.data.url}` | `window.open` | `json.data.url` | handleGenerateActa · l.563 |
-| `/licitaciones/[*]` | `router.push` |  | handleUploadActa · l.624 |
-| `/licitaciones/[*]` | `router.push` |  | EvaluacionPage · l.667 |
+| `{json.data.url}` | `window.open` | `json.data.url` | handleGenerateActa · l.573 |
+| `/licitaciones/[*]` | `router.push` |  | handleUploadActa · l.634 |
+| `/licitaciones/[*]` | `router.push` |  | EvaluacionPage · l.677 |
 
 **Draws nothing when** (1)
 
 | Condition | Where |
 |---|---|
-| `!ate` | EvaluacionPage · l.385 |
+| `!ate` | EvaluacionPage · l.386 |
 
 **Pieces placed here, with the texts and settings handed to them** (2)
 
 | Piece | Texts and settings | Shown when | Hook | Where |
 |---|---|---|---|---|
-| `MainLayout` | pageTitle: Evaluacion | `loading \|\| !licitacion` |  | EvaluacionPage · l.639 |
-| `MainLayout` | pageTitle: Evaluacion de Propuestas |  |  | EvaluacionPage · l.657 |
+| `MainLayout` | pageTitle: Evaluacion | `loading \|\| !licitacion` |  | EvaluacionPage · l.649 |
+| `MainLayout` | pageTitle: Evaluacion de Propuestas |  |  | EvaluacionPage · l.667 |
 
 **Other texts written in the code (safety net: not tied to an element by the script)** (3)
 
 | Text | Where |
 |---|---|
-| «Nombre requerido» | EvaluacionPage · l.437 |
-| «Acta firmada — {licitacion?.numero_licitaci…}» | EvaluacionPage · l.593 |
-| «Complete la comision y los puntajes de al menos 1 ATE para generar el Acta» | EvaluacionPage · l.1033 |
+| «Nombre requerido» | EvaluacionPage · l.438 |
+| «Acta firmada — {licitacion?.numero_licitaci…}» | EvaluacionPage · l.603 |
+| «Complete la comision y los puntajes de al menos 1 ATE para generar el Acta» | EvaluacionPage · l.1044 |
 
 **Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (4)
 
 | Kind | What | Where |
 |---|---|---|
-| role | `role=tablist` | EvaluacionPage · l.833 |
-| role | `role=tabpanel` | EvaluacionPage · l.855 |
-| mark | `id=panel-{ate.id}` | EvaluacionPage · l.855 |
+| role | `role=tablist` | EvaluacionPage · l.843 |
+| role | `role=tabpanel` | EvaluacionPage · l.865 |
+| mark | `id=panel-{ate.id}` | EvaluacionPage · l.865 |
 | address value | `[id] (part of the address)` | l.1 |
 
 **Values shown from data** (13)
 
-- `{info.label}` — EstadoBadge · l.88
-- `{row.nombre_ate}` — RankingPanel · l.146, when `each rows`
-- `{row.puntaje_tecnico}` — RankingPanel · l.148, when `each rows`
-- `{row.puntaje_economico}` — RankingPanel · l.149, when `each rows`
-- `{row.puntaje_tecnico_ponderado}` — RankingPanel · l.150, when `each rows`
-- `{row.puntaje_economico_ponderado}` — RankingPanel · l.151, when `each rows`
-- `{row.puntaje_total}` — RankingPanel · l.152, when `each rows`
-- `{licitacion.numero_licitacion}` — EvaluacionPage · l.677
-- `{licitacion.nombre_licitacion}` — EvaluacionPage · l.679
-- `{committeeErrors[idx].nombre}` — EvaluacionPage · l.727, when `each committee && committeeErrors[idx]?.nombre`
-- `{committeeErrors[idx].rut}` — EvaluacionPage · l.748, when `each committee && committeeErrors[idx]?.rut`
-- `{criterio.nombre_criterio}` — EvaluacionPage · l.882, when `!(ates.length === 0) && each ates && each criterios`, hidden by its class (`hidden`); another control opens it or it is for screen readers
-- `{(() => { const row = liveRanking.fi…}` — EvaluacionPage · l.995, when `!(ates.length === 0) && each ates`, hidden by its class (`hidden`); another control opens it or it is for screen readers
+- `{info.label}` — EstadoBadge · l.89
+- `{row.nombre_ate}` — RankingPanel · l.147, when `each rows`
+- `{row.puntaje_tecnico}` — RankingPanel · l.149, when `each rows`
+- `{row.puntaje_economico}` — RankingPanel · l.150, when `each rows`
+- `{row.puntaje_tecnico_ponderado}` — RankingPanel · l.151, when `each rows`
+- `{row.puntaje_economico_ponderado}` — RankingPanel · l.152, when `each rows`
+- `{row.puntaje_total}` — RankingPanel · l.153, when `each rows`
+- `{licitacion.numero_licitacion}` — EvaluacionPage · l.687
+- `{licitacion.nombre_licitacion}` — EvaluacionPage · l.689
+- `{committeeErrors[idx].nombre}` — EvaluacionPage · l.737, when `each committee && committeeErrors[idx]?.nombre`
+- `{committeeErrors[idx].rut}` — EvaluacionPage · l.758, when `each committee && committeeErrors[idx]?.rut`
+- `{criterio.nombre_criterio}` — EvaluacionPage · l.892, when `!(ates.length === 0) && each ates && each criterios`, hidden by its class (`hidden`); another control opens it or it is for screen readers
+- `{(() => { const row = liveRanking.fi…}` — EvaluacionPage · l.1005, when `!(ates.length === 0) && each ates`, hidden by its class (`hidden`); another control opens it or it is for screen readers
 
-**Other texts on screen** (21)
+**Other texts on screen** (22)
 
-- «Ingrese puntajes y montos para ver el ranking» — RankingPanel · l.112, when `rows.length === 0`
-- «Ponderacion: Tecnica {pesoTecnico} % / Economica {pesoEconomico} %» — RankingPanel · l.120
-- «La evaluacion esta completa. Esta vista es de solo lectura. / Este paso no esta disponible en el estado actual.» — EvaluacionPage · l.688, when `!isEditable`
-- «Miembro {idx + 1}» — EvaluacionPage · l.705, when `each committee`
-- «Nombre *» (label) — EvaluacionPage · l.710, when `each committee`
-- «RUT» (label) — EvaluacionPage · l.731, when `each committee`
-- «Cargo» (label) — EvaluacionPage · l.752, when `each committee`
-- «Fecha de evaluacion» (label) — EvaluacionPage · l.780
-- «Hora inicio (HH:MM)» (label) — EvaluacionPage · l.793
-- «Hora fin (HH:MM)» (label) — EvaluacionPage · l.806
-- «No hay ATEs con propuestas registradas para evaluar.» — EvaluacionPage · l.824, when `ates.length === 0`
-- «Empresas ATE para evaluar» (aria-label) — EvaluacionPage · l.833, when `!(ates.length === 0)`
-- «Maximo: {criterio.puntaje_maximo} pts» — EvaluacionPage · l.885, when `!(ates.length === 0) && each ates && each criterios`, hidden by its class (`hidden`); another control opens it or it is for screen readers
-- «{criterio.nombre_criterio} — Puntaje (maximo: {criterio.puntaje_maximo} )» (label) — EvaluacionPage · l.890, when `!(ates.length === 0) && each ates && each criterios`, hidden by its class (`hidden sr-only`); another control opens it or it is for screen readers
-- «Max: {criterio.puntaje_maximo}» — EvaluacionPage · l.919, when `!(ates.length === 0) && each ates && each criterios && isOver`, hidden by its class (`hidden`); another control opens it or it is for screen readers
-- «Comentario para {criterio.nombre_criterio} (opcional)» (label) — EvaluacionPage · l.925, when `!(ates.length === 0) && each ates && each criterios`, hidden by its class (`hidden sr-only`); another control opens it or it is for screen readers
-- «Puntaje Tecnico: {criterios.reduce((sum, c) => { cons…} / 100» — EvaluacionPage · l.953, when `!(ates.length === 0) && each ates`, hidden by its class (`hidden`); another control opens it or it is for screen readers
-- «Monto propuesto (CLP)» (label) — EvaluacionPage · l.970, when `!(ates.length === 0) && each ates`, hidden by its class (`hidden`); another control opens it or it is for screen readers
-- «Puntaje Economico» — EvaluacionPage · l.994, when `!(ates.length === 0) && each ates`, hidden by its class (`hidden`); another control opens it or it is for screen readers
-- «Suba el Acta firmada por los miembros de la comision (PDF o imagen). Esta accion avanzara el estado a &ldquo;Adjudicacion Pendiente&rdquo;.» — EvaluacionPage · l.1059, when `isEditable`
-- «Acta firmada subida correctamente» — EvaluacionPage · l.1065, when `isEditable && actaSigned`
+- «Ingrese puntajes y montos para ver el ranking» — RankingPanel · l.113, when `rows.length === 0`
+- «Ponderacion: Tecnica {pesoTecnico} % / Economica {pesoEconomico} %» — RankingPanel · l.121
+- «La evaluacion esta completa. Esta vista es de solo lectura. / Este paso no esta disponible en el estado actual.» — EvaluacionPage · l.698, when `!isEditable`
+- «Miembro {idx + 1}» — EvaluacionPage · l.715, when `each committee`
+- «Nombre *» (label) — EvaluacionPage · l.720, when `each committee`
+- «RUT» (label) — EvaluacionPage · l.741, when `each committee`
+- «Cargo» (label) — EvaluacionPage · l.762, when `each committee`
+- «Fecha de evaluacion» (label) — EvaluacionPage · l.790
+- «Hora inicio (HH:MM)» (label) — EvaluacionPage · l.803
+- «Hora fin (HH:MM)» (label) — EvaluacionPage · l.816
+- «No hay ATEs con propuestas registradas para evaluar.» — EvaluacionPage · l.834, when `ates.length === 0`
+- «Empresas ATE para evaluar» (aria-label) — EvaluacionPage · l.843, when `!(ates.length === 0)`
+- «Maximo: {criterio.puntaje_maximo} pts» — EvaluacionPage · l.895, when `!(ates.length === 0) && each ates && each criterios`, hidden by its class (`hidden`); another control opens it or it is for screen readers
+- «{criterio.nombre_criterio} — Puntaje (maximo: {criterio.puntaje_maximo} )» (label) — EvaluacionPage · l.900, when `!(ates.length === 0) && each ates && each criterios`, hidden by its class (`hidden sr-only`); another control opens it or it is for screen readers
+- «Max: {criterio.puntaje_maximo}» — EvaluacionPage · l.929, when `!(ates.length === 0) && each ates && each criterios && isOver`, hidden by its class (`hidden`); another control opens it or it is for screen readers
+- «Comentario para {criterio.nombre_criterio} (opcional)» (label) — EvaluacionPage · l.935, when `!(ates.length === 0) && each ates && each criterios`, hidden by its class (`hidden sr-only`); another control opens it or it is for screen readers
+- «Puntaje Tecnico: {criterios.reduce((sum, c) => { cons…} / 100» — EvaluacionPage · l.963, when `!(ates.length === 0) && each ates`, hidden by its class (`hidden`); another control opens it or it is for screen readers
+- «Monto propuesto ({licitacion.tipo_moneda})» (label) — EvaluacionPage · l.980, when `!(ates.length === 0) && each ates`, hidden by its class (`hidden`); another control opens it or it is for screen readers
+- «Puntaje Economico» — EvaluacionPage · l.1004, when `!(ates.length === 0) && each ates`, hidden by its class (`hidden`); another control opens it or it is for screen readers
+- «El programa no tiene criterios de evaluación activos: no se puede generar el Acta. Configúrelos en /admin/licitaciones/criterios.» — EvaluacionPage · l.1059, when `isEditable && !hasCriterios`
+- «Suba el Acta firmada por los miembros de la comision (PDF o imagen). Esta accion avanzara el estado a &ldquo;Adjudicacion Pendiente&rdquo;.» — EvaluacionPage · l.1079, when `isEditable`
+- «Acta firmada subida correctamente» — EvaluacionPage · l.1085, when `isEditable && actaSigned`
 
 ### Pieces it uses (each is listed once, under "Pieces" below)
 
@@ -1302,10 +1306,10 @@ File `pages/licitaciones/[id]/evaluacion.tsx` · 1117 lines · frame: MainLayout
 |---|---|---|
 | `/api/auth/my-roles` | GET | `pages/licitaciones/[id]/evaluacion.tsx:240` |
 | `/api/licitaciones/[id]` | GET | `pages/licitaciones/[id]/evaluacion.tsx:275` |
-| `/api/licitaciones/[id]/advance` | POST | `pages/licitaciones/[id]/evaluacion.tsx:611` |
-| `/api/licitaciones/[id]/evaluacion` | GET, POST | `pages/licitaciones/[id]/evaluacion.tsx:288`, `pages/licitaciones/[id]/evaluacion.tsx:514` |
-| `/api/licitaciones/[id]/generate-acta` | GET | `pages/licitaciones/[id]/evaluacion.tsx:551` |
-| `/api/licitaciones/[id]/upload` | POST | `pages/licitaciones/[id]/evaluacion.tsx:595` |
+| `/api/licitaciones/[id]/advance` | POST | `pages/licitaciones/[id]/evaluacion.tsx:621` |
+| `/api/licitaciones/[id]/evaluacion` | GET, POST | `pages/licitaciones/[id]/evaluacion.tsx:288`, `pages/licitaciones/[id]/evaluacion.tsx:521` |
+| `/api/licitaciones/[id]/generate-acta` | GET | `pages/licitaciones/[id]/evaluacion.tsx:561` |
+| `/api/licitaciones/[id]/upload` | POST | `pages/licitaciones/[id]/evaluacion.tsx:605` |
 
 ## /licitaciones/importar
 
@@ -1770,7 +1774,7 @@ File `pages/propuesta/[slug].tsx` · 220 lines · frame: none
 - Middleware: not covered. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: no.
 - In the page:
   - l.155 `router.push → /  (when error)`
-- Linked from: `components/licitaciones/ProposalConfigPanel.tsx:1632`, `components/licitaciones/ProposalConfigPanel.tsx:1652`, `components/licitaciones/ProposalConfigPanel.tsx:1653`, `lib/look.ts:113`
+- Linked from: `components/licitaciones/ProposalConfigPanel.tsx:1678`, `components/licitaciones/ProposalConfigPanel.tsx:1698`, `components/licitaciones/ProposalConfigPanel.tsx:1699`, `lib/look.ts:113`
 - Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/flows/proposal-buckets.spec.ts`, `tests/e2e/flows/proposal-web-view.spec.ts`.
 
 | Role | Sees it in the menu | Middleware |
@@ -2017,79 +2021,79 @@ Used by: `/licitaciones/[id]`
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «Centro de Documentos» | h2 |  | DocumentCenter · l.260 |
+| «Centro de Documentos» | h2 |  | DocumentCenter · l.265 |
 
 **Buttons** (4)
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «Generando ZIP... / Descargar Todo» | `{handleDownloadZip}` | `documentos.length > 0` | `{downloadingZip}` |  | DocumentCenter · l.266 |
-| «{folder.label} {folderDocs.length} archivo s» | `{() => toggleFolder(folder.key)}` | `!(documentos.length === 0) && each FOLDERS` |  |  | DocumentCenter · l.295 |
-| «⌛» · tooltip «Descargar» | `{() => handleDownload(doc)}` | `!(documentos.length === 0) && each FOLDERS && isExpanded && each folderDocs` | `{downloadingId === doc.id}` |  | DocumentCenter · l.330 |
-| «⌛» · tooltip «Eliminar documento» | `{() => { if (window.confirm('¿Eliminar "${doc.nombre}"? Esta accion no se puede …}` | `each FOLDERS && isExpanded && each folderDocs && isAdmin` | `{deletingId === doc.id}` |  | DocumentCenter · l.345 |
+| «Generando ZIP... / Descargar Todo» | `{handleDownloadZip}` | `documentos.length > 0` | `{downloadingZip}` |  | DocumentCenter · l.271 |
+| «{folder.label} {folderDocs.length} archivo s» | `{() => toggleFolder(folder.key)}` | `!(documentos.length === 0) && each FOLDERS` |  |  | DocumentCenter · l.300 |
+| «⌛» · tooltip «Descargar» | `{() => handleDownload(doc)}` | `!(documentos.length === 0) && each FOLDERS && isExpanded && each folderDocs` | `{downloadingId === doc.id}` |  | DocumentCenter · l.335 |
+| «⌛» · tooltip «Eliminar documento» | `{() => { if (window.confirm('¿Eliminar "${doc.nombre}"? Esta accion no se puede …}` | `each FOLDERS && isExpanded && each folderDocs && isAdmin && documentosEliminables` | `{deletingId === doc.id}` |  | DocumentCenter · l.350 |
 
 **Browser confirm()** (1)
 
 | Question | When | Where |
 |---|---|---|
-| «¿Eliminar "{doc.nombre}"? Esta accion no se puede deshacer.» | `each FOLDERS && isExpanded && each folderDocs && isAdmin` | DocumentCenter · l.347 |
+| «¿Eliminar "{doc.nombre}"? Esta accion no se puede deshacer.» | `each FOLDERS && isExpanded && each folderDocs && isAdmin && documentosEliminables` | DocumentCenter · l.352 |
 
 **Toasts** (5)
 
 | Kind | Text | When | Where |
 |---|---|---|---|
-| error | «Error al cargar documentos» |  | DocumentCenter · l.123 |
-| error | «Error al descargar documento» |  | handleDownload · l.166 |
-| error | «Error al descargar ZIP» |  | handleDownloadZip · l.201 |
-| success | «Documento eliminado» |  | handleDeleteDoc · l.222 |
-| error | «Error al eliminar documento» |  | handleDeleteDoc · l.225 |
+| error | «Error al cargar documentos» |  | DocumentCenter · l.128 |
+| error | «Error al descargar documento» |  | handleDownload · l.171 |
+| error | «Error al descargar ZIP» |  | handleDownloadZip · l.206 |
+| success | «Documento eliminado» |  | handleDeleteDoc · l.227 |
+| error | «Error al eliminar documento» |  | handleDeleteDoc · l.230 |
 
 **Messages set on the page** (5)
 
 | Text | Set by | When | Where |
 |---|---|---|---|
-| «Error al cargar documentos» | `throw (shown by whoever catches it)` | `!res.ok` | DocumentCenter · l.118 |
-| «No se pudo generar el enlace de descarga» | `throw (shown by whoever catches it)` | `!res.ok` | handleDownload · l.148 |
-| «Enlace de descarga no disponible» | `throw (shown by whoever catches it)` | `!signedUrl` | handleDownload · l.154 |
-| «Error al generar ZIP» | `throw (shown by whoever catches it)` | `!res.ok` | handleDownloadZip · l.186 |
-| «Error al eliminar documento» | `throw (shown by whoever catches it)` | `!res.ok` | handleDeleteDoc · l.220 |
+| «Error al cargar documentos» | `throw (shown by whoever catches it)` | `!res.ok` | DocumentCenter · l.123 |
+| «No se pudo generar el enlace de descarga» | `throw (shown by whoever catches it)` | `!res.ok` | handleDownload · l.153 |
+| «Enlace de descarga no disponible» | `throw (shown by whoever catches it)` | `!signedUrl` | handleDownload · l.159 |
+| «Error al generar ZIP» | `throw (shown by whoever catches it)` | `!res.ok` | handleDownloadZip · l.191 |
+| «Error al eliminar documento» | `throw (shown by whoever catches it)` | `!res.ok` | handleDeleteDoc · l.225 |
 
 **Downloads and printing** (3)
 
 | How | When | Where |
 |---|---|---|
-| `archivo: {doc.file_name \|\| doc.nombre}` |  | handleDownload · l.160 |
-| `URL.createObjectURL()` |  | handleDownloadZip · l.191 |
-| `archivo: {zipName}.zip` |  | handleDownloadZip · l.195 |
+| `archivo: {doc.file_name \|\| doc.nombre}` |  | handleDownload · l.165 |
+| `URL.createObjectURL()` |  | handleDownloadZip · l.196 |
+| `archivo: {zipName}.zip` |  | handleDownloadZip · l.200 |
 
 **Draws nothing when** (1)
 
 | Condition | Where |
 |---|---|
-| `folderDocs.length === 0` | DocumentCenter · l.288 |
+| `folderDocs.length === 0` | DocumentCenter · l.293 |
 
 **Pieces placed here, with the texts and settings handed to them** (1)
 
 | Piece | Texts and settings | Shown when | Hook | Where |
 |---|---|---|---|---|
-| `DocumentPreview` |  | `!(documentos.length === 0) && each FOLDERS && isExpanded && each folderDocs` |  | DocumentCenter · l.329 |
+| `DocumentPreview` |  | `!(documentos.length === 0) && each FOLDERS && isExpanded && each folderDocs` |  | DocumentCenter · l.334 |
 
 **Texts kept in lists and helpers in the code (labels, options, status names)** (1)
 
 | Name | Texts | Where |
 |---|---|---|
-| `FOLDERS` | «01 — Publicacion», «02 — Bases», «03 — Propuestas», «04 — Evaluacion», «05 — Adjudicacion», «06 — Otros» | l.34 |
+| `FOLDERS` | «01 — Publicacion», «02 — Bases», «03 — Propuestas», «04 — Evaluacion», «05 — Adjudicacion», «06 — Otros» | l.37 |
 
 **Values shown from data** (2)
 
-- `{doc.nombre}` — DocumentCenter · l.321, when `!(documentos.length === 0) && each FOLDERS && isExpanded && each folderDocs`
-- `{doc.file_name} [· {formatFileSize(doc.file_siz…}] [· {formatDate(doc.created_at)}]` — DocumentCenter · l.322, when `!(documentos.length === 0) && each FOLDERS && isExpanded && each folderDocs`
+- `{doc.nombre}` — DocumentCenter · l.326, when `!(documentos.length === 0) && each FOLDERS && isExpanded && each folderDocs`
+- `{doc.file_name} [· {formatFileSize(doc.file_siz…}] [· {formatDate(doc.created_at)}]` — DocumentCenter · l.327, when `!(documentos.length === 0) && each FOLDERS && isExpanded && each folderDocs`
 
 **Other texts on screen** (3)
 
-- «Cargando documentos...» — DocumentCenter · l.248, when `loading`
-- «( {documentos.length} archivos)» — DocumentCenter · l.262, when `documentos.length > 0`
-- «No hay documentos registrados para esta licitacion.» — DocumentCenter · l.282, when `documentos.length === 0`
+- «Cargando documentos...» — DocumentCenter · l.253, when `loading`
+- «( {documentos.length} archivos)» — DocumentCenter · l.267, when `documentos.length > 0`
+- «No hay documentos registrados para esta licitacion.» — DocumentCenter · l.287, when `documentos.length === 0`
 
 ### components/licitaciones/DocumentPreview.tsx
 
@@ -2177,202 +2181,218 @@ Used by: `/licitaciones/[id]`
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «P Generar Propuesta FNE Solo Admin» | h2 |  | ProposalConfigPanel · l.737 |
-| «Propuesta Web Generada» | h3 | `panelOpen && !(!dataLoaded) && lastGenResult` | ProposalConfigPanel · l.1602 |
+| «P Generar Propuesta FNE Solo Admin» | h2 |  | ProposalConfigPanel · l.777 |
+| «Propuesta Web Generada» | h3 | `panelOpen && !(!dataLoaded) && lastGenResult` | ProposalConfigPanel · l.1648 |
 
-**Buttons** (18)
+**Buttons** (21)
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «{title}» | `{onToggle}` |  |  |  | SectionHeader · l.150 |
-| «P Generar Propuesta FNE Solo Admin» | `{() => setPanelOpen(o => !o)}` |  |  |  | ProposalConfigPanel · l.732 |
-| «Objetivo General: revisar coherencia» | `{() => setObjetivoExpanded(o => !o)}` | `panelOpen && !(!dataLoaded) && selectedFicha && validationResult && validationResult.warnings.some(w => w.rule === 6)` |  |  | ProposalConfigPanel · l.810 |
-| «Por hora» | `{() => setPrecioModelo('per_hour')}` | `panelOpen && !(!dataLoaded) && secPrecio` |  |  | ProposalConfigPanel · l.1147 |
-| «Precio fijo» | `{() => setPrecioModelo('fixed')}` | `panelOpen && !(!dataLoaded) && secPrecio` |  |  | ProposalConfigPanel · l.1158 |
-| «Cargar desde plantilla» | `{loadFromPlantilla}` | `panelOpen && !(!dataLoaded) && secModulos` | `{!selectedPlantilla}` |  | ProposalConfigPanel · l.1269 |
-| «Agregar módulo» | `{addModule}` | `panelOpen && !(!dataLoaded) && secModulos` |  |  | ProposalConfigPanel · l.1277 |
-| «[icon ArrowUp]» | `{() => moveModule(i, 'up')}` | `!(!dataLoaded) && secModulos && !(modulos.length === 0) && each modulos` | `{i === 0}` |  | ProposalConfigPanel · l.1304 |
-| «[icon ArrowDown]» | `{() => moveModule(i, 'down')}` | `!(!dataLoaded) && secModulos && !(modulos.length === 0) && each modulos` | `{i === modulos.length - 1}` |  | ProposalConfigPanel · l.1312 |
-| «[icon Trash2]» | `{() => removeModule(i)}` | `!(!dataLoaded) && secModulos && !(modulos.length === 0) && each modulos` |  |  | ProposalConfigPanel · l.1330 |
-| «Generando... / Generar Propuesta Final» | `{handleGenerate}` | `panelOpen && !(!dataLoaded)` | `{generating \|\| !plantillaId \|\| !fichaId \|\| (validationResult !== null && !valida…}` |  | ProposalConfigPanel · l.1542 |
-| «Ocultar Vista Previa / Vista Previa» · tooltip «Muestra el PDF tal como se generará y descargará» | `{() => setShowPreview((v) => !v)}` | `panelOpen && !(!dataLoaded)` | `{!previewSnapshot}` |  | ProposalConfigPanel · l.1562 |
-| «[icon Copy]» · tooltip «Copiar código» | `{() => copyToClipboard(lastGenResult.access_code, 'Código')}` | `panelOpen && !(!dataLoaded) && lastGenResult` |  |  | ProposalConfigPanel · l.1614 |
-| «[icon Copy]» · tooltip «Copiar enlace» | `{() => copyToClipboard( '${window.location.origin}/propuesta/${lastGenResult.web…}` | `panelOpen && !(!dataLoaded) && lastGenResult` |  |  | ProposalConfigPanel · l.1634 |
-| «Copiar Link + Código» | `{() => { const url = '${window.location.origin}/propuesta/${lastGenResult.web_sl…}` | `panelOpen && !(!dataLoaded) && lastGenResult` |  |  | ProposalConfigPanel · l.1661 |
-| «Link» · tooltip «Copiar enlace web» | `{() => copyToClipboard( '${window.location.origin}/propuesta/${p.web_slug}', 'En…}` | `secHistorial && !(propuestas.length === 0) && each propuestas && p.estado === 'completada' && p.web_slug` |  |  | ProposalConfigPanel · l.1747 |
-| «Código {p.access_code_plain}» · tooltip «Copiar código de acceso» | `{() => copyToClipboard(p.access_code_plain as string, 'Código')}` | `secHistorial && !(propuestas.length === 0) && each propuestas && p.estado === 'completada' && p.access_code_plain` |  |  | ProposalConfigPanel · l.1763 |
-| «Regenerar Código» · tooltip «Próximamente» |  | `secHistorial && !(propuestas.length === 0) && each propuestas && p.estado === 'completada'` | `true` |  | ProposalConfigPanel · l.1774 |
+| «{title}» | `{onToggle}` |  |  |  | SectionHeader · l.151 |
+| «P Generar Propuesta FNE Solo Admin» | `{() => setPanelOpen(o => !o)}` |  |  |  | ProposalConfigPanel · l.772 |
+| «Objetivo General: revisar coherencia» | `{() => setObjetivoExpanded(o => !o)}` | `panelOpen && !(!dataLoaded) && selectedFicha && validationResult && validationResult.warnings.some(w => w.rule === 6)` |  |  | ProposalConfigPanel · l.850 |
+| «Por hora» | `{() => setPrecioModelo('per_hour')}` | `panelOpen && !(!dataLoaded) && secPrecio` |  |  | ProposalConfigPanel · l.1187 |
+| «Precio fijo» | `{() => setPrecioModelo('fixed')}` | `panelOpen && !(!dataLoaded) && secPrecio` |  |  | ProposalConfigPanel · l.1198 |
+| «Cargar desde plantilla» | `{loadFromPlantilla}` | `panelOpen && !(!dataLoaded) && secModulos` | `{!selectedPlantilla}` |  | ProposalConfigPanel · l.1315 |
+| «Agregar módulo» | `{addModule}` | `panelOpen && !(!dataLoaded) && secModulos` |  |  | ProposalConfigPanel · l.1323 |
+| «[icon ArrowUp]» | `{() => moveModule(i, 'up')}` | `!(!dataLoaded) && secModulos && !(modulos.length === 0) && each modulos` | `{i === 0}` |  | ProposalConfigPanel · l.1350 |
+| «[icon ArrowDown]» | `{() => moveModule(i, 'down')}` | `!(!dataLoaded) && secModulos && !(modulos.length === 0) && each modulos` | `{i === modulos.length - 1}` |  | ProposalConfigPanel · l.1358 |
+| «[icon Trash2]» | `{() => removeModule(i)}` | `!(!dataLoaded) && secModulos && !(modulos.length === 0) && each modulos` |  |  | ProposalConfigPanel · l.1376 |
+| «Generando... / Generar Propuesta Final» | `{handleGenerate}` | `panelOpen && !(!dataLoaded)` | `{generating \|\| !plantillaId \|\| !fichaId \|\| (validationResult !== null && !valida…}` |  | ProposalConfigPanel · l.1588 |
+| «Ocultar Vista Previa / Vista Previa» · tooltip «Muestra el PDF tal como se generará y descargará» | `{() => setShowPreview((v) => !v)}` | `panelOpen && !(!dataLoaded)` | `{!previewSnapshot}` |  | ProposalConfigPanel · l.1608 |
+| «[icon Copy]» · tooltip «Copiar código» | `{() => copyToClipboard(lastGenResult.access_code, 'Código')}` | `panelOpen && !(!dataLoaded) && lastGenResult` |  |  | ProposalConfigPanel · l.1660 |
+| «[icon Copy]» · tooltip «Copiar enlace» | `{() => copyToClipboard( '${window.location.origin}/propuesta/${lastGenResult.web…}` | `panelOpen && !(!dataLoaded) && lastGenResult` |  |  | ProposalConfigPanel · l.1680 |
+| «Copiar Link + Código» | `{() => { const url = '${window.location.origin}/propuesta/${lastGenResult.web_sl…}` | `panelOpen && !(!dataLoaded) && lastGenResult` |  |  | ProposalConfigPanel · l.1707 |
+| «Link» · tooltip «Copiar enlace web» | `{() => copyToClipboard( '${window.location.origin}/propuesta/${p.web_slug}', 'En…}` | `secHistorial && !(propuestas.length === 0) && each propuestas && p.estado === 'completada' && p.web_slug` |  |  | ProposalConfigPanel · l.1794 |
+| «Código {p.access_code_plain}» · tooltip «Copiar código de acceso» | `{() => copyToClipboard(p.access_code_plain as string, 'Código')}` | `secHistorial && !(propuestas.length === 0) && each propuestas && p.estado === 'completada' && p.access_code_plain` |  |  | ProposalConfigPanel · l.1810 |
+| «Regenerar Código» · tooltip «Próximamente» |  | `secHistorial && !(propuestas.length === 0) && each propuestas && p.estado === 'completada'` | `true` |  | ProposalConfigPanel · l.1821 |
+| «Retirar enlace» · tooltip «La escuela ya no podrá abrir esta versión» | `{() => setRetireConfirmId(p.id)}` | `secHistorial && !(propuestas.length === 0) && each propuestas && (p.estado === 'completada' && p.web_slug && (p.web_status === 'published' \|\| p.web_status === 'viewed'))` | `{retiringId === p.id}` | `testid=retirar-enlace-{p.id}` | ProposalConfigPanel · l.1833 |
+| «Sí, retirar enlace» | `{() => retireLink(p.id)}` | `secHistorial && !(propuestas.length === 0) && each propuestas && retireConfirmId === p.id` | `{retiringId === p.id}` | `testid=retirar-enlace-confirmar-{p.id}` | ProposalConfigPanel · l.1868 |
+| «Cancelar» | `{() => setRetireConfirmId(null)}` | `secHistorial && !(propuestas.length === 0) && each propuestas && retireConfirmId === p.id` | `{retiringId === p.id}` | `testid=retirar-enlace-cancelar-{p.id}` | ProposalConfigPanel · l.1878 |
 
 **Links** (5)
 
 | Text | Goes to | Shown when | Hook | Where |
 |---|---|---|---|---|
-| «Agregar consultores» | `/admin/licitaciones/consultores` (new tab) | `panelOpen && !(!dataLoaded) && secConsultores && consultores.length === 0` |  | ProposalConfigPanel · l.1070 |
-| «Subir documentos» | `/admin/licitaciones/documentos-propuesta` (new tab) | `panelOpen && !(!dataLoaded) && secDocumentos && documentos.length === 0` |  | ProposalConfigPanel · l.1454 |
-| «Gestionar biblioteca» | `/admin/licitaciones/documentos-propuesta` (new tab) | `panelOpen && !(!dataLoaded) && secDocumentos` |  | ProposalConfigPanel · l.1526 |
-| «Ver Propuesta Web» | `/propuesta/[*]` (new tab) | `panelOpen && !(!dataLoaded) && lastGenResult` |  | ProposalConfigPanel · l.1652 |
-| «PDF» | `{p.download_url}` (new tab) | `secHistorial && !(propuestas.length === 0) && each propuestas && p.estado === 'completada' && p.download_url` |  | ProposalConfigPanel · l.1784 |
+| «Agregar consultores» | `/admin/licitaciones/consultores` (new tab) | `panelOpen && !(!dataLoaded) && secConsultores && consultores.length === 0` |  | ProposalConfigPanel · l.1110 |
+| «Subir documentos» | `/admin/licitaciones/documentos-propuesta` (new tab) | `panelOpen && !(!dataLoaded) && secDocumentos && documentos.length === 0` |  | ProposalConfigPanel · l.1500 |
+| «Gestionar biblioteca» | `/admin/licitaciones/documentos-propuesta` (new tab) | `panelOpen && !(!dataLoaded) && secDocumentos` |  | ProposalConfigPanel · l.1572 |
+| «Ver Propuesta Web» | `/propuesta/[*]` (new tab) | `panelOpen && !(!dataLoaded) && lastGenResult` |  | ProposalConfigPanel · l.1698 |
+| «PDF» | `{p.download_url}` (new tab) | `secHistorial && !(propuestas.length === 0) && each propuestas && p.estado === 'completada' && p.download_url` |  | ProposalConfigPanel · l.1850 |
 
 **Fields** (19)
 
 | Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
 |---|---|---|---|---|---|---|
-| «Objetivo de la propuesta...» | textarea | «Objetivo de la propuesta...» |  | `!(!dataLoaded) && selectedFicha && validationResult && validationResult.warnings.some(w => w.rule === 6) && objetivoExpanded` |  | ProposalConfigPanel · l.832 |
-| «Plantilla» | select |  | «— Seleccionar —», «(lista) {p.nombre}» | `panelOpen && !(!dataLoaded)` |  | ProposalConfigPanel · l.882 |
-| «Ficha de Servicio» | select | disabled: `{!!plantillaId}` | «— Seleccionar —», «(lista) Folio {f.folio} — {f.nombre_servicio}» | `panelOpen && !(!dataLoaded)` |  | ProposalConfigPanel · l.899 |
-| «Presencial (hrs)» | number | `min=0` |  | `panelOpen && !(!dataLoaded) && secHoras` |  | ProposalConfigPanel · l.940 |
-| «Online Sincrónica (hrs)» | number | `min=0` |  | `panelOpen && !(!dataLoaded) && secHoras` |  | ProposalConfigPanel · l.954 |
-| «Online Asincrónica (hrs)» | number | `min=0` |  | `panelOpen && !(!dataLoaded) && secHoras` |  | ProposalConfigPanel · l.968 |
-| «Incluir acceso a Plataforma de Crecimiento» | checkbox |  |  | `panelOpen && !(!dataLoaded) && secPlataforma` |  | ProposalConfigPanel · l.1030 |
-| «Beneficios de la plataforma» | textarea | «Ej: Contenidos audiovisuales, formación cruzada, gestión del conocimiento interno» |  | `panelOpen && !(!dataLoaded) && secPlataforma && plataforma` |  | ProposalConfigPanel · l.1045 |
-| «{c.nombre} [✓ en Ficha] {c.titulo} Comité Intl. / Equipo FNE / Asesor Intl.» | checkbox |  |  | `!(!dataLoaded) && secConsultores && !(consultores.length === 0) && each consultores` |  | ProposalConfigPanel · l.1096 |
-| «Valor UF por hora» | number | «Ej: 1.2» · `min=0 step=0.01` |  | `panelOpen && !(!dataLoaded) && secPrecio && precioModelo === 'per_hour'` |  | ProposalConfigPanel · l.1177 |
-| «Precio fijo (UF)» | number | «Ej: 888» · `min=0 step=0.01` |  | `panelOpen && !(!dataLoaded) && secPrecio && !(precioModelo === 'per_hour')` |  | ProposalConfigPanel · l.1205 |
-| «Forma de pago» | select |  | «— Seleccionar —», «3 cuotas iguales», «2 cuotas iguales», «Pago único», «Personalizado» | `panelOpen && !(!dataLoaded) && secPrecio` |  | ProposalConfigPanel · l.1231 |
-| «Detalle de pago» | text | «Ej: 33% inicio, 33% julio, 34% noviembre» |  | `panelOpen && !(!dataLoaded) && secPrecio` |  | ProposalConfigPanel · l.1247 |
-| «{`Módulo ${i + 1}`}» | text | «{`Módulo ${i + 1}`}» |  | `!(!dataLoaded) && secModulos && !(modulos.length === 0) && each modulos` |  | ProposalConfigPanel · l.1321 |
-| «Presencial» | number | `min=0` |  | `!(!dataLoaded) && secModulos && !(modulos.length === 0) && each modulos` |  | ProposalConfigPanel · l.1343 |
-| «Sincrónica» | number | `min=0` |  | `!(!dataLoaded) && secModulos && !(modulos.length === 0) && each modulos` |  | ProposalConfigPanel · l.1357 |
-| «Asincrónica» | number | `min=0` |  | `!(!dataLoaded) && secModulos && !(modulos.length === 0) && each modulos` |  | ProposalConfigPanel · l.1371 |
-| «Mes» | select |  | «—», «(lista) {mes}» | `!(!dataLoaded) && secModulos && !(modulos.length === 0) && each modulos` |  | ProposalConfigPanel · l.1385 |
-| «{doc.nombre} {TIPO_LABELS[doc.tipo]} [Vencido — bloquea generación] [Vence {formatDate(doc.fecha_vencimiento)}] [Vence: {formatDate(doc.fecha_vencimiento)}]» | checkbox | disabled: `{doc.expired}` |  | `!(!dataLoaded) && secDocumentos && !(documentos.length === 0) && each documentos` |  | ProposalConfigPanel · l.1480 |
+| «Objetivo de la propuesta...» | textarea | «Objetivo de la propuesta...» |  | `!(!dataLoaded) && selectedFicha && validationResult && validationResult.warnings.some(w => w.rule === 6) && objetivoExpanded` |  | ProposalConfigPanel · l.872 |
+| «Plantilla» | select |  | «— Seleccionar —», «(lista) {p.nombre}» | `panelOpen && !(!dataLoaded)` |  | ProposalConfigPanel · l.922 |
+| «Ficha de Servicio» | select | disabled: `{!!plantillaId}` | «— Seleccionar —», «(lista) Folio {f.folio} — {f.nombre_servicio}» | `panelOpen && !(!dataLoaded)` |  | ProposalConfigPanel · l.939 |
+| «Presencial (hrs)» | number | `min=0` |  | `panelOpen && !(!dataLoaded) && secHoras` |  | ProposalConfigPanel · l.980 |
+| «Online Sincrónica (hrs)» | number | `min=0` |  | `panelOpen && !(!dataLoaded) && secHoras` |  | ProposalConfigPanel · l.994 |
+| «Online Asincrónica (hrs)» | number | `min=0` |  | `panelOpen && !(!dataLoaded) && secHoras` |  | ProposalConfigPanel · l.1008 |
+| «Incluir acceso a Plataforma de Crecimiento» | checkbox |  |  | `panelOpen && !(!dataLoaded) && secPlataforma` |  | ProposalConfigPanel · l.1070 |
+| «Beneficios de la plataforma» | textarea | «Ej: Contenidos audiovisuales, formación cruzada, gestión del conocimiento interno» |  | `panelOpen && !(!dataLoaded) && secPlataforma && plataforma` |  | ProposalConfigPanel · l.1085 |
+| «{c.nombre} [✓ en Ficha] {c.titulo} Comité Intl. / Equipo FNE / Asesor Intl.» | checkbox |  |  | `!(!dataLoaded) && secConsultores && !(consultores.length === 0) && each consultores` |  | ProposalConfigPanel · l.1136 |
+| «Valor UF por hora» | number | «Ej: 1.2» · `min=0 step=0.01` |  | `panelOpen && !(!dataLoaded) && secPrecio && precioModelo === 'per_hour'` |  | ProposalConfigPanel · l.1217 |
+| «Precio fijo (UF)» | number | «Ej: 888» · `min=0 step=0.01` |  | `panelOpen && !(!dataLoaded) && secPrecio && !(precioModelo === 'per_hour')` |  | ProposalConfigPanel · l.1248 |
+| «Forma de pago» | select |  | «— Seleccionar —», «3 cuotas iguales», «2 cuotas iguales», «Pago único», «Personalizado» | `panelOpen && !(!dataLoaded) && secPrecio` |  | ProposalConfigPanel · l.1277 |
+| «Detalle de pago» | text | «Ej: 33% inicio, 33% julio, 34% noviembre» |  | `panelOpen && !(!dataLoaded) && secPrecio` |  | ProposalConfigPanel · l.1293 |
+| «{`Módulo ${i + 1}`}» | text | «{`Módulo ${i + 1}`}» |  | `!(!dataLoaded) && secModulos && !(modulos.length === 0) && each modulos` |  | ProposalConfigPanel · l.1367 |
+| «Presencial» | number | `min=0` |  | `!(!dataLoaded) && secModulos && !(modulos.length === 0) && each modulos` |  | ProposalConfigPanel · l.1389 |
+| «Sincrónica» | number | `min=0` |  | `!(!dataLoaded) && secModulos && !(modulos.length === 0) && each modulos` |  | ProposalConfigPanel · l.1403 |
+| «Asincrónica» | number | `min=0` |  | `!(!dataLoaded) && secModulos && !(modulos.length === 0) && each modulos` |  | ProposalConfigPanel · l.1417 |
+| «Mes» | select |  | «—», «(lista) {mes}» | `!(!dataLoaded) && secModulos && !(modulos.length === 0) && each modulos` |  | ProposalConfigPanel · l.1431 |
+| «{doc.nombre} {TIPO_LABELS[doc.tipo]} [Vencido — bloquea generación] [Vence {formatDate(doc.fecha_vencimiento)}] [Vence: {formatDate(doc.fecha_vencimiento)}]» | checkbox | disabled: `{doc.expired}` |  | `!(!dataLoaded) && secDocumentos && !(documentos.length === 0) && each documentos` |  | ProposalConfigPanel · l.1526 |
 
-**Toasts** (14)
+**Toasts** (17)
 
 | Kind | Text | When | Where |
 |---|---|---|---|
-| error | «Error de red al cargar {label}» | `result.status === 'rejected'` | getJson · l.255 |
-| error | «Respuesta inválida al cargar {label}» |  | getJson · l.262 |
-| error | «Error inesperado al cargar datos de configuración» |  | ProposalConfigPanel · l.285 |
-| success | «Configuración cargada desde plantilla» |  | loadFromPlantilla · l.567 |
-| success | «{label} copiado al portapapeles» |  | copyToClipboard · l.587 |
-| error | «Error al copiar» |  | copyToClipboard · l.589 |
-| error | «Seleccione una plantilla y ficha antes de generar» | `!plantillaId \|\| !fichaId` | handleGenerate · l.599 |
-| error | «Ficha de servicio no encontrada» | `!selectedFicha` | handleGenerate · l.603 |
-| error | «Hay {validationResult.errors.len…} error(es) de validación MINEDUC. Corrija antes de generar.» | `validationResult && !validationResult.valid` | handleGenerate · l.607 |
-| error | «Hay {expiredSelected.length} certificado(s) vencido(s) seleccionado(s). Actualícelos antes de generar.» | `expiredSelected.length > 0` | handleGenerate · l.617 |
-| error | «Sin conexión al servidor. Verifique su red e intente nuevamente.» |  | handleGenerate · l.688 |
-| error | «Error al generar propuesta» | `!res.ok` | handleGenerate · l.695 |
-| success | «Propuesta generada exitosamente» |  | handleGenerate · l.699 |
-| error | «Error inesperado al generar propuesta» |  | handleGenerate · l.719 |
+| error | «Error de red al cargar {label}» | `result.status === 'rejected'` | getJson · l.261 |
+| error | «Respuesta inválida al cargar {label}» |  | getJson · l.268 |
+| error | «Error inesperado al cargar datos de configuración» |  | ProposalConfigPanel · l.291 |
+| success | «Configuración cargada desde plantilla» |  | loadFromPlantilla · l.578 |
+| success | «{label} copiado al portapapeles» |  | copyToClipboard · l.598 |
+| error | «Error al copiar» |  | copyToClipboard · l.600 |
+| error | «Error al retirar el enlace» | `!res.ok` | retireLink · l.618 |
+| success | «Enlace retirado» |  | retireLink · l.625 |
+| error | «Sin conexión al servidor. Verifique su red e intente nuevamente.» |  | retireLink · l.627 |
+| error | «Seleccione una plantilla y ficha antes de generar» | `!plantillaId \|\| !fichaId` | handleGenerate · l.639 |
+| error | «Ficha de servicio no encontrada» | `!selectedFicha` | handleGenerate · l.643 |
+| error | «Hay {validationResult.errors.len…} error(es) de validación MINEDUC. Corrija antes de generar.» | `validationResult && !validationResult.valid` | handleGenerate · l.647 |
+| error | «Hay {expiredSelected.length} certificado(s) vencido(s) seleccionado(s). Actualícelos antes de generar.» | `expiredSelected.length > 0` | handleGenerate · l.657 |
+| error | «Sin conexión al servidor. Verifique su red e intente nuevamente.» |  | handleGenerate · l.728 |
+| error | «Error al generar propuesta» | `!res.ok` | handleGenerate · l.735 |
+| success | «Propuesta generada exitosamente» |  | handleGenerate · l.739 |
+| error | «Error inesperado al generar propuesta» |  | handleGenerate · l.759 |
 
 **Draws nothing when** (2)
 
 | Condition | Where |
 |---|---|
-| `!selectedPlantilla \|\| !selectedFicha` | ProposalConfigPanel · l.321 |
-| `!selectedFicha` | ProposalConfigPanel · l.450 |
+| `!selectedPlantilla \|\| !selectedFicha` | ProposalConfigPanel · l.332 |
+| `!selectedFicha` | ProposalConfigPanel · l.461 |
 
 **Pieces placed here, with the texts and settings handed to them** (15)
 
 | Piece | Texts and settings | Shown when | Hook | Where |
 |---|---|---|---|---|
-| `ValidationRow` | label: Nombre del Servicio · detail: coincide con la Ficha | `panelOpen && !(!dataLoaded) && selectedFicha && validationResult` |  | ProposalConfigPanel · l.770 |
-| `ValidationRow` | label: Horas presenciales + sincrónicas · detail: {subtotalHoras}/{selectedFicha.horas_presenc…} registradas | `panelOpen && !(!dataLoaded) && selectedFicha && validationResult` |  | ProposalConfigPanel · l.779 |
-| `ValidationRow` | label: Destinatarios | `panelOpen && !(!dataLoaded) && selectedFicha && validationResult` |  | ProposalConfigPanel · l.790 |
-| `ValidationRow` | label: Consultores en Ficha · detail: {selectedConsultores.length} seleccionado(s) | `panelOpen && !(!dataLoaded) && selectedFicha && validationResult` |  | ProposalConfigPanel · l.799 |
-| `ValidationRow` | label: Suma de módulos | `panelOpen && !(!dataLoaded) && selectedFicha && validationResult && validationResult.errors.some(e => e.rule === 7)` |  | ProposalConfigPanel · l.846 |
-| `SectionHeader` | title: Configuración de Horas | `panelOpen && !(!dataLoaded)` |  | ProposalConfigPanel · l.928 |
-| `SectionHeader` | title: Distribución de Actividades | `panelOpen && !(!dataLoaded)` |  | ProposalConfigPanel · l.1007 |
-| `BucketConfigSection` |  | `panelOpen && !(!dataLoaded) && secBuckets` |  | ProposalConfigPanel · l.1013 |
-| `SectionHeader` | title: Plataforma de Crecimiento | `panelOpen && !(!dataLoaded)` |  | ProposalConfigPanel · l.1022 |
-| `SectionHeader` | title: Equipo Consultor ({consultoresIds.length} seleccionado{consultoresIds.length !== 1…}) | `panelOpen && !(!dataLoaded)` |  | ProposalConfigPanel · l.1060 |
-| `SectionHeader` | title: Propuesta Económica | `panelOpen && !(!dataLoaded)` |  | ProposalConfigPanel · l.1138 |
-| `SectionHeader` | title: Módulos / Actividades | `panelOpen && !(!dataLoaded)` |  | ProposalConfigPanel · l.1261 |
-| `SectionHeader` | title: Documentos Adjuntos ({documentosIds.length} seleccionado{documentosIds.length !== 1 …}) | `panelOpen && !(!dataLoaded)` |  | ProposalConfigPanel · l.1444 |
-| `ProposalPreview` |  | `panelOpen && !(!dataLoaded) && showPreview && previewSnapshot` |  | ProposalConfigPanel · l.1590 |
-| `SectionHeader` | title: Historial de Propuestas ({propuestas.length}) | `panelOpen && !(!dataLoaded)` |  | ProposalConfigPanel · l.1679 |
+| `ValidationRow` | label: Nombre del Servicio · detail: coincide con la Ficha | `panelOpen && !(!dataLoaded) && selectedFicha && validationResult` |  | ProposalConfigPanel · l.810 |
+| `ValidationRow` | label: Horas presenciales + sincrónicas · detail: {subtotalHoras}/{selectedFicha.horas_presenc…} registradas | `panelOpen && !(!dataLoaded) && selectedFicha && validationResult` |  | ProposalConfigPanel · l.819 |
+| `ValidationRow` | label: Destinatarios | `panelOpen && !(!dataLoaded) && selectedFicha && validationResult` |  | ProposalConfigPanel · l.830 |
+| `ValidationRow` | label: Consultores en Ficha · detail: {selectedConsultores.length} seleccionado(s) | `panelOpen && !(!dataLoaded) && selectedFicha && validationResult` |  | ProposalConfigPanel · l.839 |
+| `ValidationRow` | label: Suma de módulos | `panelOpen && !(!dataLoaded) && selectedFicha && validationResult && validationResult.errors.some(e => e.rule === 7)` |  | ProposalConfigPanel · l.886 |
+| `SectionHeader` | title: Configuración de Horas | `panelOpen && !(!dataLoaded)` |  | ProposalConfigPanel · l.968 |
+| `SectionHeader` | title: Distribución de Actividades | `panelOpen && !(!dataLoaded)` |  | ProposalConfigPanel · l.1047 |
+| `BucketConfigSection` |  | `panelOpen && !(!dataLoaded) && secBuckets` |  | ProposalConfigPanel · l.1053 |
+| `SectionHeader` | title: Plataforma de Crecimiento | `panelOpen && !(!dataLoaded)` |  | ProposalConfigPanel · l.1062 |
+| `SectionHeader` | title: Equipo Consultor ({consultoresIds.length} seleccionado{consultoresIds.length !== 1…}) | `panelOpen && !(!dataLoaded)` |  | ProposalConfigPanel · l.1100 |
+| `SectionHeader` | title: Propuesta Económica | `panelOpen && !(!dataLoaded)` |  | ProposalConfigPanel · l.1178 |
+| `SectionHeader` | title: Módulos / Actividades | `panelOpen && !(!dataLoaded)` |  | ProposalConfigPanel · l.1307 |
+| `SectionHeader` | title: Documentos Adjuntos ({documentosIds.length} seleccionado{documentosIds.length !== 1 …}) | `panelOpen && !(!dataLoaded)` |  | ProposalConfigPanel · l.1490 |
+| `ProposalPreview` |  | `panelOpen && !(!dataLoaded) && showPreview && previewSnapshot` |  | ProposalConfigPanel · l.1636 |
+| `SectionHeader` | title: Historial de Propuestas ({propuestas.length}) | `panelOpen && !(!dataLoaded)` |  | ProposalConfigPanel · l.1725 |
 
 **Texts kept in lists and helpers in the code (labels, options, status names)** (6)
 
 | Name | Texts | Where |
 |---|---|---|
-| `TIPO_LABELS` | «Cert. Pertenencia», «Eval. Clientes», «Carta Rec.», «Ficha MINEDUC», «Otro» | l.72 |
-| `MESES` | «Enero», «Febrero», «Marzo», «Abril», «Mayo», «Junio», «Julio», «Agosto», «Septiembre», «Octubre», «Noviembre», «Diciembre» | l.88 |
-| `WEB_STATUS_LABELS` | «Borrador», «Publicada», «Vista», «Expirada» | l.121 |
-| `payload` | «3 cuotas iguales» | handleGenerate · l.631 |
-| `text` | «Link: {url} Código: {lastGenResult.access_code}» | ProposalConfigPanel · l.1665 |
-| `color` | «amber / green / red» | ValidationRow · l.1831 |
+| `TIPO_LABELS` | «Cert. Pertenencia», «Eval. Clientes», «Carta Rec.», «Ficha MINEDUC», «Otro» | l.73 |
+| `MESES` | «Enero», «Febrero», «Marzo», «Abril», «Mayo», «Junio», «Julio», «Agosto», «Septiembre», «Octubre», «Noviembre», «Diciembre» | l.89 |
+| `WEB_STATUS_LABELS` | «Borrador», «Publicada», «Vista», «Expirada» | l.122 |
+| `payload` | «3 cuotas iguales» | handleGenerate · l.671 |
+| `text` | «Link: {url} Código: {lastGenResult.access_code}» | ProposalConfigPanel · l.1711 |
+| `color` | «amber / green / red» | ValidationRow · l.1924 |
 
 **Other texts written in the code (safety net: not tied to an element by the script)** (1)
 
 | Text | Where |
 |---|---|
-| «Escuela» | ProposalConfigPanel · l.324 |
+| «Escuela» | ProposalConfigPanel · l.335 |
+
+**Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (3)
+
+| Kind | What | Where |
+|---|---|---|
+| mark | `testid=proposal-total-uf` | ProposalConfigPanel · l.1231 |
+| mark | `testid=proposal-total-uf` | ProposalConfigPanel · l.1262 |
+| mark | `testid=propuesta-row-{p.id}` | ProposalConfigPanel · l.1739 |
 
 **Values shown from data** (8)
 
-- `{validationResult.warnings.find(w =>…}` — ProposalConfigPanel · l.826, when `!(!dataLoaded) && selectedFicha && validationResult && validationResult.warnings.some(w => w.rule === 6) && objetivoExpanded`
-- `{lastGenResult.access_code}` — ProposalConfigPanel · l.1611, when `panelOpen && !(!dataLoaded) && lastGenResult`
-- `{formatDateTime(p.created_at)}` — ProposalConfigPanel · l.1708, when `!(!dataLoaded) && secHistorial && !(propuestas.length === 0) && each propuestas`
-- `{p.estado}` — ProposalConfigPanel · l.1711, when `!(!dataLoaded) && secHistorial && !(propuestas.length === 0) && each propuestas`
-- `{WEB_STATUS_LABELS[p.web_status]} / {p.web_status}` — ProposalConfigPanel · l.1725, when `secHistorial && !(propuestas.length === 0) && each propuestas && p.web_status`
-- `{p.error_message}` — ProposalConfigPanel · l.1797, when `secHistorial && !(propuestas.length === 0) && each propuestas && p.estado === 'error' && p.error_message`
-- `{label} :` — ValidationRow · l.1837
-- `{detail}` — ValidationRow · l.1840
+- `{validationResult.warnings.find(w =>…}` — ProposalConfigPanel · l.866, when `!(!dataLoaded) && selectedFicha && validationResult && validationResult.warnings.some(w => w.rule === 6) && objetivoExpanded`
+- `{lastGenResult.access_code}` — ProposalConfigPanel · l.1657, when `panelOpen && !(!dataLoaded) && lastGenResult`
+- `{formatDateTime(p.created_at)}` — ProposalConfigPanel · l.1755, when `!(!dataLoaded) && secHistorial && !(propuestas.length === 0) && each propuestas`
+- `{p.estado}` — ProposalConfigPanel · l.1758, when `!(!dataLoaded) && secHistorial && !(propuestas.length === 0) && each propuestas`
+- `{WEB_STATUS_LABELS[p.web_status]} / {p.web_status}` — ProposalConfigPanel · l.1772, when `secHistorial && !(propuestas.length === 0) && each propuestas && p.web_status`
+- `{p.error_message}` — ProposalConfigPanel · l.1890, when `secHistorial && !(propuestas.length === 0) && each propuestas && p.estado === 'error' && p.error_message`
+- `{label} :` — ValidationRow · l.1930
+- `{detail}` — ValidationRow · l.1933
 
-**Other texts on screen** (60)
+**Other texts on screen** (62)
 
-- «Validación MINEDUC» — ProposalConfigPanel · l.761, when `panelOpen && !(!dataLoaded) && selectedFicha && validationResult`
-- «Ficha: Folio {selectedFicha.folio} — {selectedFicha.nombre_servicio}» — ProposalConfigPanel · l.763, when `panelOpen && !(!dataLoaded) && selectedFicha && validationResult`
-- «Ficha MINEDUC:» — ProposalConfigPanel · l.825, when `!(!dataLoaded) && selectedFicha && validationResult && validationResult.warnings.some(w => w.rule === 6) && objetivoExpanded`
-- «Propuesta:» — ProposalConfigPanel · l.831, when `!(!dataLoaded) && selectedFicha && validationResult && validationResult.warnings.some(w => w.rule === 6) && objetivoExpanded`
-- «Puede generar» — ProposalConfigPanel · l.865, when `panelOpen && !(!dataLoaded) && selectedFicha && validationResult && validationResult.valid`
-- «No puede generar (» — ProposalConfigPanel · l.870, when `panelOpen && !(!dataLoaded) && selectedFicha && validationResult && !(validationResult.valid)`
-- «error» — ProposalConfigPanel · l.870, when `panelOpen && !(!dataLoaded) && selectedFicha && validationResult && !(validationResult.valid)`
-- «es» — ProposalConfigPanel · l.871, when `panelOpen && !(!dataLoaded) && selectedFicha && validationResult && !(validationResult.valid)`
-- «Plantilla» (label) — ProposalConfigPanel · l.881, when `panelOpen && !(!dataLoaded)`
-- «Ficha de Servicio» (label) — ProposalConfigPanel · l.896, when `panelOpen && !(!dataLoaded)`
-- «La ficha se determina por la plantilla seleccionada» — ProposalConfigPanel · l.914, when `panelOpen && !(!dataLoaded) && plantillaId`
-- «{selectedFicha.horas_presenciales} h presenciales registradas · {selectedFicha.destinatarios.join(',…}» — ProposalConfigPanel · l.918, when `panelOpen && !(!dataLoaded) && selectedFicha`
-- «Presencial (hrs)» (label) — ProposalConfigPanel · l.937, when `panelOpen && !(!dataLoaded) && secHoras`
-- «Online Sincrónica (hrs)» (label) — ProposalConfigPanel · l.951, when `panelOpen && !(!dataLoaded) && secHoras`
-- «Online Asincrónica (hrs)» (label) — ProposalConfigPanel · l.965, when `panelOpen && !(!dataLoaded) && secHoras`
-- «Subtotal presencial:» — ProposalConfigPanel · l.992, when `panelOpen && !(!dataLoaded) && secHoras`
-- «hrs» — ProposalConfigPanel · l.992, when `panelOpen && !(!dataLoaded) && secHoras`
-- «(de {selectedFicha.horas_presenc…} registradas)» — ProposalConfigPanel · l.993, when `panelOpen && !(!dataLoaded) && secHoras`
-- «Total:» — ProposalConfigPanel · l.996, when `panelOpen && !(!dataLoaded) && secHoras`
-- «{totalHoras} hrs» — ProposalConfigPanel · l.997, when `panelOpen && !(!dataLoaded) && secHoras`
-- «asíncronas)» — ProposalConfigPanel · l.998, when `panelOpen && !(!dataLoaded) && secHoras`
-- «Incluir acceso a Plataforma de Crecimiento» (label) — ProposalConfigPanel · l.1029, when `panelOpen && !(!dataLoaded) && secPlataforma`
-- «Beneficios de la plataforma» (label) — ProposalConfigPanel · l.1042, when `panelOpen && !(!dataLoaded) && secPlataforma && plataforma`
-- «No hay consultores.» — ProposalConfigPanel · l.1069, when `panelOpen && !(!dataLoaded) && secConsultores && consultores.length === 0`
-- «{c.nombre} [✓ en Ficha] {c.titulo} Comité Intl. / Equipo FNE / Asesor Intl.» (label) — ProposalConfigPanel · l.1088, when `!(!dataLoaded) && secConsultores && !(consultores.length === 0) && each consultores`
-- «Ficha registra {selectedFicha.equipo_trabajo.length} miembro(s) en equipo de trabajo. Se requieren al menos 2 coincidencias.» — ProposalConfigPanel · l.1127, when `panelOpen && !(!dataLoaded) && secConsultores && selectedFicha?.equipo_trabajo`
-- «Valor UF por hora» (label) — ProposalConfigPanel · l.1174, when `panelOpen && !(!dataLoaded) && secPrecio && precioModelo === 'per_hour'`
-- «Total calculado» (label) — ProposalConfigPanel · l.1188, when `panelOpen && !(!dataLoaded) && secPrecio && precioModelo === 'per_hour'`
-- «UF» — ProposalConfigPanel · l.1192, when `panelOpen && !(!dataLoaded) && secPrecio && precioModelo === 'per_hour'`
-- «( {precioUfNum} × {totalHoras} h)» — ProposalConfigPanel · l.1193, when `panelOpen && !(!dataLoaded) && secPrecio && precioModelo === 'per_hour'`
-- «Precio fijo (UF)» (label) — ProposalConfigPanel · l.1202, when `panelOpen && !(!dataLoaded) && secPrecio && !(precioModelo === 'per_hour')`
-- «Total» (label) — ProposalConfigPanel · l.1216, when `panelOpen && !(!dataLoaded) && secPrecio && !(precioModelo === 'per_hour')`
-- «{fixedUfNum.toFixed(2)} UF» — ProposalConfigPanel · l.1219, when `panelOpen && !(!dataLoaded) && secPrecio && !(precioModelo === 'per_hour')`
-- «Forma de pago» (label) — ProposalConfigPanel · l.1228, when `panelOpen && !(!dataLoaded) && secPrecio`
-- «Detalle de pago» (label) — ProposalConfigPanel · l.1244, when `panelOpen && !(!dataLoaded) && secPrecio`
-- «Sin módulos configurados. Use &ldquo;Cargar desde plantilla&rdquo; o agregue manualmente.» — ProposalConfigPanel · l.1289, when `panelOpen && !(!dataLoaded) && secModulos && modulos.length === 0`
-- «{mTotal} h» — ProposalConfigPanel · l.1327, when `!(!dataLoaded) && secModulos && !(modulos.length === 0) && each modulos`
-- «Presencial» (label) — ProposalConfigPanel · l.1340, when `!(!dataLoaded) && secModulos && !(modulos.length === 0) && each modulos`
-- «Sincrónica» (label) — ProposalConfigPanel · l.1354, when `!(!dataLoaded) && secModulos && !(modulos.length === 0) && each modulos`
-- «Asincrónica» (label) — ProposalConfigPanel · l.1368, when `!(!dataLoaded) && secModulos && !(modulos.length === 0) && each modulos`
-- «Mes» (label) — ProposalConfigPanel · l.1382, when `!(!dataLoaded) && secModulos && !(modulos.length === 0) && each modulos`
-- «Suma módulos:» — ProposalConfigPanel · l.1409, when `panelOpen && !(!dataLoaded) && secModulos && !(modulos.length === 0)`
-- «{modulos.reduce( (acc, m) => acc + m…} h» — ProposalConfigPanel · l.1410, when `panelOpen && !(!dataLoaded) && secModulos && !(modulos.length === 0)`
-- «h total» — ProposalConfigPanel · l.1434, when `panelOpen && !(!dataLoaded) && secModulos && !(modulos.length === 0)`
-- «No hay documentos.» — ProposalConfigPanel · l.1453, when `panelOpen && !(!dataLoaded) && secDocumentos && documentos.length === 0`
-- «{doc.nombre} {TIPO_LABELS[doc.tipo]} [Vencido — bloquea generación] [Vence {formatDate(doc.fecha_vencimiento)}] [Vence: {formatDate(doc.fecha_vencimiento)}]» (label) — ProposalConfigPanel · l.1468, when `!(!dataLoaded) && secDocumentos && !(documentos.length === 0) && each documentos`
-- «Los CVs de los consultores seleccionados se incluyen automáticamente.» — ProposalConfigPanel · l.1525, when `panelOpen && !(!dataLoaded) && secDocumentos`
-- «Seleccione una plantilla para continuar» — ProposalConfigPanel · l.1572, when `panelOpen && !(!dataLoaded) && !plantillaId`
-- «Seleccione una ficha de servicio» — ProposalConfigPanel · l.1575, when `panelOpen && !(!dataLoaded) && plantillaId && !fichaId`
-- «{validationResult.errors.length} error es de validación MINEDUC» — ProposalConfigPanel · l.1578, when `panelOpen && !(!dataLoaded) && validationResult && !validationResult.valid`
-- «La generación puede tomar hasta 60 segundos. No cierre la página.» — ProposalConfigPanel · l.1585, when `panelOpen && !(!dataLoaded)`
-- «Comparta el enlace y código de acceso con el cliente» — ProposalConfigPanel · l.1603, when `panelOpen && !(!dataLoaded) && lastGenResult`
-- «Código de Acceso» (label) — ProposalConfigPanel · l.1609, when `panelOpen && !(!dataLoaded) && lastGenResult`
-- «Enlace Web» (label) — ProposalConfigPanel · l.1627, when `panelOpen && !(!dataLoaded) && lastGenResult`
-- «{window.location.origin}/propuesta/{lastGenResult.web_slug} / /propuesta/{lastGenResult.web_slug}» — ProposalConfigPanel · l.1629, when `panelOpen && !(!dataLoaded) && lastGenResult`
-- «No hay propuestas generadas aún para esta licitación.» — ProposalConfigPanel · l.1688, when `panelOpen && !(!dataLoaded) && secHistorial && propuestas.length === 0`
-- «v {p.version}» — ProposalConfigPanel · l.1705, when `!(!dataLoaded) && secHistorial && !(propuestas.length === 0) && each propuestas`
-- «vista» — ProposalConfigPanel · l.1736, when `secHistorial && !(propuestas.length === 0) && each propuestas && p.view_count != null && p.view_count > 0`
-- «s» — ProposalConfigPanel · l.1736, when `secHistorial && !(propuestas.length === 0) && each propuestas && p.view_count != null && p.view_count > 0`
-- «&middot; {formatDateTime(p.viewed_at)}» — ProposalConfigPanel · l.1738, when `!(propuestas.length === 0) && each propuestas && p.view_count != null && p.view_count > 0 && p.viewed_at`
+- «Validación MINEDUC» — ProposalConfigPanel · l.801, when `panelOpen && !(!dataLoaded) && selectedFicha && validationResult`
+- «Ficha: Folio {selectedFicha.folio} — {selectedFicha.nombre_servicio}» — ProposalConfigPanel · l.803, when `panelOpen && !(!dataLoaded) && selectedFicha && validationResult`
+- «Ficha MINEDUC:» — ProposalConfigPanel · l.865, when `!(!dataLoaded) && selectedFicha && validationResult && validationResult.warnings.some(w => w.rule === 6) && objetivoExpanded`
+- «Propuesta:» — ProposalConfigPanel · l.871, when `!(!dataLoaded) && selectedFicha && validationResult && validationResult.warnings.some(w => w.rule === 6) && objetivoExpanded`
+- «Puede generar» — ProposalConfigPanel · l.905, when `panelOpen && !(!dataLoaded) && selectedFicha && validationResult && validationResult.valid`
+- «No puede generar (» — ProposalConfigPanel · l.910, when `panelOpen && !(!dataLoaded) && selectedFicha && validationResult && !(validationResult.valid)`
+- «error» — ProposalConfigPanel · l.910, when `panelOpen && !(!dataLoaded) && selectedFicha && validationResult && !(validationResult.valid)`
+- «es» — ProposalConfigPanel · l.911, when `panelOpen && !(!dataLoaded) && selectedFicha && validationResult && !(validationResult.valid)`
+- «Plantilla» (label) — ProposalConfigPanel · l.921, when `panelOpen && !(!dataLoaded)`
+- «Ficha de Servicio» (label) — ProposalConfigPanel · l.936, when `panelOpen && !(!dataLoaded)`
+- «La ficha se determina por la plantilla seleccionada» — ProposalConfigPanel · l.954, when `panelOpen && !(!dataLoaded) && plantillaId`
+- «{selectedFicha.horas_presenciales} h presenciales registradas · {selectedFicha.destinatarios.join(',…}» — ProposalConfigPanel · l.958, when `panelOpen && !(!dataLoaded) && selectedFicha`
+- «Presencial (hrs)» (label) — ProposalConfigPanel · l.977, when `panelOpen && !(!dataLoaded) && secHoras`
+- «Online Sincrónica (hrs)» (label) — ProposalConfigPanel · l.991, when `panelOpen && !(!dataLoaded) && secHoras`
+- «Online Asincrónica (hrs)» (label) — ProposalConfigPanel · l.1005, when `panelOpen && !(!dataLoaded) && secHoras`
+- «Subtotal presencial:» — ProposalConfigPanel · l.1032, when `panelOpen && !(!dataLoaded) && secHoras`
+- «hrs» — ProposalConfigPanel · l.1032, when `panelOpen && !(!dataLoaded) && secHoras`
+- «(de {selectedFicha.horas_presenc…} registradas)» — ProposalConfigPanel · l.1033, when `panelOpen && !(!dataLoaded) && secHoras`
+- «Total:» — ProposalConfigPanel · l.1036, when `panelOpen && !(!dataLoaded) && secHoras`
+- «{totalHoras} hrs» — ProposalConfigPanel · l.1037, when `panelOpen && !(!dataLoaded) && secHoras`
+- «asíncronas)» — ProposalConfigPanel · l.1038, when `panelOpen && !(!dataLoaded) && secHoras`
+- «Incluir acceso a Plataforma de Crecimiento» (label) — ProposalConfigPanel · l.1069, when `panelOpen && !(!dataLoaded) && secPlataforma`
+- «Beneficios de la plataforma» (label) — ProposalConfigPanel · l.1082, when `panelOpen && !(!dataLoaded) && secPlataforma && plataforma`
+- «No hay consultores.» — ProposalConfigPanel · l.1109, when `panelOpen && !(!dataLoaded) && secConsultores && consultores.length === 0`
+- «{c.nombre} [✓ en Ficha] {c.titulo} Comité Intl. / Equipo FNE / Asesor Intl.» (label) — ProposalConfigPanel · l.1128, when `!(!dataLoaded) && secConsultores && !(consultores.length === 0) && each consultores`
+- «Ficha registra {selectedFicha.equipo_trabajo.length} miembro(s) en equipo de trabajo. Se requieren al menos 2 coincidencias.» — ProposalConfigPanel · l.1167, when `panelOpen && !(!dataLoaded) && secConsultores && selectedFicha?.equipo_trabajo`
+- «Valor UF por hora» (label) — ProposalConfigPanel · l.1214, when `panelOpen && !(!dataLoaded) && secPrecio && precioModelo === 'per_hour'`
+- «Total calculado» (label) — ProposalConfigPanel · l.1228, when `panelOpen && !(!dataLoaded) && secPrecio && precioModelo === 'per_hour'`
+- «UF» — ProposalConfigPanel · l.1235, when `panelOpen && !(!dataLoaded) && secPrecio && precioModelo === 'per_hour'`
+- «( {precioUfNum} × {totalHoras} h)» — ProposalConfigPanel · l.1236, when `panelOpen && !(!dataLoaded) && secPrecio && precioModelo === 'per_hour'`
+- «Precio fijo (UF)» (label) — ProposalConfigPanel · l.1245, when `panelOpen && !(!dataLoaded) && secPrecio && !(precioModelo === 'per_hour')`
+- «Total» (label) — ProposalConfigPanel · l.1259, when `panelOpen && !(!dataLoaded) && secPrecio && !(precioModelo === 'per_hour')`
+- «{totalUf.toFixed(2)} UF» — ProposalConfigPanel · l.1262, when `panelOpen && !(!dataLoaded) && secPrecio && !(precioModelo === 'per_hour')`
+- «Forma de pago» (label) — ProposalConfigPanel · l.1274, when `panelOpen && !(!dataLoaded) && secPrecio`
+- «Detalle de pago» (label) — ProposalConfigPanel · l.1290, when `panelOpen && !(!dataLoaded) && secPrecio`
+- «Sin módulos configurados. Use &ldquo;Cargar desde plantilla&rdquo; o agregue manualmente.» — ProposalConfigPanel · l.1335, when `panelOpen && !(!dataLoaded) && secModulos && modulos.length === 0`
+- «{mTotal} h» — ProposalConfigPanel · l.1373, when `!(!dataLoaded) && secModulos && !(modulos.length === 0) && each modulos`
+- «Presencial» (label) — ProposalConfigPanel · l.1386, when `!(!dataLoaded) && secModulos && !(modulos.length === 0) && each modulos`
+- «Sincrónica» (label) — ProposalConfigPanel · l.1400, when `!(!dataLoaded) && secModulos && !(modulos.length === 0) && each modulos`
+- «Asincrónica» (label) — ProposalConfigPanel · l.1414, when `!(!dataLoaded) && secModulos && !(modulos.length === 0) && each modulos`
+- «Mes» (label) — ProposalConfigPanel · l.1428, when `!(!dataLoaded) && secModulos && !(modulos.length === 0) && each modulos`
+- «Suma módulos:» — ProposalConfigPanel · l.1455, when `panelOpen && !(!dataLoaded) && secModulos && !(modulos.length === 0)`
+- «{modulos.reduce( (acc, m) => acc + m…} h» — ProposalConfigPanel · l.1456, when `panelOpen && !(!dataLoaded) && secModulos && !(modulos.length === 0)`
+- «h total» — ProposalConfigPanel · l.1480, when `panelOpen && !(!dataLoaded) && secModulos && !(modulos.length === 0)`
+- «No hay documentos.» — ProposalConfigPanel · l.1499, when `panelOpen && !(!dataLoaded) && secDocumentos && documentos.length === 0`
+- «{doc.nombre} {TIPO_LABELS[doc.tipo]} [Vencido — bloquea generación] [Vence {formatDate(doc.fecha_vencimiento)}] [Vence: {formatDate(doc.fecha_vencimiento)}]» (label) — ProposalConfigPanel · l.1514, when `!(!dataLoaded) && secDocumentos && !(documentos.length === 0) && each documentos`
+- «Los CVs de los consultores seleccionados se incluyen automáticamente.» — ProposalConfigPanel · l.1571, when `panelOpen && !(!dataLoaded) && secDocumentos`
+- «Seleccione una plantilla para continuar» — ProposalConfigPanel · l.1618, when `panelOpen && !(!dataLoaded) && !plantillaId`
+- «Seleccione una ficha de servicio» — ProposalConfigPanel · l.1621, when `panelOpen && !(!dataLoaded) && plantillaId && !fichaId`
+- «{validationResult.errors.length} error es de validación MINEDUC» — ProposalConfigPanel · l.1624, when `panelOpen && !(!dataLoaded) && validationResult && !validationResult.valid`
+- «La generación puede tomar hasta 60 segundos. No cierre la página.» — ProposalConfigPanel · l.1631, when `panelOpen && !(!dataLoaded)`
+- «Comparta el enlace y código de acceso con el cliente» — ProposalConfigPanel · l.1649, when `panelOpen && !(!dataLoaded) && lastGenResult`
+- «Código de Acceso» (label) — ProposalConfigPanel · l.1655, when `panelOpen && !(!dataLoaded) && lastGenResult`
+- «Enlace Web» (label) — ProposalConfigPanel · l.1673, when `panelOpen && !(!dataLoaded) && lastGenResult`
+- «{window.location.origin}/propuesta/{lastGenResult.web_slug} / /propuesta/{lastGenResult.web_slug}» — ProposalConfigPanel · l.1675, when `panelOpen && !(!dataLoaded) && lastGenResult`
+- «No hay propuestas generadas aún para esta licitación.» — ProposalConfigPanel · l.1734, when `panelOpen && !(!dataLoaded) && secHistorial && propuestas.length === 0`
+- «v {p.version}» — ProposalConfigPanel · l.1752, when `!(!dataLoaded) && secHistorial && !(propuestas.length === 0) && each propuestas`
+- «vista» — ProposalConfigPanel · l.1783, when `secHistorial && !(propuestas.length === 0) && each propuestas && p.view_count != null && p.view_count > 0`
+- «s» — ProposalConfigPanel · l.1783, when `secHistorial && !(propuestas.length === 0) && each propuestas && p.view_count != null && p.view_count > 0`
+- «&middot; {formatDateTime(p.viewed_at)}» — ProposalConfigPanel · l.1785, when `!(propuestas.length === 0) && each propuestas && p.view_count != null && p.view_count > 0 && p.viewed_at`
+- «Enlace retirado» — ProposalConfigPanel · l.1846, when `secHistorial && !(propuestas.length === 0) && each propuestas && p.estado === 'completada' && p.web_slug && p.web_status === 'expired'`
+- «¿Retirar el enlace de v {p.version} ? La escuela ya no podrá abrir esta versión.» — ProposalConfigPanel · l.1864, when `secHistorial && !(propuestas.length === 0) && each propuestas && retireConfirmId === p.id`
 
 ### components/licitaciones/ProposalPreview.tsx
 
@@ -2428,154 +2448,157 @@ Used by: `/licitaciones/[id]`
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «{ates.length} ATE s Registro de ATEs» | h3 |  | Step3Bases · l.402 |
-| «Editar ATE / Agregar nueva ATE» | h4 | `showAteForm` | Step3Bases · l.430 |
-| «Generacion de Bases» | h3 |  | Step3Bases · l.618 |
-| «Consultas ( {consultas.length} )» | h3 |  | Step3Bases · l.692 |
-| «Avanzar a Recepción de Propuestas» | h3 |  | Step3Bases · l.819 |
+| «{ates.length} ATE s Registro de ATEs» | h3 |  | Step3Bases · l.416 |
+| «Editar ATE / Agregar nueva ATE» | h4 | `showAteForm` | Step3Bases · l.452 |
+| «Generacion de Bases» | h3 |  | Step3Bases · l.644 |
+| «Consultas ( {consultas.length} )» | h3 |  | Step3Bases · l.726 |
+| «Avanzar a Recepción de Propuestas» | h3 | `licitacion.estado === 'recepcion_bases_pendiente'` | Step3Bases · l.862 |
 
 **Buttons** (12)
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «Cerrar / Agregar nueva ATE» | `{() => { setShowAteForm(!showAteForm); if (showAteForm) { setEditingAteId(null);…}` |  |  |  | Step3Bases · l.409 |
-| «Guardando... / Actualizar ATE / Agregar ATE» | `{handleAddAte}` | `showAteForm` | `{savingAte}` |  | Step3Bases · l.513 |
-| «Cancelar» | `{() => { setEditingAteId(null); setAteForm(EMPTY_ATE_FORM); setAteFormErrors({})…}` | `showAteForm && editingAteId` |  |  | Step3Bases · l.524 |
-| «Marcar bases enviadas» · aria «{`Marcar bases enviadas a ${ate.nombre_ate}`}» | `{() => handleMarkBasesSent(ate)}` | `ates.length > 0 && each ates && !(ate.fecha_envio_bases)` |  |  | Step3Bases · l.572 |
-| «Editar» | `{() => handleEditAte(ate)}` | `ates.length > 0 && each ates` |  |  | Step3Bases · l.584 |
-| «[icon Trash2]» · aria «{`Eliminar ATE ${ate.nombre_ate}`}» | `{() => handleDeleteAte(ate)}` | `ates.length > 0 && each ates && !ate.propuesta_url` |  |  | Step3Bases · l.592 |
-| «Generando... / Generar Bases (.docx)» | `{handleGenerateBases}` |  | `{!isAdmin \|\| generatingBases}` |  | Step3Bases · l.624 |
-| «⌛» · tooltip «Eliminar documento» | `{() => handleDeleteBasesDoc(doc)}` | `basesDocumentos.length > 0 && each basesDocumentos.slice(0, 5) && isAdmin` | `{deletingDocId === doc.id}` |  | Step3Bases · l.661 |
-| «Cerrar / Registrar consulta» | `{() => setShowConsultasForm(!showConsultasForm)}` |  |  |  | Step3Bases · l.696 |
-| «Guardando... / Registrar consulta» | `{handleAddConsulta}` | `showConsultasForm` | `{savingConsulta}` |  | Step3Bases · l.772 |
-| «Cancelar» | `{() => { setShowConsultasForm(false); setConsultaForm(EMPTY_CONSULTA_FORM); }}` | `showConsultasForm` |  |  | Step3Bases · l.779 |
-| «Avanzando... / Avanzar a Recepción de Propuestas» | `{handleAdvance}` | `canAdvance` | `{advancing}` |  | Step3Bases · l.826 |
+| «Cerrar / Agregar nueva ATE» | `{() => { setShowAteForm(!showAteForm); if (showAteForm) { setEditingAteId(null);…}` | `atesEditables` |  |  | Step3Bases · l.424 |
+| «Guardando... / Actualizar ATE / Agregar ATE» | `{handleAddAte}` | `showAteForm` | `{savingAte}` |  | Step3Bases · l.535 |
+| «Cancelar» | `{() => { setEditingAteId(null); setAteForm(EMPTY_ATE_FORM); setAteFormErrors({})…}` | `showAteForm && editingAteId` |  |  | Step3Bases · l.546 |
+| «Marcar bases enviadas» · aria «{`Marcar bases enviadas a ${ate.nombre_ate}`}» | `{() => handleMarkBasesSent(ate)}` | `ates.length > 0 && each ates && !(ate.fecha_envio_bases) && !(!atesEditables)` |  |  | Step3Bases · l.596 |
+| «Editar» | `{() => handleEditAte(ate)}` | `ates.length > 0 && each ates && atesEditables` |  |  | Step3Bases · l.609 |
+| «[icon Trash2]» · aria «{`Eliminar ATE ${ate.nombre_ate}`}» | `{() => handleDeleteAte(ate)}` | `ates.length > 0 && each ates && atesEditables && !ate.propuesta_url` |  |  | Step3Bases · l.618 |
+| «Generando... / Generar Bases (.docx)» | `{handleGenerateBases}` | `basesGenerables` | `{!isAdmin \|\| generatingBases}` |  | Step3Bases · l.651 |
+| «⌛» · tooltip «Eliminar documento» | `{() => handleDeleteBasesDoc(doc)}` | `basesDocumentos.length > 0 && each basesDocumentos.slice(0, 5) && isAdmin && documentosEliminables` | `{deletingDocId === doc.id}` |  | Step3Bases · l.695 |
+| «Cerrar / Registrar consulta» | `{() => setShowConsultasForm(!showConsultasForm)}` | `consultasAbiertas` |  |  | Step3Bases · l.731 |
+| «Guardando... / Registrar consulta» | `{handleAddConsulta}` | `showConsultasForm` | `{savingConsulta}` |  | Step3Bases · l.814 |
+| «Cancelar» | `{() => { setShowConsultasForm(false); setConsultaForm(EMPTY_CONSULTA_FORM); }}` | `showConsultasForm` |  |  | Step3Bases · l.821 |
+| «Avanzando... / Avanzar a Recepción de Propuestas» | `{handleAdvance}` | `licitacion.estado === 'recepcion_bases_pendiente' && canAdvance` | `{advancing}` |  | Step3Bases · l.869 |
 
 **Links** (1)
 
 | Text | Goes to | Shown when | Hook | Where |
 |---|---|---|---|---|
-| «Descargar ultima version» | `{lastGeneratedUrl}` (new tab) | `lastGeneratedUrl` |  | Step3Bases · l.636 |
+| «Descargar ultima version» | `{lastGeneratedUrl}` (new tab) | `lastGeneratedUrl` |  | Step3Bases · l.664 |
 
 **Fields** (11)
 
 | Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
 |---|---|---|---|---|---|---|
-| «Nombre ATE *» | text | «Nombre de la ATE o empresa» |  | `showAteForm` | `id=ate-nombre (id used by code)` | Step3Bases · l.439 |
-| «RUT» | text | «12.345.678-5» |  | `showAteForm` | `id=ate-rut (id used by code)` | Step3Bases · l.453 |
-| «Nombre Contacto» | text | «Nombre del representante» |  | `showAteForm` | `id=ate-contacto (id used by code)` | Step3Bases · l.467 |
-| «Correo Electronico» | email | «contacto@ate.cl» |  | `showAteForm` | `id=ate-email (id used by code)` | Step3Bases · l.478 |
-| «Telefono» | text | «+56 9 1234 5678» |  | `showAteForm` | `id=ate-telefono (id used by code)` | Step3Bases · l.492 |
-| «Fecha Solicitud de Bases» | date |  |  | `showAteForm` | `id=ate-fecha-solicitud (id used by code)` | Step3Bases · l.503 |
-| «Pregunta *» | textarea | «Ingrese la pregunta de la consulta» |  | `showConsultasForm` | `id=consulta-pregunta (id used by code)` | Step3Bases · l.715 |
-| «Respuesta» | textarea | «Ingrese la respuesta (opcional)» |  | `showConsultasForm` | `id=consulta-respuesta (id used by code)` | Step3Bases · l.727 |
-| «Fecha Pregunta» | date |  |  | `showConsultasForm` | `id=consulta-fecha-pregunta (id used by code)` | Step3Bases · l.738 |
-| «Fecha Respuesta» | date |  |  | `showConsultasForm` | `id=consulta-fecha-respuesta (id used by code)` | Step3Bases · l.748 |
-| «ATE (opcional)» | select |  | «-- Sin ATE especifica --», «(lista) {ate.nombre_ate}» | `showConsultasForm` | `id=consulta-ate (id used by code)` | Step3Bases · l.758 |
+| «Nombre ATE *» | text | «Nombre de la ATE o empresa» |  | `showAteForm` | `id=ate-nombre (id used by code)` | Step3Bases · l.461 |
+| «RUT» | text | «12.345.678-5» |  | `showAteForm` | `id=ate-rut (id used by code)` | Step3Bases · l.475 |
+| «Nombre Contacto» | text | «Nombre del representante» |  | `showAteForm` | `id=ate-contacto (id used by code)` | Step3Bases · l.489 |
+| «Correo Electronico» | email | «contacto@ate.cl» |  | `showAteForm` | `id=ate-email (id used by code)` | Step3Bases · l.500 |
+| «Telefono» | text | «+56 9 1234 5678» |  | `showAteForm` | `id=ate-telefono (id used by code)` | Step3Bases · l.514 |
+| «Fecha Solicitud de Bases» | date |  |  | `showAteForm` | `id=ate-fecha-solicitud (id used by code)` | Step3Bases · l.525 |
+| «Pregunta *» | textarea | «Ingrese la pregunta de la consulta» |  | `showConsultasForm` | `id=consulta-pregunta (id used by code)` | Step3Bases · l.757 |
+| «Respuesta» | textarea | «Ingrese la respuesta (opcional)» |  | `showConsultasForm` | `id=consulta-respuesta (id used by code)` | Step3Bases · l.769 |
+| «Fecha Pregunta» | date |  |  | `showConsultasForm` | `id=consulta-fecha-pregunta (id used by code)` | Step3Bases · l.780 |
+| «Fecha Respuesta» | date |  |  | `showConsultasForm` | `id=consulta-fecha-respuesta (id used by code)` | Step3Bases · l.790 |
+| «ATE (opcional)» | select |  | «-- Sin ATE especifica --», «(lista) {ate.nombre_ate}» | `showConsultasForm` | `id=consulta-ate (id used by code)` | Step3Bases · l.800 |
 
 **Table columns** (6)
 
 | Text | Shown when | Where |
 |---|---|---|
-| «Nombre ATE» | `ates.length > 0` | Step3Bases · l.543 |
-| «RUT» | `ates.length > 0` | Step3Bases · l.544 |
-| «Contacto» | `ates.length > 0` | Step3Bases · l.545 |
-| «Fecha Solicitud» | `ates.length > 0` | Step3Bases · l.546 |
-| «Bases Enviadas» | `ates.length > 0` | Step3Bases · l.547 |
-| «Acciones» | `ates.length > 0` | Step3Bases · l.548 |
+| «Nombre ATE» | `ates.length > 0` | Step3Bases · l.565 |
+| «RUT» | `ates.length > 0` | Step3Bases · l.566 |
+| «Contacto» | `ates.length > 0` | Step3Bases · l.567 |
+| «Fecha Solicitud» | `ates.length > 0` | Step3Bases · l.568 |
+| «Bases Enviadas» | `ates.length > 0` | Step3Bases · l.569 |
+| «Acciones» | `ates.length > 0` | Step3Bases · l.570 |
 
 **Browser confirm()** (3)
 
 | Question | When | Where |
 |---|---|---|
-| «¿Eliminar la ATE "{ate.nombre_ate}"? Esta accion no se puede deshacer.» |  | handleDeleteAte · l.203 |
-| «¿Avanzar a Recepción de Propuestas? Esta acción cambiará el estado de la licitación.» |  | handleAdvance · l.321 |
-| «¿Eliminar "{doc.file_name}"? Esta accion no se puede deshacer.» |  | handleDeleteBasesDoc · l.354 |
+| «¿Eliminar la ATE "{ate.nombre_ate}"? Esta accion no se puede deshacer.» |  | handleDeleteAte · l.217 |
+| «¿Avanzar a Recepción de Propuestas? Esta acción cambiará el estado de la licitación.» |  | handleAdvance · l.335 |
+| «¿Eliminar "{doc.file_name}"? Esta accion no se puede deshacer.» |  | handleDeleteBasesDoc · l.368 |
 
 **Toasts** (23)
 
 | Kind | Text | When | Where |
 |---|---|---|---|
-| error | «Error al cargar datos del Paso 3» |  | Step3Bases · l.107 |
-| error | «Error al guardar ATE» | `!res.ok` | handleAddAte · l.161 |
-| success | «ATE actualizada / ATE registrada exitosamente» |  | handleAddAte · l.165 |
-| error | «Error al guardar ATE» |  | handleAddAte · l.171 |
-| error | «Error al marcar bases enviadas» | `!res.ok` | handleMarkBasesSent · l.191 |
-| success | «Bases marcadas como enviadas» |  | handleMarkBasesSent · l.195 |
-| error | «Error al marcar bases enviadas» |  | handleMarkBasesSent · l.198 |
-| error | «Error al eliminar ATE» | `!res.ok` | handleDeleteAte · l.216 |
-| success | «ATE eliminada» |  | handleDeleteAte · l.220 |
-| error | «Error al eliminar ATE» |  | handleDeleteAte · l.223 |
-| error | «Error al generar Bases» | `!res.ok` | handleGenerateBases · l.252 |
-| success | «Documento de Bases generado exitosamente» |  | handleGenerateBases · l.256 |
-| error | «Error al generar Bases» |  | handleGenerateBases · l.260 |
-| error | «La pregunta es requerida» | `!consultaForm.pregunta.trim()` | handleAddConsulta · l.272 |
-| error | «Error al registrar consulta» | `!res.ok` | handleAddConsulta · l.294 |
-| success | «Consulta registrada exitosamente» |  | handleAddConsulta · l.298 |
-| error | «Error al registrar consulta» |  | handleAddConsulta · l.303 |
-| error | «Debe marcar las bases como enviadas a al menos una ATE antes de avanzar.» | `atesWithBasesSent.length === 0` | handleAdvance · l.316 |
-| error | «Error al avanzar estado» | `!res.ok` | handleAdvance · l.335 |
-| success | «Licitacion avanzada a Recepcion de Propuestas» |  | handleAdvance · l.339 |
-| error | «Error al avanzar estado» |  | handleAdvance · l.343 |
-| success | «Documento eliminado» |  | handleDeleteBasesDoc · l.367 |
-| error | «Error al eliminar documento» |  | handleDeleteBasesDoc · l.370 |
+| error | «Error al cargar datos del Paso 3» |  | Step3Bases · l.121 |
+| error | «Error al guardar ATE» | `!res.ok` | handleAddAte · l.175 |
+| success | «ATE actualizada / ATE registrada exitosamente» |  | handleAddAte · l.179 |
+| error | «Error al guardar ATE» |  | handleAddAte · l.185 |
+| error | «Error al marcar bases enviadas» | `!res.ok` | handleMarkBasesSent · l.205 |
+| success | «Bases marcadas como enviadas» |  | handleMarkBasesSent · l.209 |
+| error | «Error al marcar bases enviadas» |  | handleMarkBasesSent · l.212 |
+| error | «Error al eliminar ATE» | `!res.ok` | handleDeleteAte · l.230 |
+| success | «ATE eliminada» |  | handleDeleteAte · l.234 |
+| error | «Error al eliminar ATE» |  | handleDeleteAte · l.237 |
+| error | «Error al generar Bases» | `!res.ok` | handleGenerateBases · l.266 |
+| success | «Documento de Bases generado exitosamente» |  | handleGenerateBases · l.270 |
+| error | «Error al generar Bases» |  | handleGenerateBases · l.274 |
+| error | «La pregunta es requerida» | `!consultaForm.pregunta.trim()` | handleAddConsulta · l.286 |
+| error | «Error al registrar consulta» | `!res.ok` | handleAddConsulta · l.308 |
+| success | «Consulta registrada exitosamente» |  | handleAddConsulta · l.312 |
+| error | «Error al registrar consulta» |  | handleAddConsulta · l.317 |
+| error | «Debe marcar las bases como enviadas a al menos una ATE antes de avanzar.» | `atesWithBasesSent.length === 0` | handleAdvance · l.330 |
+| error | «Error al avanzar estado» | `!res.ok` | handleAdvance · l.349 |
+| success | «Licitacion avanzada a Recepcion de Propuestas» |  | handleAdvance · l.353 |
+| error | «Error al avanzar estado» |  | handleAdvance · l.357 |
+| success | «Documento eliminado» |  | handleDeleteBasesDoc · l.381 |
+| error | «Error al eliminar documento» |  | handleDeleteBasesDoc · l.384 |
 
 **Messages set on the page** (1)
 
 | Text | Set by | When | Where |
 |---|---|---|---|
-| «Error al eliminar documento» | `throw (shown by whoever catches it)` | `!res.ok` | handleDeleteBasesDoc · l.365 |
+| «Error al eliminar documento» | `throw (shown by whoever catches it)` | `!res.ok` | handleDeleteBasesDoc · l.379 |
 
 **Texts kept in lists and helpers in the code (labels, options, status names)** (1)
 
 | Name | Texts | Where |
 |---|---|---|
-| `method` | «PUT / POST» | handleAddAte · l.150 |
+| `method` | «PUT / POST» | handleAddAte · l.164 |
 
 **Other texts written in the code (safety net: not tied to an element by the script)** (3)
 
 | Text | Where |
 |---|---|
-| «Nombre ATE requerido» | Step3Bases · l.124 |
-| «RUT invalido. Ingrese un RUT valido (ej: 12.345.678-5)» | Step3Bases · l.127 |
-| «Correo electronico invalido» | Step3Bases · l.130 |
+| «Nombre ATE requerido» | Step3Bases · l.138 |
+| «RUT invalido. Ingrese un RUT valido (ej: 12.345.678-5)» | Step3Bases · l.141 |
+| «Correo electronico invalido» | Step3Bases · l.144 |
 
-**Values shown from data** (10)
+**Values shown from data** (13)
 
-- `{ateFormErrors.nombre_ate}` — Step3Bases · l.448, when `showAteForm && ateFormErrors.nombre_ate`
-- `{ateFormErrors.rut_ate}` — Step3Bases · l.462, when `showAteForm && ateFormErrors.rut_ate`
-- `{ateFormErrors.email}` — Step3Bases · l.487, when `showAteForm && ateFormErrors.email`
-- `{ate.nombre_ate}` — Step3Bases · l.555, when `ates.length > 0 && each ates`
-- `{ate.email}` — Step3Bases · l.556, when `ates.length > 0 && each ates && ate.email`
-- `{ate.rut_ate} / -` — Step3Bases · l.558, when `ates.length > 0 && each ates`
-- `{ate.telefono}` — Step3Bases · l.561, when `ates.length > 0 && each ates && ate.telefono`
-- `{formatDate(ate.fecha_solicitud_base…}` — Step3Bases · l.563, when `ates.length > 0 && each ates`
-- `{doc.file_name}` — Step3Bases · l.656, when `basesDocumentos.length > 0 && each basesDocumentos.slice(0, 5)`
-- `{new Date(doc.created_at).toLocaleDa…}` — Step3Bases · l.657, when `basesDocumentos.length > 0 && each basesDocumentos.slice(0, 5)`
+- `{mensajeAtesSoloLectura(licitacion.e…}` — Step3Bases · l.444, when `!atesEditables`
+- `{ateFormErrors.nombre_ate}` — Step3Bases · l.470, when `showAteForm && ateFormErrors.nombre_ate`
+- `{ateFormErrors.rut_ate}` — Step3Bases · l.484, when `showAteForm && ateFormErrors.rut_ate`
+- `{ateFormErrors.email}` — Step3Bases · l.509, when `showAteForm && ateFormErrors.email`
+- `{ate.nombre_ate}` — Step3Bases · l.577, when `ates.length > 0 && each ates`
+- `{ate.email}` — Step3Bases · l.578, when `ates.length > 0 && each ates && ate.email`
+- `{ate.rut_ate} / -` — Step3Bases · l.580, when `ates.length > 0 && each ates`
+- `{ate.telefono}` — Step3Bases · l.583, when `ates.length > 0 && each ates && ate.telefono`
+- `{formatDate(ate.fecha_solicitud_base…}` — Step3Bases · l.585, when `ates.length > 0 && each ates`
+- `{MENSAJE_BASES_ADJUDICADA}` — Step3Bases · l.677, when `!basesGenerables`
+- `{doc.file_name}` — Step3Bases · l.690, when `basesDocumentos.length > 0 && each basesDocumentos.slice(0, 5)`
+- `{new Date(doc.created_at).toLocaleDa…}` — Step3Bases · l.691, when `basesDocumentos.length > 0 && each basesDocumentos.slice(0, 5)`
+- `{mensajeConsultasSoloLectura(licitac…}` — Step3Bases · l.744, when `!consultasAbiertas`
 
 **Other texts on screen** (21)
 
-- «Nombre ATE *» (label) — Step3Bases · l.436, when `showAteForm`
-- «RUT» (label) — Step3Bases · l.452, when `showAteForm`
-- «Nombre Contacto» (label) — Step3Bases · l.466, when `showAteForm`
-- «Correo Electronico» (label) — Step3Bases · l.477, when `showAteForm`
-- «Telefono» (label) — Step3Bases · l.491, when `showAteForm`
-- «Fecha Solicitud de Bases» (label) — Step3Bases · l.502, when `showAteForm`
-- «No hay ATEs registradas. Agregue la primera ATE usando el botón anterior.» — Step3Bases · l.609, when `!(ates.length > 0)`
-- «Versiones anteriores generadas:» — Step3Bases · l.651, when `basesDocumentos.length > 0`
-- «Estado: Bases no generadas. Haga clic en &ldquo;Generar Bases&rdquo; para crear el documento Word.» — Step3Bases · l.682, when `basesDocumentos.length === 0`
-- «Pregunta *» (label) — Step3Bases · l.712, when `showConsultasForm`
-- «Respuesta» (label) — Step3Bases · l.726, when `showConsultasForm`
-- «Fecha Pregunta» (label) — Step3Bases · l.737, when `showConsultasForm`
-- «Fecha Respuesta» (label) — Step3Bases · l.747, when `showConsultasForm`
-- «ATE (opcional)» (label) — Step3Bases · l.757, when `showConsultasForm`
-- «P: {consulta.pregunta}» — Step3Bases · l.793, when `consultas.length > 0 && each consultas`
-- «R: {consulta.respuesta}» — Step3Bases · l.797, when `consultas.length > 0 && each consultas && consulta.respuesta`
-- «Pregunta: {formatDate(consulta.fecha_pregunta)}» — Step3Bases · l.802, when `consultas.length > 0 && each consultas && consulta.fecha_pregunta`
-- «Respuesta: {formatDate(consulta.fecha_respuesta)}» — Step3Bases · l.803, when `consultas.length > 0 && each consultas && consulta.fecha_respuesta`
-- «No hay consultas registradas.» — Step3Bases · l.810, when `!(consultas.length > 0)`
-- «{atesWithBasesSent.length} ATE s tienen / tiene las bases enviadas. Puede avanzar al siguiente paso.» — Step3Bases · l.822, when `canAdvance`
-- «Para avanzar, debe marcar las bases como enviadas a al menos una ATE registrada.» — Step3Bases · l.836, when `!(canAdvance)`
+- «Nombre ATE *» (label) — Step3Bases · l.458, when `showAteForm`
+- «RUT» (label) — Step3Bases · l.474, when `showAteForm`
+- «Nombre Contacto» (label) — Step3Bases · l.488, when `showAteForm`
+- «Correo Electronico» (label) — Step3Bases · l.499, when `showAteForm`
+- «Telefono» (label) — Step3Bases · l.513, when `showAteForm`
+- «Fecha Solicitud de Bases» (label) — Step3Bases · l.524, when `showAteForm`
+- «No hay ATEs registradas. Agregue la primera ATE usando el botón anterior.» — Step3Bases · l.635, when `!(ates.length > 0)`
+- «Versiones anteriores generadas:» — Step3Bases · l.685, when `basesDocumentos.length > 0`
+- «Estado: Bases no generadas. Haga clic en &ldquo;Generar Bases&rdquo; para crear el documento Word.» — Step3Bases · l.716, when `basesDocumentos.length === 0 && basesGenerables`
+- «Pregunta *» (label) — Step3Bases · l.754, when `showConsultasForm`
+- «Respuesta» (label) — Step3Bases · l.768, when `showConsultasForm`
+- «Fecha Pregunta» (label) — Step3Bases · l.779, when `showConsultasForm`
+- «Fecha Respuesta» (label) — Step3Bases · l.789, when `showConsultasForm`
+- «ATE (opcional)» (label) — Step3Bases · l.799, when `showConsultasForm`
+- «P: {consulta.pregunta}» — Step3Bases · l.835, when `consultas.length > 0 && each consultas`
+- «R: {consulta.respuesta}» — Step3Bases · l.839, when `consultas.length > 0 && each consultas && consulta.respuesta`
+- «Pregunta: {formatDate(consulta.fecha_pregunta)}» — Step3Bases · l.844, when `consultas.length > 0 && each consultas && consulta.fecha_pregunta`
+- «Respuesta: {formatDate(consulta.fecha_respuesta)}» — Step3Bases · l.845, when `consultas.length > 0 && each consultas && consulta.fecha_respuesta`
+- «No hay consultas registradas.» — Step3Bases · l.852, when `!(consultas.length > 0)`
+- «{atesWithBasesSent.length} ATE s tienen / tiene las bases enviadas. Puede avanzar al siguiente paso.» — Step3Bases · l.865, when `licitacion.estado === 'recepcion_bases_pendiente' && canAdvance`
+- «Para avanzar, debe marcar las bases como enviadas a al menos una ATE registrada.» — Step3Bases · l.879, when `licitacion.estado === 'recepcion_bases_pendiente' && !(canAdvance)`
 
 ### components/licitaciones/Step4Propuestas.tsx
 
@@ -2585,96 +2608,97 @@ Used by: `/licitaciones/[id]`
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «{ate.nombre_ate}» | h4 | `each ates` | Step4Propuestas · l.311 |
-| «Avanzar a Evaluación» | h3 |  | Step4Propuestas · l.541 |
+| «{ate.nombre_ate}» | h4 | `each ates` | Step4Propuestas · l.317 |
+| «Avanzar a Evaluación» | h3 | `licitacion.estado === 'propuestas_pendientes'` | Step4Propuestas · l.554 |
 
 **Buttons** (5)
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «Subiendo... / Subir propuesta» | `{() => handleUploadProposal(ate)}` | `each ates && !(ate.propuesta_url)` | `{state.uploading \|\| !state.file}` |  | Step4Propuestas · l.418 |
-| «Agregar ATE» | `{() => setShowNewAteForm(!showNewAteForm)}` |  |  |  | Step4Propuestas · l.445 |
-| «Guardando... / Agregar ATE» | `{handleAddNewAte}` | `showNewAteForm` | `{savingNewAte}` |  | Step4Propuestas · l.528 |
-| «Cancelar» | `{() => { setShowNewAteForm(false); setNewAteForm(EMPTY_NEW_ATE); }}` | `showNewAteForm` |  |  | Step4Propuestas · l.531 |
-| «Avanzando... / Avanzar a Evaluación» | `{handleAdvance}` | `canAdvance` | `{advancing}` |  | Step4Propuestas · l.548 |
+| «Subiendo... / Subir propuesta» | `{() => handleUploadProposal(ate)}` | `each ates && !(ate.propuesta_url) && !(!propuestasAbiertas)` | `{state.uploading \|\| !state.file}` |  | Step4Propuestas · l.424 |
+| «Agregar ATE» | `{() => setShowNewAteForm(!showNewAteForm)}` | `!(!atesEditables \|\| !propuestasAbiertas)` |  |  | Step4Propuestas · l.456 |
+| «Guardando... / Agregar ATE» | `{handleAddNewAte}` | `(!(!atesEditables \|\| !propuestasAbiertas)) && showNewAteForm` | `{savingNewAte}` |  | Step4Propuestas · l.539 |
+| «Cancelar» | `{() => { setShowNewAteForm(false); setNewAteForm(EMPTY_NEW_ATE); }}` | `(!(!atesEditables \|\| !propuestasAbiertas)) && showNewAteForm` |  |  | Step4Propuestas · l.542 |
+| «Avanzando... / Avanzar a Evaluación» | `{handleAdvance}` | `licitacion.estado === 'propuestas_pendientes' && canAdvance` | `{advancing}` |  | Step4Propuestas · l.561 |
 
 **Fields** (8)
 
 | Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
 |---|---|---|---|---|---|---|
-| «Archivo de propuesta (PDF, Word, imagen — max 25MB)» | file | accepts `.pdf,.doc,.docx,.png,.jpg,.jpeg,.webp` |  | `each ates && !(ate.propuesta_url)` | `id=file-ate-{ate.id}` | Step4Propuestas · l.366 |
-| «Fecha de la propuesta» | date |  |  | `each ates && !(ate.propuesta_url)` | `id=fecha-propuesta-{ate.id}` | Step4Propuestas · l.388 |
-| «Notas (opcional)» | text | «Observaciones sobre la propuesta» |  | `each ates && !(ate.propuesta_url)` | `id=notas-ate-{ate.id}` | Step4Propuestas · l.404 |
-| «Nombre ATE *» | text | «Nombre de la ATE» |  | `showNewAteForm` | `id=new-ate-nombre (id used by code)` | Step4Propuestas · l.464 |
-| «RUT» | text | «12.345.678-5» |  | `showNewAteForm` | `id=new-ate-rut (id used by code)` | Step4Propuestas · l.478 |
-| «Contacto» | text | «Nombre del representante» |  | `showNewAteForm` | `id=new-ate-contacto (id used by code)` | Step4Propuestas · l.492 |
-| «Correo» | email | «contacto@ate.cl» |  | `showNewAteForm` | `id=new-ate-email (id used by code)` | Step4Propuestas · l.503 |
-| «Telefono» | text | «+56 9 1234 5678» |  | `showNewAteForm` | `id=new-ate-telefono (id used by code)` | Step4Propuestas · l.517 |
+| «Archivo de propuesta (PDF, Word, imagen — max 25MB)» | file | accepts `.pdf,.doc,.docx,.png,.jpg,.jpeg,.webp` |  | `each ates && !(ate.propuesta_url) && !(!propuestasAbiertas)` | `id=file-ate-{ate.id}` | Step4Propuestas · l.372 |
+| «Fecha de la propuesta» | date |  |  | `each ates && !(ate.propuesta_url) && !(!propuestasAbiertas)` | `id=fecha-propuesta-{ate.id}` | Step4Propuestas · l.394 |
+| «Notas (opcional)» | text | «Observaciones sobre la propuesta» |  | `each ates && !(ate.propuesta_url) && !(!propuestasAbiertas)` | `id=notas-ate-{ate.id}` | Step4Propuestas · l.410 |
+| «Nombre ATE *» | text | «Nombre de la ATE» |  | `(!(!atesEditables \|\| !propuestasAbiertas)) && showNewAteForm` | `id=new-ate-nombre (id used by code)` | Step4Propuestas · l.475 |
+| «RUT» | text | «12.345.678-5» |  | `(!(!atesEditables \|\| !propuestasAbiertas)) && showNewAteForm` | `id=new-ate-rut (id used by code)` | Step4Propuestas · l.489 |
+| «Contacto» | text | «Nombre del representante» |  | `(!(!atesEditables \|\| !propuestasAbiertas)) && showNewAteForm` | `id=new-ate-contacto (id used by code)` | Step4Propuestas · l.503 |
+| «Correo» | email | «contacto@ate.cl» |  | `(!(!atesEditables \|\| !propuestasAbiertas)) && showNewAteForm` | `id=new-ate-email (id used by code)` | Step4Propuestas · l.514 |
+| «Telefono» | text | «+56 9 1234 5678» |  | `(!(!atesEditables \|\| !propuestasAbiertas)) && showNewAteForm` | `id=new-ate-telefono (id used by code)` | Step4Propuestas · l.528 |
 
 **Browser confirm()** (1)
 
 | Question | When | Where |
 |---|---|---|
-| «¿Avanzar a Evaluación Pendiente? Esta acción cambiará el estado de la licitación.» |  | handleAdvance · l.233 |
+| «¿Avanzar a Evaluación Pendiente? Esta acción cambiará el estado de la licitación.» |  | handleAdvance · l.239 |
 
 **Toasts** (13)
 
 | Kind | Text | When | Where |
 |---|---|---|---|
-| error | «Error al cargar ATEs» |  | Step4Propuestas · l.81 |
-| error | «Seleccione un archivo para subir» | `!state?.file` | handleUploadProposal · l.98 |
-| plain | «Advertencia: La fecha de propuesta ({state.fecha_propuesta}) esta fuera del periodo de recepcion ({licitacion.fecha_inicio_pro…} a {licitacion.fecha_limite_pro…}). Puede continuar de todas formas.» | `state.fecha_propuesta && licitacion.fecha_inicio_propuestas && licitacion.fecha_limite_propuestas && (fecha < inicio \|\| fecha > limite)` | handleUploadProposal · l.108 |
-| error | «Error al subir propuesta» | `!res.ok` | handleUploadProposal · l.138 |
-| success | «Propuesta de {ate.nombre_ate} recibida exitosamente» |  | handleUploadProposal · l.142 |
-| error | «Error al subir propuesta» |  | handleUploadProposal · l.157 |
-| error | «Error al agregar ATE» | `!res.ok` | handleAddNewAte · l.206 |
-| success | «ATE agregada exitosamente» |  | handleAddNewAte · l.210 |
-| error | «Error al agregar ATE» |  | handleAddNewAte · l.215 |
-| error | «Debe subir al menos una propuesta antes de avanzar a Evaluacion.» | `atesWithProposal.length === 0` | handleAdvance · l.228 |
-| error | «Error al avanzar estado» | `!res.ok` | handleAdvance · l.247 |
-| success | «Licitacion avanzada a Evaluacion Pendiente» |  | handleAdvance · l.251 |
-| error | «Error al avanzar estado» |  | handleAdvance · l.255 |
+| error | «Error al cargar ATEs» |  | Step4Propuestas · l.87 |
+| error | «Seleccione un archivo para subir» | `!state?.file` | handleUploadProposal · l.104 |
+| plain | «Advertencia: La fecha de propuesta ({state.fecha_propuesta}) esta fuera del periodo de recepcion ({licitacion.fecha_inicio_pro…} a {licitacion.fecha_limite_pro…}). Puede continuar de todas formas.» | `state.fecha_propuesta && licitacion.fecha_inicio_propuestas && licitacion.fecha_limite_propuestas && (fecha < inicio \|\| fecha > limite)` | handleUploadProposal · l.114 |
+| error | «Error al subir propuesta» | `!res.ok` | handleUploadProposal · l.144 |
+| success | «Propuesta de {ate.nombre_ate} recibida exitosamente» |  | handleUploadProposal · l.148 |
+| error | «Error al subir propuesta» |  | handleUploadProposal · l.163 |
+| error | «Error al agregar ATE» | `!res.ok` | handleAddNewAte · l.212 |
+| success | «ATE agregada exitosamente» |  | handleAddNewAte · l.216 |
+| error | «Error al agregar ATE» |  | handleAddNewAte · l.221 |
+| error | «Debe subir al menos una propuesta antes de avanzar a Evaluacion.» | `atesWithProposal.length === 0` | handleAdvance · l.234 |
+| error | «Error al avanzar estado» | `!res.ok` | handleAdvance · l.253 |
+| success | «Licitacion avanzada a Evaluacion Pendiente» |  | handleAdvance · l.257 |
+| error | «Error al avanzar estado» |  | handleAdvance · l.261 |
 
 **Other texts written in the code (safety net: not tied to an element by the script)** (3)
 
 | Text | Where |
 |---|---|
-| «Nombre ATE requerido» | Step4Propuestas · l.173 |
-| «RUT invalido. Ingrese un RUT valido (ej: 12.345.678-5)» | Step4Propuestas · l.176 |
-| «Correo electronico invalido» | Step4Propuestas · l.179 |
+| «Nombre ATE requerido» | Step4Propuestas · l.179 |
+| «RUT invalido. Ingrese un RUT valido (ej: 12.345.678-5)» | Step4Propuestas · l.182 |
+| «Correo electronico invalido» | Step4Propuestas · l.185 |
 
-**Values shown from data** (6)
+**Values shown from data** (7)
 
-- `{ate.email}` — Step4Propuestas · l.313, when `each ates && ate.email`
-- `( {formatFileSize(ate.propuesta_size)} )` — Step4Propuestas · l.334, when `each ates && ate.propuesta_url && ate.propuesta_size`
-- `{ate.notas}` — Step4Propuestas · l.343, when `each ates && ate.propuesta_url && ate.notas`
-- `{newAteFormErrors.nombre_ate}` — Step4Propuestas · l.473, when `showNewAteForm && newAteFormErrors.nombre_ate`
-- `{newAteFormErrors.rut_ate}` — Step4Propuestas · l.487, when `showNewAteForm && newAteFormErrors.rut_ate`
-- `{newAteFormErrors.email}` — Step4Propuestas · l.512, when `showNewAteForm && newAteFormErrors.email`
+- `{ate.email}` — Step4Propuestas · l.319, when `each ates && ate.email`
+- `( {formatFileSize(ate.propuesta_size)} )` — Step4Propuestas · l.340, when `each ates && ate.propuesta_url && ate.propuesta_size`
+- `{ate.notas}` — Step4Propuestas · l.349, when `each ates && ate.propuesta_url && ate.notas`
+- `{mensajeAtesSoloLectura(licitacion.e…}` — Step4Propuestas · l.448, when `!atesEditables \|\| !propuestasAbiertas`
+- `{newAteFormErrors.nombre_ate}` — Step4Propuestas · l.484, when `(!(!atesEditables \|\| !propuestasAbiertas)) && showNewAteForm && newAteFormErrors.nombre_ate`
+- `{newAteFormErrors.rut_ate}` — Step4Propuestas · l.498, when `(!(!atesEditables \|\| !propuestasAbiertas)) && showNewAteForm && newAteFormErrors.rut_ate`
+- `{newAteFormErrors.email}` — Step4Propuestas · l.523, when `(!(!atesEditables \|\| !propuestasAbiertas)) && showNewAteForm && newAteFormErrors.email`
 
 **Other texts on screen** (21)
 
-- «de» — Step4Propuestas · l.287
-- «ATEs con propuesta recibida.» — Step4Propuestas · l.287
-- «Fecha limite: {formatDate(licitacion.fecha_limite_…}» — Step4Propuestas · l.289, when `licitacion.fecha_limite_propuestas`
-- «RUT: {ate.rut_ate}» — Step4Propuestas · l.312, when `each ates && ate.rut_ate`
-- «Propuesta recibida» — Step4Propuestas · l.318, when `each ates && ate.propuesta_url`
-- «Sin propuesta» — Step4Propuestas · l.322, when `each ates && !(ate.propuesta_url)`
-- «{ate.propuesta_filename} / Propuesta» — Step4Propuestas · l.332, when `each ates && ate.propuesta_url`
-- «Fecha de propuesta: {formatDate(ate.fecha_propuesta)}» — Step4Propuestas · l.338, when `each ates && ate.propuesta_url && ate.fecha_propuesta`
-- «La fecha seleccionada ( {state.fecha_propuesta} ) es posterior al limite de propuestas ( {licitacion.fecha_limite_propuestas} ). La propuesta se registrara de todas formas.» — Step4Propuestas · l.354, when `each ates && !(ate.propuesta_url) && state.fecha_propuesta && licitacion.fecha_limite_propuestas && new Date(state.fecha_propuesta) > new Date(licitacion.fecha_limite_propuestas)`
-- «Archivo de propuesta (PDF, Word, imagen — max 25MB)» (label) — Step4Propuestas · l.363, when `each ates && !(ate.propuesta_url)`
-- «Fecha de la propuesta» (label) — Step4Propuestas · l.385, when `each ates && !(ate.propuesta_url)`
-- «Notas (opcional)» (label) — Step4Propuestas · l.401, when `each ates && !(ate.propuesta_url)`
-- «No hay ATEs registradas. Agregue una ATE para poder subir propuestas.» — Step4Propuestas · l.437, when `ates.length === 0`
-- «¿Necesita agregar una ATE que no estaba en el Paso 3?» — Step4Propuestas · l.444
-- «Nombre ATE *» (label) — Step4Propuestas · l.461, when `showNewAteForm`
-- «RUT» (label) — Step4Propuestas · l.477, when `showNewAteForm`
-- «Contacto» (label) — Step4Propuestas · l.491, when `showNewAteForm`
-- «Correo» (label) — Step4Propuestas · l.502, when `showNewAteForm`
-- «Telefono» (label) — Step4Propuestas · l.516, when `showNewAteForm`
-- «{atesWithProposal.length} ATE s tienen / tiene propuesta recibida. Puede avanzar al siguiente paso.» — Step4Propuestas · l.544, when `canAdvance`
-- «Para avanzar a Evaluación, debe subir al menos una propuesta de ATE.» — Step4Propuestas · l.558, when `!(canAdvance)`
+- «de» — Step4Propuestas · l.293
+- «ATEs con propuesta recibida.» — Step4Propuestas · l.293
+- «Fecha limite: {formatDate(licitacion.fecha_limite_…}» — Step4Propuestas · l.295, when `licitacion.fecha_limite_propuestas`
+- «RUT: {ate.rut_ate}» — Step4Propuestas · l.318, when `each ates && ate.rut_ate`
+- «Propuesta recibida» — Step4Propuestas · l.324, when `each ates && ate.propuesta_url`
+- «Sin propuesta» — Step4Propuestas · l.328, when `each ates && !(ate.propuesta_url)`
+- «{ate.propuesta_filename} / Propuesta» — Step4Propuestas · l.338, when `each ates && ate.propuesta_url`
+- «Fecha de propuesta: {formatDate(ate.fecha_propuesta)}» — Step4Propuestas · l.344, when `each ates && ate.propuesta_url && ate.fecha_propuesta`
+- «La fecha seleccionada ( {state.fecha_propuesta} ) es posterior al limite de propuestas ( {licitacion.fecha_limite_propuestas} ). La propuesta se registrara de todas formas.» — Step4Propuestas · l.360, when `each ates && !(ate.propuesta_url) && !(!propuestasAbiertas) && state.fecha_propuesta && licitacion.fecha_limite_propuestas && new Date(state.fecha_propuesta) > new Date(licitacion.fecha_limite_propuestas)`
+- «Archivo de propuesta (PDF, Word, imagen — max 25MB)» (label) — Step4Propuestas · l.369, when `each ates && !(ate.propuesta_url) && !(!propuestasAbiertas)`
+- «Fecha de la propuesta» (label) — Step4Propuestas · l.391, when `each ates && !(ate.propuesta_url) && !(!propuestasAbiertas)`
+- «Notas (opcional)» (label) — Step4Propuestas · l.407, when `each ates && !(ate.propuesta_url) && !(!propuestasAbiertas)`
+- «No hay ATEs registradas. Agregue una ATE para poder subir propuestas.» — Step4Propuestas · l.443, when `ates.length === 0`
+- «¿Necesita agregar una ATE que no estaba en el Paso 3?» — Step4Propuestas · l.455, when `!(!atesEditables \|\| !propuestasAbiertas)`
+- «Nombre ATE *» (label) — Step4Propuestas · l.472, when `(!(!atesEditables \|\| !propuestasAbiertas)) && showNewAteForm`
+- «RUT» (label) — Step4Propuestas · l.488, when `(!(!atesEditables \|\| !propuestasAbiertas)) && showNewAteForm`
+- «Contacto» (label) — Step4Propuestas · l.502, when `(!(!atesEditables \|\| !propuestasAbiertas)) && showNewAteForm`
+- «Correo» (label) — Step4Propuestas · l.513, when `(!(!atesEditables \|\| !propuestasAbiertas)) && showNewAteForm`
+- «Telefono» (label) — Step4Propuestas · l.527, when `(!(!atesEditables \|\| !propuestasAbiertas)) && showNewAteForm`
+- «{atesWithProposal.length} ATE s tienen / tiene propuesta recibida. Puede avanzar al siguiente paso.» — Step4Propuestas · l.557, when `licitacion.estado === 'propuestas_pendientes' && canAdvance`
+- «Para avanzar a Evaluación, debe subir al menos una propuesta de ATE.» — Step4Propuestas · l.571, when `licitacion.estado === 'propuestas_pendientes' && !(canAdvance)`
 
 ### components/licitaciones/Step6Adjudicacion.tsx
 
@@ -2684,107 +2708,108 @@ Used by: `/licitaciones/[id]`
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «1. Seleccion del Ganador» | h3 |  | Step6Adjudicacion · l.318 |
-| «2. Datos de la Adjudicacion» | h3 |  | Step6Adjudicacion · l.366 |
-| «3. Documentos» | h3 |  | Step6Adjudicacion · l.454 |
-| «4. Confirmacion FNE» | h3 |  | Step6Adjudicacion · l.528 |
+| «1. Seleccion del Ganador» | h3 |  | Step6Adjudicacion · l.340 |
+| «2. Datos de la Adjudicacion» | h3 |  | Step6Adjudicacion · l.388 |
+| «3. Documentos» | h3 |  | Step6Adjudicacion · l.476 |
+| «4. Confirmacion FNE» | h3 |  | Step6Adjudicacion · l.550 |
 
 **Buttons** (5)
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «Guardando... / Guardar Adjudicacion» | `{handleSave}` |  | `{saving \|\| !selectedAteId}` |  | Step6Adjudicacion · l.456 |
-| «Generando... / Generar Carta de Adjudicacion» | `{handleGenerateCarta}` |  | `{!isAdmin \|\| generatingCarta \|\| !selectedAteId}` |  | Step6Adjudicacion · l.467 |
-| «Subiendo... / Subir Carta Firmada» | `{() => fileInputRef.current?.click()}` | `!(cartaSigned)` | `{uploadingCarta}` |  | Step6Adjudicacion · l.511 |
-| «Procesando... / Si — Proveedor FNE (genera Contrato)» | `{() => handleConfirm(true)}` |  | `{confirming \|\| !selectedAteId \|\| !cartaReady}` |  | Step6Adjudicacion · l.535 |
-| «Procesando... / No — Proveedor Externo (cerrar proceso)» | `{() => handleConfirm(false)}` |  | `{confirming \|\| !selectedAteId}` |  | Step6Adjudicacion · l.542 |
+| «Guardando... / Guardar Adjudicacion» | `{handleSave}` |  | `{saving \|\| !selectedAteId}` |  | Step6Adjudicacion · l.478 |
+| «Generando... / Generar Carta de Adjudicacion» | `{handleGenerateCarta}` |  | `{!isAdmin \|\| generatingCarta \|\| !selectedAteId}` |  | Step6Adjudicacion · l.489 |
+| «Subiendo... / Subir Carta Firmada» | `{() => fileInputRef.current?.click()}` | `!(cartaSigned)` | `{uploadingCarta}` |  | Step6Adjudicacion · l.533 |
+| «Procesando... / Si — Proveedor FNE (genera Contrato)» | `{() => handleConfirm(true)}` |  | `{confirming \|\| !selectedAteId \|\| !cartaReady}` |  | Step6Adjudicacion · l.557 |
+| «Procesando... / No — Proveedor Externo (cerrar proceso)» | `{() => handleConfirm(false)}` |  | `{confirming \|\| !selectedAteId}` |  | Step6Adjudicacion · l.564 |
 
 **Links** (1)
 
 | Text | Goes to | Shown when | Hook | Where |
 |---|---|---|---|---|
-| «Carta generada — descargar» | `{cartaUrl}` (new tab) | `cartaUrl` |  | Step6Adjudicacion · l.482 |
+| «Carta generada — descargar» | `{cartaUrl}` (new tab) | `cartaUrl` |  | Step6Adjudicacion · l.504 |
 
 **Fields** (8)
 
 | Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
 |---|---|---|---|---|---|---|
-| «{ate.nombre_ate} [Mayor puntaje] [Puntaje total: {Number(ate.puntaje_total).toFixed(1)}]» | radio | `ganador-ate` |  | `each sortedAtes` |  | Step6Adjudicacion · l.331 |
-| «Monto adjudicado (UF)» | number | «100.00» · `min={0} step={0.01}` |  |  | `id=monto-uf (id used by code)` | Step6Adjudicacion · l.374 |
-| «Fecha de la oferta ganadora» | date |  |  |  | `id=fecha-oferta (id used by code)` | Step6Adjudicacion · l.389 |
-| «Condiciones de pago» | textarea | «Detalle las condiciones de pago acordadas...» |  |  | `id=condiciones (id used by code)` | Step6Adjudicacion · l.401 |
-| «Nombre coordinacion» | text | «Director / Jefe de UTP» |  |  | `id=contacto-nombre (id used by code)` | Step6Adjudicacion · l.414 |
-| «Correo coordinacion» | email | «coordinacion@escuela.cl» |  |  | `id=contacto-email (id used by code)` | Step6Adjudicacion · l.427 |
-| «Telefono coordinacion» | text | «+56 9 1234 5678» |  |  | `id=contacto-telefono (id used by code)` | Step6Adjudicacion · l.440 |
-|  | file | accepts `.pdf,.png,.jpg,.jpeg` |  | `!(cartaSigned)` · hidden by its class (`hidden`); another control opens it or it is for screen readers | `id=carta-upload` | Step6Adjudicacion · l.500 |
+| «{ate.nombre_ate} [Mayor puntaje] [Puntaje total: {Number(ate.puntaje_total).toFixed(1)}]» | radio | `ganador-ate` |  | `each sortedAtes` |  | Step6Adjudicacion · l.353 |
+| «Monto adjudicado ({licitacion.tipo_moneda}) / Monto adjudicado» | number | «100.00» · `min={0} step={0.01}` |  |  | `id=monto-uf (id used by code)` | Step6Adjudicacion · l.396 |
+| «Fecha de la oferta ganadora» | date |  |  |  | `id=fecha-oferta (id used by code)` | Step6Adjudicacion · l.411 |
+| «Condiciones de pago» | textarea | «Detalle las condiciones de pago acordadas...» |  |  | `id=condiciones (id used by code)` | Step6Adjudicacion · l.423 |
+| «Nombre coordinacion» | text | «Director / Jefe de UTP» |  |  | `id=contacto-nombre (id used by code)` | Step6Adjudicacion · l.436 |
+| «Correo coordinacion» | email | «coordinacion@escuela.cl» |  |  | `id=contacto-email (id used by code)` | Step6Adjudicacion · l.449 |
+| «Telefono coordinacion» | text | «+56 9 1234 5678» |  |  | `id=contacto-telefono (id used by code)` | Step6Adjudicacion · l.462 |
+|  | file | accepts `.pdf,.png,.jpg,.jpeg` |  | `!(cartaSigned)` · hidden by its class (`hidden`); another control opens it or it is for screen readers | `id=carta-upload` | Step6Adjudicacion · l.522 |
 
 **Browser confirm()** (1)
 
 | Question | When | Where |
 |---|---|---|
-| «{msg}» |  | handleConfirm · l.236 |
+| «{msg}» |  | handleConfirm · l.249 |
 
-**Toasts** (15)
+**Toasts** (16)
 
 | Kind | Text | When | Where |
 |---|---|---|---|
-| error | «Error al cargar ATEs» |  | Step6Adjudicacion · l.95 |
-| error | «Debe seleccionar un ATE ganador» | `!selectedAteId` | saveAdjudicacion · l.113 |
-| error | «Error al guardar adjudicacion» | `!res.ok` | saveAdjudicacion · l.137 |
-| success | «Datos de adjudicacion guardados» |  | saveAdjudicacion · l.141 |
-| error | «Error al guardar adjudicacion» |  | saveAdjudicacion · l.144 |
-| error | «Guarde primero los datos de adjudicacion» | `!selectedAteId` | handleGenerateCarta · l.161 |
-| error | «Error al generar la Carta» | `!res.ok` | handleGenerateCarta · l.175 |
-| success | «Carta de Adjudicacion generada exitosamente» |  | handleGenerateCarta · l.180 |
-| error | «Error al generar la Carta» |  | handleGenerateCarta · l.186 |
-| error | «Error al subir la Carta» | `!res.ok` | handleUploadCarta · l.213 |
-| success | «Carta firmada subida exitosamente» |  | handleUploadCarta · l.218 |
-| error | «Error al subir la Carta» |  | handleUploadCarta · l.221 |
-| error | «Error al confirmar adjudicacion» | `!res.ok` | handleConfirm · l.248 |
-| success | «Adjudicacion confirmada. Estado: Contrato Pendiente / Adjudicacion externa confirmada» |  | handleConfirm · l.252 |
-| error | «Error al confirmar adjudicacion» |  | handleConfirm · l.259 |
+| error | «Error al cargar ATEs» |  | Step6Adjudicacion · l.99 |
+| error | «Debe seleccionar un ATE ganador» | `!selectedAteId` | saveAdjudicacion · l.117 |
+| error | «Error al guardar adjudicacion» | `!res.ok` | saveAdjudicacion · l.143 |
+| success | «Datos de adjudicacion guardados» |  | saveAdjudicacion · l.147 |
+| error | «La Carta de adjudicación debe generarse de nuevo.» | `json.data?.carta_invalidada` | saveAdjudicacion · l.151 |
+| error | «Error al guardar adjudicacion» |  | saveAdjudicacion · l.155 |
+| error | «Guarde primero los datos de adjudicacion» | `!selectedAteId` | handleGenerateCarta · l.172 |
+| error | «Error al generar la Carta» | `!res.ok` | handleGenerateCarta · l.187 |
+| success | «Carta de Adjudicacion generada exitosamente» |  | handleGenerateCarta · l.193 |
+| error | «Error al generar la Carta» |  | handleGenerateCarta · l.199 |
+| error | «Error al subir la Carta» | `!res.ok` | handleUploadCarta · l.226 |
+| success | «Carta firmada subida exitosamente» |  | handleUploadCarta · l.231 |
+| error | «Error al subir la Carta» |  | handleUploadCarta · l.234 |
+| error | «Error al confirmar adjudicacion» | `!res.ok` | handleConfirm · l.265 |
+| success | «Adjudicacion confirmada. Estado: Contrato Pendiente / Adjudicacion externa confirmada» |  | handleConfirm · l.269 |
+| error | «Error al confirmar adjudicacion» |  | handleConfirm · l.276 |
 
 **Moves to another page from code** (1)
 
 | Goes to | How | When | Where |
 |---|---|---|---|
-| `{json.data.url}` | `window.open` | `json.data.url` | handleGenerateCarta · l.183 |
+| `{json.data.url}` | `window.open` | `json.data.url` | handleGenerateCarta · l.196 |
 
 **Texts kept in lists and helpers in the code (labels, options, status names)** (1)
 
 | Name | Texts | Where |
 |---|---|---|
-| `msg` | «¿Confirmar que el ATE es proveedor FNE? El estado cambiara a "Contrato Pendiente". / ¿Confirmar adjudicacion a proveedor externo? El estado cambiara a "Adjudicada (Externa)".» | handleConfirm · l.232 |
+| `msg` | «¿Confirmar que el ATE es proveedor FNE? El estado cambiara a "Contrato Pendiente". / ¿Confirmar adjudicacion a proveedor externo? El estado cambiara a "Adjudicada (Externa)".» | handleConfirm · l.245 |
 
 **Other texts written in the code (safety net: not tied to an element by the script)** (1)
 
 | Text | Where |
 |---|---|
-| «Carta firmada — {licitacion.numero_licitacion}» | Step6Adjudicacion · l.204 |
+| «Carta firmada — {licitacion.numero_licitacion}» | Step6Adjudicacion · l.217 |
 
 **Values shown from data** (2)
 
-- `{winner.nombre_ate}` — Step6Adjudicacion · l.280, when `!isEditable && winner`
-- `{licitacion.condiciones_pago}` — Step6Adjudicacion · l.291, when `!isEditable && licitacion.condiciones_pago`
+- `{winner.nombre_ate}` — Step6Adjudicacion · l.302, when `!isEditable && winner`
+- `{licitacion.condiciones_pago}` — Step6Adjudicacion · l.313, when `!isEditable && licitacion.condiciones_pago`
 
 **Other texts on screen** (16)
 
-- «Adjudicacion completada» — Step6Adjudicacion · l.275, when `!isEditable`
-- «ATE Ganador» — Step6Adjudicacion · l.279, when `!isEditable && winner`
-- «Monto: $ {Number(winner.monto_propuesto).toLo…} CLP» — Step6Adjudicacion · l.282, when `!isEditable && winner && winner.monto_propuesto`
-- «Condiciones de pago» — Step6Adjudicacion · l.290, when `!isEditable && licitacion.condiciones_pago`
-- «{ate.nombre_ate} [Mayor puntaje] [Puntaje total: {Number(ate.puntaje_total).toFixed(1)}]» (label) — Step6Adjudicacion · l.323, when `each sortedAtes`
-- «No hay ATEs evaluadas. Complete el Paso 5 primero.» — Step6Adjudicacion · l.358, when `ates.length === 0`
-- «Monto adjudicado (UF)» (label) — Step6Adjudicacion · l.371
-- «Fecha de la oferta ganadora» (label) — Step6Adjudicacion · l.386
-- «Condiciones de pago» (label) — Step6Adjudicacion · l.398
-- «Nombre coordinacion» (label) — Step6Adjudicacion · l.411
-- «Correo coordinacion» (label) — Step6Adjudicacion · l.424
-- «Telefono coordinacion» (label) — Step6Adjudicacion · l.437
-- «Suba la Carta de Adjudicacion firmada (PDF o imagen).» — Step6Adjudicacion · l.491
-- «Carta firmada subida» — Step6Adjudicacion · l.496, when `cartaSigned`
-- «¿El ATE adjudicado es proveedor registrado en FNE?» — Step6Adjudicacion · l.532
-- «Genere la Carta de adjudicación antes de confirmar la adjudicación.» — Step6Adjudicacion · l.552, when `!cartaReady`
+- «Adjudicacion completada» — Step6Adjudicacion · l.297, when `!isEditable`
+- «ATE Ganador» — Step6Adjudicacion · l.301, when `!isEditable && winner`
+- «Monto: {montoResumen}» — Step6Adjudicacion · l.304, when `!isEditable && winner && montoResumen`
+- «Condiciones de pago» — Step6Adjudicacion · l.312, when `!isEditable && licitacion.condiciones_pago`
+- «{ate.nombre_ate} [Mayor puntaje] [Puntaje total: {Number(ate.puntaje_total).toFixed(1)}]» (label) — Step6Adjudicacion · l.345, when `each sortedAtes`
+- «No hay ATEs evaluadas. Complete el Paso 5 primero.» — Step6Adjudicacion · l.380, when `ates.length === 0`
+- «Monto adjudicado ({licitacion.tipo_moneda}) / Monto adjudicado» (label) — Step6Adjudicacion · l.393
+- «Fecha de la oferta ganadora» (label) — Step6Adjudicacion · l.408
+- «Condiciones de pago» (label) — Step6Adjudicacion · l.420
+- «Nombre coordinacion» (label) — Step6Adjudicacion · l.433
+- «Correo coordinacion» (label) — Step6Adjudicacion · l.446
+- «Telefono coordinacion» (label) — Step6Adjudicacion · l.459
+- «Suba la Carta de Adjudicacion firmada (PDF o imagen).» — Step6Adjudicacion · l.513
+- «Carta firmada subida» — Step6Adjudicacion · l.518, when `cartaSigned`
+- «¿El ATE adjudicado es proveedor registrado en FNE?» — Step6Adjudicacion · l.554
+- «Genere la Carta de adjudicación antes de confirmar la adjudicación.» — Step6Adjudicacion · l.574, when `!cartaReady`
 
 ### components/licitaciones/Step7Contrato.tsx
 
@@ -2794,84 +2819,95 @@ Used by: `/licitaciones/[id]`
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «Generando... / Generar Carta de adjudicación» | `{handleGenerateCarta}` | `estado === 'contrato_pendiente' && ganador_es_fne && !carta_adjudicacion_url && isAdmin` | `{generatingCarta}` |  | Step7Contrato · l.184 |
-| «Generar Contrato» | `{() => router.push('/contracts?tab=nuevo&licitacion_id=${licitacion.id}')}` | `estado === 'contrato_pendiente' && ganador_es_fne && isAdmin` | `{!canGenerateContract}` |  | Step7Contrato · l.204 |
-| «Subiendo... / Seleccionar Archivo» | `{() => fileInputRef.current?.click()}` | `estado === 'adjudicada_externo'` | `{uploading}` |  | Step7Contrato · l.322 |
-| «Cerrar Licitacion» | `{() => setShowCloseConfirm(true)}` | `estado === 'adjudicada_externo' && !showCloseConfirm` |  |  | Step7Contrato · l.341 |
-| «Cerrando... / Confirmar Cierre» | `{handleClose}` | `estado === 'adjudicada_externo' && !(!showCloseConfirm)` | `{closing}` |  | Step7Contrato · l.356 |
-| «Cancelar» | `{() => setShowCloseConfirm(false)}` | `estado === 'adjudicada_externo' && !(!showCloseConfirm)` | `{closing}` |  | Step7Contrato · l.363 |
+| «Generando... / Generar Carta de adjudicación» | `{handleGenerateCarta}` | `estado === 'contrato_pendiente' && ganador_es_fne && !carta_adjudicacion_url && isAdmin` | `{generatingCarta}` |  | Step7Contrato · l.185 |
+| «Generar Contrato» | `{() => router.push('/contracts?tab=nuevo&licitacion_id=${licitacion.id}')}` | `estado === 'contrato_pendiente' && ganador_es_fne && isAdmin` | `{!canGenerateContract}` |  | Step7Contrato · l.205 |
+| «Subiendo... / Seleccionar Archivo» | `{() => fileInputRef.current?.click()}` | `estado === 'adjudicada_externo'` | `{uploading}` |  | Step7Contrato · l.323 |
+| «Cerrar Licitacion» | `{() => setShowCloseConfirm(true)}` | `estado === 'adjudicada_externo' && !showCloseConfirm` |  |  | Step7Contrato · l.342 |
+| «Cerrando... / Confirmar Cierre» | `{handleClose}` | `estado === 'adjudicada_externo' && !(!showCloseConfirm)` | `{closing}` |  | Step7Contrato · l.357 |
+| «Cancelar» | `{() => setShowCloseConfirm(false)}` | `estado === 'adjudicada_externo' && !(!showCloseConfirm)` | `{closing}` |  | Step7Contrato · l.364 |
 
 **Links** (2)
 
 | Text | Goes to | Shown when | Hook | Where |
 |---|---|---|---|---|
-| «Ver Contrato» | `/contracts?contrato_id=[*]` | `estado === 'contrato_generado' && contrato_id` |  | Step7Contrato · l.261 |
-| «Ver Contrato Vinculado» | `/contracts?contrato_id=[*]` | `estado === 'cerrada' && contrato_id` |  | Step7Contrato · l.418 |
+| «Ver Contrato» | `/contracts?contrato_id=[*]` | `estado === 'contrato_generado' && contrato_id` |  | Step7Contrato · l.262 |
+| «Ver Contrato Vinculado» | `/contracts?contrato_id=[*]` | `estado === 'cerrada' && contrato_id` |  | Step7Contrato · l.419 |
 
 **Fields** (1)
 
 | Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
 |---|---|---|---|---|---|---|
-|  | file | accepts `.pdf,.doc,.docx,.png,.jpg,.jpeg` |  | `estado === 'adjudicada_externo'` · hidden by its class (`hidden`); another control opens it or it is for screen readers |  | Step7Contrato · l.329 |
+|  | file | accepts `.pdf,.doc,.docx,.png,.jpg,.jpeg` |  | `estado === 'adjudicada_externo'` · hidden by its class (`hidden`); another control opens it or it is for screen readers |  | Step7Contrato · l.330 |
 
 **Toasts** (7)
 
 | Kind | Text | When | Where |
 |---|---|---|---|
-| success | «Documento subido exitosamente» |  | handleUploadDocument · l.78 |
-| error | «Error al subir documento» |  | handleUploadDocument · l.81 |
-| error | «Error al generar la Carta» | `!res.ok` | handleGenerateCarta · l.106 |
-| success | «Carta de Adjudicacion generada exitosamente» |  | handleGenerateCarta · l.109 |
-| error | «Error al generar la Carta» |  | handleGenerateCarta · l.115 |
-| success | «Licitacion cerrada exitosamente» |  | handleClose · l.139 |
-| error | «Error al cerrar licitacion» |  | handleClose · l.143 |
+| success | «Documento subido exitosamente» |  | handleUploadDocument · l.79 |
+| error | «Error al subir documento» |  | handleUploadDocument · l.82 |
+| error | «Error al generar la Carta» | `!res.ok` | handleGenerateCarta · l.107 |
+| success | «Carta de Adjudicacion generada exitosamente» |  | handleGenerateCarta · l.110 |
+| error | «Error al generar la Carta» |  | handleGenerateCarta · l.116 |
+| success | «Licitacion cerrada exitosamente» |  | handleClose · l.140 |
+| error | «Error al cerrar licitacion» |  | handleClose · l.144 |
 
 **Messages set on the page** (2)
 
 | Text | Set by | When | Where |
 |---|---|---|---|
-| «Error al subir documento» | `throw (shown by whoever catches it)` | `!res.ok` | handleUploadDocument · l.75 |
-| «Error al cerrar licitacion» | `throw (shown by whoever catches it)` | `!res.ok` | handleClose · l.136 |
+| «Error al subir documento» | `throw (shown by whoever catches it)` | `!res.ok` | handleUploadDocument · l.76 |
+| «Error al cerrar licitacion» | `throw (shown by whoever catches it)` | `!res.ok` | handleClose · l.137 |
 
 **Moves to another page from code** (2)
 
 | Goes to | How | When | Where |
 |---|---|---|---|
-| `{json.data.url}` | `window.open` | `json.data?.url` | handleGenerateCarta · l.111 |
-| `/contracts?tab=nuevo&licitacion_id=[*]` | `router.push` | `estado === 'contrato_pendiente' && ganador_es_fne && isAdmin` | Step7Contrato · l.206 |
+| `{json.data.url}` | `window.open` | `json.data?.url` | handleGenerateCarta · l.112 |
+| `/contracts?tab=nuevo&licitacion_id=[*]` | `router.push` | `estado === 'contrato_pendiente' && ganador_es_fne && isAdmin` | Step7Contrato · l.207 |
 
 **Values shown from data** (4)
 
-- `{new Date(licitacion.fecha_adjudicac…}` — Step7Contrato · l.276, when `estado === 'contrato_generado' && licitacion.fecha_adjudicacion`
-- `{licitacion.tipo_moneda} {licitacion.monto_adjudicado_uf.toLo…}` — Step7Contrato · l.284, when `estado === 'contrato_generado' && licitacion.monto_adjudicado_uf`
-- `{new Date(licitacion.fecha_adjudicac…}` — Step7Contrato · l.403, when `estado === 'cerrada' && licitacion.fecha_adjudicacion`
-- `{licitacion.tipo_moneda} {licitacion.monto_adjudicado_uf.toLo…}` — Step7Contrato · l.411, when `estado === 'cerrada' && licitacion.monto_adjudicado_uf`
+- `{new Date(licitacion.fecha_adjudicac…}` — Step7Contrato · l.277, when `estado === 'contrato_generado' && licitacion.fecha_adjudicacion`
+- `{formatMonto(licitacion.monto_adjudi…}` — Step7Contrato · l.285, when `estado === 'contrato_generado' && licitacion.monto_adjudicado_uf`
+- `{new Date(licitacion.fecha_adjudicac…}` — Step7Contrato · l.404, when `estado === 'cerrada' && licitacion.fecha_adjudicacion`
+- `{formatMonto(licitacion.monto_adjudi…}` — Step7Contrato · l.412, when `estado === 'cerrada' && licitacion.monto_adjudicado_uf`
 
 **Other texts on screen** (23)
 
-- «Contrato Pendiente — ATE FNE» — Step7Contrato · l.166, when `estado === 'contrato_pendiente' && ganador_es_fne`
-- «La licitacion fue adjudicada a un ATE de FNE. El siguiente paso es generar el contrato en el modulo de contratos.» — Step7Contrato · l.170, when `estado === 'contrato_pendiente' && ganador_es_fne`
-- «Falta la Carta de adjudicación generada. Debe generarse antes de generar el contrato.» — Step7Contrato · l.181, when `estado === 'contrato_pendiente' && ganador_es_fne && !carta_adjudicacion_url`
-- «Un administrador debe generar la Carta de adjudicación para continuar.» — Step7Contrato · l.194, when `estado === 'contrato_pendiente' && ganador_es_fne && !carta_adjudicacion_url && !(isAdmin)`
-- «(Genere la Carta de adjudicación para habilitar)» — Step7Contrato · l.216, when `estado === 'contrato_pendiente' && ganador_es_fne && isAdmin && !carta_adjudicacion_url`
-- «Solo los administradores pueden generar contratos desde esta vista.» — Step7Contrato · l.224, when `estado === 'contrato_pendiente' && ganador_es_fne && !isAdmin`
-- «Contrato Generado» — Step7Contrato · l.243, when `estado === 'contrato_generado'`
-- «El contrato ha sido generado y vinculado a esta licitacion.» — Step7Contrato · l.247, when `estado === 'contrato_generado'`
-- «Contrato Vinculado» — Step7Contrato · l.257, when `estado === 'contrato_generado' && contrato_id`
-- «Ver detalles del contrato en el modulo de contratos» — Step7Contrato · l.258, when `estado === 'contrato_generado' && contrato_id`
-- «Fecha adjudicacion:» — Step7Contrato · l.275, when `estado === 'contrato_generado' && licitacion.fecha_adjudicacion`
-- «Monto adjudicado:» — Step7Contrato · l.283, when `estado === 'contrato_generado' && licitacion.monto_adjudicado_uf`
-- «Adjudicada a Proveedor Externo» — Step7Contrato · l.306, when `estado === 'adjudicada_externo'`
-- «La licitacion fue adjudicada a un proveedor externo a FNE. Suba los documentos finales y luego cierre la licitacion.» — Step7Contrato · l.310, when `estado === 'adjudicada_externo'`
-- «Suba documentos finales (contrato externo, resoluciones, etc.)» — Step7Contrato · l.319, when `estado === 'adjudicada_externo'`
-- «PDF, Word o imagen — max 25 MB» — Step7Contrato · l.321, when `estado === 'adjudicada_externo'`
-- «¿Confirmar cierre de la licitacion?» — Step7Contrato · l.350, when `estado === 'adjudicada_externo' && !(!showCloseConfirm)`
-- «Esta accion es irreversible. La licitacion quedara en estado &quot;Cerrada&quot;.» — Step7Contrato · l.353, when `estado === 'adjudicada_externo' && !(!showCloseConfirm)`
-- «Licitacion Cerrada» — Step7Contrato · l.390, when `estado === 'cerrada'`
-- «Esta licitacion ha sido cerrada. No se pueden realizar mas acciones.» — Step7Contrato · l.394, when `estado === 'cerrada'`
-- «Fecha adjudicacion:» — Step7Contrato · l.402, when `estado === 'cerrada' && licitacion.fecha_adjudicacion`
-- «Monto adjudicado:» — Step7Contrato · l.410, when `estado === 'cerrada' && licitacion.monto_adjudicado_uf`
-- «Este paso estara disponible cuando la licitacion sea adjudicada.» — Step7Contrato · l.439
+- «Contrato Pendiente — ATE FNE» — Step7Contrato · l.167, when `estado === 'contrato_pendiente' && ganador_es_fne`
+- «La licitacion fue adjudicada a un ATE de FNE. El siguiente paso es generar el contrato en el modulo de contratos.» — Step7Contrato · l.171, when `estado === 'contrato_pendiente' && ganador_es_fne`
+- «Falta la Carta de adjudicación generada. Debe generarse antes de generar el contrato.» — Step7Contrato · l.182, when `estado === 'contrato_pendiente' && ganador_es_fne && !carta_adjudicacion_url`
+- «Un administrador debe generar la Carta de adjudicación para continuar.» — Step7Contrato · l.195, when `estado === 'contrato_pendiente' && ganador_es_fne && !carta_adjudicacion_url && !(isAdmin)`
+- «(Genere la Carta de adjudicación para habilitar)» — Step7Contrato · l.217, when `estado === 'contrato_pendiente' && ganador_es_fne && isAdmin && !carta_adjudicacion_url`
+- «Solo los administradores pueden generar contratos desde esta vista.» — Step7Contrato · l.225, when `estado === 'contrato_pendiente' && ganador_es_fne && !isAdmin`
+- «Contrato Generado» — Step7Contrato · l.244, when `estado === 'contrato_generado'`
+- «El contrato ha sido generado y vinculado a esta licitacion.» — Step7Contrato · l.248, when `estado === 'contrato_generado'`
+- «Contrato Vinculado» — Step7Contrato · l.258, when `estado === 'contrato_generado' && contrato_id`
+- «Ver detalles del contrato en el modulo de contratos» — Step7Contrato · l.259, when `estado === 'contrato_generado' && contrato_id`
+- «Fecha adjudicacion:» — Step7Contrato · l.276, when `estado === 'contrato_generado' && licitacion.fecha_adjudicacion`
+- «Monto adjudicado:» — Step7Contrato · l.284, when `estado === 'contrato_generado' && licitacion.monto_adjudicado_uf`
+- «Adjudicada a Proveedor Externo» — Step7Contrato · l.307, when `estado === 'adjudicada_externo'`
+- «La licitacion fue adjudicada a un proveedor externo a FNE. Suba los documentos finales y luego cierre la licitacion.» — Step7Contrato · l.311, when `estado === 'adjudicada_externo'`
+- «Suba documentos finales (contrato externo, resoluciones, etc.)» — Step7Contrato · l.320, when `estado === 'adjudicada_externo'`
+- «PDF, Word o imagen — max 25 MB» — Step7Contrato · l.322, when `estado === 'adjudicada_externo'`
+- «¿Confirmar cierre de la licitacion?» — Step7Contrato · l.351, when `estado === 'adjudicada_externo' && !(!showCloseConfirm)`
+- «Esta accion es irreversible. La licitacion quedara en estado &quot;Cerrada&quot;.» — Step7Contrato · l.354, when `estado === 'adjudicada_externo' && !(!showCloseConfirm)`
+- «Licitacion Cerrada» — Step7Contrato · l.391, when `estado === 'cerrada'`
+- «Esta licitacion ha sido cerrada. No se pueden realizar mas acciones.» — Step7Contrato · l.395, when `estado === 'cerrada'`
+- «Fecha adjudicacion:» — Step7Contrato · l.403, when `estado === 'cerrada' && licitacion.fecha_adjudicacion`
+- «Monto adjudicado:» — Step7Contrato · l.411, when `estado === 'cerrada' && licitacion.monto_adjudicado_uf`
+- «Este paso estara disponible cuando la licitacion sea adjudicada.» — Step7Contrato · l.440
+
+### components/licitaciones/mensajesEstado.ts
+
+Used by: `/licitaciones/[id]`
+
+**Texts kept in lists and helpers in the code (labels, options, status names)** (2)
+
+| Name | Texts | Where |
+|---|---|---|
+| `MENSAJE_ATES_ADJUDICADA` | «La licitación ya fue adjudicada: no se pueden modificar las ATE ni las propuestas.» | l.15 |
+| `MENSAJE_CONTRATO_GENERADO` | «La licitación ya tiene su contrato: no se pueden agregar consultas ni eliminar documentos.» | l.17 |
 
 ### components/propuestas-web/BucketDistribution.tsx
 
@@ -3143,27 +3179,27 @@ Used by: `/propuesta/[slug]`
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «Propuesta Económica» | h2 |  | PricingSection · l.21 |
+| «Propuesta Económica» | h2 |  | PricingSection · l.20 |
 
 **Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (1)
 
 | Kind | What | Where |
 |---|---|---|
-| mark | `id=propuesta-economica` | PricingSection · l.15 |
+| mark | `id=propuesta-economica` | PricingSection · l.14 |
 
 **Values shown from data** (3)
 
-- `{totalUf.toFixed(2)}` — PricingSection · l.31
-- `{pricing.formaPago}` — PricingSection · l.41, when `pricing.formaPago`
-- `{pricing.formaPagoDetalle}` — PricingSection · l.43, when `pricing.formaPago && pricing.formaPagoDetalle`
+- `{totalUf.toFixed(2)}` — PricingSection · l.30
+- `{pricing.formaPago}` — PricingSection · l.40, when `pricing.formaPago`
+- `{pricing.formaPagoDetalle}` — PricingSection · l.42, when `pricing.formaPago && pricing.formaPagoDetalle`
 
 **Other texts on screen** (5)
 
-- «UF» — PricingSection · l.16
-- «Inversión» — PricingSection · l.20
-- «Inversión Total» — PricingSection · l.28
-- «UF» — PricingSection · l.32
-- «Forma de Pago» — PricingSection · l.40, when `pricing.formaPago`
+- «UF» — PricingSection · l.15
+- «Inversión» — PricingSection · l.19
+- «Inversión Total» — PricingSection · l.27
+- «UF» — PricingSection · l.31
+- «Forma de Pago» — PricingSection · l.39, when `pricing.formaPago`
 
 ### components/propuestas-web/ProposalPublicView.tsx
 
@@ -3386,6 +3422,28 @@ Used by: `/licitaciones/[id]`
 |---|---|---|
 | lookup | `querySelector(parsererror)` | extractDocxText · l.45 |
 
+### lib/licitaciones/estados.ts
+
+Used by: `/licitaciones/[id]`
+
+**Texts kept in lists and helpers in the code (labels, options, status names)** (3)
+
+| Name | Texts | Where |
+|---|---|---|
+| `MENSAJE_EVALUACION_INICIADA` | «La licitación ya está en evaluación: no se pueden modificar las ATE ni las propuestas.» | l.44 |
+| `MENSAJE_CERRADA` | «La licitación está cerrada: no se pueden agregar consultas ni eliminar documentos.» | l.47 |
+| `MENSAJE_BASES_ADJUDICADA` | «La licitación ya fue adjudicada: no se pueden generar nuevas Bases.» | l.50 |
+
+### lib/licitaciones/formato.ts
+
+Used by: `/licitaciones/[id]`
+
+**Texts kept in lists and helpers in the code (labels, options, status names)** (1)
+
+| Name | Texts | Where |
+|---|---|---|
+| `formatMonto()` | «UF {value.toLocaleString('es-CL…}» | formatMonto · l.32 |
+
 ### lib/licitaciones/publicacionText.ts
 
 Used by: `/licitaciones/[id]`
@@ -3396,13 +3454,17 @@ Used by: `/licitaciones/[id]`
 |---|---|---|
 | `FECHA_PENDIENTE` | «[fecha pendiente]» | l.10 |
 
-**Other texts written in the code (safety net: not tied to an element by the script)** (3)
+**Other texts written in the code (safety net: not tied to an element by the script)** (7)
 
 | Text | Where |
 |---|---|
-| «Con el objetivo de asesorar al equipo directivo y lideres del establecimiento» | buildPublicacionText · l.52 |
+| «Con el objetivo de asesorar al equipo directivo y líderes del establecimiento» | buildPublicacionText · l.52 |
+| «en el cambio de cultura organizacional centrada en la innovación educativa y» | buildPublicacionText · l.53 |
 | «en el Modelo Relacional es que el {schoolName}, de la comuna de {comuna},» | buildPublicacionText · l.54 |
-| «Bases de la licitacion se pueden solicitar hasta el {fechaLimite} al» | buildPublicacionText · l.59 |
+| «llamamos a concurso público para la contratación de servicios ATE con el» | buildPublicacionText · l.55 |
+| «siguiente requerimiento: asesoría al equipo directivo para liderar a la escuela» | buildPublicacionText · l.56 |
+| «hacia una cultura colaborativa, de aprendizaje profundo, con metodologías de» | buildPublicacionText · l.57 |
+| «Bases de la licitación se pueden solicitar hasta el {fechaLimite} al» | buildPublicacionText · l.59 |
 
 ### lib/licitacionesExport.ts
 
@@ -3451,47 +3513,47 @@ Used by: `/licitaciones/[id]`, `/propuesta/[slug]`
 
 | How | When | Where |
 |---|---|---|
-| `pdf.save()` |  | generateProposalPDF · l.946 |
+| `pdf.save()` |  | generateProposalPDF · l.943 |
 
 **Texts kept in lists and helpers in the code (labels, options, status names)** (10)
 
 | Name | Texts | Where |
 |---|---|---|
-| `MES` | «Enero», «Febrero», «Marzo», «Abril», «Mayo», «Junio», «Julio», «Agosto», «Septiembre», «Octubre», «Noviembre», «Diciembre» | l.22 |
-| `DIST_LABELS` | «Taller», «Sesiones regulares», «Flexible» | l.28 |
-| `MOD_LABELS` | «Presencial», «Online», «Asincrónico», «Híbrido» | l.33 |
-| `programLabel` | «Programa Evoluciona / Programa Preparación» | buildProposalPdf · l.303 |
-| `tocNames` | «Sobre Fundación Nueva Educación», «Modelo de Consultoría», «Equipo de Consultoría», «Asesores Internacionales», «Contenidos del Programa», «Distribución de Actividades [if hasBuckets]», «Línea de Tiempo del Programa [if hasBuckets]», «Propuesta Económica», «Datos de Referencia [if hasFichaOrLic]», «Documentos de Apoyo [if hasDocs]» | buildProposalPdf · l.365 |
-| `statsData` | «Años de experiencia», «Países», «Colegios acompañados» | buildProposalPdf · l.421 |
-| `phases` | «Inicia», «Diagnóstico y levantamiento de necesidades. Identificamos las áreas de mejora y establecemos la línea base.», «Inspira», «Formación y acompañamiento. Implementamos programas de desarrollo profesional contextualizados.», «Evoluciona», «Consolidación y autonomía. Aseguramos la sostenibilidad de los cambios y la transferencia de capacidades.» | buildProposalPdf · l.458 |
-| `distHead` | «Actividad», «Horas», «Modalidad», «Tipo», «Notas» | buildProposalPdf · l.660 |
-| `tlHead` | «Actividad» | buildProposalPdf · l.721 |
-| `dHead` | «Documento», «Tipo» | buildProposalPdf · l.878 |
+| `MES` | «Enero», «Febrero», «Marzo», «Abril», «Mayo», «Junio», «Julio», «Agosto», «Septiembre», «Octubre», «Noviembre», «Diciembre» | l.23 |
+| `DIST_LABELS` | «Taller», «Sesiones regulares», «Flexible» | l.29 |
+| `MOD_LABELS` | «Presencial», «Online», «Asincrónico», «Híbrido» | l.34 |
+| `programLabel` | «Programa Evoluciona / Programa Preparación» | buildProposalPdf · l.304 |
+| `tocNames` | «Sobre Fundación Nueva Educación», «Modelo de Consultoría», «Equipo de Consultoría», «Asesores Internacionales», «Contenidos del Programa», «Distribución de Actividades [if hasBuckets]», «Línea de Tiempo del Programa [if hasBuckets]», «Propuesta Económica», «Datos de Referencia [if hasFichaOrLic]», «Documentos de Apoyo [if hasDocs]» | buildProposalPdf · l.366 |
+| `statsData` | «Años de experiencia», «Países», «Colegios acompañados» | buildProposalPdf · l.422 |
+| `phases` | «Inicia», «Diagnóstico y levantamiento de necesidades. Identificamos las áreas de mejora y establecemos la línea base.», «Inspira», «Formación y acompañamiento. Implementamos programas de desarrollo profesional contextualizados.», «Evoluciona», «Consolidación y autonomía. Aseguramos la sostenibilidad de los cambios y la transferencia de capacidades.» | buildProposalPdf · l.459 |
+| `distHead` | «Actividad», «Horas», «Modalidad», «Tipo», «Notas» | buildProposalPdf · l.661 |
+| `tlHead` | «Actividad» | buildProposalPdf · l.722 |
+| `dHead` | «Documento», «Tipo» | buildProposalPdf · l.875 |
 
 **Other texts written in the code (safety net: not tied to an element by the script)** (20)
 
 | Text | Where |
 |---|---|
-| «FUNDACIÓN NUEVA EDUCACIÓN» | buildProposalPdf · l.295 |
-| «Hub de Transformación Educativa» | buildProposalPdf · l.300 |
-| «{snapshot.programYear} · Versión {snapshot.version}» | buildProposalPdf · l.334 |
-| «Índice» | buildProposalPdf · l.359 |
-| «Transformando comunidades educativas desde 2018» | buildProposalPdf · l.407 |
-| «Desde 2018, la Fundación Nueva Educación trabaja por la transformación de comunidades educativas a través de la formación docente, el liderazgo escolar y la innovación pedagógica. Con más de 6 años de experiencia, acompañamos a colegios en su proceso de mejora continua.» | buildProposalPdf · l.410 |
-| «Nuestro equipo de consultores expertos diseña programas a medida que responden a las necesidades específicas de cada comunidad educativa, combinando metodologías probadas con enfoques innovadores.» | buildProposalPdf · l.413 |
-| «Nuestro Enfoque» | buildProposalPdf · l.450 |
-| «Nuestro modelo de acompañamiento se estructura en tres fases progresivas que aseguran un proceso de transformación sostenible y contextualizado a las necesidades de cada comunidad educativa.» | buildProposalPdf · l.453 |
-| «FORMACIÓN» | buildProposalPdf · l.534 |
-| «{INTERNATIONAL_ADVISORS.leng…} asesores del comité internacional» | buildProposalPdf · l.573 |
-| «Mes {i + 1}» | buildProposalPdf · l.720 |
-| «{snapshot.totalHours} horas totales de acompañamiento» | buildProposalPdf · l.808 |
-| «INVERSIÓN TOTAL» | buildProposalPdf · l.821 |
-| «Forma de pago» | buildProposalPdf · l.832 |
-| «Detalle de pago» | buildProposalPdf · l.839 |
-| «{f.nombre_servicio} — {f.dimension} · {f.categoria} · Folio {f.folio}» | buildProposalPdf · l.857 |
-| «LICITACIÓN» | buildProposalPdf · l.862 |
-| «Licitación {l.numero} — {l.nombre} ({l.year})» | buildProposalPdf · l.864 |
-| «Disponibles para descarga en la versión web de esta propuesta» | buildProposalPdf · l.876 |
+| «FUNDACIÓN NUEVA EDUCACIÓN» | buildProposalPdf · l.296 |
+| «Hub de Transformación Educativa» | buildProposalPdf · l.301 |
+| «{snapshot.programYear} · Versión {snapshot.version}» | buildProposalPdf · l.335 |
+| «Índice» | buildProposalPdf · l.360 |
+| «Transformando comunidades educativas desde 2018» | buildProposalPdf · l.408 |
+| «Desde 2018, la Fundación Nueva Educación trabaja por la transformación de comunidades educativas a través de la formación docente, el liderazgo escolar y la innovación pedagógica. Con más de 6 años de experiencia, acompañamos a colegios en su proceso de mejora continua.» | buildProposalPdf · l.411 |
+| «Nuestro equipo de consultores expertos diseña programas a medida que responden a las necesidades específicas de cada comunidad educativa, combinando metodologías probadas con enfoques innovadores.» | buildProposalPdf · l.414 |
+| «Nuestro Enfoque» | buildProposalPdf · l.451 |
+| «Nuestro modelo de acompañamiento se estructura en tres fases progresivas que aseguran un proceso de transformación sostenible y contextualizado a las necesidades de cada comunidad educativa.» | buildProposalPdf · l.454 |
+| «FORMACIÓN» | buildProposalPdf · l.535 |
+| «{INTERNATIONAL_ADVISORS.leng…} asesores del comité internacional» | buildProposalPdf · l.574 |
+| «Mes {i + 1}» | buildProposalPdf · l.721 |
+| «{snapshot.totalHours} horas totales de acompañamiento» | buildProposalPdf · l.805 |
+| «INVERSIÓN TOTAL» | buildProposalPdf · l.818 |
+| «Forma de pago» | buildProposalPdf · l.829 |
+| «Detalle de pago» | buildProposalPdf · l.836 |
+| «{f.nombre_servicio} — {f.dimension} · {f.categoria} · Folio {f.folio}» | buildProposalPdf · l.854 |
+| «LICITACIÓN» | buildProposalPdf · l.859 |
+| «Licitación {l.numero} — {l.nombre} ({l.year})» | buildProposalPdf · l.861 |
+| «Disponibles para descarga en la versión web de esta propuesta» | buildProposalPdf · l.873 |
 
 ### lib/propuestas/types/hours.ts
 
@@ -3539,46 +3601,46 @@ Used by: `/admin/licitaciones/criterios`, `/admin/licitaciones/feriados`, `/admi
 
 | Text | Where |
 |---|---|
-| «Escuela requerida» | CreateLicitacionSchema · l.149 |
-| «Programa requerido» | CreateLicitacionSchema · l.150 |
-| «Nombre requerido» | CreateLicitacionSchema · l.151 |
-| «Nombre demasiado largo» | CreateLicitacionSchema · l.151 |
-| «Correo electronico invalido» | CreateLicitacionSchema · l.152 |
-| «Monto minimo debe ser positivo» | CreateLicitacionSchema · l.153 |
-| «Monto maximo debe ser positivo» | CreateLicitacionSchema · l.154 |
-| «Duracion minima requerida» | CreateLicitacionSchema · l.156 |
-| «Duracion maxima requerida» | CreateLicitacionSchema · l.157 |
-| «Minimo 1%» | CreateLicitacionSchema · l.158 |
-| «Maximo 99%» | CreateLicitacionSchema · l.158 |
-| «Año minimo 2024» | CreateLicitacionSchema · l.159 |
-| «Año maximo 2030» | CreateLicitacionSchema · l.159 |
-| «Presencial» | CreateLicitacionSchema · l.161 |
-| «Virtual» | CreateLicitacionSchema · l.161 |
-| «Hibrido» | CreateLicitacionSchema · l.161 |
-| «Notas demasiado largas» | CreateLicitacionSchema · l.162 |
-| «Presupuesto maximo debe ser mayor o igual al minimo» | CreateLicitacionSchema · l.164 |
-| «Ano minimo 2000» | CreateHistoricoLicitacionSchema · l.174 |
-| «Ano maximo 2030» | CreateHistoricoLicitacionSchema · l.174 |
-| «Numero demasiado largo» | CreateHistoricoLicitacionSchema · l.176 |
-| «Formato YYYY-MM-DD» | CreateHistoricoLicitacionSchema · l.187 |
-| «Fecha debe ser formato YYYY-MM-DD» | PublicacionSchema · l.199 |
-| «Nombre ATE requerido» | CreateAteSchema · l.261 |
-| «Telefono demasiado largo» | CreateAteSchema · l.265 |
-| «Correo invalido» | UpdateAteSchema · l.275 |
-| «Pregunta requerida» | CreateConsultaSchema · l.307 |
-| «Pregunta demasiado larga» | CreateConsultaSchema · l.307 |
-| «Respuesta demasiado larga» | CreateConsultaSchema · l.308 |
-| «Nombre del servicio requerido» | BasesTemplateSchema · l.344 |
-| «Objetivo requerido» | BasesTemplateSchema · l.345 |
-| «Formato HH:MM requerido» | SaveEvaluationSchema · l.455 |
-| «Formato YYYY-MM-DD requerido» | SaveEvaluationSchema · l.457 |
-| «Puntaje debe ser >= 0» | SaveEvaluationSchema · l.461 |
-| «Puntaje no puede exceder 100» | SaveEvaluationSchema · l.461 |
-| «Monto debe ser positivo» | SaveEvaluationSchema · l.466 |
-| «Monto excede limite» | SaveEvaluationSchema · l.466 |
-| «Puntaje maximo debe ser positivo» | CriterioSchema · l.493 |
-| «Debe confirmar el cierre de la licitacion» | CloseLicitacionSchema · l.517 |
-| «Formato de fecha invalido. Use YYYY-MM-DD» | FeriadoSchema · l.532 |
+| «Escuela requerida» | CreateLicitacionSchema · l.150 |
+| «Programa requerido» | CreateLicitacionSchema · l.151 |
+| «Nombre requerido» | CreateLicitacionSchema · l.152 |
+| «Nombre demasiado largo» | CreateLicitacionSchema · l.152 |
+| «Correo electronico invalido» | CreateLicitacionSchema · l.153 |
+| «Monto minimo debe ser positivo» | CreateLicitacionSchema · l.154 |
+| «Monto maximo debe ser positivo» | CreateLicitacionSchema · l.155 |
+| «Duracion minima requerida» | CreateLicitacionSchema · l.157 |
+| «Duracion maxima requerida» | CreateLicitacionSchema · l.158 |
+| «Minimo 1%» | CreateLicitacionSchema · l.159 |
+| «Maximo 99%» | CreateLicitacionSchema · l.159 |
+| «Año minimo 2024» | CreateLicitacionSchema · l.160 |
+| «Año maximo 2030» | CreateLicitacionSchema · l.160 |
+| «Presencial» | CreateLicitacionSchema · l.162 |
+| «Virtual» | CreateLicitacionSchema · l.162 |
+| «Hibrido» | CreateLicitacionSchema · l.162 |
+| «Notas demasiado largas» | CreateLicitacionSchema · l.163 |
+| «Presupuesto maximo debe ser mayor o igual al minimo» | CreateLicitacionSchema · l.165 |
+| «Ano minimo 2000» | CreateHistoricoLicitacionSchema · l.175 |
+| «Ano maximo 2030» | CreateHistoricoLicitacionSchema · l.175 |
+| «Numero demasiado largo» | CreateHistoricoLicitacionSchema · l.177 |
+| «Formato YYYY-MM-DD» | CreateHistoricoLicitacionSchema · l.188 |
+| «Fecha debe ser formato YYYY-MM-DD» | PublicacionSchema · l.200 |
+| «Nombre ATE requerido» | CreateAteSchema · l.262 |
+| «Telefono demasiado largo» | CreateAteSchema · l.266 |
+| «Correo invalido» | UpdateAteSchema · l.276 |
+| «Pregunta requerida» | CreateConsultaSchema · l.308 |
+| «Pregunta demasiado larga» | CreateConsultaSchema · l.308 |
+| «Respuesta demasiado larga» | CreateConsultaSchema · l.309 |
+| «Nombre del servicio requerido» | BasesTemplateSchema · l.345 |
+| «Objetivo requerido» | BasesTemplateSchema · l.346 |
+| «Formato HH:MM requerido» | SaveEvaluationSchema · l.456 |
+| «Formato YYYY-MM-DD requerido» | SaveEvaluationSchema · l.458 |
+| «Puntaje debe ser >= 0» | SaveEvaluationSchema · l.462 |
+| «Puntaje no puede exceder 100» | SaveEvaluationSchema · l.462 |
+| «Monto debe ser positivo» | SaveEvaluationSchema · l.467 |
+| «Monto excede limite» | SaveEvaluationSchema · l.467 |
+| «Puntaje maximo debe ser positivo» | CriterioSchema · l.494 |
+| «Debe confirmar el cierre de la licitacion» | CloseLicitacionSchema · l.518 |
+| «Formato de fecha invalido. Use YYYY-MM-DD» | FeriadoSchema · l.533 |
 
 ## API files of this area
 
@@ -3587,26 +3649,26 @@ Used by: `/admin/licitaciones/criterios`, `/admin/licitaciones/feriados`, `/admi
 | `/api/admin/licitaciones/criterios` | `pages/api/admin/licitaciones/criterios.ts` | DELETE, GET, PATCH, POST | `/admin/licitaciones/criterios` | `pages/admin/licitaciones/criterios.tsx` |
 | `/api/admin/licitaciones/feriados` | `pages/api/admin/licitaciones/feriados.ts` | DELETE, GET, POST, PUT | `/admin/licitaciones/feriados` | `__tests__/api/licitaciones/generate-contract.test.ts`, `pages/admin/licitaciones/feriados.tsx` |
 | `/api/admin/licitaciones/templates` | `pages/api/admin/licitaciones/templates.ts` | GET, PATCH, POST | `/admin/licitaciones/criterios`, `/admin/licitaciones/templates` | `pages/admin/licitaciones/criterios.tsx`, `pages/admin/licitaciones/templates.tsx` |
-| `/api/licitaciones/[id]` | `pages/api/licitaciones/[id].ts` | DELETE, GET, PATCH | `/contracts`, `/licitaciones/[id]`, `/licitaciones/[id]/evaluacion` | `__tests__/api/licitaciones/create-requires-cliente.test.ts`, `__tests__/api/licitaciones/detail-encargado-cliente.test.ts`, `__tests__/api/licitaciones/licitaciones-historico.test.ts`, `__tests__/api/licitaciones/licitaciones-index.test.ts`, `__tests__/api/licitaciones/patch-encargado-school.test.ts` +7 |
-| `/api/licitaciones/[id]/adjudicacion-confirmar` | `pages/api/licitaciones/[id]/adjudicacion-confirmar.ts` | POST | `/licitaciones/[id]` | `__tests__/api/licitaciones/carta-stuck-tender.test.ts`, `components/licitaciones/Step6Adjudicacion.tsx` |
-| `/api/licitaciones/[id]/adjudicacion` | `pages/api/licitaciones/[id]/adjudicacion.ts` | POST | `/licitaciones/[id]` | `components/licitaciones/Step6Adjudicacion.tsx` |
+| `/api/licitaciones/[id]` | `pages/api/licitaciones/[id].ts` | DELETE, GET, PATCH | `/contracts`, `/licitaciones/[id]`, `/licitaciones/[id]/evaluacion` | `__tests__/api/licitaciones/create-requires-cliente.test.ts`, `__tests__/api/licitaciones/detail-encargado-cliente.test.ts`, `__tests__/api/licitaciones/estado-rules.test.ts`, `__tests__/api/licitaciones/licitaciones-historico.test.ts`, `__tests__/api/licitaciones/licitaciones-index.test.ts` +10 |
+| `/api/licitaciones/[id]/adjudicacion-confirmar` | `pages/api/licitaciones/[id]/adjudicacion-confirmar.ts` | POST | `/licitaciones/[id]` | `__tests__/api/licitaciones/adjudicacion-confirmar-winner.test.ts`, `__tests__/api/licitaciones/carta-stuck-tender.test.ts`, `__tests__/components/licitaciones/step6-award-selection.test.tsx`, `components/licitaciones/Step6Adjudicacion.tsx` |
+| `/api/licitaciones/[id]/adjudicacion` | `pages/api/licitaciones/[id]/adjudicacion.ts` | POST | `/licitaciones/[id]` | `__tests__/api/licitaciones/adjudicacion-carta-stale.test.ts`, `__tests__/components/licitaciones/step6-award-selection.test.tsx`, `components/licitaciones/Step6Adjudicacion.tsx` |
 | `/api/licitaciones/[id]/advance` | `pages/api/licitaciones/[id]/advance.ts` | POST | `/licitaciones/[id]`, `/licitaciones/[id]/evaluacion` | `__tests__/api/licitaciones/ates.test.ts`, `components/licitaciones/Step3Bases.tsx`, `components/licitaciones/Step4Propuestas.tsx`, `pages/licitaciones/[id]/evaluacion.tsx` |
-| `/api/licitaciones/[id]/ates` | `pages/api/licitaciones/[id]/ates.ts` | DELETE, GET, PATCH, POST, PUT | `/licitaciones/[id]` | `__tests__/api/licitaciones/ates.test.ts`, `components/licitaciones/Step3Bases.tsx`, `components/licitaciones/Step4Propuestas.tsx`, `components/licitaciones/Step6Adjudicacion.tsx` |
+| `/api/licitaciones/[id]/ates` | `pages/api/licitaciones/[id]/ates.ts` | DELETE, GET, PATCH, POST, PUT | `/licitaciones/[id]` | `__tests__/api/licitaciones/ates.test.ts`, `__tests__/api/licitaciones/estado-rules.test.ts`, `components/licitaciones/Step3Bases.tsx`, `components/licitaciones/Step4Propuestas.tsx`, `components/licitaciones/Step6Adjudicacion.tsx` |
 | `/api/licitaciones/[id]/close` | `pages/api/licitaciones/[id]/close.ts` | POST | `/licitaciones/[id]` | `__tests__/api/licitaciones/generate-contract.test.ts`, `components/licitaciones/Step7Contrato.tsx` |
-| `/api/licitaciones/[id]/consultas` | `pages/api/licitaciones/[id]/consultas.ts` | GET, POST | `/licitaciones/[id]` | `__tests__/api/licitaciones/ates.test.ts`, `components/licitaciones/Step3Bases.tsx` |
-| `/api/licitaciones/[id]/documentos` | `pages/api/licitaciones/[id]/documentos.ts` | DELETE | `/licitaciones/[id]` | `components/licitaciones/ArchiveView.tsx`, `components/licitaciones/DocumentCenter.tsx`, `components/licitaciones/Step3Bases.tsx` |
+| `/api/licitaciones/[id]/consultas` | `pages/api/licitaciones/[id]/consultas.ts` | GET, POST | `/licitaciones/[id]` | `__tests__/api/licitaciones/ates.test.ts`, `__tests__/api/licitaciones/estado-rules.test.ts`, `components/licitaciones/Step3Bases.tsx` |
+| `/api/licitaciones/[id]/documentos` | `pages/api/licitaciones/[id]/documentos.ts` | DELETE | `/licitaciones/[id]` | `__tests__/api/licitaciones/estado-rules.test.ts`, `components/licitaciones/ArchiveView.tsx`, `components/licitaciones/DocumentCenter.tsx`, `components/licitaciones/Step3Bases.tsx` |
 | `/api/licitaciones/[id]/download-doc` | `pages/api/licitaciones/[id]/download-doc.ts` | GET | `/licitaciones/[id]` | `__tests__/components/licitaciones/document-preview.test.tsx`, `components/licitaciones/ArchiveView.tsx`, `components/licitaciones/DocumentCenter.tsx`, `components/licitaciones/DocumentPreview.tsx` |
-| `/api/licitaciones/[id]/download-zip` | `pages/api/licitaciones/[id]/download-zip.ts` | POST | `/licitaciones/[id]` | `components/licitaciones/DocumentCenter.tsx` |
-| `/api/licitaciones/[id]/evaluacion` | `pages/api/licitaciones/[id]/evaluacion.ts` | GET, POST | `/licitaciones/[id]`, `/licitaciones/[id]/evaluacion` | `pages/licitaciones/[id].tsx`, `pages/licitaciones/[id]/evaluacion.tsx` |
-| `/api/licitaciones/[id]/generate-acta` | `pages/api/licitaciones/[id]/generate-acta.ts` | GET | `/licitaciones/[id]/evaluacion` | `pages/licitaciones/[id]/evaluacion.tsx` |
-| `/api/licitaciones/[id]/generate-bases` | `pages/api/licitaciones/[id]/generate-bases.ts` | GET | `/licitaciones/[id]` | `__tests__/api/licitaciones/client-document-access.test.ts`, `components/licitaciones/Step3Bases.tsx` |
+| `/api/licitaciones/[id]/download-zip` | `pages/api/licitaciones/[id]/download-zip.ts` | POST | `/licitaciones/[id]` | `__tests__/api/licitaciones/download-zip.test.ts`, `components/licitaciones/DocumentCenter.tsx` |
+| `/api/licitaciones/[id]/evaluacion` | `pages/api/licitaciones/[id]/evaluacion.ts` | GET, POST | `/licitaciones/[id]`, `/licitaciones/[id]/evaluacion` | `__tests__/api/licitaciones/evaluacion-route.test.ts`, `__tests__/pages/licitaciones/evaluacion-page.test.tsx`, `pages/licitaciones/[id].tsx`, `pages/licitaciones/[id]/evaluacion.tsx` |
+| `/api/licitaciones/[id]/generate-acta` | `pages/api/licitaciones/[id]/generate-acta.ts` | GET | `/licitaciones/[id]/evaluacion` | `__tests__/api/licitaciones/generate-acta-route.test.ts`, `pages/licitaciones/[id]/evaluacion.tsx` |
+| `/api/licitaciones/[id]/generate-bases` | `pages/api/licitaciones/[id]/generate-bases.ts` | GET | `/licitaciones/[id]` | `__tests__/api/licitaciones/client-document-access.test.ts`, `__tests__/api/licitaciones/generate-bases-criteria.test.ts`, `components/licitaciones/Step3Bases.tsx` |
 | `/api/licitaciones/[id]/generate-carta` | `pages/api/licitaciones/[id]/generate-carta.ts` | GET | `/licitaciones/[id]` | `__tests__/api/licitaciones/carta-stuck-tender.test.ts`, `__tests__/api/licitaciones/client-document-access.test.ts`, `__tests__/components/licitaciones/carta-before-award.test.tsx`, `components/licitaciones/Step6Adjudicacion.tsx`, `components/licitaciones/Step7Contrato.tsx` |
-| `/api/licitaciones/[id]/generate-contract` | `pages/api/licitaciones/[id]/generate-contract.ts` | POST | `/contracts` | `__tests__/api/licitaciones/client-document-access.test.ts`, `__tests__/api/licitaciones/generate-contract.test.ts`, `pages/contracts.tsx` |
-| `/api/licitaciones/[id]/generate-propuesta` | `pages/api/licitaciones/[id]/generate-propuesta.ts` | POST | `/licitaciones/[id]` | `__tests__/api/licitaciones/generate-propuesta-stale.test.ts`, `components/licitaciones/ProposalConfigPanel.tsx` |
-| `/api/licitaciones/[id]/propuestas` | `pages/api/licitaciones/[id]/propuestas.ts` | GET | `/licitaciones/[id]` | `__tests__/api/licitaciones/propuesta-access-code.test.ts`, `__tests__/components/licitaciones/proposal-access-code.test.tsx`, `components/licitaciones/ProposalConfigPanel.tsx` |
+| `/api/licitaciones/[id]/generate-contract` | `pages/api/licitaciones/[id]/generate-contract.ts` | POST | `/contracts` | `__tests__/api/licitaciones/client-document-access.test.ts`, `__tests__/api/licitaciones/generate-contract.test.ts`, `__tests__/pages/contracts-licitacion-once.test.tsx`, `pages/contracts.tsx` |
+| `/api/licitaciones/[id]/generate-propuesta` | `pages/api/licitaciones/[id]/generate-propuesta.ts` | POST | `/licitaciones/[id]` | `__tests__/api/licitaciones/generate-propuesta-price.test.ts`, `__tests__/api/licitaciones/generate-propuesta-slug.test.ts`, `__tests__/api/licitaciones/generate-propuesta-stale.test.ts`, `components/licitaciones/ProposalConfigPanel.tsx` |
+| `/api/licitaciones/[id]/propuestas` | `pages/api/licitaciones/[id]/propuestas.ts` | GET, POST | `/licitaciones/[id]` | `__tests__/api/licitaciones/propuesta-access-code.test.ts`, `__tests__/api/licitaciones/propuesta-retirar.test.ts`, `__tests__/components/licitaciones/proposal-access-code.test.tsx`, `__tests__/components/licitaciones/proposal-pricing.test.tsx`, `__tests__/components/licitaciones/proposal-retire-link.test.tsx` +1 |
 | `/api/licitaciones/[id]/publicacion` | `pages/api/licitaciones/[id]/publicacion.ts` | POST | `/licitaciones/[id]` | `__tests__/api/licitaciones/publicacion.test.ts`, `pages/licitaciones/[id].tsx` |
 | `/api/licitaciones/[id]/timeline` | `pages/api/licitaciones/[id]/timeline.ts` | GET | `/licitaciones/[id]` | `__tests__/pages/licitaciones/licitacion-detail-step2.test.tsx`, `pages/licitaciones/[id].tsx` |
-| `/api/licitaciones/[id]/upload` | `pages/api/licitaciones/[id]/upload.ts` | POST | `/licitaciones/[id]`, `/licitaciones/[id]/evaluacion` | `components/licitaciones/ArchiveView.tsx`, `components/licitaciones/Step6Adjudicacion.tsx`, `components/licitaciones/Step7Contrato.tsx`, `pages/licitaciones/[id].tsx`, `pages/licitaciones/[id]/evaluacion.tsx` |
+| `/api/licitaciones/[id]/upload` | `pages/api/licitaciones/[id]/upload.ts` | POST | `/licitaciones/[id]`, `/licitaciones/[id]/evaluacion` | `__tests__/api/licitaciones/estado-rules.test.ts`, `components/licitaciones/ArchiveView.tsx`, `components/licitaciones/Step6Adjudicacion.tsx`, `components/licitaciones/Step7Contrato.tsx`, `pages/licitaciones/[id].tsx` +1 |
 | `/api/licitaciones/check-deadlines` | `pages/api/licitaciones/check-deadlines.ts` | POST | `/licitaciones`, `/licitaciones/[id]` | `pages/licitaciones/[id].tsx`, `pages/licitaciones/index.tsx`, `scripts/redesign/harness/rules.mjs` |
 | `/api/licitaciones` | `pages/api/licitaciones/index.ts` | GET, POST | `/licitaciones`, `/licitaciones/importar`, `/licitaciones/nueva` | `__tests__/api/licitaciones/create-requires-cliente.test.ts`, `__tests__/api/licitaciones/licitaciones-historico.test.ts`, `__tests__/api/licitaciones/licitaciones-index.test.ts`, `__tests__/pages/licitaciones/nueva-requires-cliente.test.tsx`, `pages/licitaciones/importar.tsx` +2 |
 | `/api/propuestas/bloques` | `pages/api/propuestas/bloques.ts` | GET, POST | `/licitaciones/[id]` | `components/licitaciones/ProposalConfigPanel.tsx` |
@@ -3620,10 +3682,10 @@ Used by: `/admin/licitaciones/criterios`, `/admin/licitaciones/feriados`, `/admi
 | `/api/propuestas/fichas/[id]` | `pages/api/propuestas/fichas/[id].ts` | DELETE, GET, PATCH | **no screen** |  |
 | `/api/propuestas/plantillas` | `pages/api/propuestas/plantillas.ts` | GET, POST | `/licitaciones/[id]` | `components/licitaciones/ProposalConfigPanel.tsx` |
 | `/api/propuestas/plantillas/[id]` | `pages/api/propuestas/plantillas/[id].ts` | DELETE, GET, PATCH | **no screen** |  |
-| `/api/propuestas/upload` | `pages/api/propuestas/upload.ts` | POST | `/admin/licitaciones/consultores`, `/admin/licitaciones/documentos-propuesta` | `pages/admin/licitaciones/consultores.tsx`, `pages/admin/licitaciones/documentos-propuesta.tsx` |
+| `/api/propuestas/upload` | `pages/api/propuestas/upload.ts` | POST | `/admin/licitaciones/consultores`, `/admin/licitaciones/documentos-propuesta` | `__tests__/api/propuestas/upload-unique-path.test.ts`, `pages/admin/licitaciones/consultores.tsx`, `pages/admin/licitaciones/documentos-propuesta.tsx` |
 | `/api/propuestas/web/[slug]/admin-access` | `pages/api/propuestas/web/[slug]/admin-access.ts` | GET | `/propuesta/[slug]` | `pages/propuesta/[slug].tsx` |
 | `/api/propuestas/web/[slug]/download-doc` | `pages/api/propuestas/web/[slug]/download-doc.ts` | POST | `/propuesta/[slug]` | `components/propuestas-web/DownloadablesSection.tsx` |
 | `/api/propuestas/web/[slug]/download-zip` | `pages/api/propuestas/web/[slug]/download-zip.ts` | POST | `/propuesta/[slug]` | `components/propuestas-web/DownloadablesSection.tsx` |
 | `/api/propuestas/web/[slug]` | `pages/api/propuestas/web/[slug]/index.ts` | GET | `/propuesta/[slug]` | `pages/propuesta/[slug].tsx` |
-| `/api/propuestas/web/[slug]/verify` | `pages/api/propuestas/web/[slug]/verify.ts` | POST | `/propuesta/[slug]` | `__tests__/api/licitaciones/propuesta-access-code.test.ts`, `__tests__/api/propuestas/access-code-reservation.test.ts`, `components/propuestas-web/ProposalUnlockScreen.tsx`, `pages/propuesta/[slug].tsx` |
+| `/api/propuestas/web/[slug]/verify` | `pages/api/propuestas/web/[slug]/verify.ts` | POST | `/propuesta/[slug]` | `__tests__/api/licitaciones/propuesta-access-code.test.ts`, `__tests__/api/propuestas/access-code-reservation.test.ts`, `__tests__/api/propuestas/verify-retired-stays.test.ts`, `components/propuestas-web/ProposalUnlockScreen.tsx`, `pages/propuesta/[slug].tsx` |
 

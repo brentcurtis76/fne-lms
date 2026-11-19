@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "d701100d014e948bec5766fb68836675e13355b6",
-  "date": "2026-11-18T15:21:06-03:00"
+  "commit": "ca9dad512fc0b65bf1db627e23a6d84edd80dd28",
+  "date": "2026-11-19T14:41:10-03:00"
  },
  "screens": [
   {
@@ -391,7 +391,7 @@
     "inPage": [],
     "linkedFrom": [
      "lib/auth/forced-password-change.ts:135",
-     "middleware.ts:330"
+     "middleware.ts:336"
     ],
     "qaScenarios": {},
     "tests": {
@@ -488,9 +488,9 @@
      "pages/configuracion/index.tsx:8",
      "pages/configuracion/piezas.tsx:397",
      "pages/configuracion/piezas.tsx:55",
-     "pages/notifications.tsx:381",
-     "pages/profile.tsx:743",
-     "pages/profile.tsx:744"
+     "pages/notifications.tsx:384",
+     "pages/profile.tsx:746",
+     "pages/profile.tsx:747"
     ],
     "qaScenarios": {},
     "tests": {
@@ -2915,7 +2915,7 @@
   {
    "file": "pages/notifications.tsx",
    "route": "/notifications",
-   "lines": 653,
+   "lines": 656,
    "marks": {},
    "frame": "MainLayout",
    "server": "none",
@@ -2970,11 +2970,11 @@
       "text": "userRole = await getUserPrimaryRole(session.user.id)"
      },
      {
-      "line": 129,
-      "text": "router.push → /login  (when !(session) && session === null)"
+      "line": 132,
+      "text": "router.push → /login?next=[*]  (when !(session) && session === null)"
      },
      {
-      "line": 257,
+      "line": 260,
       "text": "router.push → /dashboard  (when notification.related_url)"
      }
     ],
@@ -2984,7 +2984,7 @@
      "components/notifications/NotificationDropdown.tsx:174",
      "lib/auth/forced-password-change.ts:155",
      "lib/email/notifications.ts:27",
-     "middleware.ts:350"
+     "middleware.ts:356"
     ],
     "qaScenarios": {},
     "tests": {
@@ -2995,7 +2995,8 @@
       "tests/e2e/messaging-notifications.spec.ts"
      ],
      "unit": [
-      "__tests__/notifications/entry-points.test.tsx"
+      "__tests__/notifications/entry-points.test.tsx",
+      "__tests__/pages/notifications.direct-open.test.tsx"
      ]
     }
    },
@@ -3035,58 +3036,64 @@
      "variant": "error"
     },
     {
+     "kind": "gate",
+     "line": 128,
+     "in": "NotificationsPage",
+     "text": "isLoading"
+    },
+    {
      "kind": "nav",
-     "line": 129,
+     "line": 132,
      "in": "NotificationsPage",
      "when": "!(session) && session === null",
-     "text": "/login",
+     "text": "/login?next=[*]",
      "via": "router.push"
     },
     {
      "kind": "toast",
-     "line": 192,
+     "line": 195,
      "in": "handleMarkAsRead",
      "text": "{notificationIds.length} notificación(es) marcada(s) como leída(s)",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 195,
+     "line": 198,
      "in": "handleMarkAsRead",
      "text": "Error al marcar como leído",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 210,
+     "line": 213,
      "in": "handleMarkAsUnread",
      "text": "{notificationIds.length} notificación(es) marcada(s) como no leída(s)",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 213,
+     "line": 216,
      "in": "handleMarkAsUnread",
      "text": "Error al marcar como no leído",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 231,
+     "line": 234,
      "in": "handleDeleteConfirm",
      "text": "{deleteTargetIds.length} notificación(es) eliminada(s)",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 234,
+     "line": 237,
      "in": "handleDeleteConfirm",
      "text": "Error al eliminar notificaciones",
      "variant": "error"
     },
     {
      "kind": "nav",
-     "line": 254,
+     "line": 257,
      "in": "handleNotificationClick",
      "when": "notification.related_url",
      "text": "{notification.related_url}",
@@ -3094,7 +3101,7 @@
     },
     {
      "kind": "nav",
-     "line": 257,
+     "line": 260,
      "in": "handleNotificationClick",
      "when": "notification.related_url",
      "text": "/dashboard",
@@ -3102,7 +3109,7 @@
     },
     {
      "kind": "nav",
-     "line": 291,
+     "line": 294,
      "in": "handleNotificationClick",
      "when": "!(notification.related_url)",
      "text": "{fallbackUrl}",
@@ -3110,7 +3117,7 @@
     },
     {
      "kind": "list",
-     "line": 328,
+     "line": 331,
      "in": "getCategoryName",
      "text": "nameMap",
      "items": [
@@ -3126,7 +3133,7 @@
     },
     {
      "kind": "piece",
-     "line": 360,
+     "line": 363,
      "in": "NotificationsPage",
      "when": "loading",
      "text": "pageTitle: Notificaciones",
@@ -3134,27 +3141,27 @@
     },
     {
      "kind": "piece",
-     "line": 369,
+     "line": 372,
      "in": "NotificationsPage",
      "text": "pageTitle: Notificaciones",
      "tag": "MainLayout"
     },
     {
      "kind": "heading",
-     "line": 375,
+     "line": 378,
      "in": "NotificationsPage",
      "text": "Todas las Notificaciones",
      "level": 1
     },
     {
      "kind": "text",
-     "line": 376,
+     "line": 379,
      "in": "NotificationsPage",
      "text": "{filteredNotifications.length} notificación(es) • {filteredNotifications.filter(n => !…} sin leer"
     },
     {
      "kind": "link",
-     "line": 381,
+     "line": 384,
      "in": "NotificationsPage",
      "text": "[icon CogIcon]",
      "target": "/configuracion/notificaciones",
@@ -3165,14 +3172,14 @@
     },
     {
      "kind": "piece",
-     "line": 382,
+     "line": 385,
      "in": "NotificationsPage",
      "text": "aria-hidden: true",
      "tag": "CogIcon"
     },
     {
      "kind": "button",
-     "line": 384,
+     "line": 387,
      "in": "NotificationsPage",
      "text": "[icon RefreshIcon]",
      "action": "{handleRefresh}",
@@ -3181,7 +3188,7 @@
     },
     {
      "kind": "button",
-     "line": 387,
+     "line": 390,
      "in": "NotificationsPage",
      "text": "[icon FilterIcon]",
      "action": "{() => setShowFilters(!showFilters)}",
@@ -3189,7 +3196,7 @@
     },
     {
      "kind": "field",
-     "line": 400,
+     "line": 403,
      "in": "NotificationsPage",
      "when": "showFilters",
      "text": "Buscar notificaciones...",
@@ -3199,7 +3206,7 @@
     },
     {
      "kind": "field",
-     "line": 408,
+     "line": 411,
      "in": "NotificationsPage",
      "when": "showFilters",
      "text": "",
@@ -3219,7 +3226,7 @@
     },
     {
      "kind": "field",
-     "line": 423,
+     "line": 426,
      "in": "NotificationsPage",
      "when": "showFilters",
      "text": "",
@@ -3233,7 +3240,7 @@
     },
     {
      "kind": "field",
-     "line": 432,
+     "line": 435,
      "in": "NotificationsPage",
      "when": "showFilters",
      "text": "",
@@ -3248,14 +3255,14 @@
     },
     {
      "kind": "text",
-     "line": 449,
+     "line": 452,
      "in": "NotificationsPage",
      "when": "selectedNotifications.size > 0",
      "text": "{selectedNotifications.size} notificación(es) seleccionada(s)"
     },
     {
      "kind": "button",
-     "line": 453,
+     "line": 456,
      "in": "NotificationsPage",
      "when": "selectedNotifications.size > 0",
      "text": "Marcar como leídas",
@@ -3263,7 +3270,7 @@
     },
     {
      "kind": "button",
-     "line": 460,
+     "line": 463,
      "in": "NotificationsPage",
      "when": "selectedNotifications.size > 0",
      "text": "Marcar como no leídas",
@@ -3271,7 +3278,7 @@
     },
     {
      "kind": "button",
-     "line": 467,
+     "line": 470,
      "in": "NotificationsPage",
      "when": "selectedNotifications.size > 0",
      "text": "Eliminar",
@@ -3279,7 +3286,7 @@
     },
     {
      "kind": "heading",
-     "line": 483,
+     "line": 486,
      "in": "NotificationsPage",
      "when": "paginatedNotifications.length === 0",
      "text": "No hay notificaciones",
@@ -3287,21 +3294,21 @@
     },
     {
      "kind": "text",
-     "line": 486,
+     "line": 489,
      "in": "NotificationsPage",
      "when": "paginatedNotifications.length === 0",
      "text": "No se encontraron notificaciones con los filtros aplicados / No tienes notificaciones en este momento"
     },
     {
      "kind": "label",
-     "line": 497,
+     "line": 500,
      "in": "NotificationsPage",
      "when": "!(paginatedNotifications.length === 0)",
      "text": "Seleccionar todas"
     },
     {
      "kind": "field",
-     "line": 498,
+     "line": 501,
      "in": "NotificationsPage",
      "when": "!(paginatedNotifications.length === 0)",
      "text": "Seleccionar todas",
@@ -3310,7 +3317,7 @@
     },
     {
      "kind": "field",
-     "line": 528,
+     "line": 531,
      "in": "NotificationsPage",
      "when": "!(paginatedNotifications.length === 0) && each paginatedNotifications",
      "text": "",
@@ -3319,7 +3326,7 @@
     },
     {
      "kind": "clickable",
-     "line": 548,
+     "line": 551,
      "in": "NotificationsPage",
      "when": "!(paginatedNotifications.length === 0) && each paginatedNotifications",
      "text": "{notification.title} [{notification.description}] {getRelativeTime(notification.create…} [{getCategoryName(notification…",
@@ -3328,28 +3335,28 @@
     },
     {
      "kind": "value",
-     "line": 554,
+     "line": 557,
      "in": "NotificationsPage",
      "when": "!(paginatedNotifications.length === 0) && each paginatedNotifications",
      "text": "{notification.title}"
     },
     {
      "kind": "value",
-     "line": 562,
+     "line": 565,
      "in": "NotificationsPage",
      "when": "!(paginatedNotifications.length === 0) && each paginatedNotifications && notification.description",
      "text": "{notification.description}"
     },
     {
      "kind": "value",
-     "line": 578,
+     "line": 581,
      "in": "NotificationsPage",
      "when": "!(paginatedNotifications.length === 0) && each paginatedNotifications && notification.notification_type",
      "text": "{getCategoryName(notification.notifi…}"
     },
     {
      "kind": "button",
-     "line": 614,
+     "line": 617,
      "in": "NotificationsPage",
      "when": "!(paginatedNotifications.length === 0) && totalPages > 1",
      "text": "Anterior",
@@ -3358,14 +3365,14 @@
     },
     {
      "kind": "text",
-     "line": 622,
+     "line": 625,
      "in": "NotificationsPage",
      "when": "!(paginatedNotifications.length === 0) && totalPages > 1",
      "text": "Página {currentPage} de {totalPages}"
     },
     {
      "kind": "button",
-     "line": 626,
+     "line": 629,
      "in": "NotificationsPage",
      "when": "!(paginatedNotifications.length === 0) && totalPages > 1",
      "text": "Siguiente",
@@ -3374,7 +3381,7 @@
     },
     {
      "kind": "popup",
-     "line": 642,
+     "line": 645,
      "in": "NotificationsPage",
      "text": "NotificationDeleteModal",
      "how": "component",
@@ -3382,13 +3389,13 @@
     },
     {
      "kind": "string",
-     "line": 352,
+     "line": 355,
      "in": "NotificationsPage",
      "text": "hace {days} día(s)"
     },
     {
      "kind": "list",
-     "line": 351,
+     "line": 354,
      "in": "getRelativeTime",
      "text": "getRelativeTime()",
      "items": [
@@ -4358,11 +4365,11 @@
     "/configuracion/notificaciones",
     "/configuracion/piezas"
    ],
-   "lines": 279,
+   "lines": 284,
    "rows": [
     {
      "kind": "list",
-     "line": 249,
+     "line": 254,
      "in": "verdictFromProfile",
      "text": "verdictFromProfile()",
      "items": [

@@ -1,35 +1,35 @@
 # Sitio público (nuevaeducacion.org pages; not part of the platform redesign)
 
 Area `20-sitio-publico`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `d701100d0` (2026-11-18).
+Read from commit `ca9dad512` (2026-11-19).
 
 Redesigned separately and live since 12 Nov 2026. Listed so that every file under pages/ has a place.
 
-8 screen files, 1 API files, 28 pieces.
+8 screen files, 1 API files, 29 pieces.
 
 ## Screens
 
 | Address | File | Lines | Menu | Marks |
 |---|---|---|---|---|
-| `/equipo` | `pages/equipo.tsx` | 36 | — |  |
-| `/` | `pages/index.tsx` | 479 | — |  |
-| `/nosotros` | `pages/nosotros.tsx` | 115 | — |  |
-| `/noticias` | `pages/noticias.tsx` | 254 | — |  |
+| `/equipo` | `pages/equipo.tsx` | 31 | — |  |
+| `/` | `pages/index.tsx` | 511 | — |  |
+| `/nosotros` | `pages/nosotros.tsx` | 110 | — |  |
+| `/noticias` | `pages/noticias.tsx` | 249 | — |  |
 | `/noticias/[slug]` | `pages/noticias/[slug].tsx` | 157 | — |  |
-| `/pasantias` | `pages/pasantias.tsx` | 1350 | — |  |
+| `/pasantias` | `pages/pasantias.tsx` | 1341 | — |  |
 | `/privacidad` | `pages/privacidad.tsx` | 46 | — |  |
-| `/programas` | `pages/programas.tsx` | 208 | — |  |
+| `/programas` | `pages/programas.tsx` | 202 | — |  |
 
 ## /equipo
 
-File `pages/equipo.tsx` · 36 lines · frame: none
+File `pages/equipo.tsx` · 31 lines · frame: none
 
 ### Who reaches it
 
 - Menu: no entry.
 - Middleware: no role rule. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: yes.
 - In the page: no access check found by the script.
-- Linked from: `components/DynamicFavicon.tsx:38`, `components/Footer.tsx:95`, `components/layout/FooterNuevo.tsx:19`, `components/site/SiteLayout.tsx:176`, `lib/auth/forced-password-change.ts:148`, `lib/look.ts:105`, `middleware.ts:343`
+- Linked from: `components/DynamicFavicon.tsx:38`, `components/Footer.tsx:95`, `components/layout/FooterNuevo.tsx:19`, `components/site/SiteLayout.tsx:176`, `lib/auth/forced-password-change.ts:148`, `lib/look.ts:105`, `middleware.ts:349`
 - Tests: browser tests that CI runs: `tests/e2e/footer-heading-order.spec.ts`; browser tests CI skips: `tests/e2e/urgent-anonymous-boundaries.spec.ts`, `tests/e2e/urgent-anonymous-current.spec.ts`.
 
 | Role | Sees it in the menu | Middleware |
@@ -50,31 +50,33 @@ File `pages/equipo.tsx` · 36 lines · frame: none
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «Una red de personas que cambian la escuela» | h1 |  | EquipoPage · l.20 |
+| «Una red de personas que cambian la escuela» | h1 |  | EquipoPage · l.16 |
 
 **Links** (1)
 
 | Text | Goes to | Shown when | Hook | Where |
 |---|---|---|---|---|
-| «← Conoce la fundación» | `/nosotros` |  | `testid=equipo-nosotros` | EquipoPage · l.27 |
+| «← Conoce la fundación» | `/nosotros` |  | `testid=equipo-nosotros` | EquipoPage · l.23 |
 
-**Pieces placed here, with the texts and settings handed to them** (2)
+**Pieces placed here, with the texts and settings handed to them** (3)
 
 | Piece | Texts and settings | Shown when | Hook | Where |
 |---|---|---|---|---|
-| `SiteLayout` | active: nosotros · title: Equipo · Fundación Nueva Educación · description: El equipo de la Fundación Nueva Educación: comité internacional, equipo FNE y asesores internacionales. |  |  | EquipoPage · l.8 |
-| `TeamSection` |  |  |  | EquipoPage · l.32 |
+| `SiteLayout` | active: nosotros · title: Equipo · Fundación Nueva Educación · description: El equipo de la Fundación Nueva Educación: comité internacional, equipo FNE y asesores y asesoras internacionales. |  |  | EquipoPage · l.9 |
+| `PageHero` |  |  |  | EquipoPage · l.14 |
+| `TeamSection` |  |  |  | EquipoPage · l.27 |
 
 **Other texts on screen** (2)
 
-- «Equipo» — EquipoPage · l.19
-- «Educadores, directivos e investigadores de Chile y Catalunya que acompañan a cada comunidad educativa en su proceso de transformación.» — EquipoPage · l.24
+- «Equipo» — EquipoPage · l.15
+- «Profesionales de la educación, la dirección escolar y la investigación, de Chile y Catalunya, que acompañan a cada comunidad educativa en su proceso de transformación.» — EquipoPage · l.20
 
 ### Pieces it uses (each is listed once, under "Pieces" below)
 
 - `components/PrivacyPolicyContent.tsx`
 - `components/PrivacyPolicyModal.tsx`
 - `components/TermsOfUseModal.tsx`
+- `components/site/PageHero.tsx`
 - `components/site/SiteLayout.tsx`
 - `components/site/TeamSection.tsx`
 - `components/site/teamData.ts`
@@ -83,7 +85,7 @@ File `pages/equipo.tsx` · 36 lines · frame: none
 
 ## /
 
-File `pages/index.tsx` · 479 lines · frame: none
+File `pages/index.tsx` · 511 lines · frame: none
 
 ### Who reaches it
 
@@ -111,186 +113,188 @@ File `pages/index.tsx` · 479 lines · frame: none
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «{word.text}» | h1 |  | HomePage · l.101 |
-| «Nadie aprende solo.» | h2 |  | HomePage · l.155 |
-| «Treinta años cuidando vínculos» | h2 |  | HomePage · l.223 |
-| «Motivación compartida» | h3 |  | HomePage · l.244 |
-| «Convivencia como motor» | h3 |  | HomePage · l.248 |
-| «Identidad colectiva» | h3 |  | HomePage · l.252 |
-| «Aprendizaje cooperativo» | h3 |  | HomePage · l.256 |
-| «Pasantías en Barcelona» | h2 |  | HomePage · l.275 |
-| «Próximas Expediciones» | h3 |  | HomePage · l.287 |
-| «¿Qué incluye la experiencia?» | h3 |  | HomePage · l.296 |
-| «Codocencia en Aulas» | h4 |  | HomePage · l.301 |
-| «Visitas a Escuelas Innovadoras» | h4 |  | HomePage · l.308 |
-| «Talleres Especializados» | h4 |  | HomePage · l.315 |
-| «Intercambio con las Escuelas» | h4 |  | HomePage · l.322 |
-| «Bitácora de Aprendizajes» | h4 |  | HomePage · l.329 |
-| «Empecemos por una conversación.» | h2 |  | HomePage · l.373 |
-| «Cuéntanos sobre tu proyecto» | h3 |  | HomePage · l.388 |
+| «{word.text}» | h1 |  | HomePage · l.140 |
+| «Nadie aprende solo.» | h2 |  | HomePage · l.194 |
+| «Treinta años cuidando vínculos» | h2 |  | HomePage · l.262 |
+| «Motivación compartida» | h3 |  | HomePage · l.283 |
+| «Convivencia como motor» | h3 |  | HomePage · l.287 |
+| «Identidad colectiva» | h3 |  | HomePage · l.291 |
+| «Aprendizaje cooperativo» | h3 |  | HomePage · l.295 |
+| «Pasantías en Barcelona» | h2 |  | HomePage · l.314 |
+| «Próximas Expediciones» | h3 |  | HomePage · l.326 |
+| «¿Qué incluye la experiencia?» | h3 |  | HomePage · l.335 |
+| «Codocencia en Aulas» | h4 |  | HomePage · l.340 |
+| «Visitas a Escuelas Innovadoras» | h4 |  | HomePage · l.347 |
+| «Talleres Especializados» | h4 |  | HomePage · l.354 |
+| «Intercambio con las Escuelas» | h4 |  | HomePage · l.361 |
+| «Bitácora de Aprendizajes» | h4 |  | HomePage · l.368 |
+| «Empecemos por una conversación.» | h2 |  | HomePage · l.413 |
+| «Cuéntanos sobre tu proyecto» | h3 |  | HomePage · l.428 |
 
 **Buttons** (1)
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «Enviando... / Enviar Mensaje [→]» (submits the form) |  |  | `{isSubmitting}` | `testid=contact-submit` | HomePage · l.460 |
+| «Enviando... / Enviar Mensaje [→]» (submits the form) |  |  | `{isSubmitting}` | `testid=contact-submit` | HomePage · l.500 |
 
 **Links** (4)
 
 | Text | Goes to | Shown when | Hook | Where |
 |---|---|---|---|---|
-| «Conversemos tu escuela →» | `#contacto` |  | `testid=hero-cta-contacto` | HomePage · l.120 |
-| «Ver los programas» | `/programas` |  | `testid=hero-cta-programas` | HomePage · l.123 |
-| «Conoce las Pasantías en Barcelona» | `/pasantias` |  | `testid=inspira-pasantias-cta` | HomePage · l.337 |
-| «info@nuevaeducacion.org» | `mailto:info@nuevaeducacion.org` |  |  | HomePage · l.381 |
+| «Conversemos tu escuela →» | `#contacto` |  | `testid=hero-cta-contacto` | HomePage · l.159 |
+| «Ver los programas» | `/programas` |  | `testid=hero-cta-programas` | HomePage · l.162 |
+| «Conoce las Pasantías en Barcelona» | `/pasantias` |  | `testid=inspira-pasantias-cta` | HomePage · l.376 |
+| «info@nuevaeducacion.org» | `mailto:info@nuevaeducacion.org` |  |  | HomePage · l.421 |
 
 **Fields** (7)
 
 | Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
 |---|---|---|---|---|---|---|
-| «Nombre *» | text | `nombre` · «Tu nombre completo» · required |  |  | `id=nombre (id used by code)` | HomePage · l.404 |
-| «Email *» | email | `email` · «tu@email.com» · required |  |  | `id=email (id used by code)` | HomePage · l.408 |
-| «Institución *» | text | `institucion` · «Nombre de tu institución» · required |  |  | `id=institucion (id used by code)` | HomePage · l.412 |
-| «Cargo» | text | `cargo` · «Tu cargo o función» |  |  | `id=cargo (id used by code)` | HomePage · l.416 |
-| «¿Qué te interesa? *» | select | `interes` · required | «Selecciona una opción», «Inspira (Pasantía en Barcelona)», «Inicia», «Evoluciona», «Aula Generativa», «Otro Proyecto» |  | `id=interes (id used by code)` | HomePage · l.420 |
-| «Mensaje *» | textarea | `mensaje` · «Cuéntanos sobre tu institución y cómo podemos ayudarte a transformar la educación...» · required |  |  | `id=mensaje (id used by code)` | HomePage · l.431 |
-| «Sitio web» | text | `website` |  |  | `testid=contact-website id=website (id used by code)` | HomePage · l.449 |
+| «Nombre *» | text | `nombre` · «Tu nombre completo» · required |  |  | `id=nombre (id used by code)` | HomePage · l.444 |
+| «Email *» | email | `email` · «tu@email.com» · required |  |  | `id=email (id used by code)` | HomePage · l.448 |
+| «Institución *» | text | `institucion` · «Nombre de tu institución» · required |  |  | `id=institucion (id used by code)` | HomePage · l.452 |
+| «Cargo» | text | `cargo` · «Tu cargo o función» |  |  | `id=cargo (id used by code)` | HomePage · l.456 |
+| «¿Qué te interesa? *» | select | `interes` · required | «Selecciona una opción», «Inspira (Pasantía en Barcelona)», «Inicia», «Evoluciona», «Aula Generativa», «Otro Proyecto» |  | `id=interes (id used by code)` | HomePage · l.460 |
+| «Mensaje *» | textarea | `mensaje` · «Cuéntanos sobre tu institución y cómo podemos ayudarte a transformar la educación...» · required |  |  | `id=mensaje (id used by code)` | HomePage · l.471 |
+| «Sitio web» | text | `website` |  |  | `testid=contact-website id=website (id used by code)` | HomePage · l.489 |
 
 **Embedded media** (8)
 
 | What | Shown when | Hook | Where |
 |---|---|---|---|
-| video · /sitio/hero.mp4 |  |  | HomePage · l.93 |
-| img · alt Cinco estudiantes abrazados en círculo, vistos desde arriba · /sitio/abrazo.jpg |  |  | HomePage · l.190 |
-| img · alt Estudiantes juegan al aire libre durante una actividad de Aula Generativa · /aula-generativa-activity.jpg |  |  | HomePage · l.212 |
-| img · alt Grupo de pasantes frente a la Escola Virolai, en Barcelona · /images/pasantias/pasantes-virolai.jpg |  |  | HomePage · l.345 |
-| img · alt Educadoras chilenas en la biblioteca de una escuela de Barcelona · /images/pasantias/educadores-biblioteca.jpg |  |  | HomePage · l.348 |
-| img · alt Niños observan con microscopios en un aula de Barcelona · /sitio/bcn-microscopios.jpg |  |  | HomePage · l.351 |
-| img · alt Vista aérea de Barcelona · /images/pasantias/bcn-skyline.jpg |  |  | HomePage · l.354 |
-| img · alt Aula de aprendizaje con trabajo por ambientes · /sitio/bcn-ambientes.jpg |  |  | HomePage · l.357 |
+| video · /sitio/hero.mp4 |  |  | HomePage · l.132 |
+| img · alt Cinco estudiantes abrazados en círculo, vistos desde arriba · /sitio/abrazo.jpg |  |  | HomePage · l.229 |
+| img · alt Estudiantes juegan al aire libre durante una actividad de Aula Generativa · /aula-generativa-activity.jpg |  |  | HomePage · l.251 |
+| img · alt Grupo de pasantes frente a la Escola Virolai, en Barcelona · /images/pasantias/pasantes-virolai.jpg |  |  | HomePage · l.384 |
+| img · alt Educadoras chilenas en la biblioteca de una escuela de Barcelona · /images/pasantias/educadores-biblioteca.jpg |  |  | HomePage · l.387 |
+| img · alt Niños observan con microscopios en un aula de Barcelona · /sitio/bcn-microscopios.jpg |  |  | HomePage · l.390 |
+| img · alt Vista aérea de Barcelona · /images/pasantias/bcn-skyline.jpg |  |  | HomePage · l.393 |
+| img · alt Aula de aprendizaje con trabajo por ambientes · /sitio/bcn-ambientes.jpg |  |  | HomePage · l.396 |
 
 **Forms** (1)
 
 | On submit | Shown when | Where |
 |---|---|---|
-| `{handleContactSubmit}` |  | HomePage · l.401 |
-
-**Pop-ups** (1)
-
-| Name or title | How | Opens when | Texts passed to it | Where |
-|---|---|---|---|---|
-| `FlipbookDialog` | component | `{showDirectivesFlipbook}` | title: Programa Estratégico Para Directivos | HomePage · l.469 |
+| `{handleContactSubmit}` |  | HomePage · l.441 |
 
 **Messages set on the page** (3)
 
 | Text | Set by | When | Where |
 |---|---|---|---|
-| «¡Mensaje enviado exitosamente! Te responderemos pronto.» | `setSubmitMessage` | `response.ok` | handleContactSubmit · l.69 |
-| «Error al enviar el mensaje. Por favor intenta nuevamente.» | `setSubmitError` | `!(response.ok)` | handleContactSubmit · l.73 |
-| «Error de conexión. Por favor verifica tu conexión a internet e intenta nuevamente.» | `setSubmitError` |  | handleContactSubmit · l.77 |
+| «¡Mensaje enviado exitosamente! Te responderemos pronto.» | `setSubmitMessage` | `response.ok` | handleContactSubmit · l.108 |
+| «Error al enviar el mensaje. Por favor intenta nuevamente.» | `setSubmitError` | `!(response.ok)` | handleContactSubmit · l.112 |
+| «Error de conexión. Por favor verifica tu conexión a internet e intenta nuevamente.» | `setSubmitError` |  | handleContactSubmit · l.116 |
+
+**Draws nothing when** (1)
+
+| Condition | Where |
+|---|---|
+| `!('ResizeObserver' in window)` | HomePage · l.38 |
 
 **Pieces placed here, with the texts and settings handed to them** (7)
 
 | Piece | Texts and settings | Shown when | Hook | Where |
 |---|---|---|---|---|
-| `SiteLayout` | active: inicio · title: Fundación Nueva Educación · Educación relacional para transformar la escuela · description: Acompañamos a comunidades educativas en un cambio cultural profundo, desde la calidad de sus relaciones. Programas Inicia, Inspira, Evoluciona y Aula Generativa. ATE certificada por RPA Mineduc. |  |  | HomePage · l.86 |
-| `RedAliada` |  |  |  | HomePage · l.148 |
-| `Sociograma` |  |  |  | HomePage · l.206 |
-| `ViasEje` |  |  |  | HomePage · l.264 |
-| `Puertas` |  |  |  | HomePage · l.266 |
-| `Novedades` |  |  |  | HomePage · l.363 |
-| `MapaChile` |  |  |  | HomePage · l.365 |
+| `SiteLayout` | active: inicio · title: Fundación Nueva Educación · Educación relacional para transformar la escuela · description: Acompañamos a comunidades educativas en un cambio cultural profundo, desde la calidad de sus relaciones. Programas Inicia, Inspira, Evoluciona y Aula Generativa. ATE certificada por RPA Mineduc. |  |  | HomePage · l.125 |
+| `RedAliada` |  |  |  | HomePage · l.187 |
+| `Sociograma` |  |  |  | HomePage · l.245 |
+| `ViasEje` |  |  |  | HomePage · l.303 |
+| `Puertas` |  |  |  | HomePage · l.305 |
+| `MapaChile` |  |  |  | HomePage · l.402 |
+| `Novedades` |  |  |  | HomePage · l.405 |
 
 **Texts kept in lists and helpers in the code (labels, options, status names)** (1)
 
 | Name | Texts | Where |
 |---|---|---|
-| `HERO_WORDS` | «La» | l.19 |
+| `HERO_WORDS` | «La» | l.16 |
 
-**Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (9)
+**Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (12)
 
 | Kind | What | Where |
 |---|---|---|
-| mark | `id=inicio` | HomePage · l.92 |
-| mark | `id=relacional` | HomePage · l.151 |
-| mark | `id=origen` | HomePage · l.209 |
-| mark | `id=pasantias` | HomePage · l.270 |
-| mark | `testid=cohort-headline` | HomePage · l.289 |
-| mark | `testid=cohort-programs` | HomePage · l.290 |
-| mark | `id=contacto` | HomePage · l.368 |
-| role | `role=status` | HomePage · l.391 |
-| role | `role=alert` | HomePage · l.396 |
+| scroll | `target.scrollIntoView()` | hold · l.49 |
+| timer | `setTimeout(…, 8000)` | hold · l.51 |
+| listener | `window.addEventListener('hashchange')` | HomePage · l.68 |
+| mark | `id=inicio` | HomePage · l.131 |
+| mark | `id=relacional` | HomePage · l.190 |
+| mark | `id=origen` | HomePage · l.248 |
+| mark | `id=pasantias` | HomePage · l.309 |
+| mark | `testid=cohort-headline` | HomePage · l.328 |
+| mark | `testid=cohort-programs` | HomePage · l.329 |
+| mark | `id=contacto` | HomePage · l.408 |
+| role | `role=status` | HomePage · l.431 |
+| role | `role=alert` | HomePage · l.436 |
 
 **Values shown from data** (4)
 
-- `{COHORT_HEADLINE}` — HomePage · l.289
-- `{COHORT_PROGRAMS.map((program) => pr…}` — HomePage · l.290
-- `{submitMessage}` — HomePage · l.392, when `submitMessage`
-- `{submitError}` — HomePage · l.397, when `submitError`
+- `{COHORT_HEADLINE}` — HomePage · l.328
+- `{COHORT_PROGRAMS.map((program) => pr…}` — HomePage · l.329
+- `{submitMessage}` — HomePage · l.432, when `submitMessage`
+- `{submitError}` — HomePage · l.437, when `submitError`
 
 **Other texts on screen** (54)
 
-- «Fundación Nueva Educación · ATE certificada por RPA Mineduc» — HomePage · l.99
-- «La nueva educación es relacional» — HomePage · l.113
-- «Acompañamos a comunidades educativas en un cambio cultural profundo. Empieza donde empieza todo aprendizaje: en la calidad de las relaciones entre estudiantes, docentes, directivos y familias.» — HomePage · l.116
-- «Colegios en programas de transformación» — HomePage · l.131
-- «Ciudades de Chile, de Iquique a Osorno» — HomePage · l.135
-- «Pasantes internacionales en Barcelona» — HomePage · l.139
-- «Escuelas colaboradoras en Barcelona» — HomePage · l.143
-- «Por qué relacional» — HomePage · l.154
-- «Se aprende con otros, de otros y para otros. Por eso una escuela no cambia de verdad cuando cambia sus horarios, sus muebles o su tecnología. Cambia cuando cambia la manera en que sus personas se relacionan.» — HomePage · l.159
-- «A eso lo llamamos Educación Relacional: poner la calidad de los vínculos en el centro del proyecto educativo y dejar que desde ahí se ordenen el aprendizaje, la evaluación, el liderazgo y la relación con las familias.» — HomePage · l.164
-- «Entre» — HomePage · l.171
-- «estudiantes» — HomePage · l.171
-- «: pares que se cuidan y aprenden juntos» — HomePage · l.171
-- «Entre» — HomePage · l.175
-- «estudiantes y docentes» — HomePage · l.175
-- «: confianza para atreverse» — HomePage · l.175
-- «Entre» — HomePage · l.179
-- «docentes» — HomePage · l.179
-- «: equipos que crean en vez de trabajar a solas» — HomePage · l.179
-- «Entre» — HomePage · l.183
-- «la escuela y sus familias» — HomePage · l.183
-- «: aliadas del proyecto educativo» — HomePage · l.183
-- «en relación» — HomePage · l.201
-- «el espíritu de Los Pellines» — HomePage · l.219
-- «De dónde venimos» — HomePage · l.222
-- «En Los Pellines nos hemos dedicado por más de 30 años al cuidado y fortalecimiento de la calidad de las relaciones. Hoy llevamos ese espíritu a la sala de clases con el Aula Generativa, una propuesta que pone en el centro el Aprendizaje con Sentido.» — HomePage · l.227
-- «años de experiencia» — HomePage · l.234
-- «niños y niñas» — HomePage · l.238
-- «Características de un Aula Generativa» — HomePage · l.241
-- «Estudiantes y profesores altamente motivados trabajando juntos.» — HomePage · l.245
-- «Las relaciones saludables impulsan el aprendizaje significativo.» — HomePage · l.249
-- «Cultura de curso fortalecida, con una identidad positiva compartida.» — HomePage · l.253
-- «Los estudiantes enseñan, explican y reflexionan entre pares.» — HomePage · l.257
-- «Programa Inspira» — HomePage · l.274
-- «Transforma tu visión educativa con una experiencia única de innovación en el corazón de Europa» — HomePage · l.279
-- «CUPOS POR» — HomePage · l.284
-- «ORDEN DE RESERVA» — HomePage · l.285
-- «Próxima cohorte» — HomePage · l.288
-- «Participa activamente en aulas de Nueva Educación como co-docente» — HomePage · l.302
-- «Conoce de primera mano las metodologías más vanguardistas de Europa» — HomePage · l.309
-- «Participa en workshops con expertos internacionales en educación» — HomePage · l.316
-- «Conversa con los equipos directivos, educadores y estudiantes de las escuelas que te reciben» — HomePage · l.323
-- «Recibe bibliografía recomendada, una bitácora y un sistema de registro de tus aprendizajes al menos un mes antes del viaje» — HomePage · l.330
-- «Contáctanos» — HomePage · l.372
-- «¿Listo para transformar tu institución educativa? Conversemos sobre cómo podemos acompañar tu proceso de transformación.» — HomePage · l.377
-- «Santiago, Chile» — HomePage · l.382
-- «ATE certificada por RPA Mineduc» — HomePage · l.383
-- «Nombre *» (label) — HomePage · l.403
-- «Email *» (label) — HomePage · l.407
-- «Institución *» (label) — HomePage · l.411
-- «Cargo» (label) — HomePage · l.415
-- «¿Qué te interesa? *» (label) — HomePage · l.419
-- «Mensaje *» (label) — HomePage · l.430
-- «Sitio web» (label) — HomePage · l.448
+- «Fundación Nueva Educación · ATE certificada por RPA Mineduc» — HomePage · l.138
+- «La nueva educación es relacional» — HomePage · l.152
+- «Acompañamos a comunidades educativas en un cambio cultural profundo. Empieza donde empieza todo aprendizaje: en la calidad de las relaciones entre estudiantes, docentes, directivos y familias.» — HomePage · l.155
+- «Colegios en programas de transformación» — HomePage · l.170
+- «Ciudades de Chile, de Iquique a Osorno» — HomePage · l.174
+- «Pasantes internacionales en Barcelona» — HomePage · l.178
+- «Escuelas colaboradoras en Barcelona» — HomePage · l.182
+- «Por qué relacional» — HomePage · l.193
+- «Se aprende con otros, de otros y para otros. Por eso una escuela no cambia de verdad cuando cambia sus horarios, sus muebles o su tecnología. Cambia cuando cambia la manera en que sus personas se relacionan.» — HomePage · l.198
+- «A eso lo llamamos Educación Relacional: poner la calidad de los vínculos en el centro del proyecto educativo y dejar que desde ahí se ordenen el aprendizaje, la evaluación, el liderazgo y la relación con las familias.» — HomePage · l.203
+- «Entre» — HomePage · l.210
+- «estudiantes» — HomePage · l.210
+- «: pares que se cuidan y aprenden juntos» — HomePage · l.210
+- «Entre» — HomePage · l.214
+- «estudiantes y docentes» — HomePage · l.214
+- «: confianza para atreverse» — HomePage · l.214
+- «Entre» — HomePage · l.218
+- «docentes» — HomePage · l.218
+- «: equipos que crean en vez de trabajar a solas» — HomePage · l.218
+- «Entre» — HomePage · l.222
+- «la escuela y sus familias» — HomePage · l.222
+- «: aliadas del proyecto educativo» — HomePage · l.222
+- «en relación» — HomePage · l.240
+- «el espíritu de Los Pellines» — HomePage · l.258
+- «De dónde venimos» — HomePage · l.261
+- «En Los Pellines nos hemos dedicado por más de 30 años al cuidado y fortalecimiento de la calidad de las relaciones. Hoy llevamos ese espíritu a la sala de clases con el Aula Generativa, una propuesta que pone en el centro el Aprendizaje con Sentido.» — HomePage · l.266
+- «años de experiencia» — HomePage · l.273
+- «niños y niñas» — HomePage · l.277
+- «Características de un Aula Generativa» — HomePage · l.280
+- «Estudiantes y docentes altamente motivados trabajando juntos.» — HomePage · l.284
+- «Las relaciones saludables impulsan el aprendizaje significativo.» — HomePage · l.288
+- «Cultura de curso fortalecida, con una identidad positiva compartida.» — HomePage · l.292
+- «Los estudiantes enseñan, explican y reflexionan entre pares.» — HomePage · l.296
+- «Programa Inspira» — HomePage · l.313
+- «Transforma tu visión educativa con una experiencia única de innovación en el corazón de Europa» — HomePage · l.318
+- «CUPOS POR» — HomePage · l.323
+- «ORDEN DE RESERVA» — HomePage · l.324
+- «Próxima cohorte» — HomePage · l.327
+- «Participa activamente en aulas de Nueva Educación como co-docente» — HomePage · l.341
+- «Conoce de primera mano las metodologías más vanguardistas de Europa» — HomePage · l.348
+- «Participa en workshops con expertos internacionales en educación» — HomePage · l.355
+- «Conversa con los equipos directivos, educadores y estudiantes de las escuelas que te reciben» — HomePage · l.362
+- «Recibe bibliografía recomendada, una bitácora y un sistema de registro de tus aprendizajes al menos un mes antes del viaje» — HomePage · l.369
+- «Contáctanos» — HomePage · l.412
+- «¿Quieres transformar tu institución educativa? Conversemos sobre cómo podemos acompañar tu proceso de transformación.» — HomePage · l.417
+- «Santiago, Chile» — HomePage · l.422
+- «ATE certificada por RPA Mineduc» — HomePage · l.423
+- «Nombre *» (label) — HomePage · l.443
+- «Email *» (label) — HomePage · l.447
+- «Institución *» (label) — HomePage · l.451
+- «Cargo» (label) — HomePage · l.455
+- «¿Qué te interesa? *» (label) — HomePage · l.459
+- «Mensaje *» (label) — HomePage · l.470
+- «Sitio web» (label) — HomePage · l.488
 
 ### Pieces it uses (each is listed once, under "Pieces" below)
 
 - `components/PrivacyPolicyContent.tsx`
 - `components/PrivacyPolicyModal.tsx`
 - `components/TermsOfUseModal.tsx`
-- `components/site/FlipbookDialog.tsx`
 - `components/site/MapaChile.tsx`
 - `components/site/NewsCard.tsx`
 - `components/site/Novedades.tsx`
@@ -310,19 +314,19 @@ File `pages/index.tsx` · 479 lines · frame: none
 
 | Address | Method | Called from |
 |---|---|---|
-| `/api/contact` | POST | `pages/index.tsx:58` |
+| `/api/contact` | POST | `pages/index.tsx:97` |
 | `/api/news` | GET | `components/site/news.ts:55` |
 
 ## /nosotros
 
-File `pages/nosotros.tsx` · 115 lines · frame: none
+File `pages/nosotros.tsx` · 110 lines · frame: none
 
 ### Who reaches it
 
 - Menu: no entry.
 - Middleware: not covered. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: no.
 - In the page: no access check found by the script.
-- Linked from: `components/Footer.tsx:94`, `components/layout/FooterNuevo.tsx:18`, `components/site/SiteLayout.tsx:175`, `components/site/SiteLayout.tsx:26`, `lib/look.ts:104`, `pages/equipo.tsx:27`
+- Linked from: `components/Footer.tsx:94`, `components/layout/FooterNuevo.tsx:18`, `components/site/SiteLayout.tsx:175`, `components/site/SiteLayout.tsx:26`, `lib/look.ts:104`, `pages/equipo.tsx:23`
 - Tests: browser tests that CI runs: `tests/e2e/footer-heading-order.spec.ts`; browser tests CI skips: `tests/e2e/urgent-anonymous-boundaries.spec.ts`, `tests/e2e/urgent-anonymous-current.spec.ts`.
 
 | Role | Sees it in the menu | Middleware |
@@ -343,68 +347,70 @@ File `pages/nosotros.tsx` · 115 lines · frame: none
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «Somos una red que reflexiona y crea soluciones para la educación del siglo XXI» | h1 |  | NosotrosPage · l.38 |
-| «Lo que hacemos» | h2 |  | NosotrosPage · l.51 |
-| «{verb.name}» | h3 | `each VERBS` | NosotrosPage · l.56 |
-| «Una red que ya está cambiando escuelas» | h2 |  | NosotrosPage · l.69 |
-| «La escuela se transforma desde sus vínculos» | h2 |  | NosotrosPage · l.98 |
+| «Somos una red que reflexiona y crea soluciones para la educación del siglo XXI» | h1 |  | NosotrosPage · l.34 |
+| «Lo que hacemos» | h2 |  | NosotrosPage · l.46 |
+| «{verb.name}» | h3 | `each VERBS` | NosotrosPage · l.51 |
+| «Una red que ya está cambiando escuelas» | h2 |  | NosotrosPage · l.64 |
+| «La escuela se transforma desde sus vínculos» | h2 |  | NosotrosPage · l.93 |
 
 **Links** (2)
 
 | Text | Goes to | Shown when | Hook | Where |
 |---|---|---|---|---|
-| «Conversemos →» | `/#contacto` |  | `testid=nosotros-cierre-contacto` | NosotrosPage · l.103 |
-| «Ver los programas» | `/programas` |  | `testid=nosotros-cierre-programas` | NosotrosPage · l.106 |
+| «Conversemos →» | `/#contacto` |  | `testid=nosotros-cierre-contacto` | NosotrosPage · l.98 |
+| «Ver los programas» | `/programas` |  | `testid=nosotros-cierre-programas` | NosotrosPage · l.101 |
 
-**Pieces placed here, with the texts and settings handed to them** (2)
+**Pieces placed here, with the texts and settings handed to them** (3)
 
 | Piece | Texts and settings | Shown when | Hook | Where |
 |---|---|---|---|---|
-| `SiteLayout` | active: nosotros · title: Nosotros · Fundación Nueva Educación · description: Somos una red que reflexiona y crea soluciones para la educación del siglo XXI: un equipo multidisciplinario experto en procesos de cambio cultural en el mundo de la educación. |  |  | NosotrosPage · l.26 |
-| `TeamSection` |  |  |  | NosotrosPage · l.93 |
+| `SiteLayout` | active: nosotros · title: Nosotros · Fundación Nueva Educación · description: Somos una red que reflexiona y crea soluciones para la educación del siglo XXI: un equipo multidisciplinario experto en procesos de cambio cultural en el mundo de la educación. |  |  | NosotrosPage · l.27 |
+| `PageHero` |  |  |  | NosotrosPage · l.32 |
+| `TeamSection` |  |  |  | NosotrosPage · l.88 |
 
 **Texts kept in lists and helpers in the code (labels, options, status names)** (1)
 
 | Name | Texts | Where |
 |---|---|---|
-| `VERBS` | «Transformar», «Acompañamos a las comunidades educativas en procesos profundos de transformación cultural, facilitando el cambio desde adentro. Trabajamos codo a codo con dire…», «Conectar», «Sinergizamos redes vivas de colaboración entre escuelas innovadoras de Chile, España y América Latina. Estas redes permiten que las comunidades educativas comp…», «Innovar», «Desarrollamos herramientas e instrumentos propios para implementar, medir y ejecutar procesos de transformación educativa. Creamos metodologías de diagnóstico,…» | l.6 |
+| `VERBS` | «Transformar», «Acompañamos a las comunidades educativas en procesos profundos de transformación cultural, facilitando el cambio desde adentro. Trabajamos codo a codo con dire…», «Conectar», «Sinergizamos redes vivas de colaboración entre escuelas innovadoras de Chile, España y América Latina. Estas redes permiten que las comunidades educativas comp…», «Innovar», «Desarrollamos herramientas e instrumentos propios para implementar, medir y ejecutar procesos de transformación educativa. Creamos metodologías de diagnóstico,…» | l.7 |
 
 **Other texts written in the code (safety net: not tied to an element by the script)** (3)
 
 | Text | Where |
 |---|---|
-| «Acompañamos a las comunidades educativas en procesos profundos de transformación cultural, facilitando el cambio desde adentro. Trabajamos codo a codo con directivos, docentes, estudiantes y familias para co-crear una nueva cultura escolar centrada en el desarrollo integral y el bienestar de toda l…» | VERBS · l.10 |
-| «Sinergizamos redes vivas de colaboración entre escuelas innovadoras de Chile, España y América Latina. Estas redes permiten que las comunidades educativas compartan sus experiencias, aprendan unas de otras y co-construyan soluciones a desafíos comunes. A través de pasantías internacionales, encuent…» | VERBS · l.15 |
-| «Desarrollamos herramientas e instrumentos propios para implementar, medir y ejecutar procesos de transformación educativa. Creamos metodologías de diagnóstico, matrices de evaluación, protocolos de implementación y sistemas de seguimiento que permiten a las escuelas gestionar su cambio de manera si…» | VERBS · l.20 |
+| «Acompañamos a las comunidades educativas en procesos profundos de transformación cultural, facilitando el cambio desde adentro. Trabajamos codo a codo con directivos, docentes, estudiantes y familias para co-crear una nueva cultura escolar centrada en el desarrollo integral y el bienestar de toda l…» | VERBS · l.11 |
+| «Sinergizamos redes vivas de colaboración entre escuelas innovadoras de Chile, España y América Latina. Estas redes permiten que las comunidades educativas compartan sus experiencias, aprendan unas de otras y co-construyan soluciones a desafíos comunes. A través de pasantías internacionales, encuent…» | VERBS · l.16 |
+| «Desarrollamos herramientas e instrumentos propios para implementar, medir y ejecutar procesos de transformación educativa. Creamos metodologías de diagnóstico, matrices de evaluación, protocolos de implementación y sistemas de seguimiento que permiten a las escuelas gestionar su cambio de manera si…» | VERBS · l.21 |
 
 **Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (2)
 
 | Kind | What | Where |
 |---|---|---|
-| mark | `id=que-hacemos` | NosotrosPage · l.49 |
-| mark | `id=impacto` | NosotrosPage · l.65 |
+| mark | `id=que-hacemos` | NosotrosPage · l.44 |
+| mark | `id=impacto` | NosotrosPage · l.60 |
 
 **Values shown from data** (2)
 
-- `{String(index + 1).padStart(2, '0')}` — NosotrosPage · l.55, when `each VERBS`
-- `{verb.text}` — NosotrosPage · l.57, when `each VERBS`
+- `{String(index + 1).padStart(2, '0')}` — NosotrosPage · l.50, when `each VERBS`
+- `{verb.text}` — NosotrosPage · l.52, when `each VERBS`
 
 **Other texts on screen** (8)
 
-- «Nosotros» — NosotrosPage · l.37
-- «Un equipo multidisciplinario de expertos en facilitar procesos de Cambio Cultural en el mundo de la educación, pioneros en la aplicación de los principios de la Nueva Educación en programas de formación para estudiantes y programas de cambio en equipos directivos y docentes.» — NosotrosPage · l.42
-- «Nuestro impacto» — NosotrosPage · l.68
-- «Escuelas de vanguardia colaboradoras en Barcelona» — NosotrosPage · l.75
-- «Colegios han pasado por nuestros programas de transformación» — NosotrosPage · l.79
-- «Pasantes internacionales a Barcelona» — NosotrosPage · l.83
-- «Colegios han confiado en nuestros programas de pasantías internacionales» — NosotrosPage · l.87
-- «Conversemos sobre cómo podemos acompañar a tu comunidad educativa.» — NosotrosPage · l.101
+- «Nosotros» — NosotrosPage · l.33
+- «Un equipo multidisciplinario experto en facilitar procesos de Cambio Cultural en el mundo de la educación, pionero en la aplicación de los principios de la Nueva Educación en programas de formación para estudiantes y programas de cambio en equipos directivos y docentes.» — NosotrosPage · l.38
+- «Nuestro impacto» — NosotrosPage · l.63
+- «Escuelas de vanguardia colaboradoras en Barcelona» — NosotrosPage · l.70
+- «Colegios han pasado por nuestros programas de transformación» — NosotrosPage · l.74
+- «Pasantes internacionales a Barcelona» — NosotrosPage · l.78
+- «Colegios han confiado en nuestros programas de pasantías internacionales» — NosotrosPage · l.82
+- «Conversemos sobre cómo podemos acompañar a tu comunidad educativa.» — NosotrosPage · l.96
 
 ### Pieces it uses (each is listed once, under "Pieces" below)
 
 - `components/PrivacyPolicyContent.tsx`
 - `components/PrivacyPolicyModal.tsx`
 - `components/TermsOfUseModal.tsx`
+- `components/site/PageHero.tsx`
 - `components/site/SiteLayout.tsx`
 - `components/site/TeamSection.tsx`
 - `components/site/teamData.ts`
@@ -413,7 +419,7 @@ File `pages/nosotros.tsx` · 115 lines · frame: none
 
 ## /noticias
 
-File `pages/noticias.tsx` · 254 lines · frame: none
+File `pages/noticias.tsx` · 249 lines · frame: none
 
 ### Who reaches it
 
@@ -441,80 +447,81 @@ File `pages/noticias.tsx` · 254 lines · frame: none
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «Lo que está pasando en la Nueva Educación» | h1 |  | NewsPage · l.125 |
-| «Próximos eventos» | h2 | `upcoming.length > 0` | NewsPage · l.140 |
-| «{event.title}» | h3 | `upcoming.length > 0 && each upcoming` | NewsPage · l.149 |
-| «Noticias» | h2 |  | NewsPage · l.167 |
-| «{lead.title}» | h2 | `!(loading) && !(error) && !(articles.length === 0)` | NewsPage · l.203 |
-| «Eventos anteriores» | h2 | `events.pastEvents.length > 0` | NewsPage · l.220 |
-| «{event.title}» | h3 | `events.pastEvents.length > 0 && each events.pastEvents.slice(0, pastShown)` | NewsPage · l.227 |
+| «Lo que está pasando en la Nueva Educación» | h1 |  | NewsPage · l.121 |
+| «Próximos eventos» | h2 | `upcoming.length > 0` | NewsPage · l.135 |
+| «{event.title}» | h3 | `upcoming.length > 0 && each upcoming` | NewsPage · l.144 |
+| «Noticias» | h2 |  | NewsPage · l.162 |
+| «{lead.title}» | h2 | `!(loading) && !(error) && !(articles.length === 0)` | NewsPage · l.198 |
+| «Eventos anteriores» | h2 | `events.pastEvents.length > 0` | NewsPage · l.215 |
+| «{event.title}» | h3 | `events.pastEvents.length > 0 && each events.pastEvents.slice(0, pastShown)` | NewsPage · l.222 |
 
 **Buttons** (3)
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «Leer menos / Leer más» | `{() => setOpen((value) => !value)}` | `long` |  | `testid=evento-leer-mas` | EventText · l.44 |
-| «Intentar nuevamente» | `{() => { setLoading(true); fetchArticles(); }}` | `!(loading) && error` |  | `testid=noticias-reintentar` | NewsPage · l.177 |
-| «Ver más eventos» | `{() => setPastShown((count) => count + PAST_EVENTS_STEP)}` | `events.pastEvents.length > 0 && events.pastEvents.length > pastShown` |  | `testid=eventos-ver-mas` | NewsPage · l.238 |
+| «Leer menos / Leer más» | `{() => setOpen((value) => !value)}` | `long` |  | `testid=evento-leer-mas` | EventText · l.45 |
+| «Intentar nuevamente» | `{() => { setLoading(true); fetchArticles(); }}` | `!(loading) && error` |  | `testid=noticias-reintentar` | NewsPage · l.172 |
+| «Ver más eventos» | `{() => setPastShown((count) => count + PAST_EVENTS_STEP)}` | `events.pastEvents.length > 0 && events.pastEvents.length > pastShown` |  | `testid=eventos-ver-mas` | NewsPage · l.233 |
 
 **Links** (3)
 
 | Text | Goes to | Shown when | Hook | Where |
 |---|---|---|---|---|
-| «{event.link_display} / Más información →» | `{event.link_url}` (new tab) | `upcoming.length > 0 && each upcoming && event.link_url` |  | NewsPage · l.156 |
-| «{articleDate(lead)} {lead.title} {excerpt(lead.content_html, 220)} Leer la noticia →» | `/noticias/[*]` | `!(loading) && !(error) && !(articles.length === 0)` | `testid=noticia-{lead.slug}` | NewsPage · l.196 |
-| «{event.link_display} / Más información →» | `{event.link_url}` (new tab) | `events.pastEvents.length > 0 && each events.pastEvents.slice(0, pastShown) && event.link_url` |  | NewsPage · l.230 |
+| «{event.link_display} / Más información →» | `{event.link_url}` (new tab) | `upcoming.length > 0 && each upcoming && event.link_url` |  | NewsPage · l.151 |
+| «{articleDate(lead)} {lead.title} {excerpt(lead.content_html, 220)} Leer la noticia →» | `/noticias/[*]` | `!(loading) && !(error) && !(articles.length === 0)` | `testid=noticia-{lead.slug}` | NewsPage · l.191 |
+| «{event.link_display} / Más información →» | `{event.link_url}` (new tab) | `events.pastEvents.length > 0 && each events.pastEvents.slice(0, pastShown) && event.link_url` |  | NewsPage · l.225 |
 
 **Embedded media** (1)
 
 | What | Shown when | Hook | Where |
 |---|---|---|---|
-| img · alt {lead.title} · {lead.featured_image} | `!(loading) && !(error) && !(articles.length === 0) && lead.featured_image` |  | NewsPage · l.198 |
+| img · alt {lead.title} · {lead.featured_image} | `!(loading) && !(error) && !(articles.length === 0) && lead.featured_image` |  | NewsPage · l.193 |
 
 **Messages set on the page** (3)
 
 | Text | Set by | When | Where |
 |---|---|---|---|
-| «La solicitud tardó demasiado en responder. Por favor, intenta nuevamente.» | `setError` | `caught instanceof Error && caught.name === 'AbortError'` | fetchArticles · l.71 |
-| «No pudimos cargar las noticias. Por favor, intenta nuevamente.» | `setError` | `!(caught instanceof Error && caught.name === 'AbortError')` | fetchArticles · l.73 |
-| «Error loading events» | `throw (shown by whoever catches it)` | `!response.ok` | fetchEvents · l.85 |
+| «La solicitud tardó demasiado en responder. Por favor, intenta nuevamente.» | `setError` | `caught instanceof Error && caught.name === 'AbortError'` | fetchArticles · l.72 |
+| «No pudimos cargar las noticias. Por favor, intenta nuevamente.» | `setError` | `!(caught instanceof Error && caught.name === 'AbortError')` | fetchArticles · l.74 |
+| «Error loading events» | `throw (shown by whoever catches it)` | `!response.ok` | fetchEvents · l.86 |
 
-**Pieces placed here, with the texts and settings handed to them** (2)
+**Pieces placed here, with the texts and settings handed to them** (3)
 
 | Piece | Texts and settings | Shown when | Hook | Where |
 |---|---|---|---|---|
-| `SiteLayout` | active: noticias · title: Noticias y eventos · Fundación Nueva Educación · description: Mantente informado sobre las últimas actividades y eventos de la Fundación Nueva Educación |  |  | NewsPage · l.113 |
-| `NewsCard` |  | `!(loading) && !(error) && !(articles.length === 0) && each rest` |  | NewsPage · l.212 |
+| `SiteLayout` | active: noticias · title: Noticias y eventos · Fundación Nueva Educación · description: Mantente informado sobre las últimas actividades y eventos de la Fundación Nueva Educación |  |  | NewsPage · l.114 |
+| `PageHero` |  |  |  | NewsPage · l.119 |
+| `NewsCard` |  | `!(loading) && !(error) && !(articles.length === 0) && each rest` |  | NewsPage · l.207 |
 
 **Texts kept in lists and helpers in the code (labels, options, status names)** (1)
 
 | Name | Texts | Where |
 |---|---|---|
-| `SHORT_MONTHS` | «ENE», «FEB», «MAR», «ABR», «MAY», «JUN», «JUL», «AGO», «SEP», «OCT», «NOV», «DIC» | l.15 |
+| `SHORT_MONTHS` | «ENE», «FEB», «MAR», «ABR», «MAY», «JUN», «JUL», «AGO», «SEP», «OCT», «NOV», «DIC» | l.16 |
 
 **Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (3)
 
 | Kind | What | Where |
 |---|---|---|
-| timer | `setTimeout(…, 10000)` | fetchArticles · l.64 |
-| role | `role=status` | NewsPage · l.169 |
-| role | `role=alert` | NewsPage · l.174 |
+| timer | `setTimeout(…, 10000)` | fetchArticles · l.65 |
+| role | `role=status` | NewsPage · l.164 |
+| role | `role=alert` | NewsPage · l.169 |
 
 **Values shown from data** (6)
 
-- `{text}` — EventText · l.42
-- `{eventDays(event)}` — NewsPage · l.145, when `upcoming.length > 0 && each upcoming`
-- `{eventMonth(event)}` — NewsPage · l.146, when `upcoming.length > 0 && each upcoming`
-- `{event.location} · {event.time}` — NewsPage · l.150, when `upcoming.length > 0 && each upcoming`
-- `{error}` — NewsPage · l.176, when `!(loading) && error`
-- `{eventRange(event)} · {event.location}` — NewsPage · l.224, when `events.pastEvents.length > 0 && each events.pastEvents.slice(0, pastShown)`
+- `{text}` — EventText · l.43
+- `{eventDays(event)}` — NewsPage · l.140, when `upcoming.length > 0 && each upcoming`
+- `{eventMonth(event)}` — NewsPage · l.141, when `upcoming.length > 0 && each upcoming`
+- `{event.location} · {event.time}` — NewsPage · l.145, when `upcoming.length > 0 && each upcoming`
+- `{error}` — NewsPage · l.171, when `!(loading) && error`
+- `{eventRange(event)} · {event.location}` — NewsPage · l.219, when `events.pastEvents.length > 0 && each events.pastEvents.slice(0, pastShown)`
 
 **Other texts on screen** (4)
 
-- «Noticias y eventos» — NewsPage · l.124
-- «Mantente informado sobre las últimas actividades, eventos y transformaciones que estamos impulsando en el mundo de la educación. Historias de cambio, innovación pedagógica y el impacto de nuestros programas en comunidades educativas.» — NewsPage · l.129
-- «Cargando noticias…» — NewsPage · l.171, when `loading`
-- «Pronto publicaremos nuestras primeras noticias.» — NewsPage · l.192, when `!(loading) && !(error) && articles.length === 0`
+- «Noticias y eventos» — NewsPage · l.120
+- «Mantente informado sobre las últimas actividades, eventos y transformaciones que estamos impulsando en el mundo de la educación. Historias de cambio, innovación pedagógica y el impacto de nuestros programas en comunidades educativas.» — NewsPage · l.125
+- «Cargando noticias…» — NewsPage · l.166, when `loading`
+- «Pronto publicaremos nuestras primeras noticias.» — NewsPage · l.187, when `!(loading) && !(error) && articles.length === 0`
 
 ### Pieces it uses (each is listed once, under "Pieces" below)
 
@@ -522,6 +529,7 @@ File `pages/noticias.tsx` · 254 lines · frame: none
 - `components/PrivacyPolicyModal.tsx`
 - `components/TermsOfUseModal.tsx`
 - `components/site/NewsCard.tsx`
+- `components/site/PageHero.tsx`
 - `components/site/SiteLayout.tsx`
 - `components/site/news.ts`
 - `components/site/useSiteEffects.ts`
@@ -533,7 +541,7 @@ File `pages/noticias.tsx` · 254 lines · frame: none
 | Address | Method | Called from |
 |---|---|---|
 | `/api/news` | GET | `components/site/news.ts:55` |
-| `/api/public/events` | GET | `pages/noticias.tsx:84` |
+| `/api/public/events` | GET | `pages/noticias.tsx:85` |
 
 ## /noticias/[slug]
 
@@ -544,7 +552,7 @@ File `pages/noticias/[slug].tsx` · 157 lines · frame: none
 - Menu: no entry.
 - Middleware: not covered. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: no.
 - In the page: no access check found by the script.
-- Linked from: `components/NewsSlider.tsx:169`, `components/NewsSlider.tsx:194`, `components/NewsSlider.tsx:213`, `components/NewsSlider.tsx:214`, `components/panel/PanelClasico.tsx:294`, `components/panel/PanelClasico.tsx:296`, `components/panel/PanelNuevo.tsx:309`, `components/panel/PanelNuevo.tsx:311`, `components/site/NewsCard.tsx:15`, `components/site/NewsCard.tsx:17`, `lib/look.ts:108`, `pages/noticias.tsx:196`
+- Linked from: `components/NewsSlider.tsx:169`, `components/NewsSlider.tsx:194`, `components/NewsSlider.tsx:213`, `components/NewsSlider.tsx:214`, `components/panel/PanelClasico.tsx:294`, `components/panel/PanelClasico.tsx:296`, `components/panel/PanelNuevo.tsx:309`, `components/panel/PanelNuevo.tsx:311`, `components/site/NewsCard.tsx:15`, `components/site/NewsCard.tsx:17`, `lib/look.ts:108`, `pages/noticias.tsx:191`
 - Tests: browser tests that CI runs: `tests/e2e/footer-heading-order.spec.ts`; browser tests CI skips: `tests/e2e/panel-pin.spec.ts`.
 
 | Role | Sees it in the menu | Middleware |
@@ -659,14 +667,14 @@ File `pages/noticias/[slug].tsx` · 157 lines · frame: none
 
 ## /pasantias
 
-File `pages/pasantias.tsx` · 1350 lines · frame: none · getServerSideProps
+File `pages/pasantias.tsx` · 1341 lines · frame: none · getServerSideProps
 
 ### Who reaches it
 
 - Menu: no entry.
 - Middleware: not covered. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: no.
 - In the page: no access check found by the script.
-- Linked from: `components/Footer.tsx:91`, `components/layout/FooterNuevo.tsx:15`, `components/site/SiteLayout.tsx:172`, `components/site/SiteLayout.tsx:23`, `lib/look.ts:109`, `lib/pasantias/pdf/contact.ts:22`, `pages/index.tsx:337`, `pages/programas.tsx:163`
+- Linked from: `components/Footer.tsx:91`, `components/layout/FooterNuevo.tsx:15`, `components/site/SiteLayout.tsx:172`, `components/site/SiteLayout.tsx:23`, `lib/look.ts:109`, `lib/pasantias/pdf/contact.ts:22`, `pages/index.tsx:376`, `pages/programas.tsx:157`
 - Tests: browser tests that CI runs: `tests/e2e/footer-heading-order.spec.ts`, `tests/e2e/pasantias-flow.spec.ts`, `tests/e2e/pasantias-form.spec.ts`, `tests/e2e/pasantias-page.spec.ts`; unit tests of the page: `__tests__/pages/pasantias-hardcoded-cohort.test.ts`, `__tests__/pages/pasantias.test.tsx`.
 
 | Role | Sees it in the menu | Middleware |
@@ -687,71 +695,71 @@ File `pages/pasantias.tsx` · 1350 lines · frame: none · getServerSideProps
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «{title}» | h2 |  | SectionHeader · l.349 |
-| «{program.name}» | h3 | screen size: `lg:grid` | ProgramCalendar · l.438 |
-| «Vive una escuela por dentro, no la visites» | h1 |  | PasantiasPage · l.591 |
-| «{program.name}» | h3 | `each [inspira, mirada]` | PasantiasPage · l.728 |
-| «{heading}» | h3 | `each COHORT_DAY_STRUCTURE && heading` · screen size: `lg:block` | PasantiasPage · l.901 |
-| «{inspira.name}» | h3 |  | PasantiasPage · l.957 |
-| «{inspira.weeks[0].label}» | h4 |  | PasantiasPage · l.969 |
-| «{school.name}» | h5 | `each inspira.immersionSchools` | PasantiasPage · l.979 |
-| «{inspira.weeks[1].label}» | h4 |  | PasantiasPage · l.994 |
-| «{name}» | h5 | `each inspira.visits.candidates` | PasantiasPage · l.1012 |
-| «{mirada.name}» | h3 |  | PasantiasPage · l.1031 |
-| «{name}» | h4 | `each mirada.schools` | PasantiasPage · l.1053 |
-| «Antes del viaje» | h3 |  | PasantiasPage · l.1077 |
-| «Cierre · {closingDate}» | h3 |  | PasantiasPage · l.1083 |
-| «Seguimiento» | h3 |  | PasantiasPage · l.1089 |
-| «{host.name}» | h3 | `each COHORT_HOSTS` | PasantiasPage · l.1148 |
-| «Incluye» | h2 |  | PasantiasPage · l.1169 |
-| «No incluye» | h2 |  | PasantiasPage · l.1202 |
-| «Conversemos antes de que se cierre la cohorte» | h2 |  | PasantiasPage · l.1329 |
+| «{title}» | h2 |  | SectionHeader · l.347 |
+| «{program.name}» | h3 | screen size: `lg:grid` | ProgramCalendar · l.436 |
+| «Vive una escuela por dentro, no la visites» | h1 |  | PasantiasPage · l.589 |
+| «{program.name}» | h3 | `each [inspira, mirada]` | PasantiasPage · l.721 |
+| «{heading}» | h3 | `each COHORT_DAY_STRUCTURE && heading` · screen size: `lg:block` | PasantiasPage · l.894 |
+| «{inspira.name}» | h3 |  | PasantiasPage · l.949 |
+| «{inspira.weeks[0].label}» | h4 |  | PasantiasPage · l.961 |
+| «{school.name}» | h5 | `each inspira.immersionSchools` | PasantiasPage · l.971 |
+| «{inspira.weeks[1].label}» | h4 |  | PasantiasPage · l.986 |
+| «{name}» | h5 | `each inspira.visits.candidates` | PasantiasPage · l.1004 |
+| «{mirada.name}» | h3 |  | PasantiasPage · l.1023 |
+| «{name}» | h4 | `each mirada.schools` | PasantiasPage · l.1045 |
+| «Antes del viaje» | h3 |  | PasantiasPage · l.1069 |
+| «Cierre · {closingDate}» | h3 |  | PasantiasPage · l.1075 |
+| «Seguimiento» | h3 |  | PasantiasPage · l.1081 |
+| «{host.name}» | h3 | `each COHORT_HOSTS` | PasantiasPage · l.1139 |
+| «Incluye» | h2 |  | PasantiasPage · l.1160 |
+| «No incluye» | h2 |  | PasantiasPage · l.1193 |
+| «Conversemos antes de que se cierre la cohorte» | h2 |  | PasantiasPage · l.1320 |
 
 **Links** (8)
 
 | Text | Goes to | Shown when | Hook | Where |
 |---|---|---|---|---|
-| «formulario de contacto» | `/#contacto` |  |  | PasantiasPage · l.526 |
-| «{COHORT_CONTACT.email}» | `mailto:[*]` |  |  | PasantiasPage · l.530 |
-| «Ver los programas» | `#programas` |  | `testid=pasantias-cta-programas` | PasantiasPage · l.619 |
-| «Registra tu interés» | `#programa` |  | `testid=pasantias-cta-programa` | PasantiasPage · l.629 |
-| «Descarga la ficha» | `{FICHA_HREF}` |  | `testid=pasantias-cta-ficha` | PasantiasPage · l.632 |
-| «Me interesa {program.shortName}» | `#programa` | `each [inspira, mirada]` | `testid=pasantias-cta-program-{program.id}` | PasantiasPage · l.765 |
-| «Descarga la ficha (PDF)» | `{FICHA_HREF}` |  | `testid=pasantias-cta-ficha-programa` | PasantiasPage · l.1259 |
-| «WhatsApp {COHORT_CONTACT.whatsapp}» | `{whatsappHref()}` (new tab) |  | `testid=pasantias-cta-whatsapp` | PasantiasPage · l.1335 |
+| «formulario de contacto» | `/#contacto` |  |  | PasantiasPage · l.524 |
+| «{COHORT_CONTACT.email}» | `mailto:[*]` |  |  | PasantiasPage · l.528 |
+| «Ver los programas» | `#programas` |  | `testid=pasantias-cta-programas` | PasantiasPage · l.617 |
+| «Registra tu interés» | `#programa` |  | `testid=pasantias-cta-programa` | PasantiasPage · l.627 |
+| «Descarga la ficha» | `{FICHA_HREF}` |  | `testid=pasantias-cta-ficha` | PasantiasPage · l.630 |
+| «Me interesa {program.shortName}» | `#programa` | `each [inspira, mirada]` | `testid=pasantias-cta-program-{program.id}` | PasantiasPage · l.758 |
+| «Descarga la ficha (PDF)» | `{FICHA_HREF}` |  | `testid=pasantias-cta-ficha-programa` | PasantiasPage · l.1250 |
+| «WhatsApp {COHORT_CONTACT.whatsapp}» | `{whatsappHref()}` (new tab) |  | `testid=pasantias-cta-whatsapp` | PasantiasPage · l.1326 |
 
 **Embedded media** (5)
 
 | What | Shown when | Hook | Where |
 |---|---|---|---|
-| img · {src} |  |  | PhotoBreak · l.400 |
-| img · alt Barcelona, sede de las Pasantías INSPIRA · {photos.hero} | `photos.hero` |  | PasantiasPage · l.571 |
-| img · alt {DAY_PHOTO_ALT} · {photos.unDia} | `photos.unDia` | `testid=pasantias-dia-photo` | PasantiasPage · l.862 |
-| img · {portraits[index] as string} | `each COHORT_HOSTS && portraits[index]` | `testid=pasantias-host-portrait-{index}` | PasantiasPage · l.1122 |
-| img · {photos.barcelonaTarde} | `photos.barcelonaTarde` |  | PasantiasPage · l.1316 |
+| img · {src} |  |  | PhotoBreak · l.398 |
+| img · alt Barcelona, sede de las Pasantías INSPIRA · {photos.hero} | `photos.hero` |  | PasantiasPage · l.569 |
+| img · alt {DAY_PHOTO_ALT} · {photos.unDia} | `photos.unDia` | `testid=pasantias-dia-photo` | PasantiasPage · l.855 |
+| img · {portraits[index] as string} | `each COHORT_HOSTS && portraits[index]` | `testid=pasantias-host-portrait-{index}` | PasantiasPage · l.1113 |
+| img · {photos.barcelonaTarde} | `photos.barcelonaTarde` |  | PasantiasPage · l.1307 |
 
 **Draws nothing when** (1)
 
 | Condition | Where |
 |---|---|
-| `!src` | PhotoBreak · l.397 |
+| `!src` | PhotoBreak · l.395 |
 
 **Pieces placed here, with the texts and settings handed to them** (12)
 
 | Piece | Texts and settings | Shown when | Hook | Where |
 |---|---|---|---|---|
-| `SiteLayout` | active: pasantias |  |  | PasantiasPage · l.540 |
-| `SectionHeader` | eyebrow: Por qué {COHORT_CITY} · titleId: barcelona-title |  |  | PasantiasPage · l.680 |
-| `Ecosistema` |  |  |  | PasantiasPage · l.701 |
-| `SectionHeader` | eyebrow: Elige tu programa · titleId: programas-title |  |  | PasantiasPage · l.713 |
-| `SectionHeader` | title: El calendario · titleId: calendario-title |  |  | PasantiasPage · l.788 |
-| `SectionHeader` | eyebrow: Dentro de la escuela · title: Cómo es un día · titleId: dia-title |  |  | PasantiasPage · l.843 |
-| `SectionHeader` | eyebrow: {COHORT_CITY} · {COHORT_LABEL} · title: Las escuelas · titleId: escuelas-title |  |  | PasantiasPage · l.945 |
-| `SectionHeader` | title: {mirada.name}: antes, durante y después · titleId: mirada-title |  |  | PasantiasPage · l.1070 |
-| `SectionHeader` | eyebrow: En las escuelas · title: Quién te recibe · titleId: equipo-title |  |  | PasantiasPage · l.1108 |
-| `SectionHeader` | title: Registra tu interés · titleId: programa-title |  |  | PasantiasPage · l.1233 |
-| `LeadForm` |  |  |  | PasantiasPage · l.1265 |
-| `SectionHeader` | eyebrow: Antes de decidir · title: Preguntas frecuentes · titleId: faq-title |  |  | PasantiasPage · l.1277 |
+| `SiteLayout` | active: pasantias |  |  | PasantiasPage · l.538 |
+| `SectionHeader` | eyebrow: Por qué {COHORT_CITY} · titleId: barcelona-title |  |  | PasantiasPage · l.678 |
+| `Ecosistema` |  |  |  | PasantiasPage · l.699 |
+| `SectionHeader` | eyebrow: Elige tu programa · titleId: programas-title |  |  | PasantiasPage · l.711 |
+| `SectionHeader` | title: El calendario · titleId: calendario-title |  |  | PasantiasPage · l.781 |
+| `SectionHeader` | eyebrow: Dentro de la escuela · title: Cómo es un día · titleId: dia-title |  |  | PasantiasPage · l.836 |
+| `SectionHeader` | eyebrow: {COHORT_CITY} · {COHORT_LABEL} · title: Las escuelas · titleId: escuelas-title |  |  | PasantiasPage · l.938 |
+| `SectionHeader` | title: {mirada.name}: antes, durante y después · titleId: mirada-title |  |  | PasantiasPage · l.1062 |
+| `SectionHeader` | eyebrow: En las escuelas · title: Quién te recibe · titleId: equipo-title |  |  | PasantiasPage · l.1099 |
+| `SectionHeader` | title: Registra tu interés · titleId: programa-title |  |  | PasantiasPage · l.1224 |
+| `LeadForm` |  |  |  | PasantiasPage · l.1256 |
+| `SectionHeader` | eyebrow: Antes de decidir · title: Preguntas frecuentes · titleId: faq-title |  |  | PasantiasPage · l.1268 |
 
 **Texts kept in lists and helpers in the code (labels, options, status names)** (9)
 
@@ -764,8 +772,8 @@ File `pages/pasantias.tsx` · 1350 lines · frame: none · getServerSideProps
 | `BUTTON_ACCENT` | «btn mag» | l.304 |
 | `BUTTON_GHOST_DARK` | «btn ghost» | l.305 |
 | `DAY_MOMENT_HEADINGS` | «Conocer», «Observar y Preguntar», «Profundizar» | l.323 |
-| `DAY_PHOTO_ALT` | «Una mano coloca una tarjeta sobre un muro de vidrio.» | l.331 |
-| `faqs` | «¿Qué programa me corresponde?», «¿Necesito hablar catalán?», «¿Viajan juntos los programas?», «¿Cómo reservo mi cupo?», «¿Podemos ir como delegación de un colegio?» | PasantiasPage · l.488 |
+| `DAY_PHOTO_ALT` | «Una mano coloca una tarjeta sobre un muro de vidrio.» | l.329 |
+| `faqs` | «¿Qué programa me corresponde?», «¿Necesito hablar catalán?», «¿Viajan juntos los programas?», «¿Cómo reservo mi cupo?», «¿Podemos ir como delegación de un colegio?» | PasantiasPage · l.486 |
 
 **Other texts written in the code (safety net: not tied to an element by the script)** (1)
 
@@ -777,117 +785,117 @@ File `pages/pasantias.tsx` · 1350 lines · frame: none · getServerSideProps
 
 | Kind | What | Where |
 |---|---|---|
-| mark | `testid=pasantias-calendar-{program.id}` | ProgramCalendar · l.433 |
-| mark | `testid=pasantias-week-{program.id}-{week.id}` | ProgramCalendar · l.440 |
-| mark | `testid=pasantias-hero id=hero` | PasantiasPage · l.569 |
-| mark | `testid=pasantias-date-chip` | PasantiasPage · l.594 |
-| mark | `testid=pasantias-hero-stats` | PasantiasPage · l.597 |
-| mark | `testid=pasantias-hero-routes` | PasantiasPage · l.609 |
-| mark | `testid=pasantias-hero-route-{index}` | PasantiasPage · l.614 |
-| mark | `testid=pasantias-claims` | PasantiasPage · l.640 |
-| mark | `testid=pasantias-claim-{index}` | PasantiasPage · l.650 |
-| mark | `testid=pasantias-accreditation` | PasantiasPage · l.662 |
-| mark | `testid=pasantias-barcelona id=barcelona` | PasantiasPage · l.672 |
-| mark | `testid=pasantias-programas id=programas` | PasantiasPage · l.707 |
-| mark | `testid=pasantias-program-{program.id}` | PasantiasPage · l.717 |
-| mark | `id=escuela-interior` | PasantiasPage · l.778 |
-| mark | `testid=pasantias-calendario id=calendario` | PasantiasPage · l.781 |
-| mark | `testid=pasantias-finde` | PasantiasPage · l.805 |
-| mark | `testid=pasantias-free-weekend-dates` | PasantiasPage · l.811 |
-| mark | `testid=pasantias-dia-tipo id=un-dia` | PasantiasPage · l.830 |
-| mark | `testid=pasantias-dia-lead` | PasantiasPage · l.848 |
-| mark | `testid=pasantias-day-block-{index}` | PasantiasPage · l.887 |
-| mark | `testid=pasantias-day-block-{index}-numeral` | PasantiasPage · l.893 |
-| mark | `testid=pasantias-day-block-{index}-text` | PasantiasPage · l.905 |
-| mark | `id=barcelona-calle` | PasantiasPage · l.919 |
-| mark | `testid=pasantias-escuelas id=escuelas` | PasantiasPage · l.939 |
-| mark | `testid=pasantias-escuelas-{inspira.id}` | PasantiasPage · l.951 |
-| mark | `testid=pasantias-escuelas-{inspira.id}-{inspira.weeks[0].id}` | PasantiasPage · l.965 |
-| mark | `testid=pasantias-school-inmersion-{index}` | PasantiasPage · l.974 |
-| mark | `testid=pasantias-escuelas-{inspira.id}-{inspira.weeks[1].id}` | PasantiasPage · l.990 |
-| mark | `testid=pasantias-visit-count` | PasantiasPage · l.997 |
-| mark | `testid=pasantias-school-visita-{index}` | PasantiasPage · l.1007 |
-| mark | `testid=pasantias-full-day` | PasantiasPage · l.1018 |
-| mark | `testid=pasantias-escuelas-{mirada.id}` | PasantiasPage · l.1026 |
-| mark | `testid=pasantias-mirada-days` | PasantiasPage · l.1037 |
-| mark | `testid=pasantias-school-mirada-{index}` | PasantiasPage · l.1047 |
-| mark | `testid=pasantias-mirada-extra id=antes-durante-despues` | PasantiasPage · l.1063 |
-| mark | `id=equipo-foto` | PasantiasPage · l.1098 |
-| mark | `testid=pasantias-equipo id=equipo` | PasantiasPage · l.1101 |
-| mark | `testid=pasantias-host-{index}` | PasantiasPage · l.1116 |
-| mark | `testid=pasantias-host-initials-{index}` | PasantiasPage · l.1135 |
-| mark | `testid=pasantias-incluye id=incluye` | PasantiasPage · l.1162 |
-| mark | `testid=pasantias-lunches-{index}` | PasantiasPage · l.1180 |
-| mark | `testid=pasantias-programa id=programa` | PasantiasPage · l.1224 |
-| mark | `testid=pasantias-places` | PasantiasPage · l.1243 |
-| mark | `testid=pasantias-registration-note` | PasantiasPage · l.1251 |
-| mark | `testid=pasantias-faq id=faq` | PasantiasPage · l.1270 |
-| mark | `testid=pasantias-faq-{index}` | PasantiasPage · l.1284 |
-| mark | `testid=pasantias-cierre id=cierre` | PasantiasPage · l.1308 |
+| mark | `testid=pasantias-calendar-{program.id}` | ProgramCalendar · l.431 |
+| mark | `testid=pasantias-week-{program.id}-{week.id}` | ProgramCalendar · l.438 |
+| mark | `testid=pasantias-hero id=hero` | PasantiasPage · l.567 |
+| mark | `testid=pasantias-date-chip` | PasantiasPage · l.592 |
+| mark | `testid=pasantias-hero-stats` | PasantiasPage · l.595 |
+| mark | `testid=pasantias-hero-routes` | PasantiasPage · l.607 |
+| mark | `testid=pasantias-hero-route-{index}` | PasantiasPage · l.612 |
+| mark | `testid=pasantias-claims` | PasantiasPage · l.638 |
+| mark | `testid=pasantias-claim-{index}` | PasantiasPage · l.648 |
+| mark | `testid=pasantias-accreditation` | PasantiasPage · l.660 |
+| mark | `testid=pasantias-barcelona id=barcelona` | PasantiasPage · l.670 |
+| mark | `testid=pasantias-programas id=programas` | PasantiasPage · l.705 |
+| mark | `testid=pasantias-program-{program.id}` | PasantiasPage · l.715 |
+| mark | `id=escuela-interior` | PasantiasPage · l.771 |
+| mark | `testid=pasantias-calendario id=calendario` | PasantiasPage · l.774 |
+| mark | `testid=pasantias-finde` | PasantiasPage · l.798 |
+| mark | `testid=pasantias-free-weekend-dates` | PasantiasPage · l.804 |
+| mark | `testid=pasantias-dia-tipo id=un-dia` | PasantiasPage · l.823 |
+| mark | `testid=pasantias-dia-lead` | PasantiasPage · l.841 |
+| mark | `testid=pasantias-day-block-{index}` | PasantiasPage · l.880 |
+| mark | `testid=pasantias-day-block-{index}-numeral` | PasantiasPage · l.886 |
+| mark | `testid=pasantias-day-block-{index}-text` | PasantiasPage · l.898 |
+| mark | `id=barcelona-calle` | PasantiasPage · l.912 |
+| mark | `testid=pasantias-escuelas id=escuelas` | PasantiasPage · l.932 |
+| mark | `testid=pasantias-escuelas-{inspira.id}` | PasantiasPage · l.944 |
+| mark | `testid=pasantias-escuelas-{inspira.id}-{inspira.weeks[0].id}` | PasantiasPage · l.957 |
+| mark | `testid=pasantias-school-inmersion-{index}` | PasantiasPage · l.966 |
+| mark | `testid=pasantias-escuelas-{inspira.id}-{inspira.weeks[1].id}` | PasantiasPage · l.982 |
+| mark | `testid=pasantias-visit-count` | PasantiasPage · l.989 |
+| mark | `testid=pasantias-school-visita-{index}` | PasantiasPage · l.999 |
+| mark | `testid=pasantias-full-day` | PasantiasPage · l.1010 |
+| mark | `testid=pasantias-escuelas-{mirada.id}` | PasantiasPage · l.1018 |
+| mark | `testid=pasantias-mirada-days` | PasantiasPage · l.1029 |
+| mark | `testid=pasantias-school-mirada-{index}` | PasantiasPage · l.1039 |
+| mark | `testid=pasantias-mirada-extra id=antes-durante-despues` | PasantiasPage · l.1055 |
+| mark | `id=equipo-foto` | PasantiasPage · l.1090 |
+| mark | `testid=pasantias-equipo id=equipo` | PasantiasPage · l.1093 |
+| mark | `testid=pasantias-host-{index}` | PasantiasPage · l.1107 |
+| mark | `testid=pasantias-host-initials-{index}` | PasantiasPage · l.1126 |
+| mark | `testid=pasantias-incluye id=incluye` | PasantiasPage · l.1153 |
+| mark | `testid=pasantias-lunches-{index}` | PasantiasPage · l.1171 |
+| mark | `testid=pasantias-programa id=programa` | PasantiasPage · l.1215 |
+| mark | `testid=pasantias-places` | PasantiasPage · l.1234 |
+| mark | `testid=pasantias-registration-note` | PasantiasPage · l.1242 |
+| mark | `testid=pasantias-faq id=faq` | PasantiasPage · l.1261 |
+| mark | `testid=pasantias-faq-{index}` | PasantiasPage · l.1275 |
+| mark | `testid=pasantias-cierre id=cierre` | PasantiasPage · l.1299 |
 
 **Values shown from data** (31)
 
-- `{eyebrow}` — SectionHeader · l.346
-- `{week.label}` — ProgramCalendar · l.446, when `each program.weeks`, screen size: `lg:grid`
-- `{ranges[index]}` — ProgramCalendar · l.449, when `each program.weeks`, screen size: `lg:grid`
-- `{week.summary}` — ProgramCalendar · l.456, when `each program.weeks`, screen size: `lg:grid`
-- `{COHORT_HEADLINE}` — PasantiasPage · l.594
-- `{COHORT_TOGETHER}` — PasantiasPage · l.597
-- `{route.program}` — PasantiasPage · l.616, when `each COHORT_ROUTING`
-- `{figure}` — PasantiasPage · l.656, when `each COHORT_CLAIMS`
-- `{caption}` — PasantiasPage · l.657, when `each COHORT_CLAIMS`
-- `{COHORT_ACCREDITATION}` — PasantiasPage · l.662
-- `{program.audience}` — PasantiasPage · l.735, when `each [inspira, mirada]`
-- `{programRanges[index]}` — PasantiasPage · l.742, when `each [inspira, mirada]`
-- `{program.overview}` — PasantiasPage · l.750, when `each [inspira, mirada]`
-- `{program.takeaway}` — PasantiasPage · l.753, when `each [inspira, mirada]`
-- `{spanRange} · {COHORT_TOGETHER}.` — PasantiasPage · l.789
-- `{String(index + 1).padStart(2, '0')}` — PasantiasPage · l.893, when `each COHORT_DAY_STRUCTURE`, screen size: `lg:block`
-- `{block}` — PasantiasPage · l.905, when `each COHORT_DAY_STRUCTURE`, screen size: `lg:block`
-- `{inspira.overview}` — PasantiasPage · l.959
-- `{inspira.visits.selection}` — PasantiasPage · l.1017
-- `{mirada.orderCaveat}` — PasantiasPage · l.1057
-- `{mirada.preparation}` — PasantiasPage · l.1078
-- `{mirada.closing.text}` — PasantiasPage · l.1084
-- `{mirada.followUp}` — PasantiasPage · l.1090
-- `{host.name .split(' ') .filter((word…}` — PasantiasPage · l.1135, when `each COHORT_HOSTS && !(portraits[index])`
-- `{host.note}` — PasantiasPage · l.1153, when `each COHORT_HOSTS`
-- `{item}` — PasantiasPage · l.1176, when `each COHORT_INCLUDES`
-- `{item}` — PasantiasPage · l.1188, when `each [inspira.lunches, mirada.lunches]`
-- `{mirada.name}: {item}` — PasantiasPage · l.1196, when `each mirada.extraIncludes`
-- `{item}` — PasantiasPage · l.1209, when `each COHORT_EXCLUDES`
-- `{COHORT_PLACES}` — PasantiasPage · l.1243
-- `{faq.answer}` — PasantiasPage · l.1299, when `each faqs`
+- `{eyebrow}` — SectionHeader · l.344
+- `{week.label}` — ProgramCalendar · l.444, when `each program.weeks`, screen size: `lg:grid`
+- `{ranges[index]}` — ProgramCalendar · l.447, when `each program.weeks`, screen size: `lg:grid`
+- `{week.summary}` — ProgramCalendar · l.454, when `each program.weeks`, screen size: `lg:grid`
+- `{COHORT_HEADLINE}` — PasantiasPage · l.592
+- `{COHORT_TOGETHER}` — PasantiasPage · l.595
+- `{route.program}` — PasantiasPage · l.614, when `each COHORT_ROUTING`
+- `{figure}` — PasantiasPage · l.654, when `each COHORT_CLAIMS`
+- `{caption}` — PasantiasPage · l.655, when `each COHORT_CLAIMS`
+- `{COHORT_ACCREDITATION}` — PasantiasPage · l.660
+- `{program.audience}` — PasantiasPage · l.728, when `each [inspira, mirada]`
+- `{programRanges[index]}` — PasantiasPage · l.735, when `each [inspira, mirada]`
+- `{program.overview}` — PasantiasPage · l.743, when `each [inspira, mirada]`
+- `{program.takeaway}` — PasantiasPage · l.746, when `each [inspira, mirada]`
+- `{spanRange} · {COHORT_TOGETHER}.` — PasantiasPage · l.782
+- `{String(index + 1).padStart(2, '0')}` — PasantiasPage · l.886, when `each COHORT_DAY_STRUCTURE`, screen size: `lg:block`
+- `{block}` — PasantiasPage · l.898, when `each COHORT_DAY_STRUCTURE`, screen size: `lg:block`
+- `{inspira.overview}` — PasantiasPage · l.951
+- `{inspira.visits.selection}` — PasantiasPage · l.1009
+- `{mirada.orderCaveat}` — PasantiasPage · l.1049
+- `{mirada.preparation}` — PasantiasPage · l.1070
+- `{mirada.closing.text}` — PasantiasPage · l.1076
+- `{mirada.followUp}` — PasantiasPage · l.1082
+- `{host.name .split(' ') .filter((word…}` — PasantiasPage · l.1126, when `each COHORT_HOSTS && !(portraits[index])`
+- `{host.note}` — PasantiasPage · l.1144, when `each COHORT_HOSTS`
+- `{item}` — PasantiasPage · l.1167, when `each COHORT_INCLUDES`
+- `{item}` — PasantiasPage · l.1179, when `each [inspira.lunches, mirada.lunches]`
+- `{mirada.name}: {item}` — PasantiasPage · l.1187, when `each mirada.extraIncludes`
+- `{item}` — PasantiasPage · l.1200, when `each COHORT_EXCLUDES`
+- `{COHORT_PLACES}` — PasantiasPage · l.1234
+- `{faq.answer}` — PasantiasPage · l.1290, when `each faqs`
 
 **Other texts on screen** (27)
 
-- «{COHORT_ROUTING[0].question} {COHORT_ROUTING[0].program}: {inspira.audience}. {COHORT_ROUTING[1].question} {COHORT_ROUTING[1].program}: {mirada.audience}.» — PasantiasPage · l.493
-- «No. Las sesiones del programa se desarrollan en español: las presentaciones, las entrevistas y los talleres. En las escuelas vas a escuchar una mezcla de catalán y español, y el equipo de FNE acompaña las visitas.» — PasantiasPage · l.501
-- «Sí. {COHORT_TOGETHER}. Los programas comparten el fin de semana libre: {COHORT_FREE_WEEKEND.label}.» — PasantiasPage · l.510
-- «{COHORT_PLACES} Registra tu interés más abajo y descarga la ficha y el programa completo con los valores.» — PasantiasPage · l.517
-- «Sí. Para cotizaciones grupales escríbenos por el» — PasantiasPage · l.525
-- «o a» — PasantiasPage · l.529
-- «y coordinamos una propuesta para tu equipo.» — PasantiasPage · l.533
-- «Pasantías internacionales» — PasantiasPage · l.590
-- «{route.question}» — PasantiasPage · l.615, when `each COHORT_ROUTING`
-- «La red INSPIRA en cifras» (aria-label) — PasantiasPage · l.640
-- «Un ecosistema,» — PasantiasPage · l.684
-- «no una escuela suelta» — PasantiasPage · l.685
-- «Cataluña lleva años sosteniendo una transformación educativa en red: escuelas muy distintas entre sí que comparten preguntas, herramientas y una manera de mirar al estudiante. Por eso la pasantía no es un tour por un colegio ejemplar, sino un recorrido por un ecosistema que se explica a sí mismo.» — PasantiasPage · l.691
-- «Vas a entrar a las aulas, conversar con los equipos directivos, entrevistar a estudiantes y docentes, y cerrar cada día con un taller que ordena lo que viste.» — PasantiasPage · l.697
-- «{formatNumber(program.school…} días en escuelas · {formatNumber( program.schoo…} escuelas» — PasantiasPage · l.745, when `each [inspira, mirada]`
-- «Fin de semana libre» — PasantiasPage · l.810
-- «{freeWeekendDates[0]} al {freeWeekendDates[1]}» — PasantiasPage · l.811
-- «La escuela, contada por quienes la hacen.» — PasantiasPage · l.852
-- «{formatNumber(school.days)} días por pasante» — PasantiasPage · l.982, when `each inspira.immersionSchools`
-- «Cada cohorte visita {formatNumber(inspira.visits…} de estas {inspira.visits.candidates.l…} escuelas.» — PasantiasPage · l.997
-- «{joinEs(inspira.visits.fullD…} están fuera de {COHORT_CITY} y toman el día completo.» — PasantiasPage · l.1018
-- «{formatNumber(mirada.daysPer…} días completos por escuela» — PasantiasPage · l.1037
-- «{host.role}, {host.school} —» — PasantiasPage · l.1152, when `each COHORT_HOSTS`
-- «Elige el programa que te corresponde. Si te interesa más de uno, registra una solicitud por cada programa con el mismo correo.» — PasantiasPage · l.1240
-- «Registrar tu interés no reserva un cupo. Después de enviarlo puedes descargar la ficha y el programa completo.» — PasantiasPage · l.1255
-- «{faq.question} +» (label) — PasantiasPage · l.1290, when `each faqs`
-- «Escríbenos por WhatsApp y te contamos cómo se prepara el viaje con tu equipo.» — PasantiasPage · l.1333
+- «{COHORT_ROUTING[0].question} {COHORT_ROUTING[0].program}: {inspira.audience}. {COHORT_ROUTING[1].question} {COHORT_ROUTING[1].program}: {mirada.audience}.» — PasantiasPage · l.491
+- «No. Las sesiones del programa se desarrollan en español: las presentaciones, las entrevistas y los talleres. En las escuelas vas a escuchar una mezcla de catalán y español, y el equipo de FNE acompaña las visitas.» — PasantiasPage · l.499
+- «Sí. {COHORT_TOGETHER}. Los programas comparten el fin de semana libre: {COHORT_FREE_WEEKEND.label}.» — PasantiasPage · l.508
+- «{COHORT_PLACES} Registra tu interés más abajo y descarga la ficha y el programa completo con los valores.» — PasantiasPage · l.515
+- «Sí. Para cotizaciones grupales escríbenos por el» — PasantiasPage · l.523
+- «o a» — PasantiasPage · l.527
+- «y coordinamos una propuesta para tu equipo.» — PasantiasPage · l.531
+- «Pasantías internacionales» — PasantiasPage · l.588
+- «{route.question}» — PasantiasPage · l.613, when `each COHORT_ROUTING`
+- «La red INSPIRA en cifras» (aria-label) — PasantiasPage · l.638
+- «Un ecosistema,» — PasantiasPage · l.682
+- «no una escuela suelta» — PasantiasPage · l.683
+- «Cataluña lleva años sosteniendo una transformación educativa en red: escuelas muy distintas entre sí que comparten preguntas, herramientas y una manera de mirar al estudiante. Por eso la pasantía no es un tour por un colegio ejemplar, sino un recorrido por un ecosistema que se explica a sí mismo.» — PasantiasPage · l.689
+- «Vas a entrar a las aulas, conversar con los equipos directivos, entrevistar a estudiantes y docentes, y cerrar cada día con un taller que ordena lo que viste.» — PasantiasPage · l.695
+- «{formatNumber(program.school…} días en escuelas · {formatNumber( program.schoo…} escuelas» — PasantiasPage · l.738, when `each [inspira, mirada]`
+- «Fin de semana libre» — PasantiasPage · l.803
+- «{freeWeekendDates[0]} al {freeWeekendDates[1]}» — PasantiasPage · l.804
+- «La escuela, contada por quienes la hacen.» — PasantiasPage · l.845
+- «{formatNumber(school.days)} días por pasante» — PasantiasPage · l.974, when `each inspira.immersionSchools`
+- «Cada cohorte visita {formatNumber(inspira.visits…} de estas {inspira.visits.candidates.l…} escuelas.» — PasantiasPage · l.989
+- «{joinEs(inspira.visits.fullD…} están fuera de {COHORT_CITY} y toman el día completo.» — PasantiasPage · l.1010
+- «{formatNumber(mirada.daysPer…} días completos por escuela» — PasantiasPage · l.1029
+- «{host.role}, {host.school} —» — PasantiasPage · l.1143, when `each COHORT_HOSTS`
+- «Elige el programa que te corresponde. Si te interesa más de uno, registra una solicitud por cada programa con el mismo correo.» — PasantiasPage · l.1231
+- «Registrar tu interés no reserva un cupo. Después de enviarlo puedes descargar la ficha y el programa completo.» — PasantiasPage · l.1246
+- «{faq.question} +» (label) — PasantiasPage · l.1281, when `each faqs`
+- «Escríbenos por WhatsApp y te contamos cómo se prepara el viaje con tu equipo.» — PasantiasPage · l.1324
 
 ### Pieces it uses (each is listed once, under "Pieces" below)
 
@@ -974,14 +982,14 @@ File `pages/privacidad.tsx` · 46 lines · frame: none
 
 ## /programas
 
-File `pages/programas.tsx` · 208 lines · frame: none
+File `pages/programas.tsx` · 202 lines · frame: none
 
 ### Who reaches it
 
 - Menu: no entry.
 - Middleware: not covered. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: no.
 - In the page: no access check found by the script.
-- Linked from: `components/Footer.tsx:92`, `components/layout/FooterNuevo.tsx:16`, `components/site/Puertas.tsx:30`, `components/site/Puertas.tsx:33`, `components/site/SiteLayout.tsx:173`, `components/site/SiteLayout.tsx:24`, `lib/look.ts:103`, `pages/index.tsx:123`, `pages/nosotros.tsx:106`
+- Linked from: `components/Footer.tsx:92`, `components/layout/FooterNuevo.tsx:16`, `components/site/Puertas.tsx:25`, `components/site/Puertas.tsx:28`, `components/site/SiteLayout.tsx:173`, `components/site/SiteLayout.tsx:24`, `lib/look.ts:103`, `pages/index.tsx:162`, `pages/nosotros.tsx:101`
 - Tests: browser tests that CI runs: `tests/e2e/footer-heading-order.spec.ts`, `tests/e2e/pasantias-page.spec.ts`.
 
 | Role | Sees it in the menu | Middleware |
@@ -1002,84 +1010,85 @@ File `pages/programas.tsx` · 208 lines · frame: none
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «Programas de evolución educativa» | h1 |  | ProgramasPage · l.70 |
-| «Un modelo para armar tu propio viaje» | h2 |  | ProgramasPage · l.95 |
-| «{step.name}» | h3 |  | ProgramasPage · l.134 |
-| «¿Listo para iniciar este viaje de evolución?» | h2 |  | ProgramasPage · l.184 |
+| «Programas de evolución educativa» | h1 |  | ProgramasPage · l.66 |
+| «Un modelo para armar tu propio viaje» | h2 |  | ProgramasPage · l.90 |
+| «{step.name}» | h3 |  | ProgramasPage · l.128 |
+| «¿Comenzamos este viaje de evolución?» | h2 |  | ProgramasPage · l.178 |
 
 **Tabs** (2)
 
 | Text | Does | Shown when | Where |
 |---|---|---|---|
-| «{item.name} {item.stage} · {item.detail}» | `{() => setCurrent(index)}` | `each JOURNEY` | ProgramasPage · l.108 |
-| «{TAB_LABELS[key]}» | `{() => setTab(key)}` | `each tabs` | ProgramasPage · l.142 |
+| «{item.name} {item.stage} · {item.detail}» | `{() => setCurrent(index)}` | `each JOURNEY` | ProgramasPage · l.103 |
+| «{TAB_LABELS[key]}» | `{() => setTab(key)}` | `each tabs` | ProgramasPage · l.136 |
 
 **Buttons** (1)
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «Programa Estratégico para Directivos →» | `{() => setShowFlipbook(true)}` |  |  | `testid=directivos-flipbook-cta` | ProgramasPage · l.170 |
+| «Programa Estratégico para Directivos →» | `{() => setShowFlipbook(true)}` |  |  | `testid=directivos-flipbook-cta` | ProgramasPage · l.164 |
 
 **Links** (4)
 
 | Text | Goes to | Shown when | Hook | Where |
 |---|---|---|---|---|
-| «Conoce las Pasantías en Barcelona» | `/pasantias` | `step.id === 'inspira'` | `testid=inspira-pasantias-cta` | ProgramasPage · l.163 |
-| «Contáctanos →» | `/#contacto` |  | `testid=programa-contacto` | ProgramasPage · l.167 |
-| «Contáctanos →» | `/#contacto` |  | `testid=programas-cierre-contacto` | ProgramasPage · l.189 |
-| «Accede a la plataforma» | `/login` |  | `testid=programas-cierre-plataforma` | ProgramasPage · l.192 |
+| «Conoce las Pasantías en Barcelona» | `/pasantias` | `step.id === 'inspira'` | `testid=inspira-pasantias-cta` | ProgramasPage · l.157 |
+| «Contáctanos →» | `/#contacto` |  | `testid=programa-contacto` | ProgramasPage · l.161 |
+| «Contáctanos →» | `/#contacto` |  | `testid=programas-cierre-contacto` | ProgramasPage · l.183 |
+| «Accede a la plataforma» | `/login` |  | `testid=programas-cierre-plataforma` | ProgramasPage · l.186 |
 
 **Pop-ups** (1)
 
 | Name or title | How | Opens when | Texts passed to it | Where |
 |---|---|---|---|---|
-| `FlipbookDialog` | component | `{showFlipbook}` | title: Programa Estratégico Para Directivos | ProgramasPage · l.199 |
+| `FlipbookDialog` | component | `{showFlipbook}` | title: Programa Estratégico Para Directivos | ProgramasPage · l.193 |
 
 **Draws nothing when** (1)
 
 | Condition | Where |
 |---|---|
-| `current === shown` | ProgramasPage · l.42 |
+| `current === shown` | ProgramasPage · l.43 |
 
-**Pieces placed here, with the texts and settings handed to them** (1)
+**Pieces placed here, with the texts and settings handed to them** (2)
 
 | Piece | Texts and settings | Shown when | Hook | Where |
 |---|---|---|---|---|
-| `SiteLayout` | active: programas · title: Programas · Fundación Nueva Educación · description: Inicia, Inspira, Aula Generativa y Evoluciona: cuatro programas que se combinan para acompañar a cada comunidad educativa en su viaje hacia una educación de vanguardia. |  |  | ProgramasPage · l.58 |
+| `SiteLayout` | active: programas · title: Programas · Fundación Nueva Educación · description: Inicia, Inspira, Aula Generativa y Evoluciona: cuatro programas que se combinan para acompañar a cada comunidad educativa en su viaje hacia una educación de vanguardia. |  |  | ProgramasPage · l.59 |
+| `PageHero` |  |  |  | ProgramasPage · l.64 |
 
 **Texts kept in lists and helpers in the code (labels, options, status names)** (1)
 
 | Name | Texts | Where |
 |---|---|---|
-| `TAB_LABELS` | «Objetivos», «Actividades», «Resultados» | l.10 |
+| `TAB_LABELS` | «Objetivos», «Actividades», «Resultados» | l.11 |
 
 **Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (5)
 
 | Kind | What | Where |
 |---|---|---|
-| scroll | `fichaRef.current.scrollIntoView()` | fromHash · l.33 |
-| listener | `window.addEventListener('hashchange')` | ProgramasPage · l.36 |
-| mark | `id=viaje` | ProgramasPage · l.90 |
-| role | `role=tablist` | ProgramasPage · l.105 |
-| role | `role=tablist` | ProgramasPage · l.140 |
+| scroll | `fichaRef.current.scrollIntoView()` | fromHash · l.34 |
+| listener | `window.addEventListener('hashchange')` | ProgramasPage · l.37 |
+| mark | `id=viaje` | ProgramasPage · l.85 |
+| role | `role=tablist` | ProgramasPage · l.100 |
+| role | `role=tablist` | ProgramasPage · l.134 |
 
-**Values shown from data** (3)
+**Values shown from data** (4)
 
-- `{program.subtitle}` — ProgramasPage · l.135
-- `{program.description}` — ProgramasPage · l.139
-- `{item}` — ProgramasPage · l.157, when `each items`
+- `{step.stage} · {step.detail}` — ProgramasPage · l.125
+- `{program.subtitle}` — ProgramasPage · l.129
+- `{program.description}` — ProgramasPage · l.133
+- `{item}` — ProgramasPage · l.151, when `each items`
 
-**Other texts on screen** (9)
+**Other texts on screen** (8)
 
-- «Programas» — ProgramasPage · l.69
-- «Descubre nuestros programas, diseñados para acompañar a las comunidades educativas en su viaje hacia una educación de vanguardia.» — ProgramasPage · l.74
-- «La evolución de la cultura de una escuela se basa en la conservación de su identidad, en la elevación de sus fortalezas y en la creación colectiva de una nueva mirada y nuevas habilidades.» — ProgramasPage · l.84
-- «El viaje de evolución» — ProgramasPage · l.94
-- «Estos programas son autónomos y pueden combinarse según las necesidades de tu institución. Te presentamos un orden sugerido para iniciar y profundizar el cambio educativo.» — ProgramasPage · l.100
-- «Programas» (aria-label) — ProgramasPage · l.105
-- «Programas de {step.stage.toLowerCase()} · {program.duration}» — ProgramasPage · l.130
-- «El primer paso» — ProgramasPage · l.183
-- «Comienza hoy el camino hacia una educación de vanguardia para tu institución.» — ProgramasPage · l.187
+- «Programas» — ProgramasPage · l.65
+- «Descubre nuestros programas, diseñados para acompañar a las comunidades educativas en su viaje hacia una educación de vanguardia.» — ProgramasPage · l.70
+- «La evolución de la cultura de una escuela se basa en la conservación de su identidad, en la elevación de sus fortalezas y en la creación colectiva de una nueva mirada y nuevas habilidades.» — ProgramasPage · l.79
+- «El viaje de evolución» — ProgramasPage · l.89
+- «Estos programas son autónomos y pueden combinarse según las necesidades de tu institución. Te presentamos un orden sugerido para iniciar y profundizar el cambio educativo.» — ProgramasPage · l.95
+- «Programas» (aria-label) — ProgramasPage · l.100
+- «El primer paso» — ProgramasPage · l.177
+- «Comienza hoy el camino hacia una educación de vanguardia para tu institución.» — ProgramasPage · l.181
 
 ### Pieces it uses (each is listed once, under "Pieces" below)
 
@@ -1087,6 +1096,7 @@ File `pages/programas.tsx` · 208 lines · frame: none
 - `components/PrivacyPolicyModal.tsx`
 - `components/TermsOfUseModal.tsx`
 - `components/site/FlipbookDialog.tsx`
+- `components/site/PageHero.tsx`
 - `components/site/SiteLayout.tsx`
 - `components/site/programsData.ts`
 - `components/site/useSiteEffects.ts`
@@ -1470,7 +1480,7 @@ Used by: `/pasantias`
 
 ### components/site/FlipbookDialog.tsx
 
-Used by: `/`, `/programas`
+Used by: `/programas`
 
 **Buttons** (1)
 
@@ -1655,42 +1665,41 @@ Used by: `/`
 
 - «Noticias» — Novedades · l.30
 
+### components/site/PageHero.tsx
+
+Used by: `/equipo`, `/nosotros`, `/noticias`, `/programas`
+
+**Values shown from data** (1)
+
+- `{children}` — PageHero · l.15
+
 ### components/site/Puertas.tsx
 
 Used by: `/`
 
-**Titles** (4)
+**Titles** (2)
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «Arma tu propio viaje de evolución» | h2 |  | Puertas · l.19 |
-| «{step.name}» | h3 | `each JOURNEY` | Puertas · l.45 |
-| «Programa Estratégico para Directivos» | h3 |  | Puertas · l.61 |
-| «Hub de Transformación» | h3 |  | Puertas · l.69 |
+| «Arma tu propio viaje de evolución» | h2 |  | Puertas · l.14 |
+| «{step.name}» | h3 | `each JOURNEY` | Puertas · l.40 |
 
-**Buttons** (1)
-
-| Text | Does | Shown when | Disabled when | Hook | Where |
-|---|---|---|---|---|---|
-| «Programa Estratégico para Directivos Hojea el programa completo. →» | `{onOpenDirectivos}` |  |  | `testid=directivos-flipbook-cta` | Puertas · l.58 |
-
-**Links** (2)
+**Links** (1)
 
 | Text | Goes to | Shown when | Hook | Where |
 |---|---|---|---|---|
-| «{String(index + 1).padStart(2, '0')} {step.stage} · {step.detail} {step.name} {step.summary} Ver el programa →» · also `onMouseEnter={() => setOpen(index)} · onFocus={() => setOpen(index)}` | `/programas#[*]` | `each JOURNEY` | `testid=puerta-{step.id}` | Puertas · l.30 |
-| «Hub de Transformación La plataforma donde cada escuela conduce su proceso de cambio. →» | `/login` |  | `testid=puertas-hub` | Puertas · l.66 |
+| «{String(index + 1).padStart(2, '0')} {step.stage} · {step.detail} {step.name} {step.summary} Ver el programa →» · also `onMouseEnter={() => setOpen(index)} · onFocus={() => setOpen(index)}` | `/programas#[*]` | `each JOURNEY` | `testid=puerta-{step.id}` | Puertas · l.25 |
 
 **Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (1)
 
 | Kind | What | Where |
 |---|---|---|
-| mark | `id=programas` | Puertas · l.15 |
+| mark | `id=programas` | Puertas · l.10 |
 
 **Other texts on screen** (2)
 
-- «Programas» — Puertas · l.18
-- «Cuatro programas autónomos que se combinan según las necesidades de cada institución. Este es el orden que sugerimos para iniciar y profundizar el cambio.» — Puertas · l.24
+- «Programas» — Puertas · l.13
+- «Cuatro programas autónomos que se combinan según las necesidades de cada institución. Este es el orden que sugerimos para iniciar y profundizar el cambio.» — Puertas · l.19
 
 ### components/site/RedAliada.tsx
 
@@ -1933,7 +1942,7 @@ Used by: `/equipo`, `/nosotros`
 **Other texts on screen** (3)
 
 - «Nuestro equipo» — TeamSection · l.41
-- «Expertos comprometidos con la innovación educativa y el desarrollo de metodologías que potencian el crecimiento de cada estudiante.» — TeamSection · l.46
+- «Un equipo experto y comprometido con la innovación educativa y el desarrollo de metodologías que potencian el crecimiento de cada estudiante.» — TeamSection · l.46
 - «Ver más» — TeamSection · l.63, when `each TEAM_GROUPS && each group.members && member.description`
 
 ### components/site/ViasEje.tsx
@@ -1957,7 +1966,7 @@ Used by: `/`
 
 | Name | Texts | Where |
 |---|---|---|
-| `VIAS` | «Propósito», «Un para qué compartido, construido entre todos.», «Crecimiento», «Cada estudiante es conocido, mirado y acompañado.», «Aprendizaje», «Se aprende con otros: cooperando, explicando, creando.», «Evaluación», «Una conversación que ayuda a crecer, no un veredicto.», «Liderazgo», «Distribuido: líderes que cuidan los vínculos de su equipo.», «Familias», «Aliadas del proyecto educativo, no espectadoras.», «Trabajo docente», «En equipo y por etapas, nunca en soledad.» | l.5 |
+| `VIAS` | «Propósito», «Un para qué compartido, construido por toda la comunidad.», «Crecimiento», «Cada estudiante es conocido, mirado y acompañado.», «Aprendizaje», «Se aprende con otros: cooperando, explicando, creando.», «Evaluación», «Una conversación que ayuda a crecer, no un veredicto.», «Liderazgo», «Distribuido: líderes que cuidan los vínculos de su equipo.», «Familias», «Aliadas del proyecto educativo, no espectadoras.», «Trabajo docente», «En equipo y por etapas, nunca en soledad.» | l.5 |
 
 **Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (4)
 
@@ -2010,25 +2019,25 @@ Used by: `/`, `/programas`
 
 | Text | Set by | When | Where |
 |---|---|---|---|
-| «Unknown program: {id}» | `throw (shown by whoever catches it)` | `!found` | programById · l.197 |
+| «Unknown program: {id}» | `throw (shown by whoever catches it)` | `!found` | programById · l.202 |
 
 **Texts kept in lists and helpers in the code (labels, options, status names)** (2)
 
 | Name | Texts | Where |
 |---|---|---|
-| `PROGRAMS` | «AULA GENERATIVA», «Ecosistema de relaciones saludables para el crecimiento», «El aula generativa busca optimizar los procesos y elevar los resultados en el crecimiento y aprendizaje de cada estudiante, fortaleciendo la calidad de los vín…», «Construcción de ecosistema de relaciones saludables en el aula», «Desarrollo de autonomía, interdependencia y trabajo colaborativo», «Orientación al crecimiento individual y colectivo», «Desarrollo de mentalidad de crecimiento y valores», «Programa de educación relacional», «Programa de innovación pedagógica en el aula», «Programa de crecimiento personal», «Programa de prácticas generativas», «Programa de comunidades de crecimiento», «Calidad de vida para educadores con aulas con motor propio», «Vínculos seguros y prosociales entre pares», «Conexión positiva con las familias», «Superación de la dicotomía Convivencia/Aprendizaje», «Síntesis hacia la mirada generativa», «INSPIRA», «Viaja y sumérgete en una escuela de vanguardia educativa», «2 semanas», «INSPIRA es una experiencia diseñada para ampliar la mirada pedagógica y entregar respuestas concretas sobre cómo alcanzar paso a paso una educación de vanguard…», «Visitas Pedagógicas: Jornadas en colegios de vanguardia para conocer el proyecto educativo», «Estadia Pedagógica: Trabajo pedagógico en aula junto a un educador de vanguardia», «Conversatorios con Expertos: Sesiones de diálogo con expertos en educación de Cataluña», «Talleres de síntesis: Síntesis de aprendizajes y recursos compartidos», «Plataforma de registro: Bitácora de viaje compartida con documentación del cambio», «Jornadas de visitas a colegios de vanguardia», «Trabajo pedagógico directo en aula», «Diálogos con expertos educativos», «Síntesis de aprendizajes y desafíos», «Registro multimedia del viaje», «INICIA», «Introducción a la Nueva Educación», «40-80 horas», «Programa diseñado para establecimientos educacionales que desean conocer y discernir el inicio de un largo y profundo proceso de transformación de su cultura e…», «Asesorar y formar al director y su equipo en liderazgo del cambio», «Acompañamiento al equipo de gestión para el proceso cultural», «Favorecer la emergencia de un sentido de urgencia compartido», «Visualizar un horizonte de transformación compartido», «Construir una línea base participativa rápida», «Identificar necesidades para implementación futura», «Asesoría Directiva y al equipo de gestión», «Talleres de formación con líderes de base», «Visitas internacionales a la escuela», «Plataforma de formación con cursos introductorios», «Creación colectiva de proyecto de transformación», «Construcción de línea base de cambio», «Diseño de plan general para el primer año», «Elección de personas para INSPIRA en BCN», «EVOLUCIONA», «Hacia una transformación profunda de la cultura educativa», «5 años», «Programa de evolución progresiva, estimado en 5 años de duración. Se deberá considerar el tamaño de la comunidad educativa, la velocidad de implementación y la…», «Transformar la mirada pedagógica y generar un alto sentido de urgencia respecto de la imperiosa necesidad de una educación nueva», «Visualizar y ambicionar juntos un nuevo horizonte pedagógico», «Construir y recorrer una ruta de evolución cultural que en las 7 vías de evolución declaradas: Propósito, Personalización, Aprendizaje, Evaluación, Liderazgo, …», «Alcanzar un diseño a la medida, progresivo y basado en victorias tempranas», «Evolucionar a partir de las fortalezas preexistentes», «Formar líderes capaces de conducir el cambio», «Comunicar el proceso interna y externamente», «Construir equipos de cambio misionarios y de alto desempeño», «Soñar, diseñar, implementar, evaluar y rediseñar junto a los equipos de terreno», «Institucionalizar los cambios y arraigar la nueva cultura», «Asesoría directiva para diseñar y liderar el cambio», «Visitas de asesores internacionales en terreno», «Asesoría técnica para la implementación de prácticas», «Plataforma de formación asincrónica, individual y en equipos», «Formación de líderes de base», «Formación de Comunidades de Crecimiento», «Implementación de Hub de Transformación», «Migración completa de pre-kinder a 4 medio en nivel de profundidad diverso», «Amplia y apropiada implementación de nuevas prácticas y proceso pedagógicos», «Estudiantes autónomos, colaborativos y generativos», «Convivencia prosocial elevada», «Familias integradas al proyecto educativo, disposición creativa y de apoyo constante», «Una organización que ha hecho propio su proceso de cambio», «Líderes de base potentes movilizando la evolución constante», «Profesoras, profesores, profesionales y asistentes formados, integrados en equipos sinérgicos por etapas del desarrollo», «Clima laboral lleno de sentido, empuje y auto realización», «Procesos y recursos pedagógicos optimizados» | l.19 |
-| `JOURNEY` | «Inicia», «Despegue», «40 a 80 horas», «Introducción a la Nueva Educación. Para establecimientos que quieren conocer y discernir el inicio de un proceso profundo de transformación de su cultura educa…», «Inspira», «2 semanas en Barcelona», «Viaja y sumérgete en una escuela de vanguardia. Una experiencia para ampliar la mirada pedagógica, con respuestas concretas para Chile.», «Aula Generativa», «Cambio cultural», «En la sala de clases», «Un ecosistema de relaciones saludables que eleva el crecimiento y el aprendizaje de cada estudiante, fortaleciendo la calidad de los vínculos entre pares.», «Evoluciona», «5 años», «Una transformación profunda de la cultura educativa: una ruta por las siete vías, a la medida, progresiva y basada en victorias tempranas.» | l.152 |
+| `PROGRAMS` | «AULA GENERATIVA», «Ecosistema de relaciones saludables para el crecimiento», «El aula generativa busca optimizar los procesos y elevar los resultados en el crecimiento y aprendizaje de cada estudiante, fortaleciendo la calidad de los vín…», «Construcción de ecosistema de relaciones saludables en el aula», «Desarrollo de autonomía, interdependencia y trabajo colaborativo», «Orientación al crecimiento individual y colectivo», «Desarrollo de mentalidad de crecimiento y valores», «Programa de educación relacional», «Programa de innovación pedagógica en el aula», «Programa de crecimiento personal», «Programa de prácticas generativas», «Programa de comunidades de crecimiento», «Calidad de vida para educadores y educadoras con aulas con motor propio», «Vínculos seguros y prosociales entre pares», «Conexión positiva con las familias», «Superación de la dicotomía Convivencia/Aprendizaje», «Síntesis hacia la mirada generativa», «INSPIRA», «Viaja y sumérgete en escuelas de vanguardia educativa», «2 semanas», «INSPIRA es una experiencia diseñada para ampliar la mirada pedagógica y entregar respuestas concretas sobre cómo alcanzar paso a paso una educación de vanguard…», «Conversatorios con Expertos y Expertas: Sesiones de diálogo con especialistas en educación de Cataluña», «Talleres de síntesis: Síntesis de aprendizajes y recursos compartidos», «Plataforma de registro: Bitácora de viaje compartida con documentación del cambio», «Visitas Pedagógicas: Jornadas en colegios de vanguardia para conocer el proyecto educativo», «Estadía Pedagógica: Trabajo pedagógico en aula junto a educadores y educadoras de vanguardia», «Diálogos con especialistas en educación», «Síntesis de aprendizajes y desafíos», «Registro multimedia del viaje», «INICIA», «Introducción a la Nueva Educación», «40-80 horas», «Programa diseñado para establecimientos educacionales que desean conocer y discernir el inicio de un largo y profundo proceso de transformación de su cultura e…», «Asesorar y formar al director o directora y su equipo en liderazgo del cambio», «Acompañamiento al equipo de gestión para el proceso cultural», «Favorecer la emergencia de un sentido de urgencia compartido», «Visualizar un horizonte de transformación compartido», «Construir una línea base participativa rápida», «Identificar necesidades para implementación futura», «Asesoría Directiva y al equipo de gestión», «Talleres de formación con líderes de base», «Visitas internacionales a la escuela», «Plataforma de formación con cursos introductorios», «Creación colectiva de proyecto de transformación», «Construcción de línea base de cambio», «Diseño de plan general para el primer año», «Elección de personas para INSPIRA en BCN», «EVOLUCIONA», «Hacia una transformación profunda de la cultura educativa», «5 años», «Programa de evolución progresiva, estimado en 5 años de duración. Se deberá considerar el tamaño de la comunidad educativa, la velocidad de implementación y la…», «Transformar la mirada pedagógica y generar un alto sentido de urgencia respecto de la imperiosa necesidad de una educación nueva», «Visualizar y ambicionar juntos un nuevo horizonte pedagógico», «Construir y recorrer una ruta de evolución cultural que en las 7 vías de evolución declaradas: Propósito, Personalización, Aprendizaje, Evaluación, Liderazgo, …», «Alcanzar un diseño a la medida, progresivo y basado en victorias tempranas», «Evolucionar a partir de las fortalezas preexistentes», «Formar líderes capaces de conducir el cambio», «Comunicar el proceso interna y externamente», «Construir equipos de cambio misionarios y de alto desempeño», «Soñar, diseñar, implementar, evaluar y rediseñar junto a los equipos de terreno», «Institucionalizar los cambios y arraigar la nueva cultura», «Asesoría directiva para diseñar y liderar el cambio», «Visitas de asesores y asesoras internacionales en terreno», «Asesoría técnica para la implementación de prácticas», «Plataforma de formación asincrónica, individual y en equipos», «Formación y acompañamiento de líderes de base», «Formación y acompañamiento de Comunidades de Crecimiento», «Implementación de Hub de Transformación», «Migración completa de pre-kinder a 4 medio en nivel de profundidad diverso», «Amplia y apropiada implementación de nuevas prácticas y proceso pedagógicos», «Estudiantes autónomos, colaborativos y generativos», «Convivencia prosocial elevada», «Familias integradas al proyecto educativo, disposición creativa y de apoyo constante», «Una organización que ha hecho propio su proceso de cambio», «Líderes de base potentes movilizando la evolución constante», «Profesoras, profesores, profesionales y asistentes formados, integrados en equipos sinérgicos por etapas del desarrollo», «Clima laboral lleno de sentido, empuje y auto realización», «Procesos y recursos pedagógicos optimizados» | l.20 |
+| `JOURNEY` | «Inicia», «Preparación», «40 a 80 horas», «Introducción a la Nueva Educación. Para establecimientos que quieren conocer y discernir el inicio de un proceso profundo de transformación de su cultura educa…», «Inspira», «Despegue», «2 semanas en Barcelona», «Viaja y sumérgete en escuelas de vanguardia. Una experiencia para ampliar la mirada pedagógica, con respuestas concretas para Chile.», «Aula Generativa», «Cambio en el aula», «Vínculos entre pares», «Un ecosistema de relaciones saludables que eleva el crecimiento y el aprendizaje de cada estudiante, fortaleciendo la calidad de los vínculos entre pares.», «Evoluciona», «Cambio en todo el colegio», «5 años», «Una transformación profunda de la cultura educativa: una ruta por las siete vías, a la medida, progresiva y basada en victorias tempranas.» | l.157 |
 
 **Other texts written in the code (safety net: not tied to an element by the script)** (6)
 
 | Text | Where |
 |---|---|
-| «El aula generativa busca optimizar los procesos y elevar los resultados en el crecimiento y aprendizaje de cada estudiante, fortaleciendo la calidad de los vínculos entre pares.» | PROGRAMS · l.24 |
-| «INSPIRA es una experiencia diseñada para ampliar la mirada pedagógica y entregar respuestas concretas sobre cómo alcanzar paso a paso una educación de vanguardia para Chile.» | PROGRAMS · l.51 |
-| «Programa diseñado para establecimientos educacionales que desean conocer y discernir el inicio de un largo y profundo proceso de transformación de su cultura educativa.» | PROGRAMS · l.72 |
-| «Programa de evolución progresiva, estimado en 5 años de duración. Se deberá considerar el tamaño de la comunidad educativa, la velocidad de implementación y la claridad política del centro para avanzar.» | PROGRAMS · l.99 |
-| «Construir y recorrer una ruta de evolución cultural que en las 7 vías de evolución declaradas: Propósito, Personalización, Aprendizaje, Evaluación, Liderazgo, Familias y Trabajo Docente» | PROGRAMS · l.103 |
-| «Introducción a la Nueva Educación. Para establecimientos que quieren conocer y discernir el inicio de un proceso profundo de transformación de su cultura educativa.» | JOURNEY · l.159 |
+| «El aula generativa busca optimizar los procesos y elevar los resultados en el crecimiento y aprendizaje de cada estudiante, fortaleciendo la calidad de los vínculos entre pares.» | PROGRAMS · l.25 |
+| «INSPIRA es una experiencia diseñada para ampliar la mirada pedagógica y entregar respuestas concretas sobre cómo alcanzar paso a paso una educación de vanguardia para Chile.» | PROGRAMS · l.52 |
+| «Programa diseñado para establecimientos educacionales que desean conocer y discernir el inicio de un largo y profundo proceso de transformación de su cultura educativa.» | PROGRAMS · l.71 |
+| «Programa de evolución progresiva, estimado en 5 años de duración. Se deberá considerar el tamaño de la comunidad educativa, la velocidad de implementación y la claridad de propósito del centro para avanzar.» | PROGRAMS · l.98 |
+| «Construir y recorrer una ruta de evolución cultural que en las 7 vías de evolución declaradas: Propósito, Personalización, Aprendizaje, Evaluación, Liderazgo, Familias y Trabajo Docente» | PROGRAMS · l.102 |
+| «Introducción a la Nueva Educación. Para establecimientos que quieren conocer y discernir el inicio de un proceso profundo de transformación de su cultura educativa.» | JOURNEY · l.164 |
 
 ### components/site/teamData.ts
 
@@ -2038,29 +2047,32 @@ Used by: `/equipo`, `/nosotros`
 
 | Name | Texts | Where |
 |---|---|---|
-| `TEAM_MEMBERS` | «Arnoldo Cisternas», «Psicólogo dedicado al diseño y gestión de procesos de evolución cultural. Es asesor directivo para el fortalecimiento de lideres y equipos en organizaciones qu…», «Joan Quintana», «Psicólogo especializado en Comportamiento y Desarrollo Organizacional y en Coaching Relacional, aplicándolo en las organizaciones públicas y privadas, en la ed…», «Mora Del Fresno», «Dirige las operaciones de la Fundación en Barcelona y Chile. Es licenciada y profesora en Ciencias de la Educación (Universidad de San Andrés, Argentina), Mást…», «Gabriela Naranjo», «Es la directora de la Fundación Nueva Educación, conduce el equipo de trabajo en Chile para alcanzar los objetivos estratégicos de la FNE. Es psicóloga clínica…», «Brent Curtis», «Brent es Teólogo y está a cargo del diseño y la elaboración de los instrumentos tecnológicos que usamos para implementar nuestros procesos de cambio. Lidera la…», «Coral Regí», «Ha sido directora de la Escuela Virolai y actualmente es asesora internacional para la impulsar el desarrollo de escuelas de vanguardia en España y América Lat…», «Anna Comas», «Fue la directora de la escuela de La Maquinista un proyecto educativo innovador que se ha transformado en un referente de cambio. Formó parte de los centros im…», «Sandra Entrena», «Encargada de Innovación de la Escuela Virolai, una de las escuelas líderes del cambio hacia el nuevo paradigma educativo en Europa. Es una educadora de larga t…», «Pepe Menéndez», «Fue director adjunto de Jesuitas Educació y ha promovido la experiencia del proyecto Horizonte 2020, para la transformación profunda de la educación de las esc…», «Sergi Del Moral», «Licenciado en matemáticas y, desde el 2024, director del Institut-Escola Les Vinyes (Castellbisbal), un centro deliberadamente innovador cuya trayectoria ha si…», «Betlem Cuesta», «Es coordinadora pedagógica del Institut Escola Les Vinyes, un centro deliberadamente innovador reconocido por el Departament d'Educació, ha recibido los premio…», «Jordi Mussons», «Jordi es maestro y director de la escuela Sadako de Barcelona, institución referente en innovación educativa a nivel internacional. Su tenacidad, perseverancia…», «Marcelo Ruiz», «Licenciado en Educación con mención en Educación Física y Diplomado en Habilidades Directivas. Fundador y Director de Los Pellines, un centro de educación rela…», «Ignacio Pavéz», «PhD en Comportamiento Organizacional por Case Western Reserve University (USA) e Ingeniero Civil de la Pontificia Universidad Católica de Chile. Profesor del D…», «Marcela Molina», «Candidata a Doctora y Magíster en Economía de Negocios de la Universidad del Desarrollo. Socióloga de la Pontificia Universidad Católica de Chile. Su investiga…», «Andrés Bustamante», «Psicólogo Social y Coach relacional especializado en habilidades relacionales y gestión de equipos. Fundador de www.cruzadasur.cl, con más de 15 años de experi…», «Joaquín Aguirre», «Doctor en Ciencias de la Educación con 54 años de experiencia en el Ministerio de Educación como Supervisor Técnico Pedagógico. Especializado en Diseño Curricu…», «Abraham de la Fuente», «Doctor en Didáctica de las Matemáticas e investigador sobre la formación del profesorado. Es director adjunto de investigación educativa en el Institut Angelet…», «Ana Vicálvaro», «Directora de la Escola Octavio Paz de Barcelona, una escuela pública emblemática del barrio de Navas que lidera procesos de transformación educativa. Graduada …», «Raúl Martínez», «Director de la Escola La Maquinista de Barcelona desde 2020, donde lidera procesos de innovación educativa centrados en el aprendizaje del alumnado. Graduado c…», «Jorge Parra», «Profesor de Educación Física y Magíster en Educación. Miembro del equipo de formación y gestión en el Centro de Experiencias de Aprendizaje Los Pellines, con m…», «Juan José Flores», «Profesor de Educación Física y Salud, Licenciado en Educación, actualmente cursando el Magíster en Ciencias de la Educación en la Universidad Católica de la Sa…», «Carol de Britos», «Es profesora de Primaria en Escola Virolai, donde además he sido coordinadora pedagógica, y actualmente ejerce de Jefa de Estudios de la etapa. Su ámbito es el…», «Marta Cárdenas», «Es coordinadora de la etapa de Educación Infantil en Virolai Reina Elisenda. Es educadora especializada en el trabajo con niños y niñas con necesidades educati…», «Maite Pino», «Es coordinadora de la Escola Virolai Reina Elisenda y maestra. Se formó como Maestra de Educación Infantil en la UAB y ha trabajado en distintos centros públic…», «Claudia López de Lamadrid», «Es coordinadora y responsable pedagógica de la escuela infantil de Virolai (Virolai Petit), donde trabaja desde 2003. Ha sido maestra de inglés y tutora en Edu…», «Enrique Vergara», «Es educador y coordinador pedagógico en la Escola Virolai, donde forma parte del equipo desde 2018. Licenciado en Ciencias Ambientales por la UAB, ha combinado…», «Laia Garcés», «Es coordinadora de la etapa de primaria en la Escuela Sadako de Barcelona, donde también ha sido tutora, es especialista de inglés y ha formado parte del equip…», «Marta Ortega», «Cristina Montes», «Profesora y tutora de primaria en la Escuela La Maquinista en Barcelona desde el año 2016. Es graduada en Magisterio de Educación Física, en Magisterio de Educ…», «Estefanía del Ramón», «Es profesora de la Escuela Octavio Paz de Barcelona, una de las escuelas públicas más reconocidas y valoradas en Cataluña por su capacidad de innovación y camb…», «Gemma Pariente», «María Latre», «Coordinadora de la etapa de Primaria en la Escola Virolai Reina Elisenda, donde trabaja desde hace más de una década. Graduada en Educación Primaria por UNIR y…», «Andreu Basolí», «Maestro de Educación Primaria en la Escola Sadako de Barcelona, donde ejerce como tutor con una pedagogía centrada en el acompañamiento activo y la educación e…», «Neus Colomer», «Miembro del equipo directivo de la Escola Sadako de Barcelona, donde también ejerce como maestra de Educación Primaria. Graduada en Educación Primaria con menc…», «Begonya Folch», «Profesora de Educación Secundaria y formadora del Departamento de Educación de Catalunya, comprometida con la transformación del sistema educativo. Experta en …», «Laura Carmona», «Coordinadora del equipo docente y profesora de secundaria en el Institut Angeleta Ferrer, centro público de referencia en formación e investigación docente. Li…», «Cristina Romanos», «Coordinadora pedagógica de Virolai Grimm, el centro del ecosistema Virolai dedicado exclusivamente a Educación Infantil. Lidera procesos pedagógicos centrados …» | l.13 |
-| `TEAM_GROUPS` | «Comité Internacional», «Equipo FNE», «Asesores Internacionales» | l.258 |
+| `TEAM_MEMBERS` | «Arnoldo Cisternas», «Psicólogo dedicado al diseño y gestión de procesos de evolución cultural. Es asesor directivo para el fortalecimiento de lideres y equipos en organizaciones qu…», «Joan Quintana», «Psicólogo especializado en Comportamiento y Desarrollo Organizacional y en Coaching Relacional, aplicándolo en las organizaciones públicas y privadas, en la ed…», «Mora Del Fresno», «Dirige las operaciones de la Fundación en Barcelona y Chile. Es licenciada y profesora en Ciencias de la Educación (Universidad de San Andrés, Argentina), Mást…», «Gabriela Naranjo», «Es la directora de la Fundación Nueva Educación, conduce el equipo de trabajo en Chile para alcanzar los objetivos estratégicos de la FNE. Es psicóloga clínica…», «Brent Curtis», «Brent es Teólogo y está a cargo del diseño y la elaboración de los instrumentos tecnológicos que usamos para implementar nuestros procesos de cambio. Lidera la…», «Coral Regí», «Ha sido directora de la Escuela Virolai y actualmente es asesora internacional para la impulsar el desarrollo de escuelas de vanguardia en España y América Lat…», «Anna Comas», «Fue la directora de la escuela de La Maquinista un proyecto educativo innovador que se ha transformado en un referente de cambio. Formó parte de los centros im…», «Sandra Entrena», «Encargada de Innovación de la Escuela Virolai, una de las escuelas líderes del cambio hacia el nuevo paradigma educativo en Europa. Es una educadora de larga t…», «Pepe Menéndez», «Fue director adjunto de Jesuitas Educació y ha promovido la experiencia del proyecto Horizonte 2020, para la transformación profunda de la educación de las esc…», «Sergi Del Moral», «Licenciado en matemáticas y, desde el 2024, director del Institut-Escola Les Vinyes (Castellbisbal), un centro deliberadamente innovador cuya trayectoria ha si…», «Betlem Cuesta», «Es coordinadora pedagógica del Institut Escola Les Vinyes, un centro deliberadamente innovador reconocido por el Departament d'Educació, ha recibido los premio…», «Jordi Mussons», «Jordi es maestro y director de la escuela Sadako de Barcelona, institución referente en innovación educativa a nivel internacional. Su tenacidad, perseverancia…», «Marcelo Ruiz», «Licenciado en Educación con mención en Educación Física y Diplomado en Habilidades Directivas. Fundador y Director de Los Pellines, un centro de educación rela…», «Ignacio Pavéz», «PhD en Comportamiento Organizacional por Case Western Reserve University (USA) e Ingeniero Civil de la Pontificia Universidad Católica de Chile. Profesor del D…», «Marcela Molina», «Candidata a Doctora y Magíster en Economía de Negocios de la Universidad del Desarrollo. Socióloga de la Pontificia Universidad Católica de Chile. Su investiga…», «Andrés Bustamante», «Psicólogo Social y Coach relacional especializado en habilidades relacionales y gestión de equipos. Fundador de www.cruzadasur.cl, con más de 15 años de experi…», «Joaquín Aguirre», «Doctor en Ciencias de la Educación con 54 años de experiencia en el Ministerio de Educación como Supervisor Técnico Pedagógico. Especializado en Diseño Curricu…», «Abraham de la Fuente», «Doctor en Didáctica de las Matemáticas e investigador sobre la formación del profesorado. Es director del Institut Angeleta Ferrer, donde impulsa líneas de inn…», «Ana Vicálvaro», «Directora de la Escola Octavio Paz de Barcelona, una escuela pública emblemática del barrio de Navas que lidera procesos de transformación educativa. Graduada …», «Raúl Martínez», «Director de la Escola La Maquinista de Barcelona desde 2020, donde lidera procesos de innovación educativa centrados en el aprendizaje del alumnado. Graduado c…», «Jorge Parra», «Profesor de Educación Física y Magíster en Educación. Miembro del equipo de formación y gestión en el Centro de Experiencias de Aprendizaje Los Pellines, con m…», «Juan José Flores», «Profesor de Educación Física y Salud, Licenciado en Educación, actualmente cursando el Magíster en Ciencias de la Educación en la Universidad Católica de la Sa…», «Carol de Britos», «Es profesora de Primaria en Escola Virolai, donde además he sido coordinadora pedagógica, y actualmente ejerce de Jefa de Estudios de la etapa. Su ámbito es el…», «Marta Cárdenas», «Es coordinadora de la etapa de Educación Infantil en Virolai Reina Elisenda. Es educadora especializada en el trabajo con niños y niñas con necesidades educati…», «Maite Pino», «Es directora adjunta de la Escola Virolai y maestra. Se formó como Maestra de Educación Infantil en la UAB y ha trabajado en distintos centros públicos y conce…», «Claudia López de Lamadrid», «Es coordinadora y responsable pedagógica de la escuela infantil de Virolai (Virolai Petit), donde trabaja desde 2003. Ha sido maestra de inglés y tutora en Edu…», «Enrique Vergara», «Es educador y director adjunto de la Escola Virolai, donde forma parte del equipo desde 2018. Licenciado en Ciencias Ambientales por la UAB, ha combinado su tr…», «Laia Garcés», «Es coordinadora de la etapa de primaria en la Escuela Sadako de Barcelona, donde también ha sido tutora, es especialista de inglés y ha formado parte del equip…», «Marta Ortega», «Cristina Montes», «Profesora y tutora de primaria en la Escuela La Maquinista en Barcelona desde el año 2016. Es graduada en Magisterio de Educación Física, en Magisterio de Educ…», «Estefanía del Ramón», «Es profesora de la Escuela Octavio Paz de Barcelona, una de las escuelas públicas más reconocidas y valoradas en Cataluña por su capacidad de innovación y camb…», «Gemma Pariente», «María Latre», «Coordinadora de la etapa de Primaria en la Escola Virolai Reina Elisenda, donde trabaja desde hace más de una década. Graduada en Educación Primaria por UNIR y…», «Andreu Basolí», «Maestro de Educación Primaria en la Escola Sadako de Barcelona, donde ejerce como tutor con una pedagogía centrada en el acompañamiento activo y la educación e…», «Neus Colomer», «Miembro del equipo directivo de la Escola Sadako de Barcelona, donde también ejerce como maestra de Educación Primaria. Graduada en Educación Primaria con menc…», «Begonya Folch», «Profesora de Educación Secundaria y formadora del Departamento de Educación de Catalunya, comprometida con la transformación del sistema educativo. Experta en …», «Laura Carmona», «Coordinadora del equipo docente y profesora de secundaria en el Institut Angeleta Ferrer, centro público de referencia en formación e investigación docente. Li…», «Cristina Romanos», «Coordinadora pedagógica de Virolai Grimm, el centro del ecosistema Virolai dedicado exclusivamente a Educación Infantil. Lidera procesos pedagógicos centrados …» | l.13 |
+| `TEAM_GROUPS` | «Comité Internacional», «Equipo FNE», «Asesores y Asesoras Internacionales» | l.258 |
 
 ### components/site/useSiteEffects.ts
 
 Used by: `/equipo`, `/`, `/nosotros`, `/noticias`, `/noticias/[slug]`, `/pasantias`, `/programas`
 
-**Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (12)
+**Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (15)
 
 | Kind | What | Where |
 |---|---|---|
-| lookup | `querySelectorAll(.rv,.clip,.mv)` | watch · l.82 |
-| lookup | `querySelectorAll([data-n])` | watch · l.88 |
-| lookup | `querySelector(.nav)` | useSiteEffects · l.99 |
-| lookup | `querySelector(.prog)` | useSiteEffects · l.100 |
-| lookup | `querySelectorAll([data-img-par])` | onScroll · l.115 |
-| listener | `window.addEventListener('scroll')` | useSiteEffects · l.126 |
-| listener | `window.addEventListener('resize')` | useSiteEffects · l.138 |
-| listener | `el.addEventListener('mousemove')` | useSiteEffects · l.144 |
-| listener | `el.addEventListener('mouseout')` | useSiteEffects · l.156 |
-| lookup | `querySelector(.cur)` | useSiteEffects · l.165 |
-| lookup | `querySelector(.hero .iso, .phero .iso, .pas-hero .iso)` | useSiteEffects · l.166 |
-| listener | `window.addEventListener('mousemove')` | useSiteEffects · l.172 |
+| lookup | `querySelector(img)` | fetchNow · l.50 |
+| listener | `image.addEventListener('load')` | show · l.61 |
+| listener | `image.addEventListener('error')` | show · l.62 |
+| lookup | `querySelectorAll(.rv,.clip,.mv)` | watch · l.115 |
+| lookup | `querySelectorAll([data-n])` | watch · l.122 |
+| lookup | `querySelector(.nav)` | useSiteEffects · l.133 |
+| lookup | `querySelector(.prog)` | useSiteEffects · l.134 |
+| lookup | `querySelectorAll([data-img-par])` | onScroll · l.149 |
+| listener | `window.addEventListener('scroll')` | useSiteEffects · l.160 |
+| listener | `window.addEventListener('resize')` | useSiteEffects · l.172 |
+| listener | `el.addEventListener('mousemove')` | useSiteEffects · l.178 |
+| listener | `el.addEventListener('mouseout')` | useSiteEffects · l.190 |
+| lookup | `querySelector(.cur)` | useSiteEffects · l.199 |
+| lookup | `querySelector(.hero .iso, .phero .iso, .pas-hero .iso)` | useSiteEffects · l.200 |
+| listener | `window.addEventListener('mousemove')` | useSiteEffects · l.206 |
 
 ### lib/legal/privacy-notice.ts
 

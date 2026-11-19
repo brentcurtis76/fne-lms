@@ -43,7 +43,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       onlyAttended: audience === 'attended',
     });
 
-    return sendApiResponse(res, { count: recipients.length });
+    // EC-R7: how many attendee rows are marked 'attended' (a number only), so
+    // the dialog can refuse «Solo los asistentes» while nobody attended. A
+    // failed read leaves the number out, and the dialog then disables nothing.
+    const { data: attendanceRows, error: attendanceError } = await serviceClient
+      .from('meeting_attendees')
+      .select('attendance_status')
+      .eq('meeting_id', meeting.id);
+    if (attendanceError) {
+      console.error('Recipients preview attendance read failed:', attendanceError.message);
+      return sendApiResponse(res, { count: recipients.length });
+    }
+    const attendedCount = (attendanceRows || []).filter(
+      (row: { attendance_status: string | null }) => row.attendance_status === 'attended',
+    ).length;
+
+    return sendApiResponse(res, { count: recipients.length, attended_count: attendedCount });
   } catch (error: any) {
     console.error('Recipients preview error:', error);
     return sendApiError(res, 'Error inesperado al previsualizar destinatarios', 500, error.message);

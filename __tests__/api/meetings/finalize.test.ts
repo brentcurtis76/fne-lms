@@ -421,7 +421,11 @@ describe('/api/meetings/[id]/finalize', () => {
       { id: 'u1', email: 'u1@example.com', name: 'U1' },
     ]);
     (m.sendMeetingSummary as any).mockResolvedValue({ sent: 1, failed: 0, errors: [] });
-    (m.createServiceRoleClient as any).mockReturnValue(buildClient({ meetingRow }));
+    // EC-R7: the attended audience needs someone marked as having attended.
+    (m.createServiceRoleClient as any).mockReturnValue(buildClient({
+      meetingRow,
+      attendees: [{ user_id: 'u1', role: 'participant', attendance_status: 'attended', user_profile: null }],
+    }));
 
     const { req, res } = createMocks({
       method: 'POST',
@@ -436,6 +440,73 @@ describe('/api/meetings/[id]/finalize', () => {
       MEETING_ID,
       { onlyAttended: true }
     );
+  });
+
+  describe('EC-R7: the attended audience while nobody is marked as attending', () => {
+    async function finalizeAttended(opts: { row?: any; attendees: any[]; audience?: string }) {
+      const m = await loadMocks();
+      (m.getApiUser as any).mockResolvedValue({ user: { id: USER_ID }, error: null });
+      (m.getUserRoles as any).mockResolvedValue([]);
+      (m.getHighestRole as any).mockReturnValue('admin');
+      (m.canFinalizeMeeting as any).mockReturnValue(true);
+      (m.getCommunityRecipients as any).mockResolvedValue([{ id: 'u1', email: 'u1@example.com', name: 'U1' }]);
+      (m.sendMeetingSummary as any).mockResolvedValue({ sent: 1, failed: 0, errors: [] });
+      const client = buildClient({
+        meetingRow: opts.row ?? meetingRow,
+        attendees: opts.attendees,
+        // A meeting that already carries finalized_at loses the guarded update.
+        updateResult: opts.row?.finalized_at ? null : undefined,
+      });
+      (m.createServiceRoleClient as any).mockReturnValue(client);
+      const { req, res } = createMocks({
+        method: 'POST', query: { id: MEETING_ID }, body: { audience: opts.audience ?? 'attended' },
+      });
+      await handler(req as any, res as any);
+      return { m, client, res };
+    }
+
+    it('refuses with 409 no_attendance and changes nothing, sends nothing, notifies nobody', async () => {
+      const { m, client, res } = await finalizeAttended({
+        attendees: [
+          { user_id: 'u1', role: 'participant', attendance_status: 'invited', user_profile: null },
+          { user_id: 'u2', role: 'participant', attendance_status: 'absent', user_profile: null },
+        ],
+      });
+      expect(res._getStatusCode()).toBe(409);
+      expect(JSON.parse(res._getData())).toMatchObject({ code: 'no_attendance' });
+      expect((client as any).__meetingUpdateFn).not.toHaveBeenCalled();
+      expect(m.sendMeetingSummary).not.toHaveBeenCalled();
+      expect(m.triggerNotification).not.toHaveBeenCalled();
+    });
+
+    it('refuses as well when the meeting has no attendee rows at all', async () => {
+      const { client, res } = await finalizeAttended({ attendees: [] });
+      expect(res._getStatusCode()).toBe(409);
+      expect(JSON.parse(res._getData())).toMatchObject({ code: 'no_attendance' });
+      expect((client as any).__meetingUpdateFn).not.toHaveBeenCalled();
+    });
+
+    it('a meeting that already carries finalized_at still answers meeting_already_finalized', async () => {
+      const { res } = await finalizeAttended({
+        row: { ...meetingRow, finalized_at: '2026-11-01T10:00:00Z' },
+        attendees: [],
+      });
+      expect(res._getStatusCode()).toBe(409);
+      expect(JSON.parse(res._getData())).toMatchObject({ code: 'meeting_already_finalized' });
+    });
+
+    it('a meeting no longer in borrador still answers meeting_not_draft', async () => {
+      const { res } = await finalizeAttended({ row: { ...meetingRow, status: 'completada' }, attendees: [] });
+      expect(res._getStatusCode()).toBe(409);
+      expect(JSON.parse(res._getData())).toMatchObject({ code: 'meeting_not_draft' });
+    });
+
+    it('the with_access audience is unchanged with nobody attending', async () => {
+      const { m, client, res } = await finalizeAttended({ attendees: [], audience: 'with_access' });
+      expect(res._getStatusCode()).toBe(200);
+      expect((client as any).__meetingUpdateFn).toHaveBeenCalledTimes(1);
+      expect(m.sendMeetingSummary).toHaveBeenCalledTimes(1);
+    });
   });
 
   it('escapes user-controlled commitment_text in fallback commitmentsHtml (XSS regression)', async () => {

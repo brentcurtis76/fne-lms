@@ -22,6 +22,7 @@ type Audience = FinalizeRequestAudience;
 const CONFLICT_MESSAGES: Record<string, string> = {
   meeting_not_draft: 'La reunión ya no está en borrador',
   meeting_already_finalized: 'La reunión ya fue finalizada por otro usuario',
+  no_attendance: 'Nadie está marcado como asistente. Elige «Las personas con acceso a la reunión».',
 };
 
 type FinalizeResult = {
@@ -77,6 +78,11 @@ export function FinalizeMeetingDialog({
   const [audience, setAudience] = useState<Audience>('with_access');
   const [facilitatorDoc, setFacilitatorDoc] = useState<TipTapDoc>(() => emptyDoc());
   const [recipients, setRecipients] = useState<RecipientState>({ kind: 'idle' });
+  // EC-R7: how many attendees are marked 'attended', from the recipients
+  // answer. null (unknown, or an answer without the number) disables nothing;
+  // only an explicit 0 disables «Solo los asistentes».
+  const [attendedCount, setAttendedCount] = useState<number | null>(null);
+  const nobodyAttended = attendedCount === 0;
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -84,9 +90,15 @@ export function FinalizeMeetingDialog({
       setAudience('with_access');
       setFacilitatorDoc(emptyDoc());
       setRecipients({ kind: 'idle' });
+      setAttendedCount(null);
       setSubmitting(false);
     }
   }, [open]);
+
+  // A disabled choice cannot stay selected.
+  useEffect(() => {
+    if (nobodyAttended && audience === 'attended') setAudience('with_access');
+  }, [nobodyAttended, audience]);
 
   useEffect(() => {
     if (!open) return;
@@ -103,6 +115,8 @@ export function FinalizeMeetingDialog({
         const payload = await res.json();
         const count = payload?.data?.count ?? payload?.count;
         if (cancelled) return;
+        const attended = payload?.data?.attended_count ?? payload?.attended_count;
+        if (typeof attended === 'number') setAttendedCount(attended);
         if (typeof count === 'number') {
           setRecipients({ kind: 'ready', count });
         } else {
@@ -200,10 +214,15 @@ export function FinalizeMeetingDialog({
                 value="attended"
                 checked={audience === 'attended'}
                 onChange={() => setAudience('attended')}
-                disabled={submitting}
+                disabled={submitting || nobodyAttended}
                 className="mt-1"
               />
-              <span>{AUDIENCE_PICKER_LABELS.attended}</span>
+              <span>
+                {AUDIENCE_PICKER_LABELS.attended}
+                {nobodyAttended && (
+                  <span className="block text-xs text-gray-600">Nadie está marcado como asistente.</span>
+                )}
+              </span>
             </label>
 
             <div className="text-xs text-gray-600 min-h-[1rem]" aria-live="polite">
@@ -240,7 +259,7 @@ export function FinalizeMeetingDialog({
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={submitting}
+            disabled={submitting || (recipients.kind === 'ready' && recipients.count === 0)}
             className="px-4 py-2 text-sm font-medium text-white bg-brand_accent hover:bg-brand_accent_hover rounded-md disabled:opacity-50"
           >
             {submitting ? 'Enviando…' : 'Finalizar y enviar'}

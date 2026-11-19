@@ -120,6 +120,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       )
       .eq('meeting_id', id);
 
+    // EC-R7: «Solo los asistentes» while nobody is marked as having attended
+    // would reach nobody, and finalising cannot be undone, so it is refused
+    // before anything changes. A meeting that already carries finalized_at
+    // skips this and keeps answering meeting_already_finalized below.
+    if (
+      audience === 'attended' &&
+      !meeting.finalized_at &&
+      !(attendeesRich || []).some((a: any) => a.attendance_status === 'attended')
+    ) {
+      return sendMeetingError(
+        res,
+        409,
+        'no_attendance',
+        'Nadie está marcado como asistente',
+      );
+    }
+
     // `ctx.workspace` is the already-normalized outer row (array/object →
     // object), saved one level of `(meeting as any)` juggling. The nested
     // `community` join is finalize-specific so it normalizes here.

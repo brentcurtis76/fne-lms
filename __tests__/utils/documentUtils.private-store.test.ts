@@ -14,6 +14,8 @@ const state = vi.hoisted(() => ({
   calls: [] as Array<{ table: string; op: string; arg?: unknown }>,
   storage: [] as Array<{ bucket: string; op: string; path: string }>,
   documentInsertError: null as null | { message: string },
+  uploadFailFor: [] as string[],
+  versionInsertError: null as null | { message: string },
   session: { access_token: 'synthetic-token' } as null | { access_token: string },
 }));
 
@@ -25,7 +27,8 @@ function builder(table: string) {
       table === 'community_documents' && state.documentInsertError
         ? { data: null, error: state.documentInsertError }
         : { data: { id: 'doc-new', ...(state.calls.filter((c) => c.table === table).pop()?.arg as object) }, error: null },
-    then: (resolve: (v: unknown) => unknown) => Promise.resolve({ data: null, error: null }).then(resolve),
+    then: (resolve: (v: unknown) => unknown) =>
+      Promise.resolve({ data: null, error: table === 'document_versions' ? state.versionInsertError : null }).then(resolve),
   };
   return chain;
 }
@@ -37,7 +40,12 @@ vi.mock('../../lib/supabase-wrapper', () => ({
     auth: { getSession: async () => ({ data: { session: state.session } }) },
     storage: {
       from: (bucket: string) => ({
-        upload: async (path: string) => (state.storage.push({ bucket, op: 'upload', path }), { data: { path }, error: null }),
+        upload: async (path: string) => (
+          state.storage.push({ bucket, op: 'upload', path }),
+          state.uploadFailFor.some((n) => path.toLowerCase().endsWith(n.toLowerCase()))
+            ? { data: null, error: { message: 'store refused' } }
+            : { data: { path }, error: null }
+        ),
         remove: async (paths: string[]) => (state.storage.push({ bucket, op: 'remove', path: paths.join(',') }), { data: null, error: null }),
         getPublicUrl: (path: string) => (state.storage.push({ bucket, op: 'getPublicUrl', path }), { data: { publicUrl: `public/${path}` } }),
       }),
@@ -56,6 +64,8 @@ beforeEach(() => {
   state.calls = [];
   state.storage = [];
   state.documentInsertError = null;
+  state.uploadFailFor = [];
+  state.versionInsertError = null;
   state.session = { access_token: 'synthetic-token' };
 });
 afterEach(() => {
@@ -84,12 +94,97 @@ describe('uploadDocument stores new documents in the private store', () => {
     expect(versionInsert).toMatchObject({ document_id: 'doc-new', version_number: 1, storage_path: key, storage_bucket: 'community-documents' });
   });
 
-  it('a record that cannot be written after the file was stored: the error is thrown, the stored file is not removed, no version is written (as before)', async () => {
+  it('a record that cannot be written after the file was stored: the file is reported as failed (F18e: no longer thrown), the stored file is not removed, no version is written', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     state.documentInsertError = { message: 'insert refused' };
-    await expect(documentUtils.uploadDocument(WS, { files: [file()], tags: [] } as any, USER)).rejects.toEqual({ message: 'insert refused' });
+    const result = await documentUtils.uploadDocument(WS, { files: [file()], tags: [] } as any, USER);
+    expect(result.uploaded).toEqual([]);
+    expect(result.failed).toEqual([{ fileName: 'Acta de reunión.pdf', message: RECORD_FAILED }]);
     expect(state.storage.map((s) => `${s.bucket}:${s.op}`)).toEqual(['community-documents:upload']);
     expect(state.calls.some((c) => c.table === 'document_versions')).toBe(false);
+  });
+});
+
+// F18e (EC-D7, EC-D8): each file of an upload succeeds or fails for itself.
+const RECORD_FAILED = 'El archivo se subió, pero el documento no se pudo guardar. Inténtalo de nuevo.';
+const VERSION_WARNING = 'El documento se guardó, pero no su historial de versiones.';
+const named = (name: string, type = 'application/pdf') => new File([new Uint8Array([37, 80, 68, 70])], name, { type });
+
+describe('uploadDocument: each file reports for itself (F18e)', () => {
+  beforeEach(() => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
+  it('three files, the second upload fails: files 1 and 3 are uploaded with their record and one version each, file 2 failed, nothing thrown', async () => {
+    state.uploadFailFor = ['Dos.pdf'];
+    const result = await documentUtils.uploadDocument(
+      WS, { files: [named('Uno.pdf'), named('Dos.pdf'), named('Tres.pdf')], title: 'Actas', tags: [] } as any, USER
+    );
+    expect(result.uploaded.map((d) => d.file_name)).toEqual(['Uno.pdf', 'Tres.pdf']);
+    expect(result.failed).toHaveLength(1);
+    expect(result.failed[0].fileName).toBe('Dos.pdf');
+    expect(result.failed[0].message).toMatch(/^No se pudo subir el archivo/);
+    expect(result.warnings).toEqual([]);
+    const records = state.calls.filter((c) => c.table === 'community_documents' && c.op === 'insert');
+    expect(records.map((c) => (c.arg as any).file_name)).toEqual(['Uno.pdf', 'Tres.pdf']);
+    expect(state.calls.filter((c) => c.table === 'document_versions')).toHaveLength(2);
+  });
+
+  it('the upload works but the record cannot be written: failed with the not-saved message, the stored file stays, no version', async () => {
+    state.documentInsertError = { message: 'value too long' };
+    const result = await documentUtils.uploadDocument(WS, { files: [named('Uno.pdf')], title: 'Acta', tags: [] } as any, USER);
+    expect(result.uploaded).toEqual([]);
+    expect(result.failed).toEqual([{ fileName: 'Uno.pdf', message: RECORD_FAILED }]);
+    expect(state.storage.filter((s) => s.op === 'remove')).toEqual([]);
+    expect(state.calls.some((c) => c.table === 'document_versions')).toBe(false);
+  });
+
+  it('the record works but the version insert fails: the document counts as uploaded and carries a warning', async () => {
+    state.versionInsertError = { message: 'version refused' };
+    const result = await documentUtils.uploadDocument(WS, { files: [named('Uno.pdf')], title: 'Acta', tags: [] } as any, USER);
+    expect(result.uploaded.map((d) => d.file_name)).toEqual(['Uno.pdf']);
+    expect(result.failed).toEqual([]);
+    expect(result.warnings).toEqual([{ fileName: 'Uno.pdf', message: VERSION_WARNING }]);
+  });
+
+  it.each([
+    ['a title of 201 characters', { title: 'T'.repeat(201), file: () => named('Uno.pdf') }, /título/],
+    ['a file name of 256 characters', { title: 'Acta', file: () => named(`${'n'.repeat(252)}.pdf`) }, /nombre del archivo/],
+    ['a file type of 101 characters', { title: 'Acta', file: () => named('Uno.pdf', `application/${'x'.repeat(89)}`) }, /tipo del archivo/],
+  ])('%s: that file fails with a Spanish sentence and no upload is attempted', async (_label, input, sentence) => {
+    const f = input.file();
+    const result = await documentUtils.uploadDocument(WS, { files: [f], title: input.title, tags: [] } as any, USER);
+    expect(result.uploaded).toEqual([]);
+    expect(result.failed).toHaveLength(1);
+    expect(result.failed[0].fileName).toBe(f.name);
+    expect(result.failed[0].message).toMatch(sentence);
+    expect(state.storage.filter((s) => s.op === 'upload')).toEqual([]);
+    expect(state.calls).toEqual([]);
+  });
+
+  it('a title of exactly 200 characters, a name of 255 and a type within 100 still upload', async () => {
+    const f = named(`${'n'.repeat(251)}.pdf`);
+    const result = await documentUtils.uploadDocument(WS, { files: [f], title: 'T'.repeat(200), tags: [] } as any, USER);
+    expect(result.failed).toEqual([]);
+    expect(result.uploaded).toHaveLength(1);
+  });
+
+  it('every file fails: an empty uploaded list, nothing thrown', async () => {
+    state.uploadFailFor = ['Uno.pdf', 'Dos.pdf'];
+    const result = await documentUtils.uploadDocument(
+      WS, { files: [named('Uno.pdf'), named('Dos.pdf')], title: 'Actas', tags: [] } as any, USER
+    );
+    expect(result.uploaded).toEqual([]);
+    expect(result.failed.map((f) => f.fileName)).toEqual(['Uno.pdf', 'Dos.pdf']);
+  });
+
+  it('an unsupported type is still refused with its message, now as that file\'s failure', async () => {
+    const result = await documentUtils.uploadDocument(
+      WS, { files: [named('Uno.exe', 'application/x-msdownload')], title: 'Acta', tags: [] } as any, USER
+    );
+    expect(result.failed).toEqual([{ fileName: 'Uno.exe', message: 'Tipo de archivo no soportado: application/x-msdownload' }]);
+    expect(state.storage).toEqual([]);
   });
 });
 

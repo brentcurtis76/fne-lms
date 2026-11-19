@@ -232,53 +232,101 @@ export async function getFolderBreadcrumb(folderId: string): Promise<any[]> {
 // DOCUMENT UPLOAD FUNCTIONS
 // =============================================================================
 
+// F18e (EC-D7, EC-D8): the lengths of the record's columns
+// (baseline: title varchar(200), file_name varchar(255), mime_type varchar(100)).
+export const DOCUMENT_TITLE_MAX = 200;
+export const DOCUMENT_FILE_NAME_MAX = 255;
+export const DOCUMENT_MIME_TYPE_MAX = 100;
+
+export const UPLOAD_FAILED_MESSAGE = 'No se pudo subir el archivo. Inténtalo de nuevo.';
+export const RECORD_FAILED_MESSAGE =
+  'El archivo se subió, pero el documento no se pudo guardar. Inténtalo de nuevo.';
+export const VERSION_WARNING_MESSAGE = 'El documento se guardó, pero no su historial de versiones.';
+
+export interface DocumentUploadFileOutcome {
+  fileName: string;
+  message: string;
+}
+
+export interface DocumentUploadResult {
+  uploaded: CommunityDocument[];
+  failed: DocumentUploadFileOutcome[];
+  warnings: DocumentUploadFileOutcome[];
+}
+
+/** What can be known before uploading: the lengths, the type and the size. */
+function checkFileBeforeUpload(title: string, file: File): string | null {
+  if (file.name.length > DOCUMENT_FILE_NAME_MAX) {
+    return `El nombre del archivo es demasiado largo (máximo ${DOCUMENT_FILE_NAME_MAX} caracteres). Cámbiale el nombre e inténtalo de nuevo.`;
+  }
+  if (title.length > DOCUMENT_TITLE_MAX) {
+    return `El título no puede tener más de ${DOCUMENT_TITLE_MAX} caracteres.`;
+  }
+  if (file.type.length > DOCUMENT_MIME_TYPE_MAX) {
+    return `No se reconoce el tipo del archivo (máximo ${DOCUMENT_MIME_TYPE_MAX} caracteres).`;
+  }
+  const fileTypeConfig = getFileTypeConfig(file.type);
+  if (!fileTypeConfig) {
+    return `Tipo de archivo no soportado: ${file.type}`;
+  }
+  if (file.size > fileTypeConfig.max_size) {
+    return `Archivo demasiado grande: ${file.name}. Máximo permitido: ${formatFileSize(
+      fileTypeConfig.max_size
+    )}`;
+  }
+  return null;
+}
+
 /**
- * Upload a document to the repository
+ * Upload documents to the repository. Each file succeeds or fails for itself
+ * (F18e): a failure is reported in `failed` and the next file is still tried;
+ * nothing is thrown for one file's failure. A file stored whose record could
+ * not be written stays in the store (the person may only add files there).
  */
 export async function uploadDocument(
   workspaceId: string,
   uploadData: DocumentUploadData,
   userId: string
-): Promise<CommunityDocument[]> {
-  try {
-    const uploadedDocuments: CommunityDocument[] = [];
+): Promise<DocumentUploadResult> {
+  const result: DocumentUploadResult = { uploaded: [], failed: [], warnings: [] };
 
-    for (const file of uploadData.files) {
-      // Validate file type and size
-      const fileTypeConfig = getFileTypeConfig(file.type);
-      if (!fileTypeConfig) {
-        throw new Error(`Tipo de archivo no soportado: ${file.type}`);
-      }
+  for (const file of uploadData.files) {
+    const title = uploadData.title || file.name.split('.')[0];
 
-      if (file.size > fileTypeConfig.max_size) {
-        throw new Error(
-          `Archivo demasiado grande: ${file.name}. Máximo permitido: ${formatFileSize(
-            fileTypeConfig.max_size
-          )}`
-        );
-      }
+    const refusal = checkFileBeforeUpload(title, file);
+    if (refusal) {
+      result.failed.push({ fileName: file.name, message: refusal });
+      continue;
+    }
 
-      // Generate storage path
-      const timestamp = Date.now();
-      const sanitizedFileName = sanitizeFileName(file.name);
-      const folderPath = uploadData.folder_id ? `folder-${uploadData.folder_id}` : 'root';
-      const storagePath = `documents/${workspaceId}/${folderPath}/${timestamp}-${sanitizedFileName}`;
+    // Generate storage path
+    const timestamp = Date.now();
+    const sanitizedFileName = sanitizeFileName(file.name);
+    const folderPath = uploadData.folder_id ? `folder-${uploadData.folder_id}` : 'root';
+    const storagePath = `documents/${workspaceId}/${folderPath}/${timestamp}-${sanitizedFileName}`;
 
-      // Upload file to Supabase Storage
-      const { data: uploadResult, error: uploadError } = await supabase.storage
+    // Upload file to Supabase Storage
+    try {
+      const { error: uploadError } = await supabase.storage
         .from(DOCUMENTS_BUCKET)
         .upload(storagePath, file);
-
       if (uploadError) throw uploadError;
+    } catch (error) {
+      console.error('Error uploading document file:', error);
+      result.failed.push({ fileName: file.name, message: UPLOAD_FAILED_MESSAGE });
+      continue;
+    }
 
-      // Keep canonical object keys for documents and versions; readers resolve their URL.
-      // Create document record
-      const { data: documentData, error: documentError } = await supabase
+    // Keep canonical object keys for documents and versions; readers resolve their URL.
+    // Create document record
+    let documentData: CommunityDocument;
+    try {
+      const { data, error: documentError } = await supabase
         .from('community_documents')
         .insert({
           workspace_id: workspaceId,
           folder_id: uploadData.folder_id || null,
-          title: uploadData.title || file.name.split('.')[0],
+          title,
           description: uploadData.description || null,
           tags: uploadData.tags || [],
           file_name: file.name,
@@ -290,11 +338,17 @@ export async function uploadDocument(
         })
         .select()
         .single();
+      if (documentError || !data) throw documentError ?? new Error('no record returned');
+      documentData = data as CommunityDocument;
+    } catch (error) {
+      console.error('Error saving document record:', error);
+      result.failed.push({ fileName: file.name, message: RECORD_FAILED_MESSAGE });
+      continue;
+    }
 
-      if (documentError) throw documentError;
-
-      // Create initial version record
-      await supabase.from('document_versions').insert({
+    // Create initial version record
+    try {
+      const { error: versionError } = await supabase.from('document_versions').insert({
         document_id: documentData.id,
         version_number: 1,
         storage_path: storagePath,
@@ -303,23 +357,29 @@ export async function uploadDocument(
         mime_type: file.type,
         uploaded_by: userId,
       });
+      if (versionError) throw versionError;
+    } catch (error) {
+      console.error('Error saving first document version:', error);
+      result.warnings.push({ fileName: file.name, message: VERSION_WARNING_MESSAGE });
+    }
 
-      // Log upload activity
-      await supabase.from('document_access_log').insert({
+    // Log upload activity (a failure here is ignored, but logged)
+    try {
+      const { error: logError } = await supabase.from('document_access_log').insert({
         document_id: documentData.id,
         user_id: userId,
         workspace_id: workspaceId,
         action_type: 'upload',
       });
-
-      uploadedDocuments.push(documentData);
+      if (logError) console.warn('Could not log document upload:', logError);
+    } catch (error) {
+      console.warn('Could not log document upload:', error);
     }
 
-    return uploadedDocuments;
-  } catch (error) {
-    console.error('Error uploading documents:', error);
-    throw error;
+    result.uploaded.push(documentData);
   }
+
+  return result;
 }
 
 /**

@@ -16,8 +16,19 @@ import {
   uploadDocument,
   createFolder,
   getFileTypeConfig,
+  DocumentUploadResult,
+  DOCUMENT_TITLE_MAX,
+  UPLOAD_FAILED_MESSAGE,
 } from '../../utils/documentUtils';
 import { formatFileSize } from '../../lib/utils/file-format';
+
+// F18e (EC-D7, EC-D8): the outcome of one file in the last upload.
+interface FileUploadOutcome {
+  fileName: string;
+  status: 'success' | 'error';
+  message?: string;
+  warning?: string;
+}
 
 interface DocumentUploadModalProps {
   isOpen: boolean;
@@ -52,6 +63,7 @@ export default function DocumentUploadModal({
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<FileUploadProgress[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
+  const [results, setResults] = useState<FileUploadOutcome[]>([]);
   const [tagInput, setTagInput] = useState('');
   const [showCreateFolder, setShowCreateFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
@@ -71,6 +83,7 @@ export default function DocumentUploadModal({
       });
       setErrors([]);
       setUploadProgress([]);
+      setResults([]);
       setTagInput('');
       setShowCreateFolder(false);
       setNewFolderName('');
@@ -218,41 +231,58 @@ export default function DocumentUploadModal({
 
     setUploading(true);
     setErrors([]);
+    setResults([]);
 
-    try {
-      // Update progress for all files
-      setUploadProgress(prev =>
-        prev.map(progress => ({ ...progress, status: 'uploading' as const }))
-      );
+    // F18e (EC-D7, EC-D8): each file is sent on its own and reports for
+    // itself, so the window knows exactly which files were saved; only the
+    // failed ones stay in the list, and a retry sends only those.
+    const files = formData.files;
+    setUploadProgress(files.map(file => ({ file, progress: 0, status: 'uploading' as const })));
 
-      // Upload documents
-      const uploadedDocuments = await uploadDocument(workspaceId, formData, userId);
+    const uploadedDocuments: CommunityDocument[] = [];
+    const outcomes: FileUploadOutcome[] = [];
+    const remainingFiles: File[] = [];
+    const remainingProgress: FileUploadProgress[] = [];
 
-      // Update progress to success
-      setUploadProgress(prev =>
-        prev.map((progress, index) => ({
-          ...progress,
-          progress: 100,
-          status: 'success' as const,
-          document_id: uploadedDocuments[index]?.id,
-        }))
-      );
+    for (const file of files) {
+      let result: DocumentUploadResult;
+      try {
+        result = await uploadDocument(workspaceId, { ...formData, files: [file] }, userId);
+      } catch (error) {
+        console.error('Error uploading documents:', error);
+        result = {
+          uploaded: [],
+          failed: [{ fileName: file.name, message: error instanceof Error ? error.message : UPLOAD_FAILED_MESSAGE }],
+          warnings: [],
+        };
+      }
 
-      // Notify parent component
+      if (result.uploaded.length > 0) {
+        uploadedDocuments.push(...result.uploaded);
+        outcomes.push({ fileName: file.name, status: 'success', warning: result.warnings[0]?.message });
+      } else {
+        const message = result.failed[0]?.message ?? UPLOAD_FAILED_MESSAGE;
+        outcomes.push({ fileName: file.name, status: 'error', message });
+        remainingFiles.push(file);
+        remainingProgress.push({ file, progress: 0, status: 'error', error: message });
+      }
+    }
+
+    setFormData(prev => ({ ...prev, files: remainingFiles }));
+    setUploadProgress(remainingProgress);
+    setResults(outcomes);
+    setUploading(false);
+
+    // Notify parent component of what was saved
+    if (uploadedDocuments.length > 0) {
       onUploadComplete(uploadedDocuments);
+    }
 
-      // Close modal after brief delay to show success
+    // Close only when nothing failed, after a brief delay to show success
+    if (remainingFiles.length === 0) {
       setTimeout(() => {
         onClose();
       }, 1500);
-    } catch (error) {
-      console.error('Error uploading documents:', error);
-      setErrors([error instanceof Error ? error.message : 'Error al subir los documentos.']);
-      setUploadProgress(prev =>
-        prev.map(progress => ({ ...progress, status: 'error' as const }))
-      );
-    } finally {
-      setUploading(false);
     }
   };
 
@@ -316,6 +346,39 @@ export default function DocumentUploadModal({
             </button>
           </div>
 
+          {/* Outcome of the last upload, file by file */}
+          {results.length > 0 && (
+            <div className="space-y-2" data-testid="upload-results">
+              <h3 className="font-medium text-gray-900">Resultado de la subida</h3>
+              {results.map((outcome, index) => (
+                <div
+                  key={`${outcome.fileName}-${index}`}
+                  data-testid="upload-result"
+                  data-file-name={outcome.fileName}
+                  data-status={outcome.status}
+                  className={`flex items-start space-x-2 p-3 rounded-lg ${
+                    outcome.status === 'success' ? 'bg-green-50' : 'bg-red-50'
+                  }`}
+                >
+                  {outcome.status === 'success' ? (
+                    <CheckCircle className="w-4 h-4 mt-0.5 text-green-500 flex-shrink-0" />
+                  ) : (
+                    <AlertCircle className="w-4 h-4 mt-0.5 text-red-500 flex-shrink-0" />
+                  )}
+                  <div className="text-sm">
+                    <p className="font-medium text-gray-900">{outcome.fileName}</p>
+                    {outcome.status === 'success' ? (
+                      <p className="text-green-700">Subido</p>
+                    ) : (
+                      <p className="text-red-700">{outcome.message}</p>
+                    )}
+                    {outcome.warning && <p className="text-amber-700">{outcome.warning}</p>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* Selected Files */}
           {formData.files.length > 0 && (
             <div className="space-y-3">
@@ -325,6 +388,8 @@ export default function DocumentUploadModal({
                 return (
                   <div
                     key={`${file.name}-${index}`}
+                    data-testid="upload-selected-file"
+                    data-file-name={file.name}
                     className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
                   >
                     <div className="flex items-center space-x-3">
@@ -332,6 +397,9 @@ export default function DocumentUploadModal({
                       <div>
                         <p className="text-sm font-medium text-gray-900">{file.name}</p>
                         <p className="text-xs text-gray-500">{formatFileSize(file.size)}</p>
+                        {progress?.status === 'error' && progress.error && (
+                          <p className="text-xs text-red-600">{progress.error}</p>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center space-x-2">
@@ -371,6 +439,7 @@ export default function DocumentUploadModal({
                 value={formData.title}
                 onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
                 disabled={uploading}
+                maxLength={DOCUMENT_TITLE_MAX}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50"
                 placeholder="Título del documento"
               />

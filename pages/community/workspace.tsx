@@ -1790,8 +1790,9 @@ const DocumentsTabContent: React.FC<DocumentsTabContentProps> = ({ workspace, wo
   };
 
   const handleUploadComplete = (uploadedDocuments: CommunityDocument[]) => {
+    // F18e: the window closes itself (onClose) only when no file failed, so
+    // that the failed files stay in it for another try.
     loadDocuments();
-    setShowUploadModal(false);
     toast.success(`${uploadedDocuments.length} documento(s) subido(s) exitosamente`);
   };
 

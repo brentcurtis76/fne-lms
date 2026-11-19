@@ -71,8 +71,38 @@ export default async function handler(
   }
 }
 
-export function extractUFFromSII(html: string, month: string, day: number): number | null {
+// The SII's real yearly page is about 55,000 characters; a longer text is not its page.
+const MAX_SII_PAGE_LENGTH = 500_000;
+
+/**
+ * The text without its HTML comments: every «<!-- … -->» (shortest match,
+ * across lines) is removed; an unclosed «<!--» removes everything after it.
+ * One linear scan.
+ */
+function withoutComments(html: string): string {
+  let out = '';
+  let at = 0;
+  while (at < html.length) {
+    const open = html.indexOf('<!--', at);
+    if (open < 0) {
+      out += html.slice(at);
+      break;
+    }
+    out += html.slice(at, open);
+    const close = html.indexOf('-->', open + 4);
+    if (close < 0) break;
+    at = close + 3;
+  }
+  return out;
+}
+
+export function extractUFFromSII(rawHtml: string, month: string, day: number): number | null {
   try {
+    // Send-back 2: refuse a page too large to be the SII's, before any parsing;
+    // then read the page without its HTML comments.
+    if (rawHtml.length > MAX_SII_PAGE_LENGTH) return null;
+    const html = withoutComments(rawHtml);
+
     // N187: the SII's real yearly page holds one block per month,
     // «<div class='meses' id='mes_noviembre'>», each with one table whose
     // heading cell is «<th colspan='6'><h2>Noviembre</h2></th>», newest month

@@ -345,4 +345,48 @@ describe('N187: the route reads the real SII page (fixture of 18 Nov 2026)', () 
       expect(extractUFFromSII(page, '11', 18)).toBe(41357.3);
     });
   });
+
+  describe('send-back 2: the reader ignores HTML comments and refuses an oversized page', () => {
+    it('the fixture holds 8 comments, all closed, and is still read', () => {
+      expect(REAL_PAGE.split('<!--').length - 1).toBe(8);
+      expect(REAL_PAGE.split('-->').length - 1).toBe(8);
+      expect(extractUFFromSII(REAL_PAGE, '11', 18)).toBe(41357.3);
+    });
+
+    it('a commented-out heading row is not the first row (the page of the second reading, exactly as written) → null', () => {
+      const page = `<table>\n<!-- <tr><th>Noviembre</th></tr> -->\n<tr><th>Octubre</th></tr>\n<tr><td>18</td><td>41.178,64</td></tr>\n</table>`;
+      expect(extractUFFromSII(page, '11', 18)).toBeNull();
+    });
+
+    it('a real heading row, then a commented-out day row with another value, then the real day row → the real value', () => {
+      const page = `<table><tr><th colspan='6'><h2>Noviembre</h2></th></tr>
+<!-- <tr><td>18</td><td>40.000,00</td></tr> -->
+<tr><td>18</td><td>41.357,30</td></tr></table>`;
+      expect(extractUFFromSII(page, '11', 18)).toBe(41357.3);
+    });
+
+    it('a comment between the day cell and its value cell → the value is still read', () => {
+      const page = `<table><tr><th colspan='6'><h2>Noviembre</h2></th></tr>
+<tr><th width='40'><strong>18</strong></th> <!-- <td></td> --> <td width='200'>41.357,30</td></tr></table>`;
+      expect(extractUFFromSII(page, '11', 18)).toBe(41357.3);
+    });
+
+    it("an unclosed <!-- before the month's table → null (everything after it is removed)", () => {
+      const page = `<!-- unclosed
+<table><tr><th colspan='6'><h2>Noviembre</h2></th></tr>
+<tr><td>18</td><td>41.357,30</td></tr></table>`;
+      expect(extractUFFromSII(page, '11', 18)).toBeNull();
+    });
+
+    it('a page of 500,001 characters that otherwise holds a readable November table → null', () => {
+      const table = `<table><tr><th colspan='6'><h2>Noviembre</h2></th></tr>
+<tr><td>18</td><td>41.357,30</td></tr></table>`;
+      expect(extractUFFromSII(table, '11', 18)).toBe(41357.3);
+      const page = table + ' '.repeat(500_001 - table.length);
+      expect(page.length).toBe(500_001);
+      expect(extractUFFromSII(page, '11', 18)).toBeNull();
+      // Exactly the limit is still read.
+      expect(extractUFFromSII(page.slice(0, 500_000), '11', 18)).toBe(41357.3);
+    });
+  });
 });

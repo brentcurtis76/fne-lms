@@ -13,9 +13,10 @@
 -- says where its file is; nothing is moved by this migration (the old files
 -- stay in `resources` and are read from there).
 --
---   a. the store `community-documents`, only where it is missing (Production
---      already has it: private, empty, no rule); the existing store is never
---      changed
+--   a. the store `community-documents` is NOT created here: it exists in
+--      Production (private, empty, no rule). Databases built from the
+--      repository get it from tests/e2e/helpers/fne-storage-fixture.ts (the
+--      local model of Production's stores) or the database test itself.
 --   b. storage_bucket on community_documents and document_versions: nullable
 --      text, no default, only NULL / 'resources' / 'community-documents';
 --      empty means the old store `resources`
@@ -40,11 +41,6 @@
 -- level security stays on everywhere. The storage rule of part d comes before
 -- any trigger (this file creates none).
 -- =============================================================================
-
--- -----------------------------------------------------------------------------
--- a. The private store, where it is missing
--- -----------------------------------------------------------------------------
-INSERT INTO storage.buckets (id, name, public) VALUES ('community-documents', 'community-documents', false) ON CONFLICT (id) DO NOTHING;
 
 -- -----------------------------------------------------------------------------
 -- b. Where each file is

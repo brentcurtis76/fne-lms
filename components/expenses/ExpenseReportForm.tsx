@@ -146,6 +146,8 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
   const [loading, setLoading] = useState(false);
   // Rows (by stable key) whose receipt is uploading right now.
   const [uploadingReceipts, setUploadingReceipts] = useState<Set<string>>(new Set());
+  // Rows (by stable key) whose receipt is being deleted right now.
+  const [deletingReceipts, setDeletingReceipts] = useState<Set<string>>(new Set());
   // GES-1.5: a just-chosen receipt is shown from the browser's own copy (an
   // object URL), keyed by its stored place, until the expense is saved.
   const localReceiptUrls = useRef<Map<string, string>>(new Map());
@@ -323,7 +325,11 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
 
   const handleReceiptDelete = async (index: number) => {
     const item = expenseItems[index];
-    if (!item.receipt_url) return;
+    if (!item || !item.receipt_url) return;
+    // Send-back 1: the delete belongs to the row's KEY; one at a time per row.
+    const rowKey = item.rowKey;
+    if (deletingReceipts.has(rowKey)) return;
+    setDeletingReceipts(prev => new Set(prev).add(rowKey));
 
     try {
       // The file's place in the receipts store (a stored place or an old link);
@@ -369,32 +375,33 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
         }
       }
 
-      // Clear the receipt from the form state
-      // Force a complete state refresh by creating entirely new objects
-      const updatedItems = expenseItems.map((item, i) => {
-        if (i === index) {
-          return {
-            ...item,
-            receipt_url: '',
-            receipt_filename: '',
-            _forceUpdate: Date.now() // Force React to detect change
-          };
-        }
-        return { ...item }; // Clone other items too to ensure new references
-      });
-      setExpenseItems(updatedItems);
-
       const localUrl = localReceiptUrls.current.get(item.receipt_url);
       if (localUrl) {
         URL.revokeObjectURL(localUrl);
         localReceiptUrls.current.delete(item.receipt_url);
       }
 
+      // The row was removed while its receipt was being deleted: nothing is
+      // written to the form.
+      if (!currentItems.current.some(it => it.rowKey === rowKey)) return;
+
+      // Clear only this row's receipt fields, on the LATEST form state, so
+      // text typed meanwhile (in this row or another) is kept.
+      setExpenseItems(prev => prev.map(it => (
+        it.rowKey === rowKey ? { ...it, receipt_url: '', receipt_filename: '' } : it
+      )));
+
       toast.success('Boleta eliminada');
 
     } catch (error) {
       console.error('❌ Error deleting receipt:', error);
       toast.error('Error al eliminar la boleta');
+    } finally {
+      setDeletingReceipts(prev => {
+        const next = new Set(prev);
+        next.delete(rowKey);
+        return next;
+      });
     }
   };
 
@@ -830,6 +837,7 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
                           <button
                             type="button"
                             onClick={() => handleReceiptDelete(index)}
+                            disabled={deletingReceipts.has(item.rowKey)}
                             className="flex items-center px-3 py-2 text-sm bg-red-600 text-white border border-red-600 rounded-lg hover:bg-red-700 transition-colors font-medium"
                             title="Eliminar y reemplazar"
                           >

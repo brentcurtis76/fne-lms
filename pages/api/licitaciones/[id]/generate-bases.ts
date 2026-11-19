@@ -120,7 +120,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .eq('is_active', true)
       .order('orden', { ascending: true });
 
-    const criterios = (criteriosData || []).map(c => ({
+    // Bases are not generated for a programme without active evaluation criteria
+    // (LIC-B5): they would print an empty evaluation table.
+    if (!criteriosData || criteriosData.length === 0) {
+      return sendAuthError(
+        res,
+        'El programa no tiene criterios de evaluación activos. Configúrelos en /admin/licitaciones/criterios antes de generar las Bases.',
+        422
+      );
+    }
+
+    const criterios = criteriosData.map(c => ({
       nombre_criterio: String(c.nombre_criterio),
       puntaje_maximo: Number(c.puntaje_maximo),
       descripcion: c.descripcion as string | null,

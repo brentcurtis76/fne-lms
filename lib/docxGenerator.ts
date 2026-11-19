@@ -20,6 +20,7 @@ import {
   ShadingType,
   Header,
 } from 'docx';
+import { formatDuracion, formatMonto } from './licitaciones/formato';
 
 // ============================================================
 // Input Types
@@ -455,8 +456,8 @@ export async function generateBasesDocument(data: BasesDocumentData): Promise<Bu
 
           heading2('5.1 Duración del Servicio'),
           bodyParagraph(
-            `La duración mínima del servicio es de ${licitacion.duracion_minima} meses ` +
-            `y la duración máxima es de ${licitacion.duracion_maxima} meses.`
+            `La duración mínima del servicio es de ${formatDuracion(licitacion.duracion_minima)} ` +
+            `y la duración máxima es de ${formatDuracion(licitacion.duracion_maxima)}.`
           ),
 
           heading2('5.2 Número de Participantes'),
@@ -499,8 +500,9 @@ export async function generateBasesDocument(data: BasesDocumentData): Promise<Bu
           // =====================================
           heading1('7. Valor, Financiamiento y Forma de Pago'),
           bodyParagraph(
-            `El presupuesto disponible para este servicio es de un mínimo de ${licitacion.monto_minimo} ` +
-            `${licitacion.tipo_moneda} y un máximo de ${licitacion.monto_maximo} ${licitacion.tipo_moneda}, ` +
+            `El presupuesto disponible para este servicio es de un mínimo de ` +
+            `${formatMonto(licitacion.monto_minimo, licitacion.tipo_moneda)} y un máximo de ` +
+            `${formatMonto(licitacion.monto_maximo, licitacion.tipo_moneda)}, ` +
             `valores que incluyen todos los impuestos.`
           ),
           ...(condPagoText ? [bodyParagraph(condPagoText)] : []),

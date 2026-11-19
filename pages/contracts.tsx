@@ -419,8 +419,10 @@ export default function ContractsPage() {
       // activates the contract (into the cash flow) when it isn't active yet;
       // a late upload to an already-active contract must NOT touch estado or
       // the flujo flag — the user may have deliberately opted out of the cash
-      // flow after activating without document.
-      const activating = contrato.estado !== 'activo';
+      // flow after activating without document. GES-3.8: a DRAFT is not
+      // activated either: the file and the signed mark are stored, the estado
+      // and the flujo flag stay as they are until the draft is completed.
+      const activating = contrato.estado !== 'activo' && contrato.estado !== 'borrador';
       const { error: updateError } = await supabase
         .from('contratos')
         .update({

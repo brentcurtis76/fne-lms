@@ -187,7 +187,10 @@ export default function ContractDetailsModal({
     ? {
         container: 'bg-yellow-50 border border-yellow-200 rounded-lg p-4',
         intro: 'text-sm text-yellow-800 mb-4',
-        introText: 'El contrato está pendiente. Sube el documento firmado para activar el contrato.',
+        // GES-3.8: an upload does not activate a draft (the draft note says so).
+        introText: isBorrador
+          ? 'Sube el documento firmado cuando el cliente lo envíe.'
+          : 'El contrato está pendiente. Sube el documento firmado para activar el contrato.',
         dropZone:
           'flex items-center justify-center space-x-3 w-full p-4 border-2 border-dashed border-yellow-300 rounded-lg hover:border-yellow-400 transition-colors',
         spinner: 'animate-spin rounded-full h-6 w-6 border-b-2 border-yellow-600',
@@ -913,7 +916,7 @@ export default function ContractDetailsModal({
                 {pendingActivation && (
                   isBorrador ? (
                     <p className="mt-4 pt-4 border-t border-yellow-200 text-sm text-yellow-800">
-                      Este contrato es un borrador: complétalo y guárdalo antes de poder activarlo sin documento.
+                      Este contrato es un borrador: subir el documento firmado lo guarda y lo marca como firmado, pero no lo activa ni lo incluye en el flujo de caja. Complétalo y guárdalo antes de poder activarlo.
                     </p>
                   ) : (
                     <div className="mt-4 pt-4 border-t border-yellow-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">

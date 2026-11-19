@@ -225,6 +225,22 @@ describe('Contracts page — activation writes', () => {
     });
   });
 
+  it('GES-3.8: uploading the signed doc on a draft stores it and marks it signed, but does not activate it', async () => {
+    const user = userEvent.setup();
+    const client = await renderPage([makeContrato({ estado: 'borrador', incluir_en_flujo: false })]);
+
+    await openContractModal(user, 'C-001');
+    await uploadSignedDoc('signed-doc-upload-input');
+
+    await waitFor(() => expect(client.__updates).toHaveLength(1));
+    expect(client.__updates[0].payload).toEqual({
+      firmado: true,
+      contrato_url: 'https://storage.test/signed.pdf',
+    });
+    expect(state.contratos[0].estado).toBe('borrador');
+    expect(state.contratos[0].incluir_en_flujo).toBe(false);
+  });
+
   it('a late upload on an active opted-out contract preserves incluir_en_flujo=false', async () => {
     const user = userEvent.setup();
     const client = await renderPage([

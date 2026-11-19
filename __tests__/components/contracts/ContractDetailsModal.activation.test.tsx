@@ -85,6 +85,19 @@ describe('ContractDetailsModal — activation without signed document', () => {
     expect(screen.getByTestId('signed-doc-upload-input')).toBeInTheDocument();
   });
 
+  it('GES-3.8: for a borrador, the window says an upload stores and marks it signed but does not activate it', () => {
+    renderModal({ estado: 'borrador' });
+    expect(
+      screen.getByText(/Este contrato es un borrador.*no lo activa ni lo incluye en el flujo de caja/),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Sube el documento firmado para activar el contrato/)).not.toBeInTheDocument();
+  });
+
+  it('GES-3.8: for a pendiente, the window still says an upload activates it', () => {
+    renderModal({ estado: 'pendiente' });
+    expect(screen.getByText('El contrato está pendiente. Sube el documento firmado para activar el contrato.')).toBeInTheDocument();
+  });
+
   it('closes the confirmation dialog when activation succeeds', async () => {
     const user = userEvent.setup();
     const props = renderModal({ estado: 'pendiente' }, { onActivateWithoutDocument: vi.fn(async () => true) });

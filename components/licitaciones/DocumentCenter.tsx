@@ -17,11 +17,14 @@ import {
 } from 'lucide-react';
 import { LicitacionDocumento } from '@/types/licitaciones';
 import DocumentPreview from './DocumentPreview';
+import { puedeEliminarDocumento } from '@/lib/licitaciones/estados';
 
 interface DocumentCenterProps {
   licitacionId: string;
   numeroLicitacion?: string;
   isAdmin?: boolean;
+  /** The tender's state: the delete icon shows only where it allows deleting a document. */
+  estado?: string | null;
 }
 
 // Document tipo -> folder display info
@@ -90,7 +93,9 @@ export default function DocumentCenter({
   licitacionId,
   numeroLicitacion,
   isAdmin = false,
+  estado,
 }: DocumentCenterProps) {
+  const documentosEliminables = puedeEliminarDocumento(estado);
   const [documentos, setDocumentos] = useState<LicitacionDocumento[]>([]);
   const [loading, setLoading] = useState(true);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
@@ -341,7 +346,7 @@ export default function DocumentCenter({
                                 <Download size={12} className="inline" />
                               )}
                             </button>
-                            {isAdmin && (
+                            {isAdmin && documentosEliminables && (
                               <button
                                 onClick={() => {
                                   if (window.confirm(`¿Eliminar "${doc.nombre}"? Esta accion no se puede deshacer.`)) {

@@ -12,6 +12,7 @@ vi.mock('react-hot-toast', () => ({ toast: { success: vi.fn(), error: vi.fn() } 
 
 import Step3Bases from '@/components/licitaciones/Step3Bases';
 import Step4Propuestas from '@/components/licitaciones/Step4Propuestas';
+import DocumentCenter from '@/components/licitaciones/DocumentCenter';
 import {
   MENSAJE_CERRADA,
   MENSAJE_EVALUACION_INICIADA,
@@ -167,4 +168,23 @@ describe('«Avanzar a …» only from the step it advances', () => {
       expect(screen.queryByRole('button', { name: AVANZAR })).toBeNull();
     },
   );
+});
+
+// join fix 3b: the documents centre offers the delete icon only where the tender's state allows deleting.
+describe('DocumentCenter — delete icon', () => {
+  async function centro(estado: string) {
+    render(<DocumentCenter licitacionId="lic-1" numeroLicitacion="LIC-1-2026-001" isAdmin estado={estado} />);
+    await waitFor(() => expect(screen.getByTitle('Descargar')).toBeTruthy());
+  }
+
+  it('propuestas_pendientes: the admin sees the delete icon as today', async () => {
+    await centro('propuestas_pendientes');
+    expect(screen.getByTitle('Eliminar documento')).toBeTruthy();
+  });
+
+  it('cerrada: no delete icon for the admin; the document stays listed', async () => {
+    await centro('cerrada');
+    expect(screen.queryByTitle('Eliminar documento')).toBeNull();
+    expect(screen.getByTitle('Descargar')).toBeTruthy();
+  });
 });

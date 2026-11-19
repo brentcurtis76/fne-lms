@@ -954,6 +954,7 @@ export default function LicitacionDetailPage() {
             licitacionId={licitacion.id}
             numeroLicitacion={licitacion.numero_licitacion}
             isAdmin={isAdmin}
+            estado={licitacion.estado}
           />
         )}
         </>

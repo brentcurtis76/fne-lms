@@ -9,6 +9,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import formidable from 'formidable';
 import { readFileSync } from 'fs';
+import { randomUUID } from 'crypto';
 import { fromFile } from 'file-type';
 import {
   getApiUser,
@@ -85,12 +86,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .replace(/[^a-zA-Z0-9._-]/g, '_')
       .substring(0, 200);
 
-    const storagePath = `${subfolder}/${safeFileName}`;
+    // Every upload gets its own path and never overwrites: a proposal's
+    // snapshot freezes the paths it points to, so replacing a file in place
+    // would silently change proposals already sent (LIC-E1).
+    const storagePath = `${subfolder}/${randomUUID()}_${safeFileName}`;
     const fileBuffer = readFileSync(file.filepath);
 
     const { error: uploadError } = await serviceClient.storage
       .from('propuestas')
-      .upload(storagePath, fileBuffer, { contentType: mimeType, upsert: true });
+      .upload(storagePath, fileBuffer, { contentType: mimeType, upsert: false });
 
     if (uploadError) {
       return sendAuthError(res, 'Error al subir archivo', 500, uploadError.message);

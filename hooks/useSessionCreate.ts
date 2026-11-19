@@ -343,7 +343,13 @@ export function useSessionCreate() {
   ) => {
     const { name, value } = e.target;
     const parsedValue = name === 'school_id' ? (value ? parseInt(value, 10) : 0) : value;
-    setFormData((prev) => ({ ...prev, [name]: parsedValue }));
+    setFormData((prev) => ({
+      ...prev,
+      [name]: parsedValue,
+      // A different school: the community chosen for the old one is cleared in the same update,
+      // so no render holds the new school with the old community.
+      ...(name === 'school_id' && parsedValue !== prev.school_id ? { growth_community_id: '' } : {}),
+    }));
   };
 
   const handleModalityChange = (modality: 'presencial' | 'online' | 'hibrida') => {

@@ -269,12 +269,15 @@ SELECT is((SELECT count(*)::int FROM pg_trigger
 -- statement of its own BEFORE the statement that counts, so the count is read
 -- after the other writer's message is committed (the overlap itself needs two
 -- real sessions and cannot be staged here; this pins the order in the source).
-SELECT ok(COALESCE((SELECT strpos(prosrc, 'PERFORM 1 FROM public.message_threads WHERE id = v_thread FOR UPDATE') > 0
-                       AND strpos(prosrc, 'PERFORM 1 FROM public.message_threads WHERE id = v_thread FOR UPDATE')
+-- Send-back 2: the lock is FOR NO KEY UPDATE, which does not collide with the
+-- KEY SHARE lock each insert's foreign-key check already holds on the thread
+-- (FOR UPDATE did: two writers deadlocked and one message was aborted).
+SELECT ok(COALESCE((SELECT strpos(prosrc, 'PERFORM 1 FROM public.message_threads WHERE id = v_thread FOR NO KEY UPDATE') > 0
+                       AND strpos(prosrc, 'PERFORM 1 FROM public.message_threads WHERE id = v_thread FOR NO KEY UPDATE')
                            < strpos(prosrc, 'UPDATE public.message_threads t')
                        AND strpos(prosrc, 'UPDATE public.message_threads t') > 0
                      FROM pg_proc WHERE oid = to_regprocedure('public.refresh_thread_counters()')), false),
-  'EC-M4 send-back 1: the function locks the thread row (PERFORM … FOR UPDATE) before the UPDATE that counts');
+  'EC-M4 send-back 2: the function locks the thread row (PERFORM … FOR NO KEY UPDATE) before the UPDATE that counts');
 SELECT is((SELECT count(*)::int FROM pg_trigger t JOIN pg_proc p ON p.oid = t.tgfoid
             WHERE p.proname = 'update_thread_stats' AND NOT t.tgisinternal), 0,
   'EC-M4 catalog: update_thread_stats is still used by no trigger (left alone)');

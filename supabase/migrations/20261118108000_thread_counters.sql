@@ -19,7 +19,12 @@ BEGIN
  -- Lock the thread row in a statement of its own first: two people writing in
  -- one thread at the same moment wait here, and the count below (a new
  -- statement, a new snapshot) then sees the other writer's committed message.
- PERFORM 1 FROM public.message_threads WHERE id = v_thread FOR UPDATE;
+ -- FOR NO KEY UPDATE, not FOR UPDATE: each insert's foreign-key check already
+ -- holds a KEY SHARE lock on this row, which FOR UPDATE conflicts with (two
+ -- writers then wait for each other and PostgreSQL aborts one message), while
+ -- FOR NO KEY UPDATE does not; it still makes two recounts wait for each other,
+ -- and it is the strength the UPDATE of the counters takes anyway.
+ PERFORM 1 FROM public.message_threads WHERE id = v_thread FOR NO KEY UPDATE;
  IF NOT FOUND THEN
   RETURN COALESCE(NEW, OLD);
  END IF;

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
@@ -30,6 +30,7 @@ vi.mock('../../../lib/uf-service', async (importOriginal) => {
   return {
     ...actual,
     getFixedUF: vi.fn(actual.getFixedUF),
+    projectUF: vi.fn(actual.projectUF),
     default: {
       getCurrentUF: svc.getCurrentUF,
       getProjectedUF: svc.getProjectedUF,
@@ -161,9 +162,11 @@ describe('CashFlowView — the UF value', () => {
     // Pending (from the instalments): 50 UF (2.000.000) + 4.000.000 CLP (100 UF) → 150 UF, 6.000.000 CLP.
     expect(valueUnder('Total Pendiente')).toBe('UF 150,00 ($6.000.000)');
     expect(valueUnder('Total Pagado')).toBe('UF 0,00 ($0)');
-    // Period: 50 UF projected at 40.000 (2.000.000) + 4.000.000 CLP (100 UF) → 150 UF, 6.000.000 CLP.
-    expect(valueUnderProjected()).toBe('UF 150,00 ($6.000.000)');
-    expect(valueUnder('Pendiente (período)')).toBe('UF 150,00 ($6.000.000)');
+    // Period (send-back 1: projected from the load's value with projectUF, one
+    // month ahead: round(40.000 × 1,0021) = 40.084): 50 UF (2.004.200) +
+    // 4.000.000 CLP (100 UF) → 150 UF, 6.004.200 CLP.
+    expect(valueUnderProjected()).toBe('UF 150,00 ($6.004.200)');
+    expect(valueUnder('Pendiente (período)')).toBe('UF 150,00 ($6.004.200)');
     // The monthly projection has a row with both instalments.
     expect(screen.getByText('2 cuotas programadas')).toBeInTheDocument();
     expect(container.textContent).not.toMatch(/∞|NaN|Infinity/);
@@ -181,7 +184,7 @@ describe('CashFlowView — the UF value', () => {
     await user.click(screen.getByText('12 Meses'));
     await waitFor(() => expect(svc.getCurrentUF).toHaveBeenCalledTimes(2));
     expect(await screen.findByText(/^Proyectado \(12 meses\)/)).toBeInTheDocument();
-    expect(valueUnderProjected()).toBe('$6.000.000');
+    expect(valueUnderProjected()).toBe('$6.004.200'); // send-back 1: projected with projectUF (see (6))
     await user.click(screen.getByText('Vista Detallada'));
     expect(await screen.findByText('C-002')).toBeInTheDocument();
     // Both instalments fall next month: «Vencidas sin pagar» hides them, «Todas» brings them back.
@@ -189,5 +192,110 @@ describe('CashFlowView — the UF value', () => {
     await waitFor(() => expect(screen.queryByText('C-002')).toBeNull());
     await user.click(screen.getByText('Todas'));
     expect(await screen.findByText('C-002')).toBeInTheDocument();
+  });
+
+  // ---- send-back 1 ----
+
+  function monthsAgoDay(n: number): string {
+    const now = new Date();
+    const d = new Date(now.getFullYear(), now.getMonth() - n, 10);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-10`;
+  }
+  function inMonthsDay(n: number): string {
+    const now = new Date();
+    const d = new Date(now.getFullYear(), now.getMonth() + n, 15);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-15`;
+  }
+
+  // An overdue CLP instalment (4.000.000) and an overdue UF instalment (50 UF, no stored CLP amount).
+  const overdueContratos = () => {
+    const [uf, clp] = contratos();
+    uf.cuotas = [{ ...uf.cuotas[0], id: 'q9', numero_cuota: 9, fecha_vencimiento: monthsAgoDay(1) }];
+    clp.cuotas = [{ ...clp.cuotas[0], id: 'q8', numero_cuota: 8, fecha_vencimiento: monthsAgoDay(1) }];
+    return [uf, clp];
+  };
+  const overdueAmount = (contrato: string, cuota: number) =>
+    screen.getByText(`Contrato ${contrato} - Cuota ${cuota}`).parentElement!.parentElement!
+      .querySelector('p.font-medium.text-red-600')!.textContent;
+
+  it('(7) while loading, the overdue list shows «—» for the part that needs the UF, in each of the three displays, never «UF ∞»', async () => {
+    svc.getCurrentUF.mockImplementation(() => new Promise(() => {}));
+    const user = userEvent.setup();
+    const { container } = render(<CashFlowView contratos={overdueContratos() as any} />);
+    await waitFor(() => expect(svc.getCurrentUF).toHaveBeenCalled());
+    // «Ambos» (the default): pesos shown, the UF part «—»; a UF amount shown, its pesos «—».
+    expect(overdueAmount('C-002', 8)).toBe('— ($4.000.000)');
+    expect(overdueAmount('C-001', 9)).toBe('UF 50,00 (—)');
+    expect(container.textContent).not.toMatch(/∞|NaN|Infinity/);
+    await user.click(screen.getByText('UF', { exact: true, selector: 'button' }));
+    expect(overdueAmount('C-002', 8)).toBe('—');
+    expect(overdueAmount('C-001', 9)).toBe('UF 50,00');
+    await user.click(screen.getByText('CLP', { exact: true, selector: 'button' }));
+    expect(overdueAmount('C-002', 8)).toBe('$4.000.000');
+    expect(overdueAmount('C-001', 9)).toBe('—');
+    expect(container.textContent).not.toMatch(/∞|NaN|Infinity/);
+  });
+
+  it('(8) a slow six-month load that finishes after a quick three-month load writes nothing: the three-month rows stay', async () => {
+    let finishSlow: (v: unknown) => void = () => {};
+    svc.getCurrentUF
+      .mockImplementationOnce(() => new Promise((resolve) => { finishSlow = resolve; }))
+      .mockResolvedValue({ fecha: '2026-11-18', valor: 40000, source: 'live' });
+    const user = userEvent.setup();
+    render(<CashFlowView contratos={contratos() as any} />);
+    await waitFor(() => expect(svc.getCurrentUF).toHaveBeenCalledTimes(1));
+    await user.click(screen.getByText('3 Meses'));
+    await waitFor(() => expect(screen.getAllByText(/cuotas programadas$/)).toHaveLength(3));
+    await act(async () => { finishSlow({ fecha: '2026-11-18', valor: 39000, source: 'live' }); });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(screen.getAllByText(/cuotas programadas$/)).toHaveLength(3);
+    expect(screen.getByText(/^Proyectado \(3 meses\)/)).toBeInTheDocument();
+    // and the value shown is the newer load's
+    expect(screen.getByText('$40.000')).toBeInTheDocument();
+    expect(screen.queryByText('$39.000')).toBeNull();
+  });
+
+  it('(8b) unmounting during a load: the load stops, computes nothing, writes nothing, and React warns of nothing', async () => {
+    let finish: (v: unknown) => void = () => {};
+    svc.getCurrentUF.mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
+    const { unmount } = render(<CashFlowView contratos={contratos() as any} />);
+    await waitFor(() => expect(svc.getCurrentUF).toHaveBeenCalledTimes(1));
+    unmount();
+    await act(async () => { finish({ fecha: '2026-11-18', valor: 40000, source: 'live' }); });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(svc.getProjectedUF).not.toHaveBeenCalled();
+    expect((ufModule as any).projectUF).not.toHaveBeenCalled();
+    const reactWarnings = (console.error as any).mock.calls.filter((c: unknown[]) =>
+      String(c[0]).match(/unmounted|not wrapped in act|Warning:/));
+    expect(reactWarnings).toEqual([]);
+  });
+
+  it('(9) one load asks getCurrentUF exactly once, whatever the number of UF instalments, and never getProjectedUF', async () => {
+    // A fake getProjectedUF that asks getCurrentUF, as the real one does.
+    svc.getProjectedUF.mockImplementation(async (fecha: string) => {
+      const current = await svc.getCurrentUF();
+      return { fecha, valor: current.valor, source: current.source };
+    });
+    svc.getCurrentUF.mockResolvedValue({ fecha: '2026-11-18', valor: 40000, source: 'live' });
+    const [uf, clp] = contratos();
+    uf.cuotas = [1, 2, 3].map((n) => ({ ...uf.cuotas[0], id: `q${n}`, numero_cuota: n, fecha_vencimiento: inMonthsDay(n) }));
+    render(<CashFlowView contratos={[uf, clp] as any} />);
+    expect(await screen.findByText('Actualizado automáticamente')).toBeInTheDocument();
+    await waitFor(() => expect(valueUnder('Total de Contratos')).toBe('UF 200,00 ($8.000.000)'));
+    expect(svc.getCurrentUF).toHaveBeenCalledTimes(1);
+    expect(svc.getProjectedUF).not.toHaveBeenCalled();
+  });
+
+  it('(9b) a page whose value is fixed shows projections computed from the fixed value', async () => {
+    svc.getCurrentUF.mockResolvedValue({ fecha: '2025-05-29', valor: 39184, source: 'fixed' });
+    const user = userEvent.setup();
+    render(<CashFlowView contratos={contratos() as any} />);
+    await screen.findByRole('status');
+    await user.click(screen.getByText('CLP', { exact: true, selector: 'button' }));
+    // The UF instalment (50 UF, next month) projected from 39.184, one month
+    // ahead, by the old formula: round(39.184 × 1,0021) = 39.266 → 1.963.300;
+    // plus the CLP instalment of 4.000.000.
+    expect(Math.round(39184 * Math.pow(1 + 0.0021, 1))).toBe(39266);
+    await waitFor(() => expect(valueUnderProjected()).toBe('$5.963.300'));
   });
 });

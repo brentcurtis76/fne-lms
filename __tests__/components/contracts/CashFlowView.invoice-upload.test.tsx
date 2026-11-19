@@ -52,6 +52,8 @@ vi.mock('../../../lib/uf-service', () => ({
     getProjectedUF: vi.fn(async () => ({ valor: 37500 })),
     formatCurrency: (n: number, c: string) => `${c} ${Math.round(n)}`,
   },
+  // F15d send-back 1: the screen projects with projectUF (same number as the fake getProjectedUF).
+  projectUF: vi.fn((base: { source: string }, fecha: string) => ({ fecha, valor: 37500, source: base.source })),
 }));
 
 import CashFlowView from '../../../components/contracts/CashFlowView';

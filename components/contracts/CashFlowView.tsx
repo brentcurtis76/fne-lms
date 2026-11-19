@@ -1,7 +1,7 @@
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Calendar, DollarSign, TrendingUp, AlertCircle, CheckCircle, Upload, Check, X, Filter } from 'lucide-react';
-import UFService, { getFixedUF, type UFSource } from '../../lib/uf-service';
+import UFService, { getFixedUF, projectUF, type UFSource, type UFValue } from '../../lib/uf-service';
 import { toast } from 'react-hot-toast';
 import { invoiceUploadColumns, invoiceUploadObjectName } from '../../lib/contracts/invoice-path';
 import { openInvoiceInNewTab } from '../../lib/contracts/open-invoice';
@@ -85,31 +85,43 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
   // GES-1.4: the instalment whose invoice link is being asked for.
   const [openingInvoice, setOpeningInvoice] = useState<string | null>(null);
   const [showAllOverdue, setShowAllOverdue] = useState(false);
+  // Send-back 1: each load takes the next number; a load whose number is no
+  // longer the latest (a newer load started, or the screen was left) writes
+  // nothing to the state.
+  const loadGeneration = useRef(0);
 
   useEffect(() => {
     loadUFValueAndGenerateCashFlow();
+    return () => {
+      loadGeneration.current += 1;
+    };
   }, [contratos, selectedPeriod]);
 
   const loadUFValueAndGenerateCashFlow = async () => {
-    setLoading(true);
+    const generation = ++loadGeneration.current;
+    const isCurrent = () => generation === loadGeneration.current;
+    if (isCurrent()) setLoading(true);
+    // One load, one value: the service is asked once, and everything of this
+    // load (the projection included) is computed from that value.
+    let loadValue: UFValue;
     try {
       const ufValue = await UFService.getCurrentUF();
       if (!isUsableUF(ufValue?.valor)) throw new Error('UF value not usable');
-      setCurrentUFValue(ufValue.valor);
-      setUfOrigin({ source: ufValue.source, fecha: ufValue.fecha });
-      await generateCashFlow(ufValue.valor);
+      loadValue = ufValue;
     } catch (error) {
       console.error('Error loading UF value:', error);
       // The service's fixed value, shown as such (never a number of this screen).
-      const fixed = getFixedUF();
-      setCurrentUFValue(fixed.valor);
-      setUfOrigin({ source: fixed.source, fecha: fixed.fecha });
-      await generateCashFlow(fixed.valor);
+      loadValue = getFixedUF();
     }
-    setLoading(false);
+    if (!isCurrent()) return;
+    setCurrentUFValue(loadValue.valor);
+    setUfOrigin({ source: loadValue.source, fecha: loadValue.fecha });
+    generateCashFlow(loadValue, isCurrent);
+    if (isCurrent()) setLoading(false);
   };
 
-  const generateCashFlow = async (ufValueCLP: number) => {
+  const generateCashFlow = (loadValue: UFValue, isCurrent: () => boolean) => {
+    const ufValueCLP = loadValue.valor;
     const now = new Date();
     const months = selectedPeriod === '3m' ? 3 : selectedPeriod === '6m' ? 6 : 12;
     
@@ -159,14 +171,9 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
               // Contract is in CLP, cuota.monto_uf is actually in CLP
               montoCLP = cuota.monto_uf;
             } else {
-              // Contract is in UF, convert to CLP using projected UF value for due date
-              try {
-                const projectedUF = await UFService.getProjectedUF(cuota.fecha_vencimiento);
-                montoCLP = cuota.monto_uf * projectedUF.valor;
-              } catch (error) {
-                console.warn('Using current UF value for projection:', error);
-                montoCLP = cuota.monto_uf * ufValueCLP;
-              }
+              // Contract is in UF, convert to CLP using the UF projected from
+              // this load's value for the due date
+              montoCLP = cuota.monto_uf * projectUF(loadValue, cuota.fecha_vencimiento).valor;
             }
             
             flowByMonth[cuotaMonth].cuotas.push({
@@ -200,24 +207,21 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
       a.fecha.localeCompare(b.fecha)
     );
 
-    setCashFlow(flowArray);
+    if (isCurrent()) setCashFlow(flowArray);
   };
 
   const formatCurrency = (amount: number, originalCurrency?: 'UF' | 'CLP', amountCLP?: number) => {
     // Detect if the original amount was in CLP based on size
     const isOriginalClp = originalCurrency === 'CLP' || (!originalCurrency && amount > 1000);
 
-    // N89: a conversion needs a known UF value; without one, show «—».
-    if (!isUsableUF(currentUFValue)) {
-      const needsUF =
-        currencyDisplay === 'UF' ? isOriginalClp : !isOriginalClp && !amountCLP;
-      if (needsUF) return '—';
-    }
-    const uf = currentUFValue ?? 0;
+    // N89 / send-back 1: a part that needs the UF shows «—» while the value
+    // is not known; the part that does not need it is shown as usual.
+    const uf = isUsableUF(currentUFValue) ? currentUFValue : null;
 
     if (currencyDisplay === 'UF') {
       if (isOriginalClp) {
         // Convert CLP to UF for display
+        if (uf === null) return '—';
         const ufAmount = amount / uf;
         return UFService.formatCurrency(ufAmount, 'UF');
       } else {
@@ -227,17 +231,19 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
       if (isOriginalClp) {
         return UFService.formatCurrency(amount, 'CLP');
       } else {
-        const clpAmount = amountCLP || (amount * uf);
+        if (!amountCLP && uf === null) return '—';
+        const clpAmount = amountCLP || (amount * uf!);
         return UFService.formatCurrency(clpAmount, 'CLP');
       }
     } else {
       // BOTH - show both currencies
       if (isOriginalClp) {
-        const ufAmount = amount / uf;
-        return `${UFService.formatCurrency(ufAmount, 'UF')} (${UFService.formatCurrency(amount, 'CLP')})`;
+        const ufPart = uf === null ? '—' : UFService.formatCurrency(amount / uf, 'UF');
+        return `${ufPart} (${UFService.formatCurrency(amount, 'CLP')})`;
       } else {
-        const clpAmount = amountCLP || (amount * uf);
-        return `${UFService.formatCurrency(amount, 'UF')} (${UFService.formatCurrency(clpAmount, 'CLP')})`;
+        const clpPart =
+          !amountCLP && uf === null ? '—' : UFService.formatCurrency(amountCLP || (amount * uf!), 'CLP');
+        return `${UFService.formatCurrency(amount, 'UF')} (${clpPart})`;
       }
     }
   };

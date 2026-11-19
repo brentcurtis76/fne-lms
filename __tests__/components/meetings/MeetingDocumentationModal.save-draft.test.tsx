@@ -1173,6 +1173,27 @@ describe('MeetingDocumentationModal — the background save sends what is in the
     return utils;
   }
 
+  it('send-back 1: a background save scheduled for meeting A is dropped when the same form loads meeting B', async () => {
+    const utils = await openOnStep2();
+    mockGetMeetingDetails.mockImplementation(async (id: string) =>
+      id === 'meeting-2'
+        ? { ...loadedDraft(), id: 'meeting-2', title: 'Meeting B', summary: 'Acuerdo B', summary_doc: richDoc('Acuerdo B') }
+        : loadedDraft(),
+    );
+    await act(async () => { editorOnChange.get('Resumen de la reunión…')!(richDoc('Acuerdo A')); });
+    await act(async () => {
+      utils.rerender(<MeetingDocumentationModal {...defaultProps} meetingId="meeting-2" mode="edit" />);
+    });
+    await waitFor(() => expect(mockGetMeetingDetails).toHaveBeenCalledWith('meeting-2'));
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { vi.advanceTimersByTime(5_000); });
+    await act(async () => { await Promise.resolve(); });
+    const toA = autosaves().filter(([input]) => String(input).includes('/meeting-1/'));
+    expect(toA).toHaveLength(0);
+    const withBText = autosaves().filter(([, init]) => String((init as RequestInit).body).includes('Acuerdo B'));
+    expect(withBText).toHaveLength(0);
+  });
+
   for (const [label, placeholder, field] of [
     ['summary', 'Resumen de la reunión…', 'summary_doc'],
     ['notes', 'Notas adicionales, observaciones…', 'notes_doc'],

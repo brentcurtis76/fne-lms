@@ -371,6 +371,13 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       if (mode === 'edit' && meetingId) {
+        // Send-back 1: the form moves to this meeting; a background save
+        // scheduled for the previous one must not fire with this one's text.
+        if (currentMeetingIdRef.current !== meetingId && autosaveTimerRef.current) {
+          clearTimeout(autosaveTimerRef.current);
+          autosaveTimerRef.current = null;
+        }
+        currentMeetingIdRef.current = meetingId;
         setCurrentMeetingId(meetingId);
         loadMeetingData();
         // startWorkSession is a stable useCallback([]) defined below — safe to
@@ -708,6 +715,10 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
   const runAutosave = useCallback(async () => {
     const id = currentMeetingId;
     if (!id || autosaveInFlightRef.current) return;
+    // Send-back 1: the refs hold the form's current meeting's text; if the
+    // form has moved to another meeting since this save was scheduled,
+    // send nothing.
+    if (currentMeetingIdRef.current !== id) return;
     // Send-back 1: never alongside a full save (it writes these fields too).
     if (saveInFlightRef.current) return;
     if (storedStatusRef.current !== MEETING_STATUS.BORRADOR) return;
@@ -860,6 +871,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
     setExistingAttachments([]);
     setAttachmentsToDelete([]);
     setSelectedFiles([]);
+    currentMeetingIdRef.current = meetingId ?? null;
     setCurrentMeetingId(meetingId ?? null);
     setWorkSessionId(null);
     setMeetingVersion(0);

@@ -7,7 +7,7 @@ import { getUserPrimaryRole } from '../utils/roleUtils';
 import { RecurrencePattern, RecurrenceFrequency } from '../lib/types/consultor-sessions.types';
 import { generateRecurrenceDates } from '../lib/utils/recurrence';
 import { isFeatureEnabled, FeatureFlags } from '../lib/featureFlags';
-import { formatSessionRangeForConsultant } from '../lib/utils/session-timezone';
+import { formatSessionRangeForConsultant, todayInChile } from '../lib/utils/session-timezone';
 import { parseISO } from 'date-fns';
 import type {
   School,
@@ -758,10 +758,11 @@ export function useSessionCreate() {
 
     // The earliest date a date field accepts: the clock, read once for the main date field and once
     // per custom-date row, and the rows' reads only while the custom dates are drawn (inside the
-    // series and custom-frequency branches), as the markup read them.
-    const earliestDate = new Date().toISOString().split('T')[0];
+    // series and custom-frequency branches), as the markup read them. The date is today's in Chile,
+    // whatever the time zone of the machine.
+    const earliestDate = todayInChile(new Date());
     const customDateEarliest = isRecurring && recurrenceFrequency === 'custom'
-      ? customDates.map(() => new Date().toISOString().split('T')[0])
+      ? customDates.map(() => todayInChile(new Date()))
       : [];
 
     return {

@@ -2446,6 +2446,8 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
       setSelectedThread(newThread);
       setActiveView('messages');
       setShowThreadCreationModal(false);
+      // The row was read before its first message: show the counted numbers (send-back 3).
+      void refreshThreadCounters(newThread.id);
       toast.success('Hilo de conversación creado exitosamente');
     } catch (error: any) {
       console.error('Error creating thread:', error);

@@ -487,8 +487,10 @@ export async function createThread(
         is_locked: false,
         is_archived: false,
         last_message_at: new Date().toISOString(),
-        message_count: 1,
-        participant_count: 1
+        // Zero until the first message is stored: the database trigger counts it
+        // (a conversation whose first message fails does not read «1 mensaje»).
+        message_count: 0,
+        participant_count: 0
       });
 
     // A retry whose read missed the thread: a duplicate key on the person's own

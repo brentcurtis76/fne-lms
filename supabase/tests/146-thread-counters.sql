@@ -247,6 +247,32 @@ SELECT is((SELECT custom_category_name || ' ' || assignment_group_id::text FROM 
   'group-assignment 14600000-0000-4000-8000-000000000031', 'EC-M4 group: the thread''s identity is unchanged');
 
 -- ----------------------------------------------------------------------------
+-- Send-back 3: a new conversation starts at 0 and 0 (as createThread now
+-- inserts it); a refused first message leaves it there; a stored one makes 1/1.
+-- ----------------------------------------------------------------------------
+SELECT tests.authenticate_as('f18f_m1');
+SELECT lives_ok($q$INSERT INTO public.message_threads (id, workspace_id, thread_title, category, created_by,
+                      is_pinned, is_locked, is_archived, last_message_at, message_count, participant_count)
+                    VALUES ('14600000-0000-4000-8000-000000000304', '14600000-0000-4000-8000-0000000000b1', 'F18f new',
+                      'general', auth.uid(), false, false, false, now(), 0, 0)$q$,
+  'EC-M4 send-back 3: M1 creates a conversation as the application now does (0 and 0)');
+SELECT throws_ok($q$INSERT INTO public.community_messages (workspace_id, thread_id, author_id, content)
+                    VALUES ('14600000-0000-4000-8000-0000000000b1', '14600000-0000-4000-8000-000000000304',
+                      NULL, 'Primer mensaje sin autor')$q$,
+  '42501', NULL, 'EC-M4 send-back 3: a first message that cannot be stored is refused');
+RESET ROLE;
+SELECT is(pg_temp.counters('14600000-0000-4000-8000-000000000304'), '0/0',
+  'EC-M4 send-back 3: the conversation whose first message was refused reads 0 messages, 0 participants');
+SELECT tests.authenticate_as('f18f_m1');
+SELECT lives_ok($q$INSERT INTO public.community_messages (workspace_id, thread_id, author_id, content)
+                    VALUES ('14600000-0000-4000-8000-0000000000b1', '14600000-0000-4000-8000-000000000304',
+                      auth.uid(), 'Primer mensaje')$q$,
+  'EC-M4 send-back 3: its creator stores the first message');
+RESET ROLE;
+SELECT is(pg_temp.counters('14600000-0000-4000-8000-000000000304'), '1/1',
+  'EC-M4 send-back 3: after its first message the conversation reads 1 message, 1 participant');
+
+-- ----------------------------------------------------------------------------
 -- Catalog: the function and its trigger
 -- ----------------------------------------------------------------------------
 SELECT ok(to_regprocedure('public.refresh_thread_counters()') IS NOT NULL,

@@ -319,7 +319,7 @@ describe('sendMessage (browser caller)', () => {
       headers: { 'Content-Type': 'application/json', Authorization: 'Bearer synthetic-token' },
       body: JSON.stringify({ message_id: MESSAGE, workspace_id: WORKSPACE, mentioned_user_ids: [MEMBER] }),
     });
-    expect(browser.writes.map(([table]) => table)).toEqual(['community_messages', 'message_threads']);
+    expect(browser.writes.map(([table]) => table)).toEqual(['community_messages']);
   });
 
   it.each([
@@ -329,7 +329,7 @@ describe('sendMessage (browser caller)', () => {
     vi.stubGlobal('fetch', vi.fn(reply));
 
     await expect(sendMessage(WORKSPACE, composed, AUTHOR)).resolves.toMatchObject({ id: MESSAGE });
-    expect(browser.writes.map(([table]) => table)).toEqual(['community_messages', 'message_threads']);
+    expect(browser.writes.map(([table]) => table)).toEqual(['community_messages']);
     expectCleanOutput();
   });
 

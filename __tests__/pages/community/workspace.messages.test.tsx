@@ -855,3 +855,63 @@ describe('F18f send-back 1 (3) the thread list keeps the order of the filter in 
     expect(titles()).toEqual(['Hilo A', 'Hilo A2']);
   });
 });
+
+// ---------------------------------------------------------------------------
+// F18f send-back 3: a new conversation is inserted at 0 and 0; the database
+// counts its first message. After a successful creation the page re-reads the
+// row, so the list and the open thread read 1 and 1 at once; a conversation
+// whose first message failed reads 0 and 0
+// ---------------------------------------------------------------------------
+
+describe('F18f send-back 3 the counters of a new conversation', () => {
+  const DATA = { thread_title: 'Planificación', category: 'general', initial_message: 'Mi primer mensaje' };
+  const NEW_AT_ZERO = { ...THREAD_A, id: 'thread-new', thread_title: 'Planificación', message_count: 0, participant_count: 0 };
+
+  async function openModal(utils: RenderResult) {
+    await utils.findByText(THREAD_A.thread_title);
+    await act(async () => {
+      fireEvent.click(utils.getByText('Nuevo Hilo'));
+    });
+    await utils.findByTestId('thread-modal');
+  }
+
+  it('after a successful creation the open thread and the list read 1 and 1 without a reload', async () => {
+    h.createThread = vi.fn(async () => ({ ...NEW_AT_ZERO }));
+    const utils = render(<CommunityWorkspacePage />);
+    await openModal(utils);
+
+    h.threadRow = { id: 'thread-new', message_count: 1, participant_count: 1, last_message_at: '2026-11-19T10:00:00.000Z' };
+    await act(async () => {
+      await h.modal!.onCreateThread(DATA);
+    });
+    await flush();
+    expect(utils.getByText('1 mensaje(s)')).toBeTruthy();
+
+    await act(async () => {
+      h.filters!.onViewChange('threads');
+    });
+    const card = utils.getByText('Planificación').closest('div.p-4') as HTMLElement;
+    expect(card.textContent).toContain('1 mensaje(s)');
+    expect(card.textContent).toContain('1 participante(s)');
+  });
+
+  it('a conversation whose first message failed is listed (live event) at 0 and 0', async () => {
+    h.createThread = vi.fn(async () => {
+      throw Object.assign(new Error('first message failed'), { threadId: 'thread-new' });
+    });
+    const utils = render(<CommunityWorkspacePage />);
+    await openModal(utils);
+    await act(async () => {
+      await h.modal!.onCreateThread(DATA).catch(() => undefined);
+    });
+    // The thread row exists (its live event arrives); its stored counters are 0 and 0.
+    const live = h.subscriptions[h.subscriptions.length - 1];
+    await act(async () => {
+      live.callbacks.onThread?.({ ...NEW_AT_ZERO });
+    });
+    expect(utils.queryByTestId('thread-modal')).not.toBeNull();
+    const card = utils.getByText('Planificación').closest('div.p-4') as HTMLElement;
+    expect(card.textContent).toContain('0 mensaje(s)');
+    expect(card.textContent).toContain('0 participante(s)');
+  });
+});

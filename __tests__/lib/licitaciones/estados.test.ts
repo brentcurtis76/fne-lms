@@ -87,3 +87,15 @@ describe('a state that is not in the list is never refused', () => {
 });
 
 it('NO_FINALES covers seven states', () => expect(NO_FINALES).toHaveLength(7));
+
+// send-back 1, point 1: deleting a whole tender
+import { puedeEliminarLicitacion } from '@/lib/licitaciones/estados';
+
+describe.each(TODOS)('puedeEliminarLicitacion in %s', (estado) => {
+  it('not historical: allowed only before contrato_pendiente', () => {
+    expect(puedeEliminarLicitacion(estado, false)).toBe(ANTES_DE_ADJUDICAR.includes(estado));
+  });
+  it('a historical record: always allowed', () => {
+    expect(puedeEliminarLicitacion(estado, true)).toBe(true);
+  });
+});

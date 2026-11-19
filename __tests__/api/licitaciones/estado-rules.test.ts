@@ -24,6 +24,10 @@ const { h } = vi.hoisted(() => {
     fields: {} as Record<string, string[]>,
     files: {} as Record<string, unknown[]>,
     updateTimelineDates: null as unknown as ReturnType<typeof vi.fn>,
+    // send-back 1: successive reads of the tender's estado (then h.estado), and how the
+    // admin's own-session read of estado answers
+    estados: [] as string[],
+    userRead: 'ok' as 'ok' | 'error' | 'no-row' | 'empty',
   };
   return { h };
 });
@@ -35,7 +39,14 @@ function makeClient(client: 'service' | 'user') {
   const respond = (r: Req) => {
     if (r.table === 'licitaciones') {
       if (has(r, 'update')) return { data: { id: TENDER_ID, estado: h.estado, ...(r.ops.find(o => o.method === 'update')!.args[0] as object) }, error: null };
-      return { data: { id: TENDER_ID, school_id: 1, estado: h.estado }, error: null };
+      if (has(r, 'delete')) return { data: null, error: null };
+      if (r.client === 'user' && h.userRead !== 'ok') {
+        if (h.userRead === 'error') return { data: null, error: { message: 'Synthetic transient error', code: '08006' } };
+        if (h.userRead === 'no-row') return { data: null, error: { message: 'Synthetic no row', code: 'PGRST116' } };
+        return { data: null, error: null };
+      }
+      const estado = h.estados.length > 0 ? h.estados.shift()! : h.estado;
+      return { data: { id: TENDER_ID, school_id: 1, numero_licitacion: 'LIC-1-2026-001', estado }, error: null };
     }
     if (r.table === 'licitacion_ates') {
       if (has(r, 'not')) return { data: h.atesConPropuesta, error: null };
@@ -44,6 +55,7 @@ function makeClient(client: 'service' | 'user') {
     if (r.table === 'licitacion_comision') return { data: h.comision, error: null };
     if (r.table === 'licitacion_evaluaciones') return { data: h.evaluaciones, error: null };
     if (r.table === 'licitacion_documentos') {
+      if (!has(r, 'single') && !has(r, 'insert')) return { data: [{ storage_path: 'licitaciones/x/doc.pdf' }], error: null };
       return { data: { id: DOC_ID, licitacion_id: TENDER_ID, nombre: 'Doc inventado', storage_path: 'licitaciones/x/doc.pdf' }, error: null };
     }
     if (r.table === 'licitacion_consultas') return { data: { id: 'consulta-1' }, error: null };
@@ -107,6 +119,7 @@ import {
   MENSAJE_ADJUDICADA,
   MENSAJE_CERRADA,
   MENSAJE_EVALUACION_INICIADA,
+  MENSAJE_NO_ELIMINAR,
   MENSAJE_SOLO_ANEXOS,
 } from '@/lib/licitaciones/estados';
 
@@ -154,6 +167,8 @@ beforeEach(() => {
   h.atesConPropuesta = [];
   h.fields = {};
   h.files = {};
+  h.estados = [];
+  h.userRead = 'ok';
   h.updateTimelineDates.mockClear();
 });
 
@@ -413,5 +428,179 @@ describe('upload — rule 3 (and rule 1 for the proposal kind)', () => {
     h.estado = 'adjudicacion_pendiente';
     const res = await upload('carta_adjudicacion_firmada');
     expect(res._getStatusCode()).toBe(201);
+  });
+});
+
+// ============================================================
+// Send-back 1
+// ============================================================
+
+describe('DELETE of the whole tender (send-back 1, point 1)', () => {
+  const del = () => json(detailHandler, 'DELETE');
+  const notHistorical = () => { h.atesConPropuesta = [{ id: ATE_ID }]; };
+
+  it.each(['contrato_pendiente', 'contrato_generado', 'adjudicada_externo'])('in %s → 409, nothing removed', async (estado) => {
+    h.estado = estado;
+    const res = await del();
+    expect(res._getStatusCode()).toBe(409);
+    expect(res._getJSONData()).toEqual({ error: MENSAJE_NO_ELIMINAR });
+    nothingWritten();
+  });
+
+  it('a closed tender that went through the workflow → 409, nothing removed', async () => {
+    h.estado = 'cerrada';
+    notHistorical();
+    const res = await del();
+    expect(res._getStatusCode()).toBe(409);
+    nothingWritten();
+  });
+
+  it('in propuestas_pendientes → 200, as today (files removed, tender deleted)', async () => {
+    const res = await del();
+    expect(res._getStatusCode()).toBe(200);
+    expect(h.storage.some(s => s.op === 'remove')).toBe(true);
+    expect(wrote('licitaciones', 'delete')).toBe(true);
+  });
+
+  it('a closed HISTORICAL record → 200, as today', async () => {
+    h.estado = 'cerrada';
+    const res = await del();
+    expect(res._getStatusCode()).toBe(200);
+    expect(wrote('licitaciones', 'delete')).toBe(true);
+  });
+
+  it('an encargado is still refused with 403', async () => {
+    h.roles = encargado();
+    const res = await del();
+    expect(res._getStatusCode()).toBe(403);
+    nothingWritten();
+  });
+});
+
+describe('admin PATCH when the read of estado fails (send-back 1, point 4)', () => {
+  it('a read error → 500, nothing updated', async () => {
+    h.userRead = 'error';
+    const res = await json(detailHandler, 'PATCH', { monto_maximo: 999 });
+    expect(res._getStatusCode()).toBe(500);
+    nothingWritten();
+  });
+
+  it('no row (PGRST116) → 404, nothing updated', async () => {
+    h.userRead = 'no-row';
+    const res = await json(detailHandler, 'PATCH', { monto_maximo: 999 });
+    expect(res._getStatusCode()).toBe(404);
+    expect(res._getJSONData()).toEqual({ error: 'Licitacion no encontrada' });
+    nothingWritten();
+  });
+
+  it('no row and no error → 404, nothing updated', async () => {
+    h.userRead = 'empty';
+    const res = await json(detailHandler, 'PATCH', { tipo_moneda: 'CLP' });
+    expect(res._getStatusCode()).toBe(404);
+    nothingWritten();
+  });
+
+  it('notes only, with a failing read → accepted as today (no read needed)', async () => {
+    h.userRead = 'error';
+    const res = await json(detailHandler, 'PATCH', { notas: 'Nota inventada' });
+    expect(res._getStatusCode()).toBe(200);
+  });
+
+  it('publication image only, with a failing read → accepted as today', async () => {
+    h.userRead = 'error';
+    const res = await json(detailHandler, 'PATCH', { publicacion_imagen_url: 'licitaciones/x/imagen.jpg' });
+    expect(res._getStatusCode()).toBe(200);
+  });
+
+  it('timeline branch, with a failing read → as today', async () => {
+    h.userRead = 'error';
+    const res = await json(detailHandler, 'PATCH', { timeline: { fecha_limite_consultas: '2026-03-23' } });
+    expect(res._getStatusCode()).toBe(200);
+    expect(h.updateTimelineDates).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('the state is read again before a slow write (send-back 1, point 5)', () => {
+  const P = 'propuestas_pendientes';
+  const E = 'evaluacion_pendiente';
+
+  describe('proposal upload (ates PATCH)', () => {
+    const send = () => {
+      h.fields = { ate_id: [ATE_ID] };
+      h.files = { file: [FILE] };
+      return streamed(atesHandler, 'PATCH');
+    };
+
+    it('advanced while the body arrived (re-read after parsing) → 409, nothing written', async () => {
+      h.estados = [P, E];
+      const res = await send();
+      expect(res._getStatusCode()).toBe(409);
+      expect(res._getJSONData()).toEqual({ error: MENSAJE_EVALUACION_INICIADA });
+      nothingWritten();
+    });
+
+    it('advanced just before the storage upload → 409, nothing written', async () => {
+      h.estados = [P, P, E];
+      const res = await send();
+      expect(res._getStatusCode()).toBe(409);
+      nothingWritten();
+    });
+
+    it('advanced during the storage upload → 409, the stored file removed, no row written', async () => {
+      h.estados = [P, P, P, E];
+      const res = await send();
+      expect(res._getStatusCode()).toBe(409);
+      expect(writes()).toEqual([]);
+      const uploaded = h.storage.find(s => s.op === 'upload')!.args[0];
+      expect(h.storage.filter(s => s.op === 'remove')).toEqual([{ op: 'remove', args: [[uploaded]] }]);
+    });
+
+    it('state unchanged on every read → 200, as today', async () => {
+      h.estados = [P, P, P, P];
+      const res = await send();
+      expect(res._getStatusCode()).toBe(200);
+      expect(wrote('licitacion_ates', 'update')).toBe(true);
+    });
+  });
+
+  describe('generic upload', () => {
+    const send = (tipo: string) => {
+      h.fields = { tipo: [tipo], nombre: ['Documento inventado'] };
+      h.files = { file: [FILE] };
+      const { req, res } = createMocks({ method: 'POST', query: { id: TENDER_ID } });
+      return uploadHandler(req as any, res as any).then(() => res);
+    };
+
+    it('ended while the body arrived (re-read before the storage write) → 409, nothing written', async () => {
+      h.atesConPropuesta = [{ id: ATE_ID }];
+      h.estados = ['adjudicacion_pendiente', 'contrato_generado'];
+      const res = await send('carta_adjudicacion_firmada');
+      expect(res._getStatusCode()).toBe(409);
+      expect(res._getJSONData()).toEqual({ error: MENSAJE_SOLO_ANEXOS });
+      nothingWritten();
+    });
+
+    it('ended during the storage write → 409, the stored file removed, no row written', async () => {
+      h.atesConPropuesta = [{ id: ATE_ID }];
+      h.estados = ['adjudicacion_pendiente', 'adjudicacion_pendiente', 'contrato_generado'];
+      const res = await send('carta_adjudicacion_firmada');
+      expect(res._getStatusCode()).toBe(409);
+      expect(writes()).toEqual([]);
+      const uploaded = h.storage.find(s => s.op === 'upload')!.args[0];
+      expect(h.storage.filter(s => s.op === 'remove')).toEqual([{ op: 'remove', args: [[uploaded]] }]);
+    });
+
+    it('a proposal kind, evaluation begun before the storage write → 409', async () => {
+      h.estados = [P, E];
+      const res = await send('propuesta');
+      expect(res._getStatusCode()).toBe(409);
+      nothingWritten();
+    });
+
+    it('state unchanged → 201, as today', async () => {
+      h.estados = ['adjudicacion_pendiente', 'adjudicacion_pendiente', 'adjudicacion_pendiente'];
+      const res = await send('carta_adjudicacion_firmada');
+      expect(res._getStatusCode()).toBe(201);
+    });
   });
 });

@@ -14,6 +14,7 @@ import {
 import { getUserRoles } from '@/utils/roleUtils';
 import { uuidSchema } from '@/lib/validation/schemas';
 import { motivoRechazoSubida, puedeSubirDocumento } from '@/lib/licitaciones/estados';
+import { esLicitacionHistorica, leerEstadoActual } from '@/lib/licitaciones/lecturas';
 
 export const config = {
   api: {
@@ -149,15 +150,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return sendAuthError(res, `Tipo de documento invalido: ${tipo}`, 400);
     }
 
-    // What the tender's state still accepts. Only a closed tender can be a
-    // historical record, so the record is looked up only when it matters.
-    if (!puedeSubirDocumento(licitacion.estado, tipo, false)) {
-      const esHistorica = licitacion.estado === 'cerrada'
+    // What the tender's state still accepts, read again now: the multipart body
+    // may have taken a while and the tender may have moved on meanwhile. Only a
+    // closed tender can be a historical record, so it is looked up only when it matters.
+    const rechazoActual = async (): Promise<{ status: number; message: string } | null> => {
+      const lectura = await leerEstadoActual(serviceClient, licitacionId);
+      if (lectura.ok === false) return { status: lectura.status, message: lectura.message };
+      if (puedeSubirDocumento(lectura.estado, tipo, false)) return null;
+      const esHistorica = lectura.estado === 'cerrada'
         && await esLicitacionHistorica(serviceClient, licitacionId);
-      const motivo = motivoRechazoSubida(licitacion.estado, tipo, esHistorica);
-      if (motivo) {
-        return sendAuthError(res, motivo, 409);
-      }
+      const motivo = motivoRechazoSubida(lectura.estado, tipo, esHistorica);
+      return motivo ? { status: 409, message: motivo } : null;
+    };
+
+    const rechazoAntes = await rechazoActual();
+    if (rechazoAntes) {
+      return sendAuthError(res, rechazoAntes.message, rechazoAntes.status);
     }
 
     const nombreField = Array.isArray(fields.nombre) ? fields.nombre[0] : fields.nombre;
@@ -174,6 +182,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (uploadError) {
       return sendAuthError(res, 'Error al subir el archivo', 500, uploadError.message);
+    }
+
+    // Once more after the storage write, before any row: if the tender moved on
+    // during the upload, the file just stored by this request is removed again.
+    const rechazoDespues = await rechazoActual();
+    if (rechazoDespues) {
+      await serviceClient.storage.from('licitaciones').remove([storagePath]);
+      return sendAuthError(res, rechazoDespues.message, rechazoDespues.status);
     }
 
     // Insert document record
@@ -223,27 +239,3 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 }
 
-/**
- * A historical record: a closed tender with no committee, no provider with a
- * proposal and no score — the same test the detail page uses to show the
- * archive view (pages/licitaciones/[id].tsx, data of /api/licitaciones/[id]/evaluacion).
- * Any read error counts as "not historical" (the upload is then refused).
- */
-async function esLicitacionHistorica(
-  serviceClient: ReturnType<typeof createServiceRoleClient>,
-  licitacionId: string
-): Promise<boolean> {
-  const [comisionRes, atesRes, evaluacionesRes] = await Promise.all([
-    serviceClient.from('licitacion_comision').select('id').eq('licitacion_id', licitacionId).limit(1),
-    serviceClient
-      .from('licitacion_ates')
-      .select('id')
-      .eq('licitacion_id', licitacionId)
-      .not('propuesta_url', 'is', null)
-      .limit(1),
-    serviceClient.from('licitacion_evaluaciones').select('id').eq('licitacion_id', licitacionId).limit(1),
-  ]);
-  return [comisionRes, atesRes, evaluacionesRes].every(
-    r => !r.error && Array.isArray(r.data) && r.data.length === 0
-  );
-}

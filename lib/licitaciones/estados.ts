@@ -46,6 +46,7 @@ export const MENSAJE_EVALUACION_INICIADA =
 export const MENSAJE_ADJUDICADA = 'La licitación ya fue adjudicada: sus datos no se pueden modificar.';
 export const MENSAJE_CERRADA = 'La licitación está cerrada: no se pueden agregar consultas ni eliminar documentos.';
 export const MENSAJE_SOLO_ANEXOS = 'La licitación está cerrada: solo se pueden agregar anexos u otros documentos.';
+export const MENSAJE_NO_ELIMINAR = 'La licitación ya fue adjudicada: no se puede eliminar.';
 
 /** True when `estado` is a known state at or after `desde` in the ordered list. */
 function alcanzo(estado: string | null | undefined, desde: LicitacionEstado): boolean {
@@ -71,6 +72,14 @@ export function puedeSubirPropuesta(estado: string | null | undefined): boolean 
 /** Rule 2: the admin may change the tender's own data (not notes, image or timeline: always open). */
 export function puedeEditarDatos(estado: string | null | undefined): boolean {
   return !alcanzo(estado, INICIO_ADJUDICADA);
+}
+
+/**
+ * Send-back 1: the whole tender may be deleted (with its files and rows) only
+ * before it is awarded; a historical record may always be deleted by an admin.
+ */
+export function puedeEliminarLicitacion(estado: string | null | undefined, esHistorica: boolean): boolean {
+  return esHistorica || !alcanzo(estado, INICIO_ADJUDICADA);
 }
 
 /** Rule 3: a question («consulta») may be added. */

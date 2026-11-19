@@ -830,6 +830,29 @@ export async function confirmAdjudicacion(
     updated = unguarded;
   }
 
+  // The award is the moment of truth: the providers' flags are made to agree
+  // with the awarded winner (interleaved saves can leave two flagged). Both
+  // writes stay within this tender's providers; a failure is logged and does
+  // not undo the award.
+  const winnerId =
+    ((updated as { ganador_ate_id?: string | null }).ganador_ate_id ?? existing.ganador_ate_id) as string;
+  const { error: resetError } = await supabase
+    .from('licitacion_ates')
+    .update({ es_ganador: false })
+    .eq('licitacion_id', licitacionId)
+    .neq('id', winnerId);
+  if (resetError) {
+    console.error('[licitacionService] confirmAdjudicacion: licitacion_ates reset of es_ganador failed:', resetError.message);
+  }
+  const { error: winnerError } = await supabase
+    .from('licitacion_ates')
+    .update({ es_ganador: true })
+    .eq('licitacion_id', licitacionId)
+    .eq('id', winnerId);
+  if (winnerError) {
+    console.error('[licitacionService] confirmAdjudicacion: licitacion_ates winner es_ganador write failed:', winnerError.message);
+  }
+
   // 3. Create historial entry
   const accion = esFne
     ? 'Adjudicada a ATE FNE — avanzado a Contrato Pendiente'

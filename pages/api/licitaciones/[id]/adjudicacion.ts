@@ -188,7 +188,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       updated = plain;
     }
 
-    // Update es_ganador on all ATEs (reset then set winner)
+    // Update es_ganador on all ATEs (reset then set winner). The winner is
+    // the one stored NOW, re-read after the writes above: when two saves
+    // interleave, the later one leaves the flags of the winner that stands.
+    const { data: storedWinner } = await serviceClient
+      .from('licitaciones')
+      .select('ganador_ate_id')
+      .eq('id', licitacionId)
+      .single();
+    const flagWinnerId = (storedWinner?.ganador_ate_id as string | null | undefined) ?? data.ganador_ate_id;
+
     await serviceClient
       .from('licitacion_ates')
       .update({ es_ganador: false })
@@ -197,7 +206,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     await serviceClient
       .from('licitacion_ates')
       .update({ es_ganador: true })
-      .eq('id', data.ganador_ate_id);
+      .eq('id', flagWinnerId);
 
     // Historial
     await serviceClient.from('licitacion_historial').insert({

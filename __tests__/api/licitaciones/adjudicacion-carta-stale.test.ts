@@ -21,6 +21,8 @@ const { h } = vi.hoisted(() => ({
     historyFails: false, // the invalidation's history insert answers an error
     inserts: [] as Array<{ table: string; payload: Record<string, unknown> }>,
     deletes: [] as string[],
+    ates: {} as Record<string, boolean>, // es_ganador per provider of the tender
+    otherSaveWins: null as string | null, // another save stores this winner right after the route's tender write
   },
 }));
 
@@ -32,6 +34,14 @@ vi.mock('@/lib/api-auth', async () => {
       const payload = opArgs(req, 'update')?.[0] as Record<string, unknown>;
       const eqs = req.ops.filter(o => o.method === 'eq').map(o => o.args);
       h.updates.push({ table: req.target, payload, eqs });
+      if (req.target === 'licitacion_ates') {
+        // The tender's own providers: an eq on id narrows to one, an eq on licitacion_id keeps all.
+        const idEq = eqs.find(([col]) => col === 'id');
+        for (const ateId of Object.keys(h.ates)) {
+          if (!idEq || idEq[1] === ateId) h.ates[ateId] = payload.es_ganador as boolean;
+        }
+        return { data: null, error: null };
+      }
       if (req.target !== 'licitaciones') return { data: null, error: null };
       if (h.updateFails) return { data: null, error: { message: 'base inventada caída' } };
       // The row matches only if every eq filter holds on the stored row.
@@ -41,7 +51,9 @@ vi.mock('@/lib/api-auth', async () => {
       const matches = eqs.every(([col, val]) => current[col as string] === val);
       if (!matches) return { data: null, error: null };
       h.stored = { ...current, ...payload };
-      return { data: { ...h.stored }, error: null };
+      const answer = { ...h.stored };
+      if (h.otherSaveWins) h.stored = { ...h.stored, ganador_ate_id: h.otherSaveWins };
+      return { data: answer, error: null };
     }
     if (has(req, 'insert')) {
       const payload = opArgs(req, 'insert')?.[0] as Record<string, unknown>;
@@ -105,6 +117,7 @@ beforeEach(() => {
   h.updates = []; h.inserts = []; h.deletes = [];
   h.pointerChanged = false; h.updateFails = false; h.historyFails = false;
   h.stored = initialRow();
+  h.ates = {}; h.otherSaveWins = null;
 });
 
 async function save(body: unknown) {
@@ -219,5 +232,25 @@ describe('adjudicacion — a Carta made for earlier values stops counting (LIC-D
     expect(logged).toHaveBeenCalledWith(expect.stringContaining('licitacion_historial'), 'historial inventado caído');
     expect(historyActions()).toEqual(['Datos de adjudicacion guardados']);
     logged.mockRestore();
+  });
+});
+
+describe('adjudicacion — the flags follow the stored winner, re-read after the writes (join fix 2)', () => {
+  it('sent winner A, but another save stored B meanwhile: the flags end as B true, A false', async () => {
+    h.stored = { ...initialRow(), carta_adjudicacion_url: null };
+    h.ates = { [ATE_A]: false, [ATE_B]: true }; // the other save already flagged B
+    h.otherSaveWins = ATE_B;
+    const r = await save({ ...sameBody(), ganador_ate_id: ATE_A });
+    expect(r.status).toBe(200);
+    expect(h.stored.ganador_ate_id).toBe(ATE_B);
+    expect(h.ates).toEqual({ [ATE_A]: false, [ATE_B]: true });
+  });
+
+  it('with no other save, the flags follow the winner it was sent', async () => {
+    h.stored = { ...initialRow(), carta_adjudicacion_url: null };
+    h.ates = { [ATE_A]: true, [ATE_B]: false };
+    const r = await save({ ...sameBody(), ganador_ate_id: ATE_B });
+    expect(r.status).toBe(200);
+    expect(h.ates).toEqual({ [ATE_A]: false, [ATE_B]: true });
   });
 });

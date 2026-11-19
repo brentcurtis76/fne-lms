@@ -744,13 +744,21 @@ export async function updateTimelineDates(
  * - contrato_pendiente (if FNE wins, esFne = true)
  * - adjudicada_externo (if external, esFne = false)
  * Creates historial entry.
+ * With expectedGanadorAteId (the provider on the screen), the award update is
+ * guarded by it: the tender is awarded only while that provider is still the
+ * stored winner; otherwise it throws GANADOR_NO_GUARDADO and writes nothing.
+ * Without it, as before.
  */
 export async function confirmAdjudicacion(
   supabase: SupabaseClient,
   licitacionId: string,
   esFne: boolean,
-  userId: string
+  userId: string,
+  expectedGanadorAteId?: string
 ): Promise<Licitacion> {
+  const GANADOR_NO_GUARDADO =
+    'El ganador seleccionado no está guardado. Guarde la adjudicación y vuelva a confirmar.';
+
   // 1. Fetch current licitacion
   const { data: existing, error: fetchError } = await supabase
     .from('licitaciones')
@@ -774,6 +782,10 @@ export async function confirmAdjudicacion(
     );
   }
 
+  if (expectedGanadorAteId !== undefined && existing.ganador_ate_id !== expectedGanadorAteId) {
+    throw new Error(GANADOR_NO_GUARDADO);
+  }
+
   // The contract step needs the generated Carta; an award to the foundation
   // confirmed without it would leave the tender stuck in contrato_pendiente.
   if (esFne && !existing.carta_adjudicacion_url) {
@@ -783,19 +795,39 @@ export async function confirmAdjudicacion(
   const newEstado: LicitacionEstado = esFne ? 'contrato_pendiente' : 'adjudicada_externo';
 
   // 2. Update estado and ganador_es_fne
-  const { data: updated, error: updateError } = await supabase
+  const awardUpdate = supabase
     .from('licitaciones')
     .update({
       estado: newEstado,
       ganador_es_fne: esFne,
       fecha_adjudicacion: dateToString(new Date()),
     })
-    .eq('id', licitacionId)
-    .select('*')
-    .single();
+    .eq('id', licitacionId);
 
-  if (updateError || !updated) {
-    throw new Error(`Error al confirmar adjudicacion: ${updateError?.message || 'Error desconocido'}`);
+  let updated: unknown;
+  if (expectedGanadorAteId !== undefined) {
+    // The check and the award in one statement: no row when the stored winner
+    // changed after the read above.
+    const { data: guarded, error: guardedError } = await awardUpdate
+      .eq('ganador_ate_id', expectedGanadorAteId)
+      .select('*')
+      .maybeSingle();
+    if (guardedError) {
+      throw new Error(`Error al confirmar adjudicacion: ${guardedError.message || 'Error desconocido'}`);
+    }
+    if (!guarded) {
+      throw new Error(GANADOR_NO_GUARDADO);
+    }
+    updated = guarded;
+  } else {
+    const { data: unguarded, error: updateError } = await awardUpdate
+      .select('*')
+      .single();
+
+    if (updateError || !unguarded) {
+      throw new Error(`Error al confirmar adjudicacion: ${updateError?.message || 'Error desconocido'}`);
+    }
+    updated = unguarded;
   }
 
   // 3. Create historial entry

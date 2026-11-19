@@ -98,7 +98,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Execute confirmation (handles state transition + historial)
-    const updated = await confirmAdjudicacion(serviceClient, licitacionId, es_fne, user.id);
+    // The service guards its own award update by the selected provider, so a
+    // winner saved by someone else after the check above is refused too.
+    const updated = await confirmAdjudicacion(serviceClient, licitacionId, es_fne, user.id, selectedAteId);
 
     // Fire-and-forget notification (async IIFE to allow sequential fetches)
     (async () => {
@@ -134,6 +136,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return sendApiResponse(res, { licitacion: updated });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Error inesperado';
+    if (message === GANADOR_NO_GUARDADO) {
+      return sendAuthError(res, GANADOR_NO_GUARDADO, 409);
+    }
     const isBizError =
       message.includes('estado') || message.includes('ganador') || message.includes('ATE') ||
       message.includes('Carta');

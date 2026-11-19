@@ -172,3 +172,26 @@ describe('Step 6 — the award form in the tender\'s currency (LIC-B2, LIC-B8)',
     expect(screen.queryByText(/CLP/)).not.toBeInTheDocument();
   });
 });
+
+describe('Step 6 — a value cleared on the screen is saved as cleared (send-back 1)', () => {
+  it('clearing the payment conditions then confirming sends null for them, before the confirmation', async () => {
+    render(<Step6Adjudicacion
+      licitacion={lic({ condiciones_pago: 'Pago inventado', contacto_coordinacion_email: 'c@inventado.test', monto_adjudicado_uf: 400 } as never)}
+      isAdmin onRefresh={vi.fn()} />);
+    fireEvent.change(await screen.findByLabelText(/Condiciones de pago/), { target: { value: '' } });
+    fireEvent.change(screen.getByLabelText(/Correo coordinacion/), { target: { value: '' } });
+    fireEvent.change(screen.getByLabelText(/Monto adjudicado/), { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: /Proveedor Externo/ }));
+    await waitFor(() => expect(calls().some(c => c.url.endsWith('/adjudicacion-confirmar'))).toBe(true));
+    const saveCall = calls().find(c => c.url.endsWith('/adjudicacion'))!;
+    expect(saveCall.body).toEqual({
+      ganador_ate_id: 'ate-a',
+      monto_adjudicado_uf: null,
+      condiciones_pago: null,
+      fecha_oferta_ganadora: null,
+      contacto_coordinacion_nombre: null,
+      contacto_coordinacion_email: null,
+      contacto_coordinacion_telefono: null,
+    });
+  });
+});

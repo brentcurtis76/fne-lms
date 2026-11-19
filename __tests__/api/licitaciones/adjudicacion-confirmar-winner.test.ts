@@ -12,6 +12,7 @@ const { h } = vi.hoisted(() => ({
     licitacion: {} as Record<string, unknown>,
     updates: [] as Array<{ table: string; payload: unknown }>,
     inserts: [] as string[],
+    winnerAtUpdate: null as string | null, // set: the stored winner when the award update runs
   },
 }));
 
@@ -20,6 +21,8 @@ vi.mock('@/lib/api-auth', async () => {
   const fake = createRecordingSupabase();
   fake.state.respond = (req) => {
     if (has(req, 'update')) {
+      const guard = req.ops.find(o => o.method === 'eq' && o.args[0] === 'ganador_ate_id');
+      if (guard && h.winnerAtUpdate && guard.args[1] !== h.winnerAtUpdate) return { data: null, error: null };
       h.updates.push({ table: req.target, payload: opArgs(req, 'update')?.[0] });
       return { data: { ...h.licitacion, ...(opArgs(req, 'update')?.[0] as object) }, error: null };
     }
@@ -43,6 +46,7 @@ vi.mock('@/utils/roleUtils', () => ({
 }));
 vi.mock('@/lib/notificationService', () => ({ default: { triggerNotification: vi.fn(async () => undefined) } }));
 
+import notificationService from '@/lib/notificationService';
 import confirmar from '@/pages/api/licitaciones/[id]/adjudicacion-confirmar';
 
 const LIC = '22222222-2222-4222-8222-222222222222';
@@ -50,7 +54,7 @@ const ATE_A = '33333333-3333-4333-8333-333333333333';
 const ATE_B = '44444444-4444-4444-8444-444444444444';
 
 beforeEach(() => {
-  h.updates = []; h.inserts = [];
+  h.updates = []; h.inserts = []; h.winnerAtUpdate = null;
   h.licitacion = {
     id: LIC, estado: 'adjudicacion_pendiente', school_id: 1, ganador_ate_id: ATE_A,
     carta_adjudicacion_url: 'licitaciones/x/adjudicacion/c.docx', numero_licitacion: 'LIC-1-2026-001',
@@ -88,5 +92,17 @@ describe('adjudicacion-confirmar — the selected provider must be the stored wi
     const r = await call({ es_fne: true, ganador_ate_id: 'not-a-uuid' });
     expect(r.status).toBe(400);
     expect(h.updates).toHaveLength(0);
+  });
+
+  it('answers 409 with the sentence and sends no notification when the winner changes after the route\'s check (send-back 1)', async () => {
+    h.winnerAtUpdate = ATE_B; // another person saved B between the comparison and the award
+    vi.mocked(notificationService.triggerNotification).mockClear();
+    const r = await call({ es_fne: false, ganador_ate_id: ATE_A });
+    expect(r.status).toBe(409);
+    expect(r.json.error).toBe('El ganador seleccionado no está guardado. Guarde la adjudicación y vuelva a confirmar.');
+    expect(h.updates).toHaveLength(0);
+    expect(h.inserts).toHaveLength(0);
+    await new Promise(r2 => setTimeout(r2, 0));
+    expect(notificationService.triggerNotification).not.toHaveBeenCalled();
   });
 });

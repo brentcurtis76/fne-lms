@@ -136,10 +136,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (data.contacto_coordinacion_email !== undefined) updatePayload.contacto_coordinacion_email = data.contacto_coordinacion_email;
     if (data.contacto_coordinacion_telefono !== undefined) updatePayload.contacto_coordinacion_telefono = data.contacto_coordinacion_telefono;
 
-    // A Carta generated for other values stops counting: empty the tender's
-    // pointer in this same update (the document row stays as history). Only a
-    // CHANGE of a printed value clears it, so the save «Generar Carta» makes
-    // just before generating keeps the Carta it is about to replace.
+    // A Carta generated for other values stops counting: the tender's pointer
+    // to it is emptied (the document row stays as history). Only a CHANGE of a
+    // printed value clears it — a cleared value is a change — so the save
+    // «Generar Carta» makes just before generating keeps the Carta.
     const changedFields: string[] = [];
     if (updatePayload.ganador_ate_id !== licitacion.ganador_ate_id) changedFields.push('ganador_ate_id');
     if ('monto_adjudicado_uf' in updatePayload &&
@@ -149,8 +149,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     for (const field of CARTA_TEXT_FIELDS) {
       if (field in updatePayload && !sameText(licitacion[field], updatePayload[field])) changedFields.push(field);
     }
-    const cartaInvalidada = !!licitacion.carta_adjudicacion_url && changedFields.length > 0;
-    if (cartaInvalidada) updatePayload.carta_adjudicacion_url = null;
+    const cartaLeida = licitacion.carta_adjudicacion_url as string | null;
+    const cartaDesactualizada = !!cartaLeida && changedFields.length > 0;
 
     // Update licitacion
     const { data: updated, error: updateError } = await serviceClient
@@ -162,6 +162,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (updateError || !updated) {
       return sendAuthError(res, `Error al guardar adjudicacion: ${updateError?.message || 'Error desconocido'}`, 500);
+    }
+
+    // Empty the pointer only where it still holds the Carta read above: a Carta
+    // generated meanwhile (for the values now saved) is left alone.
+    let cartaInvalidada = false;
+    if (cartaDesactualizada) {
+      const { data: cleared, error: clearError } = await serviceClient
+        .from('licitaciones')
+        .update({ carta_adjudicacion_url: null })
+        .eq('id', licitacionId)
+        .eq('carta_adjudicacion_url', cartaLeida)
+        .select('id');
+      if (clearError) {
+        console.error('[licitaciones-adjudicacion] Carta pointer clear failed:', clearError.message);
+      } else {
+        cartaInvalidada = Array.isArray(cleared) && cleared.length > 0;
+      }
+      if (cartaInvalidada) (updated as Record<string, unknown>).carta_adjudicacion_url = null;
     }
 
     // Update es_ganador on all ATEs (reset then set winner)
@@ -186,7 +204,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
 
     if (cartaInvalidada) {
-      await serviceClient.from('licitacion_historial').insert({
+      // No transaction is available here: if this line fails, the invalidation
+      // stands, the failure is logged and the answer says no line was written.
+      const { error: histError } = await serviceClient.from('licitacion_historial').insert({
         licitacion_id: licitacionId,
         accion: 'Carta de Adjudicacion anulada por cambio de datos',
         estado_anterior: licitacion.estado,
@@ -194,7 +214,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         detalles: { carta_anterior: licitacion.carta_adjudicacion_url, campos_cambiados: changedFields },
         user_id: user.id,
       });
-      return sendApiResponse(res, { licitacion: updated, carta_invalidada: true }, 200, CARTA_INVALIDADA_MSG);
+      if (histError) {
+        console.error('[licitaciones-adjudicacion] licitacion_historial insert failed (Carta invalidada):', histError.message);
+      }
+      return sendApiResponse(
+        res,
+        { licitacion: updated, carta_invalidada: true, historial_registrado: !histError },
+        200,
+        CARTA_INVALIDADA_MSG
+      );
     }
 
     return sendApiResponse(res, { licitacion: updated, carta_invalidada: false });

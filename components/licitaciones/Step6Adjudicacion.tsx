@@ -120,15 +120,17 @@ export default function Step6Adjudicacion({
 
     setSaving(true);
     try {
+      // What is on the screen, including what was cleared: an empty input is
+      // sent as null so the stored value is cleared too.
       const body: Record<string, unknown> = {
         ganador_ate_id: selectedAteId,
+        monto_adjudicado_uf: montoAdjudicado ? parseFloat(montoAdjudicado) : null,
+        condiciones_pago: condicionesPago || null,
+        fecha_oferta_ganadora: fechaOferta || null,
+        contacto_coordinacion_nombre: contactoNombre || null,
+        contacto_coordinacion_email: contactoEmail || null,
+        contacto_coordinacion_telefono: contactoTelefono || null,
       };
-      if (montoAdjudicado) body.monto_adjudicado_uf = parseFloat(montoAdjudicado);
-      if (condicionesPago) body.condiciones_pago = condicionesPago;
-      if (fechaOferta) body.fecha_oferta_ganadora = fechaOferta;
-      if (contactoNombre) body.contacto_coordinacion_nombre = contactoNombre;
-      if (contactoEmail) body.contacto_coordinacion_email = contactoEmail;
-      if (contactoTelefono) body.contacto_coordinacion_telefono = contactoTelefono;
 
       const res = await fetch(`/api/licitaciones/${licitacionId}/adjudicacion`, {
         method: 'POST',

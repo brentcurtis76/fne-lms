@@ -34,6 +34,9 @@ export const tableRows: Record<string, any[]> = {};
 /** meeting id → rights get_my_meeting_rights answers (default: may edit and read). */
 export const meetingRights: Record<string, { can_edit?: boolean; can_read_content?: boolean }> = {};
 
+/** Send-back 3: who `auth.getUser()` answers as signed in (default: nobody). */
+export const authState: { user: { id: string } | null } = { user: null };
+
 export function seedRows(table: string, rows: any[]) {
   tableRows[table] = rows.map((row) => ({ ...row }));
 }
@@ -53,6 +56,7 @@ export function resetMeetingSupabaseMock() {
   }
   fromCalls.length = 0;
   refusedWrites.clear();
+  authState.user = null;
 }
 
 let insertCounter = 0;
@@ -168,6 +172,10 @@ export function makeMeetingSupabaseClient() {
       }));
       return { data, error: null };
     }),
+    // Send-back 3: the signed-in person, as supabase-js answers it.
+    auth: {
+      getUser: vi.fn(async () => ({ data: { user: authState.user ? { ...authState.user } : null }, error: null })),
+    },
     storage: {
       from: () => ({
         remove: vi.fn(async (paths: string[]) => {

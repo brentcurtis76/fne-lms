@@ -288,6 +288,17 @@ export async function updateMeeting(
   expectedVersion?: number
 ): Promise<{ success: boolean; error?: any; conflict?: boolean; version?: number }> {
   try {
+    // Send-back 3: the full save records who saved (as the background save
+    // and the finalize route do), so a later conflict names the right person.
+    // No signed-in person found: the update goes on without the field.
+    let savedBy: string | undefined;
+    try {
+      const { data: authData } = await supabase.auth.getUser();
+      savedBy = authData?.user?.id ?? undefined;
+    } catch {
+      savedBy = undefined;
+    }
+
     if (expectedVersion !== undefined) {
       const versionedPayload: Record<string, any> = {
         title: updates.title,
@@ -300,6 +311,7 @@ export async function updateMeeting(
         updated_at: new Date().toISOString(),
         version: expectedVersion + 1,
       };
+      if (savedBy) versionedPayload.updated_by = savedBy;
       if (updates.summary_doc !== undefined) versionedPayload.summary_doc = updates.summary_doc;
       if (updates.notes_doc !== undefined) versionedPayload.notes_doc = updates.notes_doc;
 
@@ -354,6 +366,7 @@ export async function updateMeeting(
       notes: updates.notes,
       updated_at: new Date().toISOString()
     };
+    if (savedBy) updatePayload.updated_by = savedBy;
     if (updates.summary_doc !== undefined) updatePayload.summary_doc = updates.summary_doc;
     if (updates.notes_doc !== undefined) updatePayload.notes_doc = updates.notes_doc;
 

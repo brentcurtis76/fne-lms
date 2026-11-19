@@ -15,6 +15,7 @@ import {
   failingReads,
   refusedWrites,
   meetingRights,
+  authState,
 } from './meetingSupabaseMock';
 
 // Capture TipTapEditor onChange callbacks keyed by placeholder. Placeholders
@@ -856,6 +857,46 @@ describe('MeetingDocumentationModal — the full save checks the version (EC-R11
     expect(tableRows.community_meetings).toHaveLength(1);
     expect(tableRows.community_meetings[0].version).toBe(2);
     expect(toastError).not.toHaveBeenCalled();
+  });
+
+  // Send-back 3: the full save records who saved, so a later background
+  // save's conflict names the right person.
+  it('a full save by a signed-in person writes updated_by = that person', async () => {
+    await useRealUpdateMeeting();
+    authState.user = { id: BRUNO.id };
+    mockGetMeetingDetails.mockResolvedValue(loadedDraft());
+    seedRows('community_meetings', [{ id: 'meeting-1', title: 'Existing meeting', status: 'borrador', version: 1, updated_by: ANA.id }]);
+    const utils = await openEditOnStep3();
+
+    await click(utils.getByRole('button', { name: /Guardar borrador/i }));
+    await waitFor(() => expect(toastSuccess).toHaveBeenCalledWith('Borrador guardado'));
+    expect(capturedCalls['update:community_meetings'][0].updated_by).toBe(BRUNO.id);
+    expect(tableRows.community_meetings[0]).toMatchObject({ updated_by: BRUNO.id, version: 2 });
+  });
+
+  it('with nobody signed in, the full save goes out without updated_by', async () => {
+    await useRealUpdateMeeting();
+    authState.user = null;
+    mockGetMeetingDetails.mockResolvedValue(loadedDraft());
+    seedRows('community_meetings', [{ id: 'meeting-1', title: 'Existing meeting', status: 'borrador', version: 1 }]);
+    const utils = await openEditOnStep3();
+
+    await click(utils.getByRole('button', { name: /Guardar borrador/i }));
+    await waitFor(() => expect(toastSuccess).toHaveBeenCalledWith('Borrador guardado'));
+    expect(capturedCalls['update:community_meetings']).toHaveLength(1);
+    expect(capturedCalls['update:community_meetings'][0]).not.toHaveProperty('updated_by');
+    expect(tableRows.community_meetings[0].version).toBe(2);
+  });
+
+  it('without a version check, updateMeeting also writes updated_by = the signed-in person', async () => {
+    const actual = await vi.importActual<typeof import('../../../utils/meetingUtils')>('../../../utils/meetingUtils');
+    authState.user = { id: ANA.id };
+    seedRows('community_meetings', [{ id: 'meeting-1', title: 'Existing meeting', status: 'borrador', version: 1 }]);
+
+    const answer = await actual.updateMeeting('meeting-1', { title: 'Nuevo título', status: 'borrador' } as any);
+
+    expect(answer.success).toBe(true);
+    expect(capturedCalls['update:community_meetings'][0].updated_by).toBe(ANA.id);
   });
 });
 

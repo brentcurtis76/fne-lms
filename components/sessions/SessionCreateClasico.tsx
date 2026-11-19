@@ -79,6 +79,7 @@ export default function SessionCreateClasico({
     consultantSelectorDisabled,
     selectableConsultants,
     earliestDate,
+    customDateEarliest,
     showRecurrence,
     showRecurrenceCount,
     showCustomDates,
@@ -417,7 +418,7 @@ export default function SessionCreateClasico({
                   name="session_date"
                   value={formData.session_date}
                   onChange={handleInputChange}
-                  min={earliestDate()}
+                  min={earliestDate}
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
                   required
                 />
@@ -549,7 +550,7 @@ export default function SessionCreateClasico({
                             type="date"
                             value={date}
                             onChange={(e) => handleCustomDateInput(index, e)}
-                            min={earliestDate()}
+                            min={customDateEarliest[index]}
                             className="flex-1 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
                           />
                           {canRemoveCustomDate() && (

@@ -750,6 +750,14 @@ export function useSessionCreate() {
       formData.end_time
     );
 
+    // The earliest date a date field accepts: the clock, read once for the main date field and once
+    // per custom-date row, and the rows' reads only while the custom dates are drawn (inside the
+    // series and custom-frequency branches), as the markup read them.
+    const earliestDate = new Date().toISOString().split('T')[0];
+    const customDateEarliest = isRecurring && recurrenceFrequency === 'custom'
+      ? customDates.map(() => new Date().toISOString().split('T')[0])
+      : [];
+
     return {
       zoomManagedAvailable,
       spainTimePreview,
@@ -792,8 +800,8 @@ export function useSessionCreate() {
       consultantSelectorDisabled: () => consultants.length === 0 && !consultantsError,
       selectableConsultants: () => consultants
         .filter((c) => !facilitators.find((f) => f.user_id === c.id)),
-      // The earliest date a date field accepts: the clock, read each time a field is drawn.
-      earliestDate: () => new Date().toISOString().split('T')[0],
+      earliestDate,
+      customDateEarliest,
       // Recurrence (all but the first asked only inside the series branch; the removal per row)
       showRecurrence: isRecurring,
       showRecurrenceCount: () => recurrenceFrequency !== 'custom',

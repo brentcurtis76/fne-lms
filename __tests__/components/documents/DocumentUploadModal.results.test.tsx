@@ -145,4 +145,95 @@ describe('DocumentUploadModal: each file reports for itself (F18e)', () => {
     open();
     expect(screen.getByPlaceholderText('Título del documento').getAttribute('maxLength')).toBe('200');
   });
+
+  // ---- send-back 1 ----
+  it('each file keeps a stable identity across tries: the retry of file 2 sends the same document id and storage path', async () => {
+    h.uploadDocument = vi.fn(async (_ws: string, data: { files: File[] }) => {
+      const f = data.files[0];
+      return f.name === 'Dos.pdf'
+        ? { uploaded: [], failed: [{ fileName: f.name, message: STORE_FAILED }], warnings: [] }
+        : { uploaded: [record(`doc-${f.name}`, f.name)], failed: [], warnings: [] };
+    });
+    const { container } = open();
+    choose(container, [pdf('Uno.pdf'), pdf('Dos.pdf')]);
+    setTitle('Actas');
+    fireEvent.click(screen.getByRole('button', { name: /^Subir Documentos/ }));
+    await waitFor(() => expect(screen.getAllByTestId('upload-result')).toHaveLength(2));
+    const firstCalls = h.uploadDocument.mock.calls.map((c) => ({ name: (c[1] as { files: File[] }).files[0].name, identity: (c[3] as any[])[0] }));
+    const uno = firstCalls.find((c) => c.name === 'Uno.pdf')!.identity;
+    const dos = firstCalls.find((c) => c.name === 'Dos.pdf')!.identity;
+    expect(uno.documentId).toMatch(/^[0-9a-f-]{36}$/);
+    expect(dos.documentId).toMatch(/^[0-9a-f-]{36}$/);
+    expect(uno.documentId).not.toBe(dos.documentId);
+    expect(dos.storagePath).toMatch(/^documents\/ws-A\/root\/\d+-dos\.pdf$/);
+
+    h.uploadDocument.mockClear();
+    await new Promise((r) => setTimeout(r, 5));
+    fireEvent.click(screen.getByRole('button', { name: /^Subir Documentos/ }));
+    await waitFor(() => expect(h.uploadDocument).toHaveBeenCalledTimes(1));
+    expect((h.uploadDocument.mock.calls[0][3] as any[])[0]).toEqual(dos);
+  });
+
+  it('a finished try\'s close timer does not close a later try: success, then within 1.5 s another file is chosen and uploaded', async () => {
+    let releaseSecond: (v: unknown) => void = () => {};
+    h.uploadDocument = vi
+      .fn()
+      .mockImplementationOnce(async (_ws: string, data: { files: File[] }) => ({ uploaded: [record('doc-1', data.files[0].name)], failed: [], warnings: [] }))
+      .mockImplementationOnce(() => new Promise((resolve) => { releaseSecond = resolve; }));
+    const { container, onUploadComplete, onClose } = open();
+    choose(container, [pdf('Uno.pdf')]);
+    setTitle('Acta');
+    fireEvent.click(screen.getByRole('button', { name: /^Subir Documentos/ }));
+    await waitFor(() => expect(onUploadComplete).toHaveBeenCalledTimes(1));
+    choose(container, [pdf('Dos.pdf')]);
+    fireEvent.click(screen.getByRole('button', { name: /^Subir Documentos/ }));
+    await waitFor(() => expect(h.uploadDocument).toHaveBeenCalledTimes(2));
+    await new Promise((r) => setTimeout(r, 1700));
+    expect(onClose).not.toHaveBeenCalled();
+    releaseSecond({ uploaded: [], failed: [{ fileName: 'Dos.pdf', message: STORE_FAILED }], warnings: [] });
+    await waitFor(() => expect(selectedNames()).toEqual(['Dos.pdf']));
+    await new Promise((r) => setTimeout(r, 1700));
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('choosing a file after a success cancels the pending close', async () => {
+    h.uploadDocument = vi.fn(async (_ws: string, data: { files: File[] }) => ({ uploaded: [record('doc-1', data.files[0].name)], failed: [], warnings: [] }));
+    const { container, onUploadComplete, onClose } = open();
+    choose(container, [pdf('Uno.pdf')]);
+    setTitle('Acta');
+    fireEvent.click(screen.getByRole('button', { name: /^Subir Documentos/ }));
+    await waitFor(() => expect(onUploadComplete).toHaveBeenCalledTimes(1));
+    choose(container, [pdf('Dos.pdf')]);
+    await new Promise((r) => setTimeout(r, 1700));
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('unmounting cancels the pending close', async () => {
+    h.uploadDocument = vi.fn(async (_ws: string, data: { files: File[] }) => ({ uploaded: [record('doc-1', data.files[0].name)], failed: [], warnings: [] }));
+    const { container, onUploadComplete, onClose, unmount } = open();
+    choose(container, [pdf('Uno.pdf')]);
+    setTitle('Acta');
+    fireEvent.click(screen.getByRole('button', { name: /^Subir Documentos/ }));
+    await waitFor(() => expect(onUploadComplete).toHaveBeenCalledTimes(1));
+    unmount();
+    await new Promise((r) => setTimeout(r, 1700));
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('a try with a warning does not close by itself; the warning stays until the person closes the window', async () => {
+    const WARNING = 'El documento se guardó, pero no su historial de versiones.';
+    h.uploadDocument = vi.fn(async (_ws: string, data: { files: File[] }) => ({
+      uploaded: [record('doc-1', data.files[0].name)], failed: [], warnings: [{ fileName: data.files[0].name, message: WARNING }],
+    }));
+    const { container, onUploadComplete, onClose } = open();
+    choose(container, [pdf('Uno.pdf')]);
+    setTitle('Acta');
+    fireEvent.click(screen.getByRole('button', { name: /^Subir Documentos/ }));
+    await waitFor(() => expect(onUploadComplete).toHaveBeenCalledTimes(1));
+    await new Promise((r) => setTimeout(r, 1700));
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByText(WARNING)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
 });

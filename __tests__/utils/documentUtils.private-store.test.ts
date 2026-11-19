@@ -16,19 +16,37 @@ const state = vi.hoisted(() => ({
   documentInsertError: null as null | { message: string },
   uploadFailFor: [] as string[],
   versionInsertError: null as null | { message: string },
+  // send-back 1: queued answers of the record insert, the stored objects, and what a re-read finds
+  documentInsertAnswers: [] as Array<{ data: unknown; error: unknown }>,
+  storedObjects: new Set<string>(),
+  storedDocument: null as null | Record<string, unknown>,
+  storedVersions: [] as Array<{ id: string }>,
   session: { access_token: 'synthetic-token' } as null | { access_token: string },
 }));
 
 function builder(table: string) {
+  let inserting = false;
   const chain: any = {
-    insert: (arg: unknown) => (state.calls.push({ table, op: 'insert', arg }), chain),
+    insert: (arg: unknown) => ((inserting = true), state.calls.push({ table, op: 'insert', arg }), chain),
     select: () => chain,
-    single: async () =>
-      table === 'community_documents' && state.documentInsertError
+    eq: () => chain,
+    limit: () => chain,
+    single: async () => {
+      if (table === 'community_documents' && state.documentInsertAnswers.length > 0) {
+        return state.documentInsertAnswers.shift();
+      }
+      return table === 'community_documents' && state.documentInsertError
         ? { data: null, error: state.documentInsertError }
-        : { data: { id: 'doc-new', ...(state.calls.filter((c) => c.table === table).pop()?.arg as object) }, error: null },
-    then: (resolve: (v: unknown) => unknown) =>
-      Promise.resolve({ data: null, error: table === 'document_versions' ? state.versionInsertError : null }).then(resolve),
+        : { data: { id: 'doc-new', ...(state.calls.filter((c) => c.table === table).pop()?.arg as object) }, error: null };
+    },
+    maybeSingle: async () => (state.calls.push({ table, op: 'read' }), { data: state.storedDocument, error: null }),
+    then: (resolve: (v: unknown) => unknown) => {
+      if (table === 'document_versions' && !inserting) {
+        state.calls.push({ table, op: 'read' });
+        return Promise.resolve({ data: state.storedVersions, error: null }).then(resolve);
+      }
+      return Promise.resolve({ data: null, error: table === 'document_versions' ? state.versionInsertError : null }).then(resolve);
+    },
   };
   return chain;
 }
@@ -40,12 +58,18 @@ vi.mock('../../lib/supabase-wrapper', () => ({
     auth: { getSession: async () => ({ data: { session: state.session } }) },
     storage: {
       from: (bucket: string) => ({
-        upload: async (path: string) => (
-          state.storage.push({ bucket, op: 'upload', path }),
-          state.uploadFailFor.some((n) => path.toLowerCase().endsWith(n.toLowerCase()))
-            ? { data: null, error: { message: 'store refused' } }
-            : { data: { path }, error: null }
-        ),
+        upload: async (path: string) => {
+          state.storage.push({ bucket, op: 'upload', path });
+          if (state.uploadFailFor.some((n) => path.toLowerCase().endsWith(n.toLowerCase()))) {
+            return { data: null, error: { message: 'store refused' } };
+          }
+          if (state.storedObjects.has(path)) {
+            // the storage client's StorageApiError for the store's duplicate answer
+            return { data: null, error: { name: 'StorageApiError', message: 'The resource already exists', status: 409, statusCode: '409' } };
+          }
+          state.storedObjects.add(path);
+          return { data: { path }, error: null };
+        },
         remove: async (paths: string[]) => (state.storage.push({ bucket, op: 'remove', path: paths.join(',') }), { data: null, error: null }),
         getPublicUrl: (path: string) => (state.storage.push({ bucket, op: 'getPublicUrl', path }), { data: { publicUrl: `public/${path}` } }),
       }),
@@ -66,6 +90,10 @@ beforeEach(() => {
   state.documentInsertError = null;
   state.uploadFailFor = [];
   state.versionInsertError = null;
+  state.documentInsertAnswers = [];
+  state.storedObjects = new Set();
+  state.storedDocument = null;
+  state.storedVersions = [];
   state.session = { access_token: 'synthetic-token' };
 });
 afterEach(() => {
@@ -185,6 +213,90 @@ describe('uploadDocument: each file reports for itself (F18e)', () => {
     );
     expect(result.failed).toEqual([{ fileName: 'Uno.exe', message: 'Tipo de archivo no soportado: application/x-msdownload' }]);
     expect(state.storage).toEqual([]);
+  });
+});
+
+// F18e send-back 1: a document keeps its identity (id and storage path) across tries.
+describe('uploadDocument: a retry with the same identity never makes a second document (F18e send-back 1)', () => {
+  const ID = 'd1111111-1111-4111-8111-111111111111';
+  const PATH = `documents/${WS}/root/1795000000000-acta.pdf`;
+  const identity = [{ documentId: ID, storagePath: PATH }];
+  const LOST = { data: null, error: { message: 'TypeError: Failed to fetch', details: '', hint: '', code: '' } };
+  const DUPLICATE = { data: null, error: { message: 'duplicate key value violates unique constraint "community_documents_pkey"', code: '23505', details: '', hint: '' } };
+  const saved = (extra: Record<string, unknown> = {}) => ({
+    id: ID, workspace_id: WS, uploaded_by: USER, file_name: 'Acta.pdf', storage_path: PATH, is_active: true, ...extra,
+  });
+
+  beforeEach(() => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
+  it('the record is saved but its answer is lost; the retry gets 409 from the store and 23505 from the insert → ONE document uploaded, no second record', async () => {
+    const data = { files: [named('Acta.pdf')], title: 'Acta', tags: [] } as any;
+    state.documentInsertAnswers = [LOST];
+    const first = await documentUtils.uploadDocument(WS, data, USER, identity);
+    expect(first.uploaded).toEqual([]);
+    expect(first.failed).toEqual([{ fileName: 'Acta.pdf', message: RECORD_FAILED }]);
+
+    // what the database holds after the lost answer
+    state.storedDocument = saved();
+    state.storedVersions = [];
+    state.documentInsertAnswers = [DUPLICATE];
+    const second = await documentUtils.uploadDocument(WS, data, USER, identity);
+    expect(second.failed).toEqual([]);
+    expect(second.uploaded).toHaveLength(1);
+    expect(second.uploaded[0].id).toBe(ID);
+
+    const uploads = state.storage.filter((s) => s.op === 'upload').map((s) => s.path);
+    expect(uploads).toEqual([PATH, PATH]);
+    const records = state.calls.filter((c) => c.table === 'community_documents' && c.op === 'insert');
+    expect(records).toHaveLength(2);
+    expect(records.every((c) => (c.arg as any).id === ID && (c.arg as any).storage_path === PATH)).toBe(true);
+    // no version existed: it is written once, on the retry
+    const versions = state.calls.filter((c) => c.table === 'document_versions' && c.op === 'insert');
+    expect(versions).toHaveLength(1);
+    expect(versions[0].arg).toMatchObject({ document_id: ID, version_number: 1, storage_path: PATH });
+  });
+
+  it('a 23505 whose record already has its version: uploaded, and no second version row', async () => {
+    state.storedObjects.add(PATH);
+    state.storedDocument = saved();
+    state.storedVersions = [{ id: 'v-1' }];
+    state.documentInsertAnswers = [DUPLICATE];
+    const result = await documentUtils.uploadDocument(WS, { files: [named('Acta.pdf')], title: 'Acta', tags: [] } as any, USER, identity);
+    expect(result.uploaded.map((d) => d.id)).toEqual([ID]);
+    expect(state.calls.some((c) => c.table === 'document_versions' && c.op === 'insert')).toBe(false);
+  });
+
+  it.each([
+    ['belongs to another person', () => saved({ uploaded_by: '22222222-2222-4222-8222-222222222222' })],
+    ['is in another workspace', () => saved({ workspace_id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb' })],
+    ['cannot be read', () => null],
+  ])('a 23505 whose record %s → failed with the plain sentence, no version written', async (_label, row) => {
+    state.storedDocument = row();
+    state.documentInsertAnswers = [DUPLICATE];
+    const result = await documentUtils.uploadDocument(WS, { files: [named('Acta.pdf')], title: 'Acta', tags: [] } as any, USER, identity);
+    expect(result.uploaded).toEqual([]);
+    expect(result.failed).toEqual([{ fileName: 'Acta.pdf', message: RECORD_FAILED }]);
+    expect(state.calls.some((c) => c.table === 'document_versions')).toBe(false);
+  });
+
+  it('an identity given: the record is inserted WITH that id and the file stored at that path', async () => {
+    const result = await documentUtils.uploadDocument(WS, { files: [named('Acta.pdf')], title: 'Acta', tags: [] } as any, USER, identity);
+    expect(result.uploaded.map((d) => d.id)).toEqual([ID]);
+    expect(state.storage.find((s) => s.op === 'upload')!.path).toBe(PATH);
+    expect((state.calls.find((c) => c.table === 'community_documents')!.arg as any).id).toBe(ID);
+  });
+
+  it('no identity given: no id is sent, as before', async () => {
+    await documentUtils.uploadDocument(WS, { files: [named('Acta.pdf')], title: 'Acta', tags: [] } as any, USER);
+    expect('id' in (state.calls.find((c) => c.table === 'community_documents')!.arg as object)).toBe(false);
+  });
+
+  it('buildDocumentStoragePath keeps the shape documents/<ws>/<root|folder-id>/<ts>-<name>', () => {
+    expect(documentUtils.buildDocumentStoragePath(WS, null, 'Acta.pdf', 1795000000000)).toBe(PATH);
+    expect(documentUtils.buildDocumentStoragePath(WS, 'f1', 'Acta.pdf', 1795000000000)).toBe(`documents/${WS}/folder-f1/1795000000000-acta.pdf`);
   });
 });
 

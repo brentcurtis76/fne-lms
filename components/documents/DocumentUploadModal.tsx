@@ -17,6 +17,7 @@ import {
   createFolder,
   getFileTypeConfig,
   DocumentUploadResult,
+  buildDocumentStoragePath,
   DOCUMENT_TITLE_MAX,
   UPLOAD_FAILED_MESSAGE,
 } from '../../utils/documentUtils';
@@ -71,6 +72,34 @@ export default function DocumentUploadModal({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // F18e send-back 1: the identity each file keeps across tries (a document id
+  // and the timestamp of its storage path, fixed when the file is added), so a
+  // retry after an unknown outcome reaches the same object and record.
+  const identitiesRef = useRef(new WeakMap<File, { documentId?: string; timestamp: number }>());
+  const lastTimestampRef = useRef(0);
+  const identityFor = (file: File) => {
+    let identity = identitiesRef.current.get(file);
+    if (!identity) {
+      const timestamp = Math.max(Date.now(), lastTimestampRef.current + 1);
+      lastTimestampRef.current = timestamp;
+      const documentId =
+        typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : undefined;
+      identity = { documentId, timestamp };
+      identitiesRef.current.set(file, identity);
+    }
+    return identity;
+  };
+
+  // A finished try's close must never close a later try.
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cancelPendingClose = () => {
+    if (closeTimerRef.current !== null) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+  };
+  React.useEffect(() => cancelPendingClose, []);
+
   // Reset form when modal opens/closes
   React.useEffect(() => {
     if (isOpen) {
@@ -119,6 +148,7 @@ export default function DocumentUploadModal({
   };
 
   const handleFiles = (selectedFiles: File[]) => {
+    cancelPendingClose();
     const newErrors: string[] = [];
     const validFiles: File[] = [];
 
@@ -140,6 +170,7 @@ export default function DocumentUploadModal({
         return;
       }
 
+      identityFor(file);
       validFiles.push(file);
     });
 
@@ -229,6 +260,7 @@ export default function DocumentUploadModal({
       return;
     }
 
+    cancelPendingClose();
     setUploading(true);
     setErrors([]);
     setResults([]);
@@ -243,11 +275,18 @@ export default function DocumentUploadModal({
     const outcomes: FileUploadOutcome[] = [];
     const remainingFiles: File[] = [];
     const remainingProgress: FileUploadProgress[] = [];
+    let anyWarning = false;
 
     for (const file of files) {
       let result: DocumentUploadResult;
       try {
-        result = await uploadDocument(workspaceId, { ...formData, files: [file] }, userId);
+        const identity = identityFor(file);
+        result = await uploadDocument(workspaceId, { ...formData, files: [file] }, userId, [
+          {
+            documentId: identity.documentId,
+            storagePath: buildDocumentStoragePath(workspaceId, formData.folder_id, file.name, identity.timestamp),
+          },
+        ]);
       } catch (error) {
         console.error('Error uploading documents:', error);
         result = {
@@ -258,6 +297,7 @@ export default function DocumentUploadModal({
       }
 
       if (result.uploaded.length > 0) {
+        if (result.warnings.length > 0) anyWarning = true;
         uploadedDocuments.push(...result.uploaded);
         outcomes.push({ fileName: file.name, status: 'success', warning: result.warnings[0]?.message });
       } else {
@@ -278,9 +318,12 @@ export default function DocumentUploadModal({
       onUploadComplete(uploadedDocuments);
     }
 
-    // Close only when nothing failed, after a brief delay to show success
-    if (remainingFiles.length === 0) {
-      setTimeout(() => {
+    // Close by itself only when nothing failed and nothing warned, after a
+    // brief delay to show success; otherwise it stays open until the person
+    // closes it, so failures and warnings can be read.
+    if (remainingFiles.length === 0 && !anyWarning) {
+      closeTimerRef.current = setTimeout(() => {
+        closeTimerRef.current = null;
         onClose();
       }, 1500);
     }

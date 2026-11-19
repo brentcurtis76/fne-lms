@@ -63,6 +63,9 @@ export default function Step6Adjudicacion({
   const [uploadingCarta, setUploadingCarta] = useState(false);
   const [cartaSigned, setCartaSigned] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  // Set when a save answered that the generated Carta no longer matches the
+  // award; cleared by a new generation. Covers the moment before the refresh.
+  const [cartaInvalidated, setCartaInvalidated] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const licitacionId = licitacion.id;
@@ -139,6 +142,11 @@ export default function Step6Adjudicacion({
       }
 
       toast.success('Datos de adjudicacion guardados');
+      if (json.data?.carta_invalidada) {
+        setCartaInvalidated(true);
+        setCartaUrl(null);
+        toast.error(json.message || 'La Carta de adjudicación debe generarse de nuevo.');
+      }
       return true;
     } catch {
       toast.error('Error al guardar adjudicacion');
@@ -178,6 +186,7 @@ export default function Step6Adjudicacion({
       }
 
       setCartaUrl(json.data.url);
+      setCartaInvalidated(false);
       toast.success('Carta de Adjudicacion generada exitosamente');
 
       if (json.data.url) {
@@ -310,7 +319,7 @@ export default function Step6Adjudicacion({
 
   // An award to the foundation needs the generated Carta (the contract step checks it).
   // Read from the tender as loaded, which the refresh after the generation brings.
-  const cartaReady = !!licitacion.carta_adjudicacion_url;
+  const cartaReady = !!licitacion.carta_adjudicacion_url && !cartaInvalidated;
 
   const sortedAtes = [...ates].sort(
     (a, b) => (Number(b.puntaje_total) || 0) - (Number(a.puntaje_total) || 0)

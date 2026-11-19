@@ -21,6 +21,7 @@ const ATE_B = { id: 'ate-b', nombre_ate: 'ATE Beta Inventada', puntaje_total: 80
 
 const fetchMock = vi.fn();
 let saveOk = true;
+let saveAnswer: Record<string, unknown> = { data: { licitacion: {} } };
 
 function lic(over: Partial<LicitacionDetail> = {}): LicitacionDetail {
   return {
@@ -37,6 +38,7 @@ const calls = () => fetchMock.mock.calls.map(([url, opts]) => ({
 
 beforeEach(() => {
   saveOk = true;
+  saveAnswer = { data: { licitacion: {} } };
   vi.stubGlobal('fetch', fetchMock);
   vi.stubGlobal('confirm', vi.fn(() => true));
   vi.stubGlobal('open', vi.fn());
@@ -44,7 +46,7 @@ beforeEach(() => {
     if (url.endsWith('/ates')) return { ok: true, json: async () => ({ data: { ates: [ATE_A, ATE_B] } }) };
     if (url.endsWith('/adjudicacion')) {
       return saveOk
-        ? { ok: true, json: async () => ({ data: { licitacion: {} } }) }
+        ? { ok: true, json: async () => saveAnswer }
         : { ok: false, json: async () => ({ error: 'Error inventado al guardar' }) };
     }
     if (url.endsWith('/generate-carta')) return { ok: true, json: async () => ({ data: { url: null } }) };
@@ -104,5 +106,38 @@ describe('Step 6 — the confirmation is for the provider on the screen (LIC-D2)
     fireEvent.click(screen.getByRole('button', { name: /Generar Carta de Adjudicacion/ }));
     await waitFor(() => expect(toastMock.error).toHaveBeenCalledWith('Error inventado al guardar'));
     expect(calls().some(c => c.url.endsWith('/generate-carta'))).toBe(false);
+  });
+});
+
+describe('Step 6 — a Carta made for earlier values asks for a new one (LIC-D2)', () => {
+  const STALE_MSG = 'La Carta de adjudicación ya no corresponde a los datos guardados. Genérela de nuevo antes de confirmar.';
+  const ASK = 'Genere la Carta de adjudicación antes de confirmar la adjudicación.';
+
+  it('after a save that voids the Carta, the foundation button is not offered until a new Carta exists', async () => {
+    const onRefresh = vi.fn();
+    const view = render(<Step6Adjudicacion licitacion={lic()} isAdmin onRefresh={onRefresh} />);
+    expect(await screen.findByRole('button', { name: /Proveedor FNE/ })).toBeEnabled();
+
+    saveAnswer = { data: { licitacion: {}, carta_invalidada: true }, message: STALE_MSG };
+    fireEvent.change(screen.getByLabelText(/Monto adjudicado/), { target: { value: '1300' } });
+    fireEvent.click(screen.getByRole('button', { name: /Guardar Adjudicacion/ }));
+    await waitFor(() => expect(onRefresh).toHaveBeenCalled());
+
+    // At once, before the page's refresh has landed …
+    expect(screen.getByRole('button', { name: /Proveedor FNE/ })).toBeDisabled();
+    expect(screen.getByText(ASK)).toBeInTheDocument();
+    expect(toastMock.error).toHaveBeenCalledWith(STALE_MSG);
+    // … and after it (the tender now comes without a Carta).
+    view.rerender(<Step6Adjudicacion licitacion={lic({ carta_adjudicacion_url: null })} isAdmin onRefresh={onRefresh} />);
+    expect(screen.getByRole('button', { name: /Proveedor FNE/ })).toBeDisabled();
+    expect(screen.getByText(ASK)).toBeInTheDocument();
+
+    // A new generation (its save changes nothing) brings the button back.
+    saveAnswer = { data: { licitacion: {}, carta_invalidada: false } };
+    fireEvent.click(screen.getByRole('button', { name: /Generar Carta de Adjudicacion/ }));
+    await waitFor(() => expect(calls().some(c => c.url.endsWith('/generate-carta'))).toBe(true));
+    view.rerender(<Step6Adjudicacion licitacion={lic({ carta_adjudicacion_url: 'licitaciones/lic-1/carta-nueva.docx' })} isAdmin onRefresh={onRefresh} />);
+    await waitFor(() => expect(screen.getByRole('button', { name: /Proveedor FNE/ })).toBeEnabled());
+    expect(screen.queryByText(ASK)).not.toBeInTheDocument();
   });
 });

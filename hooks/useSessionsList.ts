@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
+import type { ChangeEvent } from 'react';
 import { useRouter } from 'next/router';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { User } from '@supabase/supabase-js';
@@ -296,8 +297,34 @@ export function useSessionsList() {
     [sessions]
   );
 
+  // ── One copy of each decision the markup makes (redesign 6S, release SA, step 3). Each is the
+  // markup's own expression, word for word, worked out on every render as the markup did; those
+  // the markup worked out per row or only inside a drawn part are functions, asked at that place.
+
+  // The calendar export link: drawn only when there are rows; its address carries the filters set.
+  const showExportCalendar = sessions.length > 0;
+  const icalHref = () => `/api/sessions/ical?${new URLSearchParams(
+    Object.fromEntries(Object.entries(filters).filter(([, v]) => v))
+  ).toString()}`;
+  // The two columns' empty sentences
+  const noMySessions = mySessions.length === 0;
+  const noOtherSessions = otherSessions.length === 0;
+  // «Cargar más»
+  const showLoadMore = sessions.length < totalSessions;
+  // Per card: the series number (keeps the markup's shape: a 0 is drawn), the cancellation
+  // ledger outcome, and where a click goes.
+  const seriesNumberShown = (session: SessionListItem) => session.recurrence_group_id && session.session_number;
+  const isCancelled = (session: SessionListItem) => session.status === 'cancelada';
+  const ledgerOf = (sessionId: string) => cancellationMap.get(sessionId);
+  const openSession = (sessionId: string) => router.push(`/consultor/sessions/${sessionId}`);
+
+  // The filter controls
+  const changeSchoolFilter = (e: ChangeEvent<HTMLSelectElement>) => setFilters({ ...filters, school_id: e.target.value });
+  const changeStatusFilter = (e: ChangeEvent<HTMLSelectElement>) => setFilters({ ...filters, status: e.target.value });
+  const changeDateFromFilter = (e: ChangeEvent<HTMLInputElement>) => setFilters({ ...filters, date_from: e.target.value });
+  const changeDateToFilter = (e: ChangeEvent<HTMLInputElement>) => setFilters({ ...filters, date_to: e.target.value });
+
   return {
-    router,
     user,
     loading,
     sessions,
@@ -317,6 +344,20 @@ export function useSessionsList() {
     sortedOtherDates,
     nextSessionCountdown,
     pendingReportsCount,
+    // The decisions (step 3)
+    showExportCalendar,
+    icalHref,
+    noMySessions,
+    noOtherSessions,
+    showLoadMore,
+    seriesNumberShown,
+    isCancelled,
+    ledgerOf,
+    openSession,
+    changeSchoolFilter,
+    changeStatusFilter,
+    changeDateFromFilter,
+    changeDateToFilter,
   };
 }
 

@@ -15,23 +15,30 @@ import type { SessionsList } from '../../hooks/useSessionsList';
  */
 export default function SessionsListClasico({ list }: { list: SessionsList }) {
   const {
-    router,
-    sessions,
     totalSessions,
     filters,
-    setFilters,
     allSchools,
-    cancellationMap,
     handleClearFilters,
     handleLoadMore,
-    mySessions,
-    otherSessions,
     mySessionsByDate,
     otherSessionsByDate,
     sortedMyDates,
     sortedOtherDates,
     nextSessionCountdown,
     pendingReportsCount,
+    showExportCalendar,
+    icalHref,
+    noMySessions,
+    noOtherSessions,
+    showLoadMore,
+    seriesNumberShown,
+    isCancelled,
+    ledgerOf,
+    openSession,
+    changeSchoolFilter,
+    changeStatusFilter,
+    changeDateFromFilter,
+    changeDateToFilter,
   } = list;
 
   const renderSessionCard = (session: SessionListItem, dimmed: boolean = false) => {
@@ -40,7 +47,7 @@ export default function SessionsListClasico({ list }: { list: SessionsList }) {
     return (
       <div
         key={session.id}
-        onClick={() => router.push(`/consultor/sessions/${session.id}`)}
+        onClick={() => openSession(session.id)}
         aria-label={`Ver detalles de ${session.title}`}
         className={`p-4 bg-white border rounded-lg cursor-pointer transition-all ${
           dimmed
@@ -52,7 +59,7 @@ export default function SessionsListClasico({ list }: { list: SessionsList }) {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
               <h3 className="font-semibold text-gray-900 truncate">{session.title}</h3>
-              {session.recurrence_group_id && session.session_number && (
+              {seriesNumberShown(session) && (
                 <div className="flex items-center gap-1 text-xs text-gray-500">
                   <Link2 className="w-3 h-3" />
                   <span>#{session.session_number}</span>
@@ -77,8 +84,8 @@ export default function SessionsListClasico({ list }: { list: SessionsList }) {
             <span className={`px-3 py-1 rounded-full text-xs font-medium ${badge.className}`}>
               {badge.label}
             </span>
-            {session.status === 'cancelada' && (() => {
-              const ledger = cancellationMap.get(session.id);
+            {isCancelled(session) && (() => {
+              const ledger = ledgerOf(session.id);
               return getCancellationSubBadge(
                 ledger?.status ?? null,
                 ledger?.admin_override ?? false
@@ -131,7 +138,7 @@ export default function SessionsListClasico({ list }: { list: SessionsList }) {
             <label className="block text-sm font-medium text-gray-700 mb-1">Filtrar por colegio</label>
             <select
               value={filters.school_id}
-              onChange={(e) => setFilters({ ...filters, school_id: e.target.value })}
+              onChange={changeSchoolFilter}
               className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
             >
               <option value="">Todos</option>
@@ -146,7 +153,7 @@ export default function SessionsListClasico({ list }: { list: SessionsList }) {
             <label className="block text-sm font-medium text-gray-700 mb-1">Filtrar por estado</label>
             <select
               value={filters.status}
-              onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+              onChange={changeStatusFilter}
               className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
             >
               <option value="">Todos</option>
@@ -164,7 +171,7 @@ export default function SessionsListClasico({ list }: { list: SessionsList }) {
             <input
               type="date"
               value={filters.date_from}
-              onChange={(e) => setFilters({ ...filters, date_from: e.target.value })}
+              onChange={changeDateFromFilter}
               className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
             />
           </div>
@@ -173,7 +180,7 @@ export default function SessionsListClasico({ list }: { list: SessionsList }) {
             <input
               type="date"
               value={filters.date_to}
-              onChange={(e) => setFilters({ ...filters, date_to: e.target.value })}
+              onChange={changeDateToFilter}
               className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
             />
           </div>
@@ -186,11 +193,9 @@ export default function SessionsListClasico({ list }: { list: SessionsList }) {
             <X className="w-4 h-4" />
             Limpiar filtros
           </button>
-          {sessions.length > 0 && (
+          {showExportCalendar && (
             <a
-              href={`/api/sessions/ical?${new URLSearchParams(
-                Object.fromEntries(Object.entries(filters).filter(([, v]) => v))
-              ).toString()}`}
+              href={icalHref()}
               download
               className="text-sm text-brand_accent hover:text-brand_accent_hover flex items-center gap-1"
             >
@@ -206,7 +211,7 @@ export default function SessionsListClasico({ list }: { list: SessionsList }) {
         {/* My Sessions */}
         <div>
           <h2 className="text-lg font-bold text-gray-900 mb-4">Mis Sesiones</h2>
-          {mySessions.length === 0 ? (
+          {noMySessions ? (
             <div className="bg-gray-50 p-6 rounded-lg border border-gray-200 text-center text-gray-600">
               No está asignado como facilitador en ninguna sesión
             </div>
@@ -229,7 +234,7 @@ export default function SessionsListClasico({ list }: { list: SessionsList }) {
         {/* Other Sessions */}
         <div>
           <h2 className="text-lg font-bold text-gray-900 mb-4">Otras Sesiones en Mis Colegios</h2>
-          {otherSessions.length === 0 ? (
+          {noOtherSessions ? (
             <div className="bg-gray-50 p-6 rounded-lg border border-gray-200 text-center text-gray-600">
               No hay otras sesiones en sus colegios asignados
             </div>
@@ -251,7 +256,7 @@ export default function SessionsListClasico({ list }: { list: SessionsList }) {
       </div>
 
       {/* Load More */}
-      {sessions.length < totalSessions && (
+      {showLoadMore && (
         <div className="mt-6 text-center">
           <button
             onClick={handleLoadMore}

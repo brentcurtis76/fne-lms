@@ -2459,6 +2459,30 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
     }
   };
 
+  // The database recounts a thread after each message (EC-M4): after the
+  // person's own send or delete, the open thread's stored counters are read
+  // back into the page so the header and the list show them without a reload.
+  const refreshThreadCounters = async (threadId: string) => {
+    let data: { message_count: number; participant_count: number; last_message_at: string } | null = null;
+    try {
+      ({ data } = await supabase
+        .from('message_threads')
+        .select('id, message_count, participant_count, last_message_at')
+        .eq('id', threadId)
+        .maybeSingle());
+    } catch (error) {
+      console.error('Error re-reading thread counters:', error);
+    }
+    if (!data) return;
+    const counters = {
+      message_count: data.message_count,
+      participant_count: data.participant_count,
+      last_message_at: data.last_message_at,
+    };
+    setSelectedThread(prev => (prev && prev.id === threadId ? { ...prev, ...counters } : prev));
+    setThreads(prev => prev.map(thread => (thread.id === threadId ? { ...thread, ...counters } : thread)));
+  };
+
   const handleMessageSend = async (messageData: any) => {
     if (!workspace || !user || !selectedThread) return;
 
@@ -2489,6 +2513,7 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
           : [...prev, messageWithReply]
       );
       setReplyToMessage(null); // Clear reply state after sending
+      void refreshThreadCounters(selectedThread.id);
       toast.success('Mensaje enviado');
     } catch (error) {
       console.error('Error sending message:', error);
@@ -2733,6 +2758,7 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
 
       // Remove from local state
       setMessages(prev => prev.filter(msg => msg.id !== deleteMessageId));
+      if (selectedThread) void refreshThreadCounters(selectedThread.id);
       toast.success('Mensaje eliminado');
     } catch (error) {
       console.error('Error deleting message:', error);

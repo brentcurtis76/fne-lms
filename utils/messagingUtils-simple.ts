@@ -616,16 +616,8 @@ export async function sendMessage(
       }
     }
 
-    // Skip user info query
-
-    // Update thread last message time
-    await supabase
-      .from('message_threads')
-      .update({ 
-        last_message_at: message.created_at,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', messageData.thread_id);
+    // The thread's counters and last-message time are kept by the database
+    // (trigger trg_refresh_thread_counters, EC-M4); the browser does not write them.
 
     // The server derives the mention and reply bells from the saved message
     if ((messageData.mentions && messageData.mentions.length > 0) || messageData.reply_to_id) {

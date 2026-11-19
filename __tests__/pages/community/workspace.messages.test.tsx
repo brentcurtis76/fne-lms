@@ -55,6 +55,8 @@ const h = vi.hoisted(() => ({
   sendMessage: vi.fn(),
   /** The props the page last gave the filters bar (its «Hilos» / messages toggle). */
   filters: null as null | { onViewChange: (view: 'messages' | 'threads') => void },
+  /** What a read of one message_threads row answers (null: no row). */
+  threadRow: null as null | Record<string, unknown>,
 }));
 
 // ---------------------------------------------------------------------------
@@ -155,6 +157,7 @@ const PERMISSIONS = {
  *  candidate is ever read from profiles / user_roles / community_workspaces. */
 function recordingClient() {
   const empty = { data: [], error: null };
+  let table = '';
   const chain: any = {
     select: () => chain,
     eq: () => chain,
@@ -166,12 +169,14 @@ function recordingClient() {
     insert: () => chain,
     delete: () => chain,
     single: () => Promise.resolve({ data: null, error: null }),
-    maybeSingle: () => Promise.resolve({ data: null, error: null }),
+    // The stored row of a thread, when a test sets one (EC-M4 re-read after a send).
+    maybeSingle: () => Promise.resolve({ data: table === 'message_threads' ? h.threadRow : null, error: null }),
     then: (resolve: (value: unknown) => void) => resolve(empty),
   };
   return {
-    from: (table: string) => {
-      h.fromCalls.push(table);
+    from: (name: string) => {
+      h.fromCalls.push(name);
+      table = name;
       return chain;
     },
     auth: { getSession: async () => ({ data: { session: { access_token: 'synthetic-token', user: { id: 'user-1' } } } }) },
@@ -372,6 +377,7 @@ beforeEach(() => {
   h.createThread = vi.fn();
   h.sendMessage = vi.fn();
   h.filters = null;
+  h.threadRow = null;
   vi.spyOn(console, 'error').mockImplementation(() => undefined);
   global.fetch = vi.fn(async () => new Response(JSON.stringify({ members: [] }), { status: 200 })) as any;
 });
@@ -673,5 +679,28 @@ describe('a new conversation shows once in the list', () => {
 
     expect(utils.getAllByText('Planificación')).toHaveLength(1);
     expect(utils.getAllByText(THREAD_A.thread_title)).toHaveLength(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// F18f EC-M4: after the person's own send, the open thread's counters are the
+// ones the database stored (it recounts the thread), without a reload
+// ---------------------------------------------------------------------------
+
+describe('F18f EC-M4 the open thread\'s counters after a send', () => {
+  it('re-reads the thread row and shows its stored message count in the header', async () => {
+    h.sendMessage = vi.fn(async () => message('m-own', THREAD_A.id, { author_id: 'user-1' }));
+    const utils = render(<CommunityWorkspacePage />);
+    await openThread(utils, COMMUNITY_A);
+    expect(utils.getByText('0 mensaje(s)')).toBeTruthy();
+
+    h.threadRow = { id: THREAD_A.id, message_count: 3, participant_count: 2, last_message_at: '2026-11-19T10:00:00.000Z' };
+    const before = h.fromCalls.length;
+    await act(async () => {
+      await h.composer!.onSendMessage({ content: 'Mensaje m-own' });
+    });
+    await flush();
+    expect(h.fromCalls.slice(before)).toContain('message_threads');
+    expect(utils.getByText('3 mensaje(s)')).toBeTruthy();
   });
 });

@@ -1154,15 +1154,149 @@ describe('POST /api/school/transversal-context/assign-docente (DELETE disabled)'
     ]);
   });
 
-  it('returns 422 with a grade-identifiable error and writes nothing when zero eligible templates exist', async () => {
+  // ── GC-3e: assignment before publication ─────────────────────
+  const NO_ELIGIBLE_MESSAGE =
+    'No hay registros publicados y vigentes para el nivel "3° Básico" (grade_id 7). Publique un template para este nivel antes de asignar docentes.';
+  const AWAITING_NEW = 'Docente asignado. Aún no hay registros publicados para este nivel: el docente recibirá su registro cuando se publique.';
+  const AWAITING_SAME = 'El docente ya está asignado. Aún no hay registros publicados para este nivel.';
+
+  function expectAwaitingPublication(res: any, message: string, assignment: Record<string, boolean>, warnings: string[] = []) {
+    expect(res._getStatusCode()).toBe(200);
+    const data = JSON.parse(res._getData());
+    expect(data.success).toBe(true);
+    expect(data.code).toBe('awaiting_publication');
+    expect(data.message).toBe(message);
+    expect(data.error).toBeUndefined();
+    expect(data.assignment).toEqual(assignment);
+    expect(data.assessments).toMatchObject({ created: 0, attached: 0, alreadyExisting: 0, skipped: 0, errors: [] });
+    expect(data.warnings).toEqual(warnings);
+    return data;
+  }
+
+  it('zero eligible templates: assigns the docente (one insert), skips the automatic assignment and answers awaiting_publication', async () => {
     authed();
     directivo(SCHOOL_ID);
-    mockPreflightAutoAssignment.mockResolvedValue(
-      planBlocked(
-        'no_eligible_templates',
-        'No hay registros publicados y vigentes para el nivel "3° Básico" (grade_id 7). Publique un template para este nivel antes de asignar docentes.'
-      )
+    mockPreflightAutoAssignment.mockResolvedValue(planBlocked('no_eligible_templates', NO_ELIGIBLE_MESSAGE));
+    const user = buildUserClient();
+    mockCreateApiSupabaseClient.mockResolvedValue(user.client);
+
+    const { req, res } = postReq();
+    await handler(req, res);
+
+    const data = expectAwaitingPublication(res, AWAITING_NEW, { created: true, reactivated: false, alreadyActive: false, mutated: true });
+    expect(data.autoAssignment).toMatchObject({ instancesCreated: 0, instancesSkipped: 0, errors: [] });
+
+    // Guard, pair lookup, then exactly the route's usual insert; no trigger
+    expect(guardChains(user.assignments)).toHaveLength(1);
+    expect(pairChains(user.assignments)).toHaveLength(1);
+    const writes = writeChains(user.assignments);
+    expect(writes).toHaveLength(1);
+    expect(flat(writes[0])).toEqual([
+      ['insert', { course_structure_id: COURSE_STRUCTURE_ID, docente_id: DOCENTE_ID, is_active: true }],
+    ]);
+    expect(mockTriggerAutoAssignment).not.toHaveBeenCalled();
+  });
+
+  it('zero eligible templates: reactivates an inactive same-pair row and answers awaiting_publication', async () => {
+    authed();
+    directivo(SCHOOL_ID);
+    mockPreflightAutoAssignment.mockResolvedValue(planBlocked('no_eligible_templates', NO_ELIGIBLE_MESSAGE));
+    const user = buildUserClient({ assignments: [assignmentRow('a-old', DOCENTE_ID, false)] });
+    mockCreateApiSupabaseClient.mockResolvedValue(user.client);
+
+    const { req, res } = postReq();
+    await handler(req, res);
+
+    expectAwaitingPublication(res, AWAITING_NEW, { created: false, reactivated: true, alreadyActive: false, mutated: true });
+    const writes = writeChains(user.assignments);
+    expect(writes).toHaveLength(1);
+    expect(flat(writes[0])).toEqual([['update', { is_active: true }], ['eq', 'id', 'a-old']]);
+    expect(mockTriggerAutoAssignment).not.toHaveBeenCalled();
+  });
+
+  it('zero eligible templates: passes the preflight warnings through', async () => {
+    authed();
+    directivo(SCHOOL_ID);
+    mockPreflightAutoAssignment.mockResolvedValue({
+      ...planBlocked('no_eligible_templates', NO_ELIGIBLE_MESSAGE),
+      warnings: ['Aviso sintético de prueba'],
+    });
+    const user = buildUserClient();
+    mockCreateApiSupabaseClient.mockResolvedValue(user.client);
+
+    const { req, res } = postReq();
+    await handler(req, res);
+
+    const data = expectAwaitingPublication(
+      res,
+      AWAITING_NEW,
+      { created: true, reactivated: false, alreadyActive: false, mutated: true },
+      ['Aviso sintético de prueba']
     );
+    expect(data.assessments.warnings).toEqual(['Aviso sintético de prueba']);
+    expect(mockTriggerAutoAssignment).not.toHaveBeenCalled();
+  });
+
+  it('zero eligible templates: another active docente is still refused 409 course_already_assigned', async () => {
+    authed();
+    directivo(SCHOOL_ID);
+    mockPreflightAutoAssignment.mockResolvedValue(planBlocked('no_eligible_templates', NO_ELIGIBLE_MESSAGE));
+    const user = buildUserClient({ assignments: [assignmentRow('a-cur', CURRENT_DOCENTE_ID, true)] });
+    mockCreateApiSupabaseClient.mockResolvedValue(user.client);
+
+    const { req, res } = postReq();
+    await handler(req, res);
+
+    expectRefusal(res, 409, 'course_already_assigned');
+    expectNothingAfterGuard(user, svc);
+    expectNoIdentityLeak(res);
+  });
+
+  it('zero eligible templates: an ineligible docente is still refused 422 docente_not_eligible_for_school', async () => {
+    authed();
+    directivo(SCHOOL_ID);
+    svc = buildServiceClient({ roles: [roleRow(DOCENTE_ID, 'docente', OTHER_SCHOOL_ID)] });
+    mockCreateServiceRoleClient.mockReturnValue(svc.client);
+    mockPreflightAutoAssignment.mockResolvedValue(planBlocked('no_eligible_templates', NO_ELIGIBLE_MESSAGE));
+    const user = buildUserClient();
+    mockCreateApiSupabaseClient.mockResolvedValue(user.client);
+
+    const { req, res } = postReq();
+    await handler(req, res);
+
+    expectRefusal(res, 422, 'docente_not_eligible_for_school');
+    expect(mockPreflightAutoAssignment).not.toHaveBeenCalled();
+    expect(writeChains(user.assignments)).toHaveLength(0);
+    expect(mockTriggerAutoAssignment).not.toHaveBeenCalled();
+  });
+
+  it.each(['context_missing', 'course_missing', 'grade_missing', 'snapshot_missing', 'query_error'])(
+    'every other blocking code (%s) still answers 422 and writes nothing',
+    async (code) => {
+      authed();
+      directivo(SCHOOL_ID);
+      mockPreflightAutoAssignment.mockResolvedValue(planBlocked(code, `Bloqueo sintético ${code}`));
+      const user = buildUserClient({ assignments: [assignmentRow('a-old', DOCENTE_ID, false)] });
+      mockCreateApiSupabaseClient.mockResolvedValue(user.client);
+
+      const { req, res } = postReq();
+      await handler(req, res);
+
+      expect(res._getStatusCode()).toBe(422);
+      const data = JSON.parse(res._getData());
+      expect(data.success).toBe(false);
+      expect(data.code).toBe(code);
+      expect(data.assignment).toEqual(NOTHING_MUTATED);
+      expect(pairChains(user.assignments)).toHaveLength(0);
+      expect(writeChains(user.assignments)).toHaveLength(0);
+      expect(mockTriggerAutoAssignment).not.toHaveBeenCalled();
+    }
+  );
+
+  it('a blocked preflight without a blocking error still answers 422 query_error and writes nothing', async () => {
+    authed();
+    directivo(SCHOOL_ID);
+    mockPreflightAutoAssignment.mockResolvedValue({ ...planBlocked('no_eligible_templates', NO_ELIGIBLE_MESSAGE), blockingError: undefined });
     const user = buildUserClient();
     mockCreateApiSupabaseClient.mockResolvedValue(user.client);
 
@@ -1170,18 +1304,7 @@ describe('POST /api/school/transversal-context/assign-docente (DELETE disabled)'
     await handler(req, res);
 
     expect(res._getStatusCode()).toBe(422);
-    const data = JSON.parse(res._getData());
-    expect(data.success).toBe(false);
-    expect(data.code).toBe('no_eligible_templates');
-    expect(data.error).toContain('3° Básico');
-    expect(data.grade).toEqual({ id: 7, name: '3° Básico', level: '3_basico' });
-    expect(data.assignment).toEqual(NOTHING_MUTATED);
-    expect(data.assessments).toMatchObject({ created: 0, attached: 0, alreadyExisting: 0, errors: [expect.stringContaining('3° Básico')] });
-    expect(data.autoAssignment.success).toBe(false);
-
-    // Only the read-only guard touched the table: no pair lookup, insert or reactivation, and no trigger
-    expect(guardChains(user.assignments)).toHaveLength(1);
-    expect(pairChains(user.assignments)).toHaveLength(0);
+    expect(JSON.parse(res._getData()).code).toBe('query_error');
     expect(writeChains(user.assignments)).toHaveLength(0);
     expect(mockTriggerAutoAssignment).not.toHaveBeenCalled();
   });
@@ -1331,7 +1454,7 @@ describe('POST /api/school/transversal-context/assign-docente (DELETE disabled)'
     expect(writeChains(user.assignments)).toHaveLength(0);
   });
 
-  it('a same active docente is retained without any write even if the preflight now blocks (422)', async () => {
+  it('a same active docente is retained without any write when nothing is published yet (200 awaiting_publication)', async () => {
     authed();
     directivo(SCHOOL_ID);
     mockPreflightAutoAssignment.mockResolvedValue(
@@ -1343,7 +1466,13 @@ describe('POST /api/school/transversal-context/assign-docente (DELETE disabled)'
     const { req, res } = postReq();
     await handler(req, res);
 
-    expect(res._getStatusCode()).toBe(422);
+    expect(res._getStatusCode()).toBe(200);
+    const data = JSON.parse(res._getData());
+    expect(data.success).toBe(true);
+    expect(data.code).toBe('awaiting_publication');
+    expect(data.message).toBe('El docente ya está asignado. Aún no hay registros publicados para este nivel.');
+    expect(data.assignment).toEqual({ created: false, reactivated: false, alreadyActive: true, mutated: false });
+    expect(data.assessments).toMatchObject({ created: 0, attached: 0, alreadyExisting: 0, skipped: 0 });
     expect(writeChains(user.assignments)).toHaveLength(0);
     expect(mockTriggerAutoAssignment).not.toHaveBeenCalled();
   });

@@ -252,7 +252,9 @@ async function readTargetEligibility(
 //    docente must be a UUID with an active teaching-eligible role at the
 //    course's exact school → otherwise 422 docente_not_eligible_for_school.
 // 3. PREFLIGHT (A-02) the eligible templates and current snapshots for the
-//    course's grade. If nothing usable exists answer 422 and write nothing.
+//    course's grade. A configuration defect answers 422 and writes nothing.
+//    No published instrument yet (no_eligible_templates, GC-3e) goes on to
+//    step 4, skips step 5 and answers 200 code 'awaiting_publication'.
 // 4. Course-docente assignment: the requested docente already active → retain
 //    (no read or write of that row); zero active → reactivate the inactive
 //    same-pair row or insert a new one. Inactive rows of other docentes never
@@ -294,7 +296,13 @@ async function handlePost(
     // ── 3. Preflight (read-only) ─────────────────────────────────────────
     const plan: CourseAssignmentPlan = await preflightAutoAssignment(courseStructureId, schoolId);
 
-    if (!plan.ok) {
+    // GC-3e: "nothing published yet for this grade" is not a configuration
+    // defect. The assignment is stored (step 4) and the registro arrives when
+    // an instrument of the grade is published (deliver_published_template).
+    // Every other blocking code keeps the 422 below and writes nothing.
+    const awaitingPublication = !plan.ok && plan.blockingError?.code === 'no_eligible_templates';
+
+    if (!plan.ok && !awaitingPublication) {
       const blocking = plan.blockingError ?? {
         code: 'query_error' as const,
         message: 'No se pudo verificar la configuración de registros para este curso.',
@@ -396,6 +404,37 @@ async function handlePost(
         assignment.created = true;
         assignment.mutated = true;
       }
+    }
+
+    if (awaitingPublication) {
+      // Step 5 is skipped: there is nothing to create until publication.
+      const message = assignment.alreadyActive
+        ? 'El docente ya está asignado. Aún no hay registros publicados para este nivel.'
+        : 'Docente asignado. Aún no hay registros publicados para este nivel: el docente recibirá su registro cuando se publique.';
+      return res.status(200).json({
+        success: true,
+        code: 'awaiting_publication',
+        message,
+        assignment,
+        assessments: {
+          created: 0,
+          attached: 0,
+          alreadyExisting: 0,
+          skipped: 0,
+          warnings: plan.warnings,
+          errors: [],
+          details: [],
+        },
+        warnings: plan.warnings,
+        autoAssignment: {
+          instancesCreated: 0,
+          instancesSkipped: 0,
+          errors: [],
+          warnings: plan.warnings,
+          success: true,
+        },
+        warning: joinedWarning([], plan.warnings),
+      });
     }
 
     // ── 5. Create / reconcile assessment instances (idempotent) ──────────

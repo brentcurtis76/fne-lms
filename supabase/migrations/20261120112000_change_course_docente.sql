@@ -190,6 +190,8 @@ BEGIN
     WHERE course_structure_id = p_course_structure_id
       AND status <> 'archived'
       AND cancelled_at IS NULL
+    -- ascending id: the same order as assessment_response_course_guard, so the two can never deadlock
+    ORDER BY id
       FOR UPDATE;
 
   SELECT

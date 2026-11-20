@@ -2,12 +2,13 @@
 /**
  * POST /api/school/transversal-context/replace-docente
  *
- * PR 2 item 2 — safe docente replacement. The route delegates the decision
- * and every write to the `replace_course_docente` RPC, called with the USER
- * client. These tests run the real handler against a mocked Supabase `rpc`
- * and prove: method / auth / permission gates (incl. the consultor 403),
- * UUID validation, the exact RPC arguments, every refusal mapping
- * (evaluation_started 409 with counts from DETAIL or from the message,
+ * PR 2 item 2 — safe docente replacement; GC-20 — the change after a
+ * registro started or was sent. The route delegates the decision and every
+ * write to the `change_course_docente` RPC, called with the USER client.
+ * These tests run the real handler against a mocked Supabase `rpc` and prove:
+ * method / auth / permission gates (incl. the consultor 403), UUID and reason
+ * validation, the exact RPC arguments, every refusal mapping (reason_required
+ * 409 with {closing, kept} from DETAIL, reason_invalid / context_missing 422,
  * no_active_assignment / same_docente / assignment_invariant_violation 409,
  * docente_not_eligible_for_school 422, course_not_found 404, 42501 403,
  * unknown 500), the success shape, and that logs carry codes only.
@@ -46,7 +47,7 @@ vi.mock('../../../lib/permissions/directivo', () => ({
   hasContextWriteRole: mockHasContextWriteRole,
 }));
 
-import handler, { mapRpcError, parseEvaluationStartedCounts } from '../../../pages/api/school/transversal-context/replace-docente';
+import handler, { mapRpcError, parseReasonRequiredCounts } from '../../../pages/api/school/transversal-context/replace-docente';
 
 const USER_ID = '11111111-1111-4111-8111-111111111111';
 const NEW_DOCENTE_ID = '2a2b2c2d-2e2f-4a2b-8c2d-2e2f2a2b2c2d';
@@ -92,14 +93,22 @@ async function post(body: Record<string, unknown> | null = VALID_BODY) {
   return { req, res, status: res._getStatusCode(), json: res._getJSONData() };
 }
 
-function successData() {
+function successData(counts: { moved?: number; closed?: number; created?: number; kept?: number } = {}) {
   return {
     previous_docente_id: PREVIOUS_DOCENTE_ID,
     new_docente_id: NEW_DOCENTE_ID,
-    instances_reattached: 2,
-    assignment_id: ASSIGNMENT_ID,
+    moved: counts.moved ?? 2,
+    closed: counts.closed ?? 0,
+    created: counts.created ?? 0,
+    kept: counts.kept ?? 0,
+    change_id: ASSIGNMENT_ID,
   };
 }
+
+const REASON_REQUIRED_BASE =
+  'El registro de este curso ya comenzó: 1 registro(s) iniciado(s) se cerrarán y quedarán como historial ' +
+  '(el docente anterior podrá verlos en «Archivados») y el nuevo docente empezará uno en blanco. ' +
+  'Las respuestas nunca se transfieren. Escriba el motivo del cambio para continuar.';
 
 /** Every logged argument, stringified, must be free of the identities in play. */
 function expectLogsCarryNoIdentity() {
@@ -196,18 +205,63 @@ describe('POST /api/school/transversal-context/replace-docente', () => {
   });
 
   // ── RPC call ────────────────────────────────────────────────────
-  it('calls replace_course_docente on the USER client with the two ids', async () => {
+  it('calls change_course_docente on the USER client with the two ids and p_reason NULL when the body has none', async () => {
     authed();
     directivo();
     rpcResolves(successData());
     await post();
     expect(userClient.rpc).toHaveBeenCalledTimes(1);
-    expect(userClient.rpc).toHaveBeenCalledWith('replace_course_docente', {
+    expect(userClient.rpc).toHaveBeenCalledWith('change_course_docente', {
       p_course_structure_id: COURSE_STRUCTURE_ID,
       p_new_docente_id: NEW_DOCENTE_ID,
+      p_reason: null,
     });
     expect(serviceClient.rpc).not.toHaveBeenCalled();
     expect(serviceClient.from).not.toHaveBeenCalled();
+  });
+
+  it('passes the body reason as p_reason, untouched', async () => {
+    authed();
+    directivo();
+    rpcResolves(successData());
+    await post({ ...VALID_BODY, reason: '  Licencia médica  ' });
+    expect(userClient.rpc).toHaveBeenCalledWith('change_course_docente', {
+      p_course_structure_id: COURSE_STRUCTURE_ID,
+      p_new_docente_id: NEW_DOCENTE_ID,
+      p_reason: '  Licencia médica  ',
+    });
+  });
+
+  it('passes p_reason NULL when the body reason is null', async () => {
+    authed();
+    directivo();
+    rpcResolves(successData());
+    await post({ ...VALID_BODY, reason: null });
+    expect(userClient.rpc).toHaveBeenCalledWith('change_course_docente', expect.objectContaining({ p_reason: null }));
+  });
+
+  it.each([
+    ['a number', 42],
+    ['an object', { text: 'x' }],
+    ['an array', ['x']],
+    ['a boolean', true],
+    ['longer than 500 characters', 'x'.repeat(501)],
+  ])('answers 400 invalid_request when the reason is %s and never calls the RPC', async (_label, reason) => {
+    authed();
+    directivo();
+    const { status, json } = await post({ ...VALID_BODY, reason });
+    expect(status).toBe(400);
+    expect(json.code).toBe('invalid_request');
+    expect(userClient.rpc).not.toHaveBeenCalled();
+  });
+
+  it('accepts a 500-character reason', async () => {
+    authed();
+    directivo();
+    rpcResolves(successData());
+    const { status } = await post({ ...VALID_BODY, reason: 'x'.repeat(500) });
+    expect(status).toBe(200);
+    expect(userClient.rpc).toHaveBeenCalledTimes(1);
   });
 
   // ── success ─────────────────────────────────────────────────────
@@ -231,34 +285,88 @@ describe('POST /api/school/transversal-context/replace-docente', () => {
     expectLogsCarryNoIdentity();
   });
 
-  // ── refusal mapping ─────────────────────────────────────────────
-  it('maps evaluation_started to 409 with the counts from DETAIL', async () => {
+  it('keeps today\'s sentence exactly when nothing was closed and nothing kept', async () => {
     authed();
     directivo();
-    rpcResolves(null, pgError('P0001',
-      'evaluation_started: instances_started=1 instances_with_responses=3',
-      '{"instances_started": 1, "instances_with_responses": 3}'));
+    rpcResolves(successData());
+    const { json } = await post();
+    expect(json.message).toBe(
+      'Docente cambiado correctamente. 2 registro(s) pendiente(s) reasignado(s) al nuevo docente; ninguna respuesta fue transferida.');
+  });
+
+  it('answers 200 with the closing sentence when a registro was closed or kept', async () => {
+    authed();
+    directivo();
+    rpcResolves(successData({ moved: 1, closed: 2, created: 1, kept: 3 }));
+    const { status, json } = await post({ ...VALID_BODY, reason: 'Motivo' });
+    expect(status).toBe(200);
+    expect(json.success).toBe(true);
+    expect(json.code).toBe('docente_replaced');
+    expect(json.message).toBe(
+      'Docente cambiado correctamente. 1 registro(s) pendiente(s) reasignado(s) al nuevo docente; ' +
+      '2 registro(s) iniciado(s) cerrado(s) y guardado(s) como historial, con 1 registro(s) en blanco para el nuevo docente; ' +
+      '3 registro(s) enviado(s) se mantienen como resultado del curso. Ninguna respuesta fue transferida.');
+    expect(json.replacement).toEqual({ previousDocenteId: PREVIOUS_DOCENTE_ID, newDocenteId: NEW_DOCENTE_ID, instancesReattached: 1 });
+  });
+
+  it('uses the closing sentence when only a sent registro was kept', async () => {
+    authed();
+    directivo();
+    rpcResolves(successData({ moved: 0, closed: 0, created: 0, kept: 1 }));
+    const { json } = await post();
+    expect(json.message).toContain('0 registro(s) iniciado(s) cerrado(s)');
+    expect(json.message).toContain('1 registro(s) enviado(s) se mantienen como resultado del curso');
+  });
+
+  // ── refusal mapping ─────────────────────────────────────────────
+  it('maps reason_required to 409 with the counts from DETAIL and the sentence', async () => {
+    authed();
+    directivo();
+    rpcResolves(null, pgError('P0001', 'reason_required', '{"kept": 0, "closing": 1}'));
     const { status, json } = await post();
     expect(status).toBe(409);
     expect(json.success).toBe(false);
-    expect(json.code).toBe('evaluation_started');
-    expect(json.counts).toEqual({ instancesStarted: 1, instancesWithResponses: 3 });
-    expect(json.message).toContain('ya comenzó');
-    expect(json.message).toContain('nunca se transfieren');
+    expect(json.code).toBe('reason_required');
+    expect(json.counts).toEqual({ closing: 1, kept: 0 });
+    expect(json.message).toBe(REASON_REQUIRED_BASE);
     expect(json.error).toBe(json.message);
     expect(json.replacement).toEqual({ previousDocenteId: null, newDocenteId: null, instancesReattached: 0 });
-    expect(warnSpy).toHaveBeenCalledWith('[replace-docente] refused:', 'evaluation_started');
+    expect(warnSpy).toHaveBeenCalledWith('[replace-docente] refused:', 'reason_required');
     expectLogsCarryNoIdentity();
   });
 
-  it('maps evaluation_started to 409 reading the counts from the message when DETAIL is absent', async () => {
+  it('maps reason_required with kept registros: the kept sentence is appended', async () => {
     authed();
     directivo();
-    rpcResolves(null, pgError('P0001', 'evaluation_started: instances_started=0 instances_with_responses=2'));
+    rpcResolves(null, pgError('P0001', 'reason_required', '{"closing": 1, "kept": 2}'));
     const { status, json } = await post();
     expect(status).toBe(409);
-    expect(json.code).toBe('evaluation_started');
-    expect(json.counts).toEqual({ instancesStarted: 0, instancesWithResponses: 2 });
+    expect(json.counts).toEqual({ closing: 1, kept: 2 });
+    expect(json.message).toBe(REASON_REQUIRED_BASE + ' 2 registro(s) ya enviado(s) se mantienen como resultado del curso.');
+  });
+
+  it.each([
+    ['reason_invalid', 422, 'El motivo es obligatorio y puede tener hasta 500 caracteres.'],
+    ['context_missing', 422,
+      'La escuela no tiene un año de implementación válido en su contexto transversal; corríjalo antes de cambiar el docente.'],
+  ])('maps P0001 %s to %i with its sentence', async (code, expectedStatus, message) => {
+    authed();
+    directivo();
+    rpcResolves(null, pgError('P0001', code));
+    const { status, json } = await post({ ...VALID_BODY, reason: 'Motivo' });
+    expect(status).toBe(expectedStatus);
+    expect(json.code).toBe(code);
+    expect(json.message).toBe(message);
+    expect(json.counts).toBeUndefined();
+  });
+
+  it('no longer knows evaluation_started (the new function never raises it): 500', async () => {
+    authed();
+    directivo();
+    rpcResolves(null, pgError('P0001', 'evaluation_started: instances_started=1 instances_with_responses=0'));
+    const { status, json } = await post();
+    expect(status).toBe(500);
+    expect(json.code).toBe('replacement_failed');
   });
 
   it.each([
@@ -324,17 +432,16 @@ describe('POST /api/school/transversal-context/replace-docente', () => {
   });
 
   // ── pure helpers ────────────────────────────────────────────────
-  describe('mapRpcError / parseEvaluationStartedCounts', () => {
-    it('prefers DETAIL over the message and tolerates malformed DETAIL', () => {
-      expect(parseEvaluationStartedCounts({
-        message: 'evaluation_started: instances_started=9 instances_with_responses=9',
-        details: '{"instances_started": 1, "instances_with_responses": 0}',
-      })).toEqual({ instancesStarted: 1, instancesWithResponses: 0 });
-      expect(parseEvaluationStartedCounts({
-        message: 'evaluation_started: instances_started=4 instances_with_responses=5',
-        details: 'not json',
-      })).toEqual({ instancesStarted: 4, instancesWithResponses: 5 });
-      expect(parseEvaluationStartedCounts({ message: 'evaluation_started' })).toEqual({ instancesStarted: 0, instancesWithResponses: 0 });
+  describe('mapRpcError / parseReasonRequiredCounts', () => {
+    it('reads {closing, kept} from DETAIL and tolerates a missing or malformed DETAIL', () => {
+      expect(parseReasonRequiredCounts({ message: 'reason_required', details: '{"closing": 2, "kept": 1}' }))
+        .toEqual({ closing: 2, kept: 1 });
+      expect(parseReasonRequiredCounts({ message: 'reason_required', details: 'not json' })).toEqual({ closing: 0, kept: 0 });
+      expect(parseReasonRequiredCounts({ message: 'reason_required' })).toEqual({ closing: 0, kept: 0 });
+      expect(parseReasonRequiredCounts({ message: 'reason_required', details: '{"closing": "2", "kept": -1}' }))
+        .toEqual({ closing: 0, kept: 0 });
+      expect(mapRpcError({ code: 'P0001', message: 'reason_required', details: '{"closing": 1, "kept": 0}' }))
+        .toEqual({ code: 'reason_required', counts: { closing: 1, kept: 0 } });
     });
 
     it('maps codes without trusting the message on non-P0001 states', () => {

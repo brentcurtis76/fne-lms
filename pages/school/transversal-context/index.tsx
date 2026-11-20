@@ -129,8 +129,9 @@ const TransversalContextDashboard: React.FC = () => {
   } | null>(null);
 
   // PR 2 item 2 — safe docente replacement (admin / equipo_directivo only).
-  // The modal posts to /replace-docente; the RPC behind it swaps the docente
-  // only while every live evaluation of the course is pending and answer-free.
+  // The modal posts to /replace-docente; the RPC behind it keeps sent
+  // registros, closes started ones as history (only with a reason, which the
+  // modal asks for on reason_required) and hands pending ones over.
   const [canReplaceDocente, setCanReplaceDocente] = useState(false);
   const [replaceModalOpen, setReplaceModalOpen] = useState(false);
   const [replaceCourse, setReplaceCourse] = useState<any>(null);
@@ -140,6 +141,9 @@ const TransversalContextDashboard: React.FC = () => {
   const [replacing, setReplacing] = useState(false);
   // Refusal of the last attempt, shown inside the modal (which stays open)
   const [replaceError, setReplaceError] = useState<{ code: string | null; message: string } | null>(null);
+  // GC-20: the reason asked when a started registro will be closed.
+  const [replaceReason, setReplaceReason] = useState('');
+  const [replaceReasonAsked, setReplaceReasonAsked] = useState(false);
   // Last successful replacement, visible until dismissed
   const [replacementNotice, setReplacementNotice] = useState<{ courseName: string; message: string } | null>(null);
   // GC-3d: «Reenviar registros» requests in flight, per course id.
@@ -603,6 +607,8 @@ const TransversalContextDashboard: React.FC = () => {
     setReplaceCourse(course);
     setSelectedReplacement('');
     setReplaceError(null);
+    setReplaceReason('');
+    setReplaceReasonAsked(false);
     setReplaceModalOpen(true);
     setLoadingReplaceCandidates(true);
 
@@ -635,15 +641,19 @@ const TransversalContextDashboard: React.FC = () => {
   const closeReplaceModal = () => {
     setReplaceModalOpen(false);
     setReplaceError(null);
+    setReplaceReason('');
+    setReplaceReasonAsked(false);
   };
 
   // A refusal keeps the modal open with the API's explanation. A 409
-  // evaluation_started means the course can no longer be changed from here;
-  // the other 409s (no active docente, invariant violation) mean the list this
-  // page rendered was stale, so the course list is refreshed. Success closes
-  // the modal, refreshes the list and leaves a notice.
+  // reason_required means a started registro will be closed: the modal asks
+  // for the reason and the next submit posts it. The other 409s (no active
+  // docente, invariant violation) mean the list this page rendered was stale,
+  // so the course list is refreshed. Success closes the modal, refreshes the
+  // list and leaves a notice.
   const handleReplaceDocente = async () => {
     if (!replaceCourse || !selectedReplacement) return;
+    if (replaceReasonAsked && replaceReason.trim() === '') return;
 
     setReplacing(true);
     setReplaceError(null);
@@ -654,6 +664,7 @@ const TransversalContextDashboard: React.FC = () => {
         body: JSON.stringify({
           course_structure_id: replaceCourse.id,
           docente_id: selectedReplacement,
+          ...(replaceReasonAsked ? { reason: replaceReason } : {}),
         }),
       });
 
@@ -668,7 +679,10 @@ const TransversalContextDashboard: React.FC = () => {
         const message = data.error || data.message || 'No se pudo completar el cambio de docente';
         setReplaceError({ code: data.code ?? null, message });
         toast.error(message, { duration: 8000 });
-        if (response.status === 409 && data.code !== 'evaluation_started') {
+        if (data.code === 'reason_required') {
+          setReplaceReasonAsked(true);
+        }
+        if (response.status === 409 && data.code !== 'reason_required') {
           fetchContext();
         }
         return; // modal stays open
@@ -1332,9 +1346,9 @@ const TransversalContextDashboard: React.FC = () => {
                                 data-testid={`course-assignment-locked-${course.id}`}
                                 className="text-xs text-brand_primary/70"
                               >
-                                Este curso ya tiene un docente asignado. Mientras el registro no haya comenzado,
-                                el equipo directivo puede cambiar el docente con «Cambiar docente»; si ya comenzó,
-                                se requiere una resolución administrativa controlada. No es posible desasignar desde esta página.
+                                Este curso ya tiene un docente asignado. El equipo directivo puede cambiarlo con «Cambiar docente»:
+                                los registros enviados se mantienen como resultado del curso y uno que ya comenzó se cierra como
+                                historial. No es posible desasignar desde esta página.
                               </p>
                               {canReplaceDocente && (
                                 <button
@@ -1581,9 +1595,9 @@ const TransversalContextDashboard: React.FC = () => {
                 </strong>
               </p>
               <p className="mt-3 text-xs text-brand_primary/70 bg-brand_beige rounded p-2">
-                El cambio solo es posible mientras el registro del curso no haya comenzado y no registre
-                respuestas. El docente anterior pierde el acceso a los registros pendientes y el nuevo docente
-                los recibe en blanco: las respuestas nunca se transfieren.
+                Los registros pendientes pasan al nuevo docente en blanco. Un registro ya enviado se mantiene como
+                resultado del curso. Un registro que ya comenzó se cierra y queda como historial, y el nuevo docente
+                empieza uno en blanco; en ese caso se pide el motivo. Las respuestas nunca se transfieren.
               </p>
 
               {loadingReplaceCandidates ? (
@@ -1605,7 +1619,10 @@ const TransversalContextDashboard: React.FC = () => {
                   <select
                     data-testid="replace-docente-select"
                     value={selectedReplacement}
-                    onChange={(e) => setSelectedReplacement(e.target.value)}
+                    onChange={(e) => {
+                      setSelectedReplacement(e.target.value);
+                      setReplaceReason('');
+                    }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand_accent text-brand_primary"
                   >
                     <option value="">-- Seleccionar --</option>
@@ -1631,11 +1648,28 @@ const TransversalContextDashboard: React.FC = () => {
                   className="mt-4 p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-800"
                 >
                   <p className="font-medium">
-                    {replaceError.code === 'evaluation_started'
+                    {replaceError.code === 'reason_required'
                       ? 'El registro ya comenzó'
                       : 'No se pudo cambiar el docente'}
                   </p>
                   <p className="mt-1">{replaceError.message}</p>
+                </div>
+              )}
+
+              {replaceReasonAsked && (
+                <div className="mt-4">
+                  <label className="block text-sm font-medium text-brand_primary mb-2">
+                    Motivo del cambio
+                  </label>
+                  <textarea
+                    aria-label="Motivo del cambio"
+                    data-testid="replace-docente-reason"
+                    value={replaceReason}
+                    onChange={(e) => setReplaceReason(e.target.value)}
+                    maxLength={500}
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand_accent text-brand_primary text-sm"
+                  />
                 </div>
               )}
             </div>
@@ -1651,7 +1685,7 @@ const TransversalContextDashboard: React.FC = () => {
               <button
                 data-testid="replace-docente-submit"
                 onClick={handleReplaceDocente}
-                disabled={!selectedReplacement || replacing}
+                disabled={!selectedReplacement || replacing || (replaceReasonAsked && replaceReason.trim() === '')}
                 className="px-4 py-2 bg-brand_primary text-white text-sm font-medium rounded-lg hover:bg-brand_primary/90 disabled:opacity-50 inline-flex items-center"
               >
                 {replacing ? (
@@ -1662,7 +1696,7 @@ const TransversalContextDashboard: React.FC = () => {
                 ) : (
                   <>
                     <UserCog className="w-4 h-4 mr-2" />
-                    Cambiar docente
+                    {replaceReasonAsked ? 'Cerrar registro y cambiar docente' : 'Cambiar docente'}
                   </>
                 )}
               </button>

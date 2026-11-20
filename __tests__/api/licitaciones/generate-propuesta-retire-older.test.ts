@@ -22,6 +22,8 @@ const { h } = vi.hoisted(() => ({
     requests: [] as RecordedRequest[],
     rows: [] as Array<{ id: string; licitacion_id: string; version: number; estado: string; web_status: string | null }>,
     failRetire: false,
+    // Set: another admin publishes a NEWER version while this request is between Step 11 and its retirement.
+    newerPublishedMeanwhile: false,
   },
 }));
 
@@ -32,6 +34,7 @@ function matching(req: RecordedRequest) {
     if (op.method === 'eq') return row[col] === val;
     if (op.method === 'neq') return row[col] !== val;
     if (op.method === 'in') return (val as unknown[]).includes(row[col]);
+    if (op.method === 'lt') return (row[col] as number) < (val as number);
     return true;
   }));
 }
@@ -55,6 +58,9 @@ vi.mock('@/lib/api-auth', async () => {
           return { data: null, error: { message: 'synthetic retire failure', code: 'XX000' } };
         }
         const hit = matching(req);
+        if (h.newerPublishedMeanwhile && patch.web_status === 'published') {
+          h.rows.push({ id: 'v4-newer', licitacion_id: TENDER, version: 4, estado: 'completada', web_status: 'published' });
+        }
         hit.forEach(row => Object.assign(row, patch));
         return { data: has(req, 'select') ? hit.map(row => ({ id: row.id })) : null, error: null };
       }
@@ -111,6 +117,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   h.requests.length = 0;
   h.failRetire = false;
+  h.newerPublishedMeanwhile = false;
   h.rows = [
     { id: 'v1', licitacion_id: TENDER, version: 1, estado: 'completada', web_status: 'published' },
     { id: 'v2', licitacion_id: TENDER, version: 2, estado: 'completada', web_status: 'viewed' },
@@ -144,6 +151,20 @@ describe('generate-propuesta — LIC-E2 a new version retires the older links', 
     expect(statusOf('v1').web_status).toBe('published');
     expect(errorLog).toHaveBeenCalled();
     errorLog.mockRestore();
+  });
+
+  it('a newer version published meanwhile is never retired by this older generation', async () => {
+    h.newerPublishedMeanwhile = true;
+    const r = await post();
+    expect(r.status).toBe(200);
+    expect(r.json.data.version).toBe(3);
+    expect(statusOf('v4-newer').web_status).toBe('published');
+    expect(statusOf('v1').web_status).toBe('expired');
+    expect(statusOf('v2').web_status).toBe('expired');
+    expect(r.json.data.enlaces_anteriores_retirados).toBe(2);
+    const retire = h.requests.find(q => q.target === 'propuesta_generadas'
+      && q.ops.some(o => o.method === 'update' && (o.args[0] as Partial<Row>).web_status === 'expired'))!;
+    expect(retire.ops).toContainEqual({ method: 'lt', args: ['version', 3] });
   });
 
   it('a generation that fails before Step 11 changes no older version', async () => {

@@ -446,6 +446,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .update({ web_status: 'expired' })
         .eq('licitacion_id', licitacionId)
         .neq('id', propuestaId)
+        // Only OLDER versions: a newer one published meanwhile stays live.
+        .lt('version', version)
         .in('web_status', ['published', 'viewed'])
         .select('id');
       if (retireError) {

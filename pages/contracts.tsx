@@ -419,8 +419,10 @@ export default function ContractsPage() {
       // activates the contract (into the cash flow) when it isn't active yet;
       // a late upload to an already-active contract must NOT touch estado or
       // the flujo flag — the user may have deliberately opted out of the cash
-      // flow after activating without document.
-      const activating = contrato.estado !== 'activo';
+      // flow after activating without document. GES-3.8: a DRAFT is not
+      // activated either: the file and the signed mark are stored, the estado
+      // and the flujo flag stay as they are until the draft is completed.
+      const activating = contrato.estado !== 'activo' && contrato.estado !== 'borrador';
       const { error: updateError } = await supabase
         .from('contratos')
         .update({
@@ -432,6 +434,11 @@ export default function ContractsPage() {
 
       if (updateError) throw updateError;
 
+      // F21: a draft is not activated, so say the document was kept (toast
+      // before the refresh, which raises its own error toast if it fails)
+      if (contrato.estado === 'borrador') {
+        toast.success('Documento firmado guardado. El contrato sigue en borrador hasta que se active.');
+      }
       await refreshContratos(contrato.id);
 
     } catch (error) {
@@ -545,8 +552,10 @@ export default function ContractsPage() {
       
       const { error } = await supabase
         .from('cuotas')
-        .update({ 
-          pagada: !currentStatus
+        // GES-3.3: the invoice decides. The control is off without an invoice;
+        // the older mark `pagada` is no longer written.
+        .update({
+          factura_pagada: !currentStatus
         })
         .eq('id', cuotaId);
 
@@ -1001,7 +1010,7 @@ export default function ContractsPage() {
             )}
 
             {activeTab === 'flujo' && (
-              <CashFlowView contratos={contratos} />
+              <CashFlowView contratos={contratos} onChanged={refreshContratos} />
             )}
 
             {/* Delete Confirmation Modal */}

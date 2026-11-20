@@ -462,11 +462,13 @@ describe('MeetingDocumentationModal — community-scoped member pickers', () => 
       const deferred = deferredMembers({ rejectOnAbort: true });
       membersResponder = deferred.responder;
 
-      const { unmount, getByTestId } = render(<MeetingDocumentationModal {...baseProps} />);
+      const { unmount, findByTestId } = render(<MeetingDocumentationModal {...baseProps} />);
       await waitFor(() => {
         expect(membersRequests).toHaveLength(1);
       });
-      expect(getByTestId('meeting-members-status-attendees').getAttribute('data-state')).toBe('loading');
+      // Wait for the screen to draw the status before reading it; the members'
+      // answer is a deferred promise, so the loading state lasts until resolved.
+      expect((await findByTestId('meeting-members-status-attendees')).getAttribute('data-state')).toBe('loading');
       const signal = membersRequests[0].init?.signal as AbortSignal;
       expect(signal.aborted).toBe(false);
 
@@ -535,14 +537,17 @@ describe('MeetingDocumentationModal — community-scoped member pickers', () => 
       const utils = render(
         <MeetingDocumentationModal {...baseProps} meetingId="meeting-1" mode="edit" />
       );
-      const { getByTestId, queryByText, queryByTestId } = utils;
+      const { getByTestId, findByTestId, queryByText, queryByTestId } = utils;
 
       await waitFor(() => {
         expect(mockGetMeetingDetails).toHaveBeenCalledTimes(1);
       });
       // Step 1 while loading: the saved outsider is preserved in state but not
-      // labelled, and no historical attendee row is rendered yet.
-      expect(getByTestId('meeting-members-status-attendees').getAttribute('data-state')).toBe('loading');
+      // labelled, and no historical attendee row is rendered yet. The meeting's
+      // own load shows a spinner instead of step 1 until it finishes, so wait for
+      // step 1 to be drawn; the members' answer is a deferred promise, so the
+      // members' loading state lasts until this test resolves it below.
+      expect((await findByTestId('meeting-members-status-attendees')).getAttribute('data-state')).toBe('loading');
       expect(queryByTestId(`meeting-attendee-historical-${OUTSIDER_ID}`)).toBeNull();
       expect(queryByText('Usuario fuera de la comunidad')).toBeNull();
 

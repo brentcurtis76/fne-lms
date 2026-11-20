@@ -2,7 +2,7 @@
 import React from 'react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { opArgs, type RecordedRequest } from '../../helpers/recordingSupabase';
+import { type RecordedRequest } from '../../helpers/recordingSupabase';
 
 /**
  * F7e S4 (GENERA fixes): the form opens a REJECTED report for editing, as it
@@ -59,12 +59,17 @@ describe('F7e S4 the form opens a rejected report for editing', () => {
     fireEvent.click(screen.getByText('Actualizar Reporte'));
     await waitFor(() => expect(onSuccess).toHaveBeenCalled());
 
-    const reportUpdate = h.requests.find((r) => r.target === 'expense_reports' && r.ops.some((o) => o.method === 'update'))!;
-    const payload = opArgs(reportUpdate, 'update')?.[0] as Record<string, unknown>;
-    expect(payload.report_name).toBe('Viaje a Valparaíso (corregido)');
-    expect('status' in payload).toBe(false);
-    expect(opArgs(reportUpdate, 'eq')).toEqual(['id', 'x-own']);
-    const itemOps = h.requests.filter((r) => r.target === 'expense_items').map((r) => r.ops[0].method);
-    expect(itemOps).toEqual(['delete', 'insert']);
+    // F21h (GES-3.26): the save is ONE database function call, made with the
+    // person's own session; it was a report update plus ['delete', 'insert']
+    // of every item. The same three checks are read from the call's arguments.
+    const save = h.requests.find((r) => r.kind === 'rpc' && r.target === 'save_expense_report')!;
+    const args = save.args as { p_report_id: string; p_report: Record<string, unknown>; p_items: unknown[]; p_removed: string[] };
+    expect(args.p_report.report_name).toBe('Viaje a Valparaíso (corregido)');
+    expect('status' in args.p_report).toBe(false);
+    expect(args.p_report_id).toBe('x-own');
+    expect(args.p_items).toEqual([expect.objectContaining({ id: 'i-1', description: 'Taxi', amount: 5000 })]);
+    expect(args.p_removed).toEqual([]);
+    expect(h.requests.filter((r) => r.target === 'expense_items' || r.target === 'expense_reports')).toEqual([]);
+    expect(h.requests.filter((r) => r.kind === 'rpc').map((r) => r.target)).toEqual(['save_expense_report']);
   });
 });

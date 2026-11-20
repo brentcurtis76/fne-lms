@@ -85,7 +85,7 @@ const renderNewAtStep2 = (props: Record<string, any> = {}) => {
 const finishStep3 = (container: HTMLElement) => {
   clickButton('Siguiente');
   fillCuotaDates(container);
-  typeInto(container.querySelector('input[type="number"]') as Element, '100');
+  typeInto(container.querySelector('[data-testid="cuota-amount-input"]') as Element, '100');
 };
 
 let alertSpy: ReturnType<typeof vi.spyOn>;

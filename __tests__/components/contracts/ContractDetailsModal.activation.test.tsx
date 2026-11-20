@@ -85,6 +85,19 @@ describe('ContractDetailsModal — activation without signed document', () => {
     expect(screen.getByTestId('signed-doc-upload-input')).toBeInTheDocument();
   });
 
+  it('GES-3.8: for a borrador, the window says an upload stores and marks it signed but does not activate it', () => {
+    renderModal({ estado: 'borrador' });
+    expect(
+      screen.getByText(/Este contrato es un borrador.*no lo activa ni lo incluye en el flujo de caja/),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Sube el documento firmado para activar el contrato/)).not.toBeInTheDocument();
+  });
+
+  it('GES-3.8: for a pendiente, the window still says an upload activates it', () => {
+    renderModal({ estado: 'pendiente' });
+    expect(screen.getByText('El contrato está pendiente. Sube el documento firmado para activar el contrato.')).toBeInTheDocument();
+  });
+
   it('closes the confirmation dialog when activation succeeds', async () => {
     const user = userEvent.setup();
     const props = renderModal({ estado: 'pendiente' }, { onActivateWithoutDocument: vi.fn(async () => true) });
@@ -173,5 +186,22 @@ describe('ContractDetailsModal — activation without signed document', () => {
     expect(screen.queryByText('Subir Contrato Firmado')).not.toBeInTheDocument();
     expect(screen.queryByTestId('late-upload-input')).not.toBeInTheDocument();
     expect(screen.queryByTestId('mark-signed-btn')).not.toBeInTheDocument();
+  });
+  it('F21 send-back S: a draft with its signed document stored shows the file and says it stays a draft', async () => {
+    const user = userEvent.setup();
+    const props = renderModal({ estado: 'borrador', firmado: true, contrato_url: 'https://storage.test/signed.pdf' });
+    expect(screen.getByTestId('draft-signed-doc')).toHaveTextContent(
+      'Documento firmado guardado. El contrato sigue en borrador hasta que se active.',
+    );
+    expect(screen.queryByTestId('signed-doc-upload-input')).not.toBeInTheDocument();
+    expect(screen.queryByText('Subir Contrato Firmado')).not.toBeInTheDocument();
+    await user.click(screen.getByTestId('draft-signed-doc-open'));
+    expect(props.onGeneratePDF).toHaveBeenCalledTimes(1);
+  });
+
+  it('F21 send-back S: an imported draft whose PDF is not yet signed still offers the upload', () => {
+    renderModal({ estado: 'borrador', firmado: false, contrato_url: 'https://storage.test/imported.pdf' });
+    expect(screen.getByTestId('signed-doc-upload-input')).toBeInTheDocument();
+    expect(screen.queryByTestId('draft-signed-doc')).not.toBeInTheDocument();
   });
 });

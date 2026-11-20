@@ -7,6 +7,7 @@ import { ExpenseReportExporter } from '../../lib/expenseReportExport';
 import { toast } from 'react-hot-toast';
 import { fetchProfileCards, cardName } from '../../lib/profile-cards';
 import { expenseReportActions } from '../../lib/expenses/report-actions';
+import { parseLocalDate } from '../../utils/dateUtils';
 
 interface ExpenseCategory {
   id: string;
@@ -146,6 +147,11 @@ export default function ExpenseReportDetails({
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('es-CL');
+  };
+
+  // GES-3.25: the period and an expense's date are dates (no time): shown as typed.
+  const formatDay = (dateString: string) => {
+    return dateString ? parseLocalDate(dateString).toLocaleDateString('es-CL') : '';
   };
 
   const formatCurrency = (amount: number) => {
@@ -344,7 +350,7 @@ export default function ExpenseReportDetails({
                   <div className="text-sm font-medium text-gray-500">Período</div>
                   <div className="flex items-center text-gray-900">
                     <Calendar size={16} className="mr-2 text-brand_primary" />
-                    {formatDate(report.start_date)} - {formatDate(report.end_date)}
+                    {formatDay(report.start_date)} - {formatDay(report.end_date)}
                   </div>
                 </div>
                 
@@ -424,7 +430,7 @@ export default function ExpenseReportDetails({
                     {report.expense_items.map((item) => (
                       <tr key={item.id} className="border-b border-gray-100">
                         <td className="py-3 px-4 text-gray-900">
-                          {formatDate(item.expense_date)}
+                          {formatDay(item.expense_date)}
                         </td>
                         <td className="py-3 px-4">
                           <div className="flex items-center">

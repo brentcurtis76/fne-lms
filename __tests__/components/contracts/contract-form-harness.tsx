@@ -23,6 +23,13 @@ export interface FakeWrite {
 export interface FakeOptions {
   /** Row returned by `clientes … eq('rut', x).single()`; null = no client with that RUT. */
   clienteByRut?: Row | null;
+  /**
+   * Stored clients, matched by their exact stored `rut` against the RUT(s) the
+   * lookup asks for (`eq` or `in`); takes precedence over clienteByRut (F21b send-back 2).
+   */
+  clientesStored?: Row[];
+  /** An update of clientes matches no row (another admin changed it meanwhile): it answers an empty list (F21b send-back 3). */
+  clienteUpdateNoRows?: boolean;
   /** Error returned by an insert into clientes. */
   clienteInsertError?: { message: string; code?: string } | null;
   /** Error returned by an insert into contratos. */
@@ -74,6 +81,7 @@ export function createFakeSupabase(options: FakeOptions = {}) {
       }
       if (ctx.op === 'update') {
         writes.push({ table, op: 'update', payload: ctx.payload, filters: { ...ctx.filters } });
+        if (table === 'clientes' && options.clienteUpdateNoRows) return { data: [], error: null };
         return { data: { id: ctx.filters.id ?? 'updated', ...ctx.payload }, error: null };
       }
       if (ctx.op === 'delete') {
@@ -83,7 +91,15 @@ export function createFakeSupabase(options: FakeOptions = {}) {
       reads.push({ table, filters: { ...ctx.filters } });
       if (table === 'schools') return { data: [], error: null };
       if (table === 'clientes' && 'rut' in ctx.filters) {
+        if (options.clientesStored) {
+          const asked = Array.isArray(ctx.filters.rut) ? ctx.filters.rut : [ctx.filters.rut];
+          const rows = options.clientesStored.filter((r) => asked.includes(r.rut));
+          if (!ctx.single) return { data: rows.map((r) => ({ ...r })), error: null };
+          return rows[0] ? { data: rows[0], error: null } : { data: null, error: { code: 'PGRST116', message: 'no rows' } };
+        }
         const row = options.clienteByRut ?? null;
+        // A list read (no .single()) answers a list.
+        if (!ctx.single) return { data: row ? [row] : [], error: null };
         return row ? { data: row, error: null } : { data: null, error: { code: 'PGRST116', message: 'no rows' } };
       }
       if (table === 'contratos' && ctx.single) {
@@ -133,6 +149,14 @@ export function createFakeSupabase(options: FakeOptions = {}) {
       },
       eq: (col: string, value: any) => {
         ctx.filters[col] = value;
+        return chain;
+      },
+      is: (col: string, value: any) => {
+        ctx.filters[`${col}.is`] = value;
+        return chain;
+      },
+      or: (expr: string) => {
+        ctx.filters.or = expr;
         return chain;
       },
       in: (col: string, value: any) => {

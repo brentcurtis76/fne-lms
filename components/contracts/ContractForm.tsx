@@ -8,6 +8,9 @@ import { generateContractFromTemplate } from '@/lib/contract-template';
 import { reconcileCuotas, attachExistingCuotaIds } from '@/lib/utils/reconcileCuotas';
 import { buildClientRow } from '@/lib/contracts/client-row';
 import { splitEvenly, sumsMatch, difference, decimalsFor, hasCurrencyPrecision, precisionMessage } from '@/lib/contracts/cuotas-math';
+import { parseEsClDetailed } from '@/lib/money/parse-es-cl';
+import { formatRut, validateRut } from '@/utils/rutValidation';
+import { rutSpellings, oldestClient } from '@/lib/contracts/rut-spellings';
 
 interface Programa {
   id: string;
@@ -37,6 +40,7 @@ interface Cliente {
   telefono_contacto_administrativo?: string;
   email_contacto_administrativo?: string;
   school_id?: number | null; // Changed to number to match schools table
+  created_at?: string | null; // decides the oldest of duplicate rows (send-back 3)
 }
 
 interface School {
@@ -54,6 +58,7 @@ interface CuotaForm {
   numero_cuota: number;
   fecha_vencimiento: string;
   monto: number; // Keep as monto in form, but save as monto_uf to database
+  montoText: string; // what the admin typed, read by parseEsCl (N171)
 }
 
 interface ClienteFormState {
@@ -82,12 +87,71 @@ interface ContractFormState {
   fecha_fin: string;
   programa_id: string;
   precio_total_uf: number;
+  precio_total_text: string; // what the admin typed, read by parseEsCl (N171)
   tipo_moneda: 'UF' | 'CLP';
   descripcion_manual?: string;
   cliente_id?: string;
   contrato_url?: string;
   horas_contratadas: string; // text of the «Horas contratadas» field; '' = no value (GES-2.2)
 }
+
+// Amounts are typed the Chilean way and read by lib/money/parse-es-cl.ts (N171).
+// The value kept is read with room for any decimals, so that an amount with more
+// decimals than its currency still reaches the decimals check (precisionMessage)
+// instead of being taken as zero; the currency's own reading decides the problem.
+// In a field that takes decimals (UF), a text that could mean three decimals or
+// thousands («49.995», «1.200») is refused as ambiguous, never guessed (send-back 1);
+// in pesos it can only be thousands («15.990» → 15990). DECIDED (lead, send-back 2):
+// UF amounts: a single dot with three digits is refused; pesos: it is thousands.
+const LOOSE_DECIMALS = 10;
+type AmountProblem = 'precision' | 'unreadable' | 'ambiguous' | null;
+
+const readAmount = (text: string, currency: string): { value: number; problem: AmountProblem } => {
+  if (text.trim() === '') return { value: 0, problem: null };
+  const currencyDecimals = decimalsFor(currency);
+  const loose = parseEsClDetailed(text, { decimals: LOOSE_DECIMALS });
+  if (currencyDecimals > 0 && loose.problem === 'ambiguous') return { value: 0, problem: 'ambiguous' };
+  const strict = parseEsClDetailed(text, { decimals: currencyDecimals });
+  if (strict.value !== null) return { value: strict.value, problem: null };
+  return loose.value !== null ? { value: loose.value, problem: 'precision' } : { value: 0, problem: 'unreadable' };
+};
+
+// «Monto ambiguo»: both readings, with the person's own digits (send-back 1)
+const ambiguousMessage = (text: string): string => {
+  const typed = text.replace(/\s+/g, '').replace(/^(\$|UF)/i, '');
+  return `Monto ambiguo: escriba ${typed.replace('.', ',')} si son decimales o ${typed.replace('.', '')} si son miles.`;
+};
+
+// The text shown for an amount the form sets itself (loaded, computed, imported):
+// read back by readAmount to the same number.
+const amountText = (amount: number): string => {
+  if (!Number.isFinite(amount)) return '';
+  const text = String(amount);
+  return hasCurrencyPrecision(amount, 2) ? text : text.replace('.', ',');
+};
+
+const unreadableMessage = (target: { cuota: number } | 'total'): string => {
+  const subject = target === 'total' ? 'el precio total' : `el monto de la cuota ${target.cuota}`;
+  return `No se entiende ${subject}. Escríbalo con punto de miles y coma decimal, por ejemplo 1.200,50.`;
+};
+
+// A client's RUT is formatted as typed and checked with utils/rutValidation.ts (GES-3.11)
+const RUT_INVALID_MESSAGE = 'El RUT del cliente no es válido. Revise los números y el dígito verificador.';
+// An imported contract's new client: the escritura date is asked for, never made up (GES-3.6)
+const ASK_ESCRITURA_DATE_MESSAGE = 'El PDF no indica la fecha de la escritura pública. Escríbala para crear el cliente.';
+
+// The client fields the form may complete, named for the sentence above (send-back 3)
+const CLIENT_FIELD_NAMES: Partial<Record<keyof ClienteFormState, string>> = {
+  nombre_legal: 'el nombre legal',
+  nombre_fantasia: 'el nombre de fantasía',
+  rut: 'el RUT',
+  direccion: 'la dirección',
+  comuna: 'la comuna',
+  ciudad: 'la ciudad',
+  nombre_representante: 'el representante legal',
+  nombre_contacto_administrativo: 'el nombre del contacto administrativo',
+  email_contacto_administrativo: 'el email de facturación',
+};
 
 const DUPLICATE_DRAFT_NUMBER_MESSAGE = 'Ya existe un contrato con este número. Por favor use un número diferente.';
 
@@ -172,6 +236,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
     fecha_fin: '',
     programa_id: '',
     precio_total_uf: 0,
+    precio_total_text: '0',
     tipo_moneda: 'UF',
     descripcion_manual: '',
     cliente_id: '',
@@ -186,7 +251,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
   
   // Installments form
   const [cuotas, setCuotas] = useState<CuotaForm[]>([
-    { numero_cuota: 1, fecha_vencimiento: '', monto: 0 }
+    { numero_cuota: 1, fecha_vencimiento: '', monto: 0, montoText: '0' }
   ]);
 
   // Fetch schools on component mount
@@ -251,6 +316,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
         fecha_fin: extractedData.contract?.fecha_fin || '',
         programa_id: '', // Will be selected manually or kept empty for manual contracts
         precio_total_uf: extractedData.financial?.precio_total || 0,
+        precio_total_text: amountText(extractedData.financial?.precio_total || 0),
         tipo_moneda: extractedData.financial?.moneda || 'UF',
         descripcion_manual: `Contrato importado desde PDF - ${extractedData.contract?.numero_contrato || 'Sin número'}`,
         contrato_url: extractedData.contrato_url || '',
@@ -258,18 +324,17 @@ export default function ContractForm({ programas, clientes, editingContract, pre
       });
       
       // Populate client form
-      // Use defaults for required fields
-      const today = new Date().toISOString().split('T')[0];
+      // Use defaults for required fields; the escritura date is not made up (GES-3.6)
       setClienteForm({
         nombre_legal: extractedData.client?.nombre_legal || '',
         nombre_fantasia: extractedData.client?.nombre_fantasia || extractedData.client?.nombre_legal || '',
-        rut: extractedData.client?.rut || '',
+        rut: formatRut(extractedData.client?.rut || ''),
         direccion: extractedData.client?.direccion || '',
         comuna: extractedData.client?.comuna || '',
         ciudad: extractedData.client?.ciudad || '',
         nombre_representante: extractedData.client?.nombre_representante || '',
         rut_representante: extractedData.client?.rut_representante || '11.111.111-1',
-        fecha_escritura: extractedData.client?.fecha_escritura || today,
+        fecha_escritura: extractedData.client?.fecha_escritura || '',
         nombre_notario: extractedData.client?.nombre_notario || 'Notario Público',
         comuna_notaria: extractedData.client?.comuna_notaria || '',
         nombre_encargado_proyecto: '',
@@ -285,13 +350,16 @@ export default function ContractForm({ programas, clientes, editingContract, pre
         setCuotas(extractedData.payment_schedule.map((payment: any) => ({
           numero_cuota: payment.numero_cuota,
           fecha_vencimiento: payment.fecha_vencimiento,
-          monto: payment.monto
+          monto: payment.monto,
+          montoText: amountText(Number(payment.monto) || 0)
         })));
       }
       
-      // Check if client exists by RUT
+      // Check if client exists by RUT, however the stored value is written (GES-3.11)
       if (extractedData.client?.rut) {
-        const existingClient = clientes.find(c => c.rut === extractedData.client.rut);
+        const spellings = rutSpellings(extractedData.client.rut);
+        // The oldest such row, as every lookup by RUT chooses it (send-back 3)
+        const existingClient = oldestClient(clientes.filter(c => spellings.includes(c.rut)));
         if (existingClient) {
           setSelectedClienteId(existingClient.id);
           // Update form with existing client data
@@ -350,6 +418,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
         fecha_fin: editingContract.fecha_fin || '',
         programa_id: editingContract.programa_id || '',
         precio_total_uf: editingContract.precio_total_uf || 0,
+        precio_total_text: amountText(editingContract.precio_total_uf || 0),
         tipo_moneda: editingContract.tipo_moneda || 'UF',
         descripcion_manual: editingContract.descripcion_manual || '',
         cliente_id: editingContract.cliente_id || '',
@@ -366,11 +435,13 @@ export default function ContractForm({ programas, clientes, editingContract, pre
       
       // Populate installments
       if (editingContract.cuotas && editingContract.cuotas.length > 0) {
-        const cuotasData = editingContract.cuotas.map((cuota: any) => ({
+        // by cuota number: the rows arrive in the order of their last change (F21)
+        const cuotasData = [...editingContract.cuotas].sort((a: any, b: any) => a.numero_cuota - b.numero_cuota).map((cuota: any) => ({
           id: cuota.id,
           numero_cuota: cuota.numero_cuota,
           fecha_vencimiento: cuota.fecha_vencimiento,
-          monto: cuota.monto_uf || 0
+          monto: cuota.monto_uf || 0,
+          montoText: amountText(cuota.monto_uf || 0)
         }));
         setCuotas(cuotasData);
       }
@@ -385,6 +456,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
     setContractForm(prev => ({
       ...prev,
       precio_total_uf: licitacionData.precio_total_uf ?? prev.precio_total_uf,
+      precio_total_text: licitacionData.precio_total_uf != null ? amountText(licitacionData.precio_total_uf) : prev.precio_total_text,
       tipo_moneda: licitacionData.tipo_moneda ?? prev.tipo_moneda,
       fecha_contrato: licitacionData.fecha_adjudicacion ?? prev.fecha_contrato,
       programa_id: licitacionData.programa_id ?? prev.programa_id,
@@ -501,6 +573,72 @@ export default function ContractForm({ programas, clientes, editingContract, pre
     }
   }, [editingContract]);
 
+  // A new contract for an EXISTING client shows the client's data read-only:
+  // the contract prints the stored client, and saving corrections from here would
+  // silently change every other contract of that client (GES-3.10). Corrections go
+  // through Clientes. Editing a contract keeps its client fields editable, as before.
+  const clientReadOnly = !editingContract && !!selectedClienteId;
+  // Send-back 2: a field this form REQUIRES to go on (isStepValid, step 'cliente')
+  // that the stored client has EMPTY stays editable; on save only those fields are
+  // written to the client, each only where it is still empty (fillMissingClientFields).
+  const requiredClientFields: Array<keyof ClienteFormState> = esManual
+    ? ['nombre_legal', 'rut', 'nombre_contacto_administrativo', 'email_contacto_administrativo']
+    : ['nombre_legal', 'nombre_fantasia', 'rut', 'direccion', 'comuna', 'ciudad', 'nombre_representante'];
+  const storedCliente = clientReadOnly ? clientes.find(c => c.id === selectedClienteId) : undefined;
+  const clientFieldFillable = (field: keyof ClienteFormState): boolean => {
+    if (!clientReadOnly || !requiredClientFields.includes(field)) return false;
+    const stored = storedCliente?.[field as keyof Cliente];
+    return stored == null || String(stored).trim() === '';
+  };
+  const fillableClientFields = requiredClientFields.filter(clientFieldFillable);
+  const clientFieldReadOnly = (field: keyof ClienteFormState): boolean => clientReadOnly && !clientFieldFillable(field);
+  const editCliente = (field: keyof ClienteFormState, value: string) => {
+    if (clientFieldReadOnly(field)) return;
+    setClienteForm(prev => ({ ...prev, [field]: value }));
+  };
+  // Writes the filled fields into the existing client's row. Each write is
+  // conditional on the EXACT stored value the form read (null, '' or spaces), so a
+  // value another admin stored meanwhile is never overwritten (send-back 3). Never
+  // throws: returns the fields that were not written (no row changed, or an error),
+  // for the sentence shown after the contract is saved.
+  const fillMissingClientFields = async (clienteId: string): Promise<Array<keyof ClienteFormState>> => {
+    const notWritten: Array<keyof ClienteFormState> = [];
+    for (const field of fillableClientFields) {
+      const value = (clienteForm[field] || '').trim();
+      if (!value) continue;
+      const stored = storedCliente?.[field as keyof Cliente];
+      const update = supabase
+        .from('clientes')
+        .update({ [field]: field === 'rut' ? formatRut(value) : value })
+        .eq('id', clienteId);
+      const conditional = stored == null ? update.is(field, null) : update.eq(field, String(stored));
+      try {
+        const { data, error } = await conditional.select('id');
+        const changed = Array.isArray(data) ? data.length > 0 : !!data;
+        if (error || !changed) notWritten.push(field);
+      } catch (fillError) {
+        console.error('Error completing client field:', fillError);
+        notWritten.push(field);
+      }
+    }
+    return notWritten;
+  };
+  // «El contrato se guardó, pero no se pudo completar … en la ficha del cliente.»
+  const tellFieldsNotWritten = (fields: Array<keyof ClienteFormState>) => {
+    if (fields.length === 0) return;
+    const names = fields.map(f => CLIENT_FIELD_NAMES[f] ?? f);
+    const list = names.length === 1 ? names[0] : `${names.slice(0, -1).join(', ')} y ${names[names.length - 1]}`;
+    toast.error(`El contrato se guardó, pero no se pudo completar ${list} en la ficha del cliente. Corríjalo en Clientes.`);
+  };
+
+  // The client RUT is checked wherever it is written from this form: a new
+  // client, or a changed RUT when editing (an unchanged stored RUT is left alone)
+  const rutIsWritten = clientFieldFillable('rut') || !clientReadOnly && (!editingContract || clienteForm.rut !== (editingContract.clientes?.rut || ''));
+  const rutInvalid = rutIsWritten && clienteForm.rut.trim() !== '' && !validateRut(clienteForm.rut);
+  // An imported contract with a new client and no escritura date: asked for (GES-3.6)
+  const importedNewClient = !!extractedData && !editingContract && !selectedClienteId;
+  const escrituraDateMissing = importedNewClient && !clienteForm.fecha_escritura;
+
   // Handle client selection
   const handleClienteSelection = (clienteId: string) => {
     const cliente = clientes.find(c => c.id === clienteId);
@@ -539,7 +677,8 @@ export default function ContractForm({ programas, clientes, editingContract, pre
       const amounts = splitEvenly(totalAmount, numCuotas, decimalsFor(contractForm.tipo_moneda));
       const updatedCuotas = cuotas.map((cuota, index) => ({
         ...cuota,
-        monto: amounts[index]
+        monto: amounts[index],
+        montoText: amountText(amounts[index])
       }));
       setCuotas(updatedCuotas);
     }
@@ -551,7 +690,8 @@ export default function ContractForm({ programas, clientes, editingContract, pre
       setCuotas([...cuotas, {
         numero_cuota: cuotas.length + 1,
         fecha_vencimiento: '',
-        monto: 0
+        monto: 0,
+        montoText: '0'
       }]);
     }
   };
@@ -571,6 +711,24 @@ export default function ContractForm({ programas, clientes, editingContract, pre
     const updatedCuotas = [...cuotas];
     updatedCuotas[index] = { ...updatedCuotas[index], [field]: value };
     setCuotas(updatedCuotas);
+  };
+
+  // A cuota's amount as typed: the text is kept, the number is read from it (N171)
+  const updateCuotaAmount = (index: number, text: string) => {
+    const updatedCuotas = [...cuotas];
+    updatedCuotas[index] = { ...updatedCuotas[index], montoText: text, monto: readAmount(text, contractForm.tipo_moneda).value };
+    setCuotas(updatedCuotas);
+  };
+
+  // A typed amount's reading depends on the currency («49.995» is ambiguous in UF,
+  // thousands in pesos): changing it reads every typed amount again (send-back 1)
+  const changeCurrency = (tipo_moneda: 'UF' | 'CLP') => {
+    setContractForm({
+      ...contractForm,
+      tipo_moneda,
+      precio_total_uf: readAmount(contractForm.precio_total_text, tipo_moneda).value
+    });
+    setCuotas(cuotas.map(c => ({ ...c, monto: readAmount(c.montoText, tipo_moneda).value })));
   };
 
   // Create new school
@@ -611,13 +769,15 @@ export default function ContractForm({ programas, clientes, editingContract, pre
       // Select the newly created school
       setSelectedSchoolId(newSchool.id);
       
-      // Pre-fill client form with school data
-      setClienteForm(prev => ({
-        ...prev,
-        nombre_fantasia: newSchool.name,
-        direccion: newSchool.address || prev.direccion,
-        ciudad: newSchool.region || prev.ciudad
-      }));
+      // Pre-fill client form with school data (not over an existing client's read-only data, GES-3.10)
+      if (!clientReadOnly) {
+        setClienteForm(prev => ({
+          ...prev,
+          nombre_fantasia: newSchool.name,
+          direccion: newSchool.address || prev.direccion,
+          ciudad: newSchool.region || prev.ciudad
+        }));
+      }
       
       setShowNewSchoolForm(false);
       setNewSchoolForm({
@@ -643,16 +803,31 @@ export default function ContractForm({ programas, clientes, editingContract, pre
   const horasReadOnly = hourAllocationState !== 'none';
   const horasToSave = horasText === '' || !horasValid ? null : Number(horasText);
 
+  // What is wrong with a typed amount under the chosen currency, if anything (N171)
+  function amountProblemOf(text: string, value: number): AmountProblem {
+    const { problem } = readAmount(text, contractForm.tipo_moneda);
+    if (problem) return problem;
+    return hasCurrencyPrecision(value, decimalsFor(contractForm.tipo_moneda)) ? null : 'precision';
+  }
+  function cuotaProblem(cuota: CuotaForm): AmountProblem {
+    return amountProblemOf(cuota.montoText, cuota.monto);
+  }
+  function totalAmountProblem(): AmountProblem {
+    return amountProblemOf(contractForm.precio_total_text, contractForm.precio_total_uf);
+  }
+
   // Row for a brand-new client: only clientes columns (buildClientRow, GES-2.1),
   // with the defaults the database still needs for its obligatory legal columns.
   const newClientRow = () => {
     const today = new Date().toISOString().split('T')[0]; // Get today's date in YYYY-MM-DD format
     return {
       ...buildClientRow(clienteForm, selectedSchoolId),
+      rut: formatRut(clienteForm.rut), // the product's format (GES-3.11)
       // Required fields with defaults
       nombre_fantasia: clienteForm.nombre_fantasia || clienteForm.nombre_legal, // Use legal name if no fantasy name
       rut_representante: clienteForm.rut_representante || '11.111.111-1', // Default RUT if not provided
-      fecha_escritura: clienteForm.fecha_escritura || today, // Use today's date if not provided
+      // An imported contract's date is never made up: the form asks for it (GES-3.6)
+      fecha_escritura: extractedData ? (clienteForm.fecha_escritura || null) : (clienteForm.fecha_escritura || today),
       nombre_notario: clienteForm.nombre_notario || 'Notario Público', // Default notary name
       // Optional fields can be null
       comuna_notaria: clienteForm.comuna_notaria || null,
@@ -665,11 +840,25 @@ export default function ContractForm({ programas, clientes, editingContract, pre
     };
   };
 
+  // «Guardar Borrador» only for a new contract or a draft: it writes estado
+  // 'borrador', which would take any other contract out of its state (GES-3.8)
+  const canSaveAsDraft = !editingContract || editingContract.estado === 'borrador';
+
   // Save contract as draft
   const handleSaveAsDraft = async () => {
+    if (!canSaveAsDraft) return;
     try {
       setSavingAsDraft(true);
       
+      if (rutInvalid) {
+        toast.error(RUT_INVALID_MESSAGE);
+        return;
+      }
+      if (escrituraDateMissing) {
+        toast.error(ASK_ESCRITURA_DATE_MESSAGE);
+        return;
+      }
+
       // Validate minimum required fields for draft
       if (!contractForm.numero_contrato) {
         toast.error('Por favor ingrese un número de contrato antes de guardar como borrador.');
@@ -683,7 +872,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
           toast.error(`La cuota ${cuota.numero_cuota} necesita una fecha de vencimiento para guardar el borrador.`);
           return;
         }
-        if (!(cuota.monto > 0)) {
+        if (!(cuota.monto > 0) && !cuotaProblem(cuota)) {
           toast.error(`La cuota ${cuota.numero_cuota} necesita un monto mayor que cero para guardar el borrador.`);
           return;
         }
@@ -699,12 +888,15 @@ export default function ContractForm({ programas, clientes, editingContract, pre
       if (!clienteId && (clienteForm.rut || clienteForm.nombre_legal)) {
         // Check if client exists
         if (clienteForm.rut) {
-          const { data: existingCliente } = await supabase
+          const { data: matchingClientes } = await supabase
             .from('clientes')
-            .select('id')
-            .eq('rut', clienteForm.rut)
-            .single();
-            
+            .select('id, created_at')
+            // however the stored RUT is written; the oldest such client (GES-3.11, send-back 3)
+            .in('rut', rutSpellings(clienteForm.rut))
+            .order('created_at', { ascending: true })
+            .order('id', { ascending: true });
+          const existingCliente = oldestClient(matchingClientes as Array<{ id: string; created_at?: string | null }> | null);
+
           if (existingCliente) {
             clienteId = existingCliente.id;
           }
@@ -728,6 +920,15 @@ export default function ContractForm({ programas, clientes, editingContract, pre
         }
       }
       
+      // The client's missing fields are filled BEFORE the contract row is written, so
+      // whatever reads the client at insertion (the representative's snapshot trigger)
+      // sees them (send-back 4). A fill never stops the save: what could not be written
+      // is told after the contract is saved. If the contract write then fails, the
+      // client keeps the filled fields: they are true data about the client.
+      const draftNotWritten = clienteId && clientReadOnly && clienteId === selectedClienteId
+        ? await fillMissingClientFields(clienteId)
+        : [];
+
       // Prepare contract data (allow incomplete data for draft)
       const contractData: any = {
         numero_contrato: contractForm.numero_contrato,
@@ -839,6 +1040,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
       }
       
       toast.success('✅ Contrato guardado como borrador. Puede continuar editándolo más tarde desde la lista de contratos.');
+      tellFieldsNotWritten(draftNotWritten);
       onSuccess(contractId);
     } catch (error: any) {
       console.error('Error saving draft:', error);
@@ -975,11 +1177,14 @@ export default function ContractForm({ programas, clientes, editingContract, pre
           const clientData = newClientRow();
           
           // Check if client with this RUT already exists
-          const { data: existingCliente, error: checkError } = await supabase
+          const { data: matchingClientes, error: checkError } = await supabase
             .from('clientes')
             .select('*')
-            .eq('rut', clienteForm.rut)
-            .single();
+            // however the stored RUT is written; the oldest such client (GES-3.11, send-back 3)
+            .in('rut', rutSpellings(clienteForm.rut))
+            .order('created_at', { ascending: true })
+            .order('id', { ascending: true });
+          const existingCliente = oldestClient(matchingClientes as Cliente[] | null);
             
           if (checkError && checkError.code !== 'PGRST116') {
             // PGRST116 means no rows found, which is expected for new clients
@@ -1048,6 +1253,16 @@ export default function ContractForm({ programas, clientes, editingContract, pre
           throw new Error('Error: No se pudo determinar el ID del cliente. Por favor, seleccione o cree un cliente válido.');
         }
 
+
+        // The client's missing fields are filled BEFORE the contract row is written, so
+        // whatever reads the client at insertion (the representative's snapshot trigger)
+        // sees them (send-back 4). A fill never stops the save: what could not be written
+        // is told after the contract is saved. If the contract write then fails, the
+        // client keeps the filled fields: they are true data about the client.
+        const fullSaveNotWritten = selectedClienteId && clientReadOnly
+          ? await fillMissingClientFields(selectedClienteId)
+          : [];
+
         // Save contract (ensure empty date strings become null)
         const newContratoPayload: Record<string, unknown> = {
           numero_contrato: contractForm.numero_contrato,
@@ -1100,6 +1315,9 @@ export default function ContractForm({ programas, clientes, editingContract, pre
           .insert(cuotasData);
 
         if (cuotasError) throw cuotasError;
+
+        // Told only now that the contract is saved (send-back 3, 4)
+        tellFieldsNotWritten(fullSaveNotWritten);
 
         // Phase 5: pass the new contrato ID to parent
         onSuccess(newContrato?.id);
@@ -1186,20 +1404,29 @@ export default function ContractForm({ programas, clientes, editingContract, pre
   const cuotasMatchTotal = sumsMatch(contractForm.precio_total_uf, cuotaAmounts, moneyDecimals);
   // The amounts that are checked are the amounts that are saved: a total or a cuota
   // with more decimals than its currency is refused, never rounded (send-back 1).
-  const badPrecisionCuota = cuotas.find(c => !hasCurrencyPrecision(c.monto, moneyDecimals));
-  const amountPrecisionError = !hasCurrencyPrecision(contractForm.precio_total_uf, moneyDecimals)
-    ? precisionMessage('total')
+  // A typed amount the currency does not accept, or that is not an amount at all (N171).
+  const amountMessage = (problem: AmountProblem, target: { cuota: number } | 'total', text: string) =>
+    problem === 'ambiguous'
+      ? ambiguousMessage(text)
+      : problem === 'unreadable' ? unreadableMessage(target) : precisionMessage(target);
+  const totalProblem = totalAmountProblem();
+  const badPrecisionCuota = cuotas.find(c => cuotaProblem(c) !== null);
+  const amountPrecisionError = totalProblem
+    ? amountMessage(totalProblem, 'total', contractForm.precio_total_text)
     : badPrecisionCuota
-      ? precisionMessage({ cuota: badPrecisionCuota.numero_cuota })
+      ? amountMessage(cuotaProblem(badPrecisionCuota), { cuota: badPrecisionCuota.numero_cuota }, badPrecisionCuota.montoText)
       : null;
   // A cuota whose amount is not above zero cannot be saved: say which (send-back 2)
-  const zeroAmountCuota = cuotas.find(c => !(c.monto > 0));
+  const zeroAmountCuota = cuotas.find(c => !(c.monto > 0) && !cuotaProblem(c));
 
   // Validation
   const isStepValid = () => {
     switch (step) {
       case 'cliente':
         // For manual contracts, require less information
+        // A RUT that fails its check digit, or an imported new client without its
+        // escritura date, cannot go on (GES-3.11, GES-3.6)
+        if (rutInvalid || escrituraDateMissing) return false;
         if (esManual) {
           return clienteForm.nombre_legal && clienteForm.rut && 
                  clienteForm.nombre_contacto_administrativo && clienteForm.email_contacto_administrativo;
@@ -1212,11 +1439,11 @@ export default function ContractForm({ programas, clientes, editingContract, pre
         if (esManual) {
           return contractForm.numero_contrato && contractForm.fecha_contrato && 
                  contractForm.fecha_fin && contractForm.descripcion_manual && contractForm.precio_total_uf > 0 &&
-                 horasValid;
+                 totalProblem !== 'unreadable' && totalProblem !== 'ambiguous' && horasValid;
         }
         return contractForm.numero_contrato && contractForm.fecha_contrato && 
                contractForm.fecha_fin && contractForm.programa_id && contractForm.precio_total_uf > 0 &&
-               horasValid;
+               totalProblem !== 'unreadable' && totalProblem !== 'ambiguous' && horasValid;
       case 'cuotas':
         return cuotas.every(c => c.fecha_vencimiento && c.monto > 0) &&
                cuotasMatchTotal && !amountPrecisionError;
@@ -1377,6 +1604,16 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                   Cliente fijado por la licitacion. No se puede cambiar.
                 </p>
               )}
+              {clientReadOnly && (
+                <p className="text-sm text-gray-700 mt-2" data-testid="client-readonly-note">
+                  Para corregir los datos del cliente, use Clientes
+                </p>
+              )}
+              {fillableClientFields.length > 0 && (
+                <p className="text-sm text-gray-700 mt-1" data-testid="client-fill-note">
+                  Los datos que faltan en la ficha del cliente se guardarán en ella.
+                </p>
+              )}
             </div>
 
             {/* School Selection */}
@@ -1500,8 +1737,9 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                 <input
                   type="text"
                   value={clienteForm.nombre_legal}
-                  onChange={(e) => setClienteForm({ ...clienteForm, nombre_legal: e.target.value })}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
+                  readOnly={clientFieldReadOnly('nombre_legal')}
+                  onChange={(e) => editCliente('nombre_legal', e.target.value)}
+                  className={`w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent ${clientFieldReadOnly('nombre_legal') ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                   placeholder="Nombre legal de la empresa"
                 />
               </div>
@@ -1513,8 +1751,9 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                 <input
                   type="text"
                   value={clienteForm.nombre_fantasia}
-                  onChange={(e) => setClienteForm({ ...clienteForm, nombre_fantasia: e.target.value })}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
+                  readOnly={clientFieldReadOnly('nombre_fantasia')}
+                  onChange={(e) => editCliente('nombre_fantasia', e.target.value)}
+                  className={`w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent ${clientFieldReadOnly('nombre_fantasia') ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                   placeholder="Nombre comercial"
                 />
               </div>
@@ -1526,10 +1765,14 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                 <input
                   type="text"
                   value={clienteForm.rut}
-                  onChange={(e) => setClienteForm({ ...clienteForm, rut: e.target.value })}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
+                  readOnly={clientFieldReadOnly('rut')}
+                  onChange={(e) => editCliente('rut', formatRut(e.target.value))}
+                  className={`w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent ${clientFieldReadOnly('rut') ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                   placeholder="12.345.678-9"
                 />
+                {rutInvalid && (
+                  <p className="text-sm text-red-600 mt-1">{RUT_INVALID_MESSAGE}</p>
+                )}
               </div>
               
               <div>
@@ -1539,8 +1782,9 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                 <input
                   type="text"
                   value={clienteForm.direccion}
-                  onChange={(e) => setClienteForm({ ...clienteForm, direccion: e.target.value })}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
+                  readOnly={clientFieldReadOnly('direccion')}
+                  onChange={(e) => editCliente('direccion', e.target.value)}
+                  className={`w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent ${clientFieldReadOnly('direccion') ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                   placeholder="Calle y número"
                 />
               </div>
@@ -1552,8 +1796,9 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                 <input
                   type="text"
                   value={clienteForm.comuna}
-                  onChange={(e) => setClienteForm({ ...clienteForm, comuna: e.target.value })}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
+                  readOnly={clientFieldReadOnly('comuna')}
+                  onChange={(e) => editCliente('comuna', e.target.value)}
+                  className={`w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent ${clientFieldReadOnly('comuna') ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                   placeholder="Comuna"
                 />
               </div>
@@ -1565,8 +1810,9 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                 <input
                   type="text"
                   value={clienteForm.ciudad}
-                  onChange={(e) => setClienteForm({ ...clienteForm, ciudad: e.target.value })}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
+                  readOnly={clientFieldReadOnly('ciudad')}
+                  onChange={(e) => editCliente('ciudad', e.target.value)}
+                  className={`w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent ${clientFieldReadOnly('ciudad') ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                   placeholder="Ciudad"
                 />
               </div>
@@ -1578,8 +1824,9 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                 <input
                   type="text"
                   value={clienteForm.nombre_representante}
-                  onChange={(e) => setClienteForm({ ...clienteForm, nombre_representante: e.target.value })}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
+                  readOnly={clientFieldReadOnly('nombre_representante')}
+                  onChange={(e) => editCliente('nombre_representante', e.target.value)}
+                  className={`w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent ${clientFieldReadOnly('nombre_representante') ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                   placeholder="Nombre del representante"
                 />
               </div>
@@ -1591,12 +1838,32 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                 <input
                   type="text"
                   value={clienteForm.rut_representante}
-                  onChange={(e) => setClienteForm({ ...clienteForm, rut_representante: e.target.value })}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
+                  readOnly={clientFieldReadOnly('rut_representante')}
+                  onChange={(e) => editCliente('rut_representante', e.target.value)}
+                  className={`w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent ${clientFieldReadOnly('rut_representante') ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                   placeholder="12.345.678-9"
                 />
               </div>
             </div>
+
+            {/* An imported contract's new client: its escritura date is asked for (GES-3.6) */}
+            {esManual && importedNewClient && (
+            <div className="border-t pt-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Fecha Escritura Pública *
+              </label>
+              <input
+                type="date"
+                data-testid="client-fecha-escritura-input"
+                value={clienteForm.fecha_escritura}
+                onChange={(e) => editCliente('fecha_escritura', e.target.value)}
+                className="w-full md:w-1/3 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
+              />
+              {escrituraDateMissing && (
+                <p className="text-sm text-red-600 mt-1">{ASK_ESCRITURA_DATE_MESSAGE}</p>
+              )}
+            </div>
+            )}
 
             {/* Additional Legal Information - Hide for manual contracts */}
             {!esManual && (
@@ -1610,9 +1877,13 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                   <input
                     type="date"
                     value={clienteForm.fecha_escritura}
-                    onChange={(e) => setClienteForm({ ...clienteForm, fecha_escritura: e.target.value })}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
+                    readOnly={clientFieldReadOnly('fecha_escritura')}
+                    onChange={(e) => editCliente('fecha_escritura', e.target.value)}
+                    className={`w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent ${clientFieldReadOnly('fecha_escritura') ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                   />
+                  {escrituraDateMissing && (
+                    <p className="text-sm text-red-600 mt-1">{ASK_ESCRITURA_DATE_MESSAGE}</p>
+                  )}
                 </div>
                 
                 <div>
@@ -1622,8 +1893,9 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                   <input
                     type="text"
                     value={clienteForm.nombre_notario}
-                    onChange={(e) => setClienteForm({ ...clienteForm, nombre_notario: e.target.value })}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
+                    readOnly={clientFieldReadOnly('nombre_notario')}
+                    onChange={(e) => editCliente('nombre_notario', e.target.value)}
+                    className={`w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent ${clientFieldReadOnly('nombre_notario') ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                     placeholder="Nombre del notario"
                   />
                 </div>
@@ -1635,8 +1907,9 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                   <input
                     type="text"
                     value={clienteForm.comuna_notaria}
-                    onChange={(e) => setClienteForm({ ...clienteForm, comuna_notaria: e.target.value })}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
+                    readOnly={clientFieldReadOnly('comuna_notaria')}
+                    onChange={(e) => editCliente('comuna_notaria', e.target.value)}
+                    className={`w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent ${clientFieldReadOnly('comuna_notaria') ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                     placeholder="Santiago, Providencia, etc."
                   />
                 </div>
@@ -1656,8 +1929,9 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                   <input
                     type="text"
                     value={clienteForm.nombre_encargado_proyecto}
-                    onChange={(e) => setClienteForm({ ...clienteForm, nombre_encargado_proyecto: e.target.value })}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
+                    readOnly={clientFieldReadOnly('nombre_encargado_proyecto')}
+                    onChange={(e) => editCliente('nombre_encargado_proyecto', e.target.value)}
+                    className={`w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent ${clientFieldReadOnly('nombre_encargado_proyecto') ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                     placeholder="Nombre completo"
                   />
                 </div>
@@ -1669,8 +1943,9 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                   <input
                     type="tel"
                     value={clienteForm.telefono_encargado_proyecto}
-                    onChange={(e) => setClienteForm({ ...clienteForm, telefono_encargado_proyecto: e.target.value })}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
+                    readOnly={clientFieldReadOnly('telefono_encargado_proyecto')}
+                    onChange={(e) => editCliente('telefono_encargado_proyecto', e.target.value)}
+                    className={`w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent ${clientFieldReadOnly('telefono_encargado_proyecto') ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                     placeholder="+56 9 1234 5678"
                   />
                 </div>
@@ -1682,8 +1957,9 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                   <input
                     type="email"
                     value={clienteForm.email_encargado_proyecto}
-                    onChange={(e) => setClienteForm({ ...clienteForm, email_encargado_proyecto: e.target.value })}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
+                    readOnly={clientFieldReadOnly('email_encargado_proyecto')}
+                    onChange={(e) => editCliente('email_encargado_proyecto', e.target.value)}
+                    className={`w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent ${clientFieldReadOnly('email_encargado_proyecto') ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                     placeholder="encargado@colegio.cl"
                   />
                 </div>
@@ -1719,8 +1995,9 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                   <input
                     type="text"
                     value={clienteForm.nombre_contacto_administrativo}
-                    onChange={(e) => setClienteForm({ ...clienteForm, nombre_contacto_administrativo: e.target.value })}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
+                    readOnly={clientFieldReadOnly('nombre_contacto_administrativo')}
+                    onChange={(e) => editCliente('nombre_contacto_administrativo', e.target.value)}
+                    className={`w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent ${clientFieldReadOnly('nombre_contacto_administrativo') ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                     placeholder="Nombre completo"
                   />
                 </div>
@@ -1732,8 +2009,9 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                   <input
                     type="tel"
                     value={clienteForm.telefono_contacto_administrativo}
-                    onChange={(e) => setClienteForm({ ...clienteForm, telefono_contacto_administrativo: e.target.value })}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
+                    readOnly={clientFieldReadOnly('telefono_contacto_administrativo')}
+                    onChange={(e) => editCliente('telefono_contacto_administrativo', e.target.value)}
+                    className={`w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent ${clientFieldReadOnly('telefono_contacto_administrativo') ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                     placeholder="+56 2 2345 6789"
                   />
                 </div>
@@ -1745,8 +2023,9 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                   <input
                     type="email"
                     value={clienteForm.email_contacto_administrativo}
-                    onChange={(e) => setClienteForm({ ...clienteForm, email_contacto_administrativo: e.target.value })}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
+                    readOnly={clientFieldReadOnly('email_contacto_administrativo')}
+                    onChange={(e) => editCliente('email_contacto_administrativo', e.target.value)}
+                    className={`w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent ${clientFieldReadOnly('email_contacto_administrativo') ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                     placeholder="administracion@colegio.cl"
                   />
                 </div>
@@ -1918,7 +2197,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                       name="tipo_moneda"
                       value="UF"
                       checked={contractForm.tipo_moneda === 'UF'}
-                      onChange={(e) => setContractForm({ ...contractForm, tipo_moneda: e.target.value as 'UF' | 'CLP' })}
+                      onChange={(e) => changeCurrency(e.target.value as 'UF' | 'CLP')}
                       className="mr-2"
                     />
                     UF (Unidades de Fomento)
@@ -1929,7 +2208,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                       name="tipo_moneda"
                       value="CLP"
                       checked={contractForm.tipo_moneda === 'CLP'}
-                      onChange={(e) => setContractForm({ ...contractForm, tipo_moneda: e.target.value as 'UF' | 'CLP' })}
+                      onChange={(e) => changeCurrency(e.target.value as 'UF' | 'CLP')}
                       className="mr-2"
                     />
                     Pesos Chilenos (CLP)
@@ -1941,15 +2220,23 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Precio Total ({contractForm.tipo_moneda}) *
                 </label>
+                {/* Typed the Chilean way: «1.200,50», «15.990» (N171) */}
                 <input
-                  type="number"
-                  step={contractForm.tipo_moneda === 'UF' ? '0.01' : '1'}
-                  min="0"
-                  value={contractForm.precio_total_uf}
-                  onChange={(e) => setContractForm({ ...contractForm, precio_total_uf: parseFloat(e.target.value) || 0 })}
+                  type="text"
+                  inputMode="decimal"
+                  data-testid="contract-total-input"
+                  value={contractForm.precio_total_text}
+                  onChange={(e) => setContractForm({
+                    ...contractForm,
+                    precio_total_text: e.target.value,
+                    precio_total_uf: readAmount(e.target.value, contractForm.tipo_moneda).value
+                  })}
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
                   placeholder="0.00"
                 />
+                {totalProblem && (
+                  <p className="text-sm text-red-600 mt-1">{amountMessage(totalProblem, 'total', contractForm.precio_total_text)}</p>
+                )}
               </div>
             </div>
 
@@ -2025,11 +2312,11 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                       Monto ({contractForm.tipo_moneda})
                     </label>
                     <input
-                      type="number"
-                      step={contractForm.tipo_moneda === 'UF' ? '0.01' : '1'}
-                      min="0"
-                      value={cuota.monto}
-                      onChange={(e) => updateCuota(index, 'monto', parseFloat(e.target.value) || 0)}
+                      type="text"
+                      inputMode="decimal"
+                      data-testid="cuota-amount-input"
+                      value={cuota.montoText}
+                      onChange={(e) => updateCuotaAmount(index, e.target.value)}
                       className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-brand_accent focus:border-transparent text-sm"
                     />
                   </div>
@@ -2114,7 +2401,8 @@ export default function ContractForm({ programas, clientes, editingContract, pre
               </button>
             ) : (
               <div className="flex space-x-3">
-                {/* Save as Draft button */}
+                {/* Save as Draft button: a new contract or a draft only (GES-3.8) */}
+                {canSaveAsDraft && (
                 <button
                   type="button"
                   onClick={handleSaveAsDraft}
@@ -2134,6 +2422,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                     </>
                   )}
                 </button>
+                )}
                 {/* Only show PDF generation for standard contracts */}
                 {!esManual && (
                   <button

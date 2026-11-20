@@ -1,3 +1,10 @@
 {
-  "checks": []
+  "checks": [],
+  "functions_that_delete_rows": [
+    {
+      "path": "supabase/migrations/20261119107000_expense_report_save.sql",
+      "function": "public.save_expense_report(uuid, jsonb, jsonb, uuid[])",
+      "label": "Saves an expense report in one step and removes only the expenses the person took out of the form"
+    }
+  ]
 }

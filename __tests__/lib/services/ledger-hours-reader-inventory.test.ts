@@ -4696,8 +4696,10 @@ const INDIRECT_TS_CONSUMERS: Record<string, string[]> = {
     'get_consultant_earnings:billable/fail-closed',
   ],
   'pages/api/contracts/[id]/hours/index.ts': ['get_bucket_summary:aggregate/fail-closed'],
+  // F21d (GES-3.14): the move is one database function that reads get_bucket_summary
+  // inside its lock; the route then reads the summary only for its answer.
   'pages/api/contracts/[id]/hours/reallocate.ts': [
-    'get_bucket_summary:write-precondition/fail-closed',
+    'reallocate_contract_hours:write/fail-closed',
     'get_bucket_summary:post-write-display/non-authoritative',
   ],
 };
@@ -5425,6 +5427,10 @@ const SQL_LEDGER_OBJECTS: Record<string, string[]> = {
     'pm_inspect:duplicate_count/aggregate/potential-dynamic/direct',
     'pm_inspect:row_count/aggregate/potential-dynamic/direct',
     'pm_inspect:violation_count/publisher-only/potential-dynamic/direct',
+  ],
+  // F21d (GES-3.14): moves allocation hours after a get_bucket_summary check under lock.
+  'supabase/migrations/20261119103000_reallocate_hours_atomic.sql': [
+    'reallocate_contract_hours:write/fail-closed/transitive',
   ],
 };
 

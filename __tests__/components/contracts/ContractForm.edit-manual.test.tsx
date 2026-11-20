@@ -160,4 +160,17 @@ describe('ContractForm — editing a manual or imported contract', () => {
     );
     expect(manualCheckbox().checked).toBe(true);
   });
+  it('F21 send-back S: step 3 «Plan de Pagos» lists the cuotas by number, whatever order they arrive in', () => {
+    currentClient = createFakeSupabase();
+    const editing = contract({
+      precio_total_uf: 60,
+      cuotas: [1, 6, 2, 3, 5, 4].map(n => ({ id: `cuota-${n}`, numero_cuota: n, fecha_vencimiento: `2026-0${n}-15`, monto_uf: 10 })),
+    });
+    render(<ContractForm programas={PROGRAMAS} clientes={[editing.clientes]} editingContract={editing} onSuccess={vi.fn()} onCancel={vi.fn()} />);
+    clickButton('Siguiente');
+    clickButton('Siguiente');
+    expect(screen.getByText('Plan de Pagos')).toBeInTheDocument();
+    const shown = screen.getAllByText(/^Cuota \d+$/).map(el => el.textContent);
+    expect(shown).toEqual(['Cuota 1', 'Cuota 2', 'Cuota 3', 'Cuota 4', 'Cuota 5', 'Cuota 6']);
+  });
 });

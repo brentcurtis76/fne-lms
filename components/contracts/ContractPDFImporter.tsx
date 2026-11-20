@@ -29,6 +29,7 @@ interface ExtractedData {
     ciudad?: string;
     nombre_representante?: string;
     rut_representante?: string;
+    fecha_escritura?: string;
     confidence: number;
   };
   financial: {
@@ -226,16 +227,16 @@ export default function ContractPDFImporter({
       return;
     }
 
-    // Ensure required fields have defaults before passing to parent
-    const today = new Date().toISOString().split('T')[0];
+    // Ensure required fields have defaults before passing to parent.
+    // The escritura date is never made up: a date the PDF gives is passed on as
+    // it is; without one, the contract form asks the admin for it (GES-3.6).
     const processedData = {
       ...extractedData,
       client: {
         ...extractedData.client,
         // Set defaults for required fields if they're missing
         nombre_fantasia: extractedData.client.nombre_fantasia || extractedData.client.nombre_legal,
-        rut_representante: extractedData.client.rut_representante || '11.111.111-1',
-        fecha_escritura: today // Always use today's date for fecha_escritura
+        rut_representante: extractedData.client.rut_representante || '11.111.111-1'
       }
     };
 

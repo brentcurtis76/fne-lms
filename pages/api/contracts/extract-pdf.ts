@@ -2,6 +2,7 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import Anthropic from '@anthropic-ai/sdk';
 import pdfParse from 'pdf-parse';
 import { createApiSupabaseClient, requireVerifiedCaller } from '@/lib/api-auth';
+import { rutSpellings, oldestClient } from '@/lib/contracts/rut-spellings';
 
 // Types for extracted data
 interface ExtractedContract {
@@ -333,16 +334,19 @@ export default async function handler(
       }
     }
 
-    // Check for existing client by RUT
+    // Check for existing client by RUT, however the PDF and the stored row write
+    // it: the usual spellings are asked for at once (GES-3.11)
     let existingClient = null;
     if (extractedData.client.rut) {
-      const { data: clientData } = await supabase
+      // The oldest such row: earliest created_at, then smallest id (send-back 3)
+      const { data: clientRows } = await supabase
         .from('clientes')
         .select('*')
-        .eq('rut', extractedData.client.rut)
-        .single();
-      
-      existingClient = clientData;
+        .in('rut', rutSpellings(extractedData.client.rut))
+        .order('created_at', { ascending: true })
+        .order('id', { ascending: true });
+
+      existingClient = oldestClient(clientRows as Array<{ id: string; created_at?: string | null }> | null);
     }
 
     // Return the extracted data with validation results

@@ -4,6 +4,8 @@ import HourAllocationPanel from './HourAllocationPanel';
 import { isFirmaPendiente } from '../../lib/utils/contract-status';
 import { toast } from 'react-hot-toast';
 import { downloadInvoice, openInvoiceInNewTab } from '../../lib/contracts/open-invoice';
+import { isOverdue, isPaid } from '../../lib/contracts/cuota-status';
+import { todayInChile } from '../../lib/uf-service';
 
 interface Programa {
   id: string;
@@ -41,6 +43,8 @@ interface Cuota {
   numero_cuota: number;
   fecha_vencimiento: string;
   monto_uf: number;
+  // The older mark: kept in the type (the page's rows carry it) but never
+  // read or written here (GES-3.3: the invoice decides).
   pagada: boolean;
   created_at: string;
   factura_url?: string;
@@ -111,7 +115,14 @@ export default function ContractDetailsModal({
   const [uploadingInvoice, setUploadingInvoice] = useState<string | null>(null);
   const [deleteInvoiceId, setDeleteInvoiceId] = useState<string | null>(null);
   const [deletingInvoice, setDeletingInvoice] = useState<string | null>(null);
-  const [hiddenInvoices, setHiddenInvoices] = useState<Set<string>>(new Set());
+  // Send-back 2: per cuota, the ADDRESS of the invoice deleted in this window.
+  // A cuota reads as having NO invoice exactly while it still carries that
+  // address; once it carries a different one (a replacement really stored and
+  // reloaded) it is shown with it and the memory is dropped. Nothing is
+  // un-hidden because an upload call resolved.
+  const [hiddenInvoices, setHiddenInvoices] = useState<Map<string, string | undefined>>(new Map());
+  const isInvoiceHidden = (cuota: { id: string; factura_url?: string | null }) =>
+    hiddenInvoices.has(cuota.id) && hiddenInvoices.get(cuota.id) === cuota.factura_url;
   // GES-1.4: which invoice control is waiting for its link (`view-<id>` / `download-<id>`).
   const [openingInvoice, setOpeningInvoice] = useState<string | null>(null);
   const [showActivateConfirm, setShowActivateConfirm] = useState(false);
@@ -158,18 +169,40 @@ export default function ContractDetailsModal({
   // Clear hidden invoices when modal closes or contract changes
   useEffect(() => {
     if (!isOpen || !contrato) {
-      setHiddenInvoices(new Set());
+      setHiddenInvoices(new Map());
       setDeletingInvoice(null);
       setDeleteInvoiceId(null);
       setShowActivateConfirm(false);
     }
   }, [isOpen, contrato?.id]);
 
+  // Send-back 2: drop the memory of a cuota once it carries an invoice address
+  // other than the deleted one.
+  useEffect(() => {
+    setHiddenInvoices(prev => {
+      if (prev.size === 0) return prev;
+      let next: Map<string, string | undefined> | null = null;
+      for (const cuota of contrato?.cuotas ?? []) {
+        if (prev.has(cuota.id) && cuota.factura_url && cuota.factura_url !== prev.get(cuota.id)) {
+          next = next ?? new Map(prev);
+          next.delete(cuota.id);
+        }
+      }
+      return next ?? prev;
+    });
+  }, [contrato?.cuotas]);
+
   if (!isOpen) return null;
 
   const pendingActivation = contrato.estado !== 'activo';
   const firmaPendiente = isFirmaPendiente(contrato);
   const isBorrador = contrato.estado === 'borrador';
+  // F21: a draft whose signed document is stored (firmado + file) shows that file
+  // instead of the upload box, as a signed active contract does, and says it stays
+  // a draft. An imported draft carries its source PDF unsigned: it keeps the box.
+  const draftSignedDocStored = isBorrador && !!contrato.firmado && !!contrato.contrato_url;
+  // GES-3.12: today's calendar day in Chile for «Vencida».
+  const today = todayInChile(new Date());
   // «Horas contratadas» line: not for annexes (their hours are a later phase); at most
   // one per window, in the manual block, the programme block, or else the general
   // contract block (send-back 3)
@@ -181,7 +214,10 @@ export default function ContractDetailsModal({
     ? {
         container: 'bg-yellow-50 border border-yellow-200 rounded-lg p-4',
         intro: 'text-sm text-yellow-800 mb-4',
-        introText: 'El contrato está pendiente. Sube el documento firmado para activar el contrato.',
+        // GES-3.8: an upload does not activate a draft (the draft note says so).
+        introText: isBorrador
+          ? 'Sube el documento firmado cuando el cliente lo envíe.'
+          : 'El contrato está pendiente. Sube el documento firmado para activar el contrato.',
         dropZone:
           'flex items-center justify-center space-x-3 w-full p-4 border-2 border-dashed border-yellow-300 rounded-lg hover:border-yellow-400 transition-colors',
         spinner: 'animate-spin rounded-full h-6 w-6 border-b-2 border-yellow-600',
@@ -343,7 +379,8 @@ export default function ContractDetailsModal({
     if (onDeleteInvoice && deleteInvoiceId) {
       setDeletingInvoice(deleteInvoiceId);
       // Optimistic update - hide the invoice immediately
-      setHiddenInvoices(prev => new Set(prev).add(deleteInvoiceId));
+      const hiddenValue = contrato.cuotas?.find(c => c.id === deleteInvoiceId)?.factura_url;
+      setHiddenInvoices(prev => new Map(prev).set(deleteInvoiceId, hiddenValue));
       setDeleteInvoiceId(null);
       
       try {
@@ -352,7 +389,7 @@ export default function ContractDetailsModal({
         console.error('Error deleting invoice:', error);
         // Revert optimistic update on error
         setHiddenInvoices(prev => {
-          const newSet = new Set(prev);
+          const newSet = new Map(prev);
           newSet.delete(deleteInvoiceId);
           return newSet;
         });
@@ -742,22 +779,23 @@ export default function ContractDetailsModal({
                     </tr>
                   </thead>
                   <tbody>
-                    {contrato.cuotas.map((cuota) => (
+                    {/* by cuota number: the rows arrive in the order of their last change (F21) */}
+                    {[...contrato.cuotas].sort((a, b) => a.numero_cuota - b.numero_cuota).map((cuota) => (
                       <tr key={cuota.id} className="hover:bg-gray-50">
                         <td className="border border-gray-200 px-4 py-3 font-medium">Cuota {cuota.numero_cuota}</td>
                         <td className="border border-gray-200 px-4 py-3">{formatDate(cuota.fecha_vencimiento)}</td>
                         <td className="border border-gray-200 px-4 py-3 font-semibold text-brand_primary">{formatCurrency(cuota.monto_uf)}</td>
                         <td className="border border-gray-200 px-4 py-3">
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                            cuota.pagada
+                            isPaid(cuota)
                               ? 'bg-amber-100 text-amber-800'
-                              : new Date(cuota.fecha_vencimiento) < new Date()
+                              : isOverdue(cuota, today)
                               ? 'bg-red-100 text-red-800'
                               : 'bg-yellow-100 text-yellow-800'
                           }`}>
-                            {cuota.pagada 
+                            {isPaid(cuota)
                               ? 'Pagada' 
-                              : new Date(cuota.fecha_vencimiento) < new Date()
+                              : isOverdue(cuota, today)
                               ? 'Vencida'
                               : 'Pendiente'
                             }
@@ -765,7 +803,7 @@ export default function ContractDetailsModal({
                         </td>
                         <td className="border border-gray-200 px-4 py-3 text-center">
                           <div className="flex items-center justify-center space-x-2">
-                            {cuota.factura_url && !hiddenInvoices.has(cuota.id) ? (
+                            {cuota.factura_url && !isInvoiceHidden(cuota) ? (
                               <div className="flex items-center space-x-2">
                                 {/* Enhanced file display */}
                                 <div className="flex flex-col items-start">
@@ -846,14 +884,26 @@ export default function ContractDetailsModal({
                           </div>
                         </td>
                         <td className="border border-gray-200 px-4 py-3 text-center">
+                          {/* GES-3.3: the invoice decides; no invoice, no paid mark. */}
                           <button
-                            onClick={() => handlePaymentToggle(cuota.id, cuota.pagada || false)}
+                            type="button"
+                            onClick={() => handlePaymentToggle(cuota.id, cuota.factura_pagada || false)}
+                            disabled={!cuota.factura_url || isInvoiceHidden(cuota)}
+                            data-testid={`details-paid-toggle-${cuota.id}`}
                             className={`flex items-center justify-center w-8 h-8 rounded-lg transition-colors ${
-                              cuota.pagada
+                              !cuota.factura_url || isInvoiceHidden(cuota)
+                                ? 'bg-gray-100 text-gray-300 cursor-not-allowed'
+                                : isPaid(cuota)
                                 ? 'bg-amber-100 hover:bg-amber-200 text-brand_accent'
                                 : 'bg-gray-100 hover:bg-gray-200 text-gray-400'
                             }`}
-                            title={cuota.pagada ? 'Marcar como no pagado' : 'Marcar como pagado'}
+                            title={
+                              !cuota.factura_url || isInvoiceHidden(cuota)
+                                ? 'Suba la factura primero'
+                                : isPaid(cuota)
+                                ? 'Marcar como no pagado'
+                                : 'Marcar como pagado'
+                            }
                           >
                             <Check size={16} />
                           </button>
@@ -868,7 +918,29 @@ export default function ContractDetailsModal({
 
           {/* Contract Upload Section — pending contracts and active ones whose
               signature is still unconfirmed share one parameterized block */}
-          {(pendingActivation || firmaPendiente) && (
+          {draftSignedDocStored && (
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-brand_primary border-b pb-2">Contrato Firmado</h3>
+              <div
+                className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
+                data-testid="draft-signed-doc"
+              >
+                <p className="text-sm text-yellow-800">
+                  Documento firmado guardado. El contrato sigue en borrador hasta que se active.
+                </p>
+                <button
+                  onClick={() => onGeneratePDF(contrato)}
+                  data-testid="draft-signed-doc-open"
+                  className="inline-flex items-center justify-center space-x-2 px-4 py-2 bg-brand_primary text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors"
+                >
+                  <Eye size={16} />
+                  <span>Ver documento firmado</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {(pendingActivation || firmaPendiente) && !draftSignedDocStored && (
             <div className="space-y-4">
               <h3 className="text-lg font-semibold text-brand_primary border-b pb-2">Subir Contrato Firmado</h3>
               <div className={uploadVariant.container}>
@@ -895,7 +967,7 @@ export default function ContractDetailsModal({
                 {pendingActivation && (
                   isBorrador ? (
                     <p className="mt-4 pt-4 border-t border-yellow-200 text-sm text-yellow-800">
-                      Este contrato es un borrador: complétalo y guárdalo antes de poder activarlo sin documento.
+                      Este contrato es un borrador: subir el documento firmado lo guarda y lo marca como firmado, pero no lo activa ni lo incluye en el flujo de caja. Complétalo y guárdalo antes de poder activarlo.
                     </p>
                   ) : (
                     <div className="mt-4 pt-4 border-t border-yellow-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">

@@ -435,6 +435,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (updateError) throw new Error(updateError.message);
 
+    // Step 12: the new version is published, so the older live links of this
+    // tender stop working (LIC-E2, Brent 20 Nov 2026). A failure here does not
+    // undo the new version: it is logged and the answer says null, so the
+    // admin retires the older links by hand («Retirar enlace»).
+    let enlacesAnterioresRetirados: number | null = null;
+    try {
+      const { data: retiredRows, error: retireError } = await serviceClient
+        .from('propuesta_generadas')
+        .update({ web_status: 'expired' })
+        .eq('licitacion_id', licitacionId)
+        .neq('id', propuestaId)
+        .in('web_status', ['published', 'viewed'])
+        .select('id');
+      if (retireError) {
+        console.error('[generate-propuesta] Could not retire the older links:', retireError.message);
+      } else {
+        enlacesAnterioresRetirados = (retiredRows ?? []).length;
+      }
+    } catch (retireErr) {
+      console.error('[generate-propuesta] Could not retire the older links:', retireErr);
+    }
+
     return sendApiResponse(res, {
       propuesta_id: propuestaId,
       estado: 'completada',
@@ -443,6 +465,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       validation_warnings: validation.warnings,
       web_slug: webSlug,
       access_code: accessCodePlain,
+      enlaces_anteriores_retirados: enlacesAnterioresRetirados,
     });
   } catch (err) {
     // Step 11: Mark as error

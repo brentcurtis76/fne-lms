@@ -737,6 +737,10 @@ export default function ProposalConfigPanel({
       }
 
       toast.success('Propuesta generada exitosamente');
+      // The new version stands; the older links could not be retired (LIC-E2).
+      if (json.data?.enlaces_anteriores_retirados === null) {
+        toast.error('No se pudieron retirar los enlaces anteriores: retírelos con «Retirar enlace».');
+      }
 
       // Save web credentials from response
       if (json.data?.web_slug && json.data?.access_code) {
@@ -1584,6 +1588,11 @@ export default function ProposalConfigPanel({
 
               {/* ── GENERATE BUTTON ── */}
               <div className="pt-4 border-t border-gray-200">
+                {propuestas.some(p => p.web_status === 'published' || p.web_status === 'viewed') && (
+                  <p className="text-xs text-gray-600 mb-2">
+                    Al generar una nueva versión, los enlaces de las versiones anteriores dejarán de funcionar.
+                  </p>
+                )}
                 <div className="flex items-center gap-3 flex-wrap">
                   <button
                     type="button"

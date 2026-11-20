@@ -603,6 +603,7 @@ SELECT is((SELECT count(*)::int FROM public.assessment_instances
 --        sent or cancelled one and nothing is created. (The ordinary case,
 --        exactly one fresh empty registro, is C-4, C-5 and C-7.)
 -- =============================================================================
+SELECT set_config('request.jwt.claims', '', true);  -- fixtures below are written by no signed-in user
 INSERT INTO public.school_course_structure (id, school_id, context_id, grade_level, course_name, grade_id) VALUES
   ('17400000-0000-4000-8000-0000000000a9', 9740, '17400000-0000-4000-8000-00000000c0a1', '1_basico', 'CD I', 97401),
   ('17400000-0000-4000-8000-0000000000aa', 9740, '17400000-0000-4000-8000-00000000c0a1', '1_basico', 'CD J', 97401);
@@ -666,6 +667,87 @@ SELECT is((SELECT count(*)::int FROM public.assessment_instance_assignees
   'C-11 (ii): the new teacher has NO grant on the cancelled registro');
 SELECT is((SELECT count(*)::int FROM public.assessment_instances WHERE course_structure_id = '17400000-0000-4000-8000-0000000000aa'), 2,
   'C-11 (ii): nothing was created for J');
+
+-- =============================================================================
+-- [C-12] The course answer guard (assessment_response_course_guard): it exists,
+--        and in an uncontended, sequential save it refuses nobody whom the row
+--        rules let through. (The contended cases need two sessions: they are
+--        proven by evidence/F25/race-ab.sh, outside this file.)
+-- =============================================================================
+SELECT has_trigger('public', 'assessment_responses', 'assessment_response_course_guard_trg',
+  'C-12: the course answer guard trigger exists on assessment_responses');
+SELECT has_trigger('public', 'assessment_responses', 'assessment_response_via_guard_trg',
+  'C-12: the vía guard trigger is still there');
+SELECT is((SELECT prosecdef FROM pg_proc WHERE proname = 'assessment_response_course_guard'), true,
+  'C-12: the course answer guard is SECURITY DEFINER');
+SELECT is(coalesce((SELECT has_function_privilege('authenticated', p.oid, 'EXECUTE') FROM pg_proc p
+                    WHERE p.proname = 'assessment_response_course_guard'), true), false,
+  'C-12: authenticated may not EXECUTE the guard directly');
+
+INSERT INTO public.school_course_structure (id, school_id, context_id, grade_level, course_name, grade_id) VALUES
+  ('17400000-0000-4000-8000-0000000000ab', 9740, '17400000-0000-4000-8000-00000000c0a1', '1_basico', 'CD Q', 97401);
+INSERT INTO public.school_course_docente_assignments (course_structure_id, docente_id, assigned_by, is_active) VALUES
+  ('17400000-0000-4000-8000-0000000000ab', tests.get_supabase_uid('cd_old'), tests.get_supabase_uid('cd_dir'), true);
+INSERT INTO public.assessment_instances
+  (id, template_snapshot_id, school_id, course_structure_id, transformation_year, generation_type, status) VALUES
+  ('17400000-0000-4000-8000-000000000bb1', '17400000-0000-4000-8000-0000000000f1', 9740, '17400000-0000-4000-8000-0000000000ab', 2, 'GI', 'pending'),
+  ('17400000-0000-4000-8000-000000000bb2', '17400000-0000-4000-8000-0000000000f2', 9740, '17400000-0000-4000-8000-0000000000ab', 2, 'GI', 'in_progress');
+INSERT INTO public.assessment_instance_assignees
+  (id, instance_id, user_id, can_edit, can_submit, has_started, has_submitted, assigned_by) VALUES
+  ('17400000-0000-4000-8000-000000000bb1', '17400000-0000-4000-8000-000000000bb1', tests.get_supabase_uid('cd_old'), true, true, false, false, tests.get_supabase_uid('cd_dir')),
+  ('17400000-0000-4000-8000-000000000bb2', '17400000-0000-4000-8000-000000000bb2', tests.get_supabase_uid('cd_old'), true, true, true, false, tests.get_supabase_uid('cd_dir')),
+  ('17400000-0000-4000-8000-000000000cb2', '17400000-0000-4000-8000-000000000bb2', tests.get_supabase_uid('cd_new'), false, false, false, false, tests.get_supabase_uid('cd_dir'));
+
+SELECT tests.authenticate_as('cd_old');
+SELECT lives_ok($$
+  INSERT INTO public.assessment_responses (instance_id, indicator_id, coverage_value, responded_by)
+  VALUES ('17400000-0000-4000-8000-000000000bb1', '17400000-0000-4000-8000-000000000101', true, pg_temp.uid('cd_old'))
+$$, 'C-12: the teacher saves the first answer on his pending course registro');
+SELECT lives_ok($$
+  INSERT INTO public.assessment_responses (instance_id, indicator_id, coverage_value, responded_by)
+  VALUES ('17400000-0000-4000-8000-000000000bb2', '17400000-0000-4000-8000-000000000101', true, pg_temp.uid('cd_old'))
+  ON CONFLICT (instance_id, indicator_id) DO UPDATE SET coverage_value = EXCLUDED.coverage_value
+$$, 'C-12: the teacher saves an answer on his in-progress course registro');
+SELECT lives_ok($$
+  INSERT INTO public.assessment_responses (instance_id, indicator_id, coverage_value, responded_by)
+  VALUES ('17400000-0000-4000-8000-000000000bb2', '17400000-0000-4000-8000-000000000101', false, pg_temp.uid('cd_old'))
+  ON CONFLICT (instance_id, indicator_id) DO UPDATE SET coverage_value = EXCLUDED.coverage_value
+$$, 'C-12: the teacher changes that answer (the save route''s upsert)');
+RESET ROLE;
+SELECT is((SELECT coverage_value FROM public.assessment_responses
+            WHERE instance_id = '17400000-0000-4000-8000-000000000bb2' AND indicator_id = '17400000-0000-4000-8000-000000000101'), false,
+  'C-12: the changed answer is stored');
+
+SELECT tests.authenticate_as('cd_new');
+SELECT throws_ok($$
+  INSERT INTO public.assessment_responses (instance_id, indicator_id, coverage_value, responded_by)
+  VALUES ('17400000-0000-4000-8000-000000000bb2', '17400000-0000-4000-8000-000000000102', true, pg_temp.uid('cd_new'))
+$$, '42501', NULL, 'C-12: a teacher whose grant has no edit is still refused (42501)');
+SELECT throws_ok($$
+  INSERT INTO public.assessment_responses (instance_id, indicator_id, coverage_value, responded_by)
+  VALUES ('17400000-0000-4000-8000-000000000bb1', '17400000-0000-4000-8000-000000000102', true, pg_temp.uid('cd_new'))
+$$, '42501', NULL, 'C-12: a teacher with no grant at all is still refused (42501)');
+RESET ROLE;
+SELECT tests.authenticate_as('cd_old');
+SELECT throws_ok($$
+  INSERT INTO public.assessment_responses (instance_id, indicator_id, coverage_value, responded_by)
+  VALUES ('17400000-0000-4000-8000-000000000b21', '17400000-0000-4000-8000-000000000109', true, pg_temp.uid('cd_old'))
+$$, '42501', NULL, 'C-12: a write on an archived course registro is still refused (42501)');
+RESET ROLE;
+
+SELECT tests.authenticate_as('cd_admin');
+SELECT lives_ok($$
+  INSERT INTO public.assessment_responses (instance_id, indicator_id, coverage_value, responded_by)
+  VALUES ('17400000-0000-4000-8000-000000000bb2', '17400000-0000-4000-8000-000000000103', true, pg_temp.uid('cd_admin'))
+$$, 'C-12: an assessment admin still writes an answer on a course registro');
+RESET ROLE;
+SET LOCAL ROLE service_role;
+SELECT set_config('request.jwt.claims', '', true);
+SELECT lives_ok($$
+  INSERT INTO public.assessment_responses (instance_id, indicator_id, coverage_value, responded_by)
+  VALUES ('17400000-0000-4000-8000-000000000bb2', '17400000-0000-4000-8000-000000000104', true, NULL)
+$$, 'C-12: the service role (no signed-in user) still writes an answer on a course registro');
+RESET ROLE;
 
 -- Per-state table for the build report.
 SELECT diag(format('%s | %s | %s | grant(old) edit=%s submit=%s',

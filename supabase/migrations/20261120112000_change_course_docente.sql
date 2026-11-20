@@ -1,8 +1,9 @@
 -- =============================================================================
 -- 20261120112000_change_course_docente.sql — GC-20 (F25 build d).
 -- «Cambiar docente» once a course's registro was started or sent.
--- Additive: one new table, one new function. replace_course_docente
--- (20260907130000) stays exactly as it is.
+-- Additive: one new table, two new functions, one new trigger.
+-- replace_course_docente (20260907130000) and assessment_response_via_guard
+-- (20261008120000) stay exactly as they are.
 --
 -- WHAT THIS ADDS
 --   public.course_docente_changes
@@ -378,3 +379,80 @@ COMMENT ON FUNCTION public.change_course_docente(uuid, uuid, text) IS
 
 REVOKE ALL ON FUNCTION public.change_course_docente(uuid, uuid, text) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.change_course_docente(uuid, uuid, text) TO authenticated, service_role;
+
+-- 3. Answers of a course registro serialise with the change -------------------
+-- An answer write on a registro that belongs to a course takes FOR SHARE on
+-- that registro, so it waits while change_course_docente holds the registro's
+-- FOR UPDATE, and a change waits for an answer write in flight. Under the lock
+-- it re-reads what the row rules demand (status pending or in_progress, and an
+-- edit grant for the caller), so an answer can neither land in a registro the
+-- change just closed nor reach a registro the change just handed over.
+-- Backend writers (no auth.uid()), assessment admins and roles the row rules
+-- do not apply to (superuser, BYPASSRLS, the table owner) pass as before.
+-- assessment_response_via_guard (school-level vías) is left exactly as it is.
+CREATE FUNCTION public.assessment_response_course_guard()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_parent uuid;
+  v_status text;
+  v_uid    uuid := auth.uid();
+  v_rules_bypassed boolean;
+BEGIN
+  -- The writing role (this function runs as its owner, so it is read from
+  -- the session's role setting).
+  SELECT r.rolsuper OR r.rolbypassrls
+         OR (r.oid = c.relowner AND NOT c.relforcerowsecurity)
+    INTO v_rules_bypassed
+    FROM pg_catalog.pg_roles r, pg_catalog.pg_class c
+   WHERE r.rolname = CASE WHEN current_setting('role') = 'none' THEN session_user::text
+                          ELSE current_setting('role') END
+     AND c.oid = 'public.assessment_responses'::regclass;
+  v_rules_bypassed := coalesce(v_rules_bypassed, false);
+
+  -- Distinct parents in ascending id order, as assessment_response_via_guard.
+  FOR v_parent IN
+    SELECT DISTINCT p FROM unnest(ARRAY[
+      CASE WHEN TG_OP = 'INSERT' THEN NULL ELSE OLD.instance_id END,
+      NEW.instance_id
+    ]) AS p
+     WHERE p IS NOT NULL
+     ORDER BY p
+  LOOP
+    SELECT status INTO v_status
+      FROM public.assessment_instances
+     WHERE id = v_parent AND course_structure_id IS NOT NULL
+       FOR SHARE;
+    CONTINUE WHEN NOT FOUND;
+    -- Re-check only what the row rules would demand of this writer: nothing
+    -- for the backend (no auth.uid()), an assessment admin, or a role the row
+    -- rules do not apply to (superuser, BYPASSRLS, the table's owner).
+    CONTINUE WHEN v_uid IS NULL OR v_rules_bypassed OR public.auth_is_assessment_admin();
+
+    IF v_status NOT IN ('pending', 'in_progress') THEN
+      RAISE EXCEPTION 'instance_closed' USING ERRCODE = '42501';
+    END IF;
+
+    IF NOT EXISTS (
+      SELECT 1 FROM public.assessment_instance_assignees
+       WHERE instance_id = v_parent AND user_id = v_uid AND can_edit IS TRUE
+    ) THEN
+      RAISE EXCEPTION 'not_an_assignee' USING ERRCODE = '42501',
+        DETAIL = 'Este registro fue reasignado a otra persona.';
+    END IF;
+  END LOOP;
+  RETURN NEW;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.assessment_response_course_guard() FROM public, anon, authenticated;
+
+CREATE TRIGGER assessment_response_course_guard_trg
+  BEFORE INSERT OR UPDATE ON public.assessment_responses
+  FOR EACH ROW EXECUTE FUNCTION public.assessment_response_course_guard();
+
+COMMENT ON FUNCTION public.assessment_response_course_guard() IS
+  'GC-20: before an answer is written on a registro that belongs to a course, takes FOR SHARE on that registro (so the write serialises with change_course_docente) and, for a signed-in caller who is not an assessment admin, re-checks under the lock that the registro is pending or in progress (instance_closed) and that the caller holds an edit grant on it (not_an_assignee); both 42501. Backend writers, admins and roles the row rules do not apply to pass as before.';

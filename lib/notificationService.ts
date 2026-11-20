@@ -963,13 +963,15 @@ class NotificationService {
     eventType: string
   ): Promise<NotificationContent> {
     const eventConfig = getEventConfig(eventType);
+    // fixed texts and address (F27): a stored template never overrides them
+    const storedTemplate = eventType === 'feedback_reply' ? null : template;
 
     try {
       // Try database template first (if exists and has valid templates)
-      if (template?.title_template) {
-        const substitutedTitle = this.substituteTemplate(template.title_template, eventData);
-        const substitutedDesc = this.substituteTemplate(template.description_template, eventData);
-        const substitutedUrl = this.substituteTemplate(template.url_template, eventData);
+      if (storedTemplate?.title_template) {
+        const substitutedTitle = this.substituteTemplate(storedTemplate.title_template, eventData);
+        const substitutedDesc = this.substituteTemplate(storedTemplate.description_template, eventData);
+        const substitutedUrl = this.substituteTemplate(storedTemplate.url_template, eventData);
 
         // Only use DB template if substitution succeeded (no remaining placeholders)
         if (substitutedTitle && !substitutedTitle.includes('{')) {
@@ -978,7 +980,7 @@ class NotificationService {
             title: substitutedTitle,
             description: substitutedDesc || eventConfig.defaultDescription(eventData),
             related_url: substitutedUrl || getFallbackUrl(eventType),
-            importance: template.importance || eventConfig.importance,
+            importance: storedTemplate.importance || eventConfig.importance,
           };
         }
 

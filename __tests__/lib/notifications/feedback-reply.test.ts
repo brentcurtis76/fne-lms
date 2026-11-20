@@ -17,6 +17,8 @@ const db = vi.hoisted(() => ({
   /** email_mode of the recipient's category row, by category; absent = no row. */
   categoryModes: {} as Record<string, string>,
   categoryReads: [] as string[],
+  /** What `get_active_triggers` answers: none means the code defaults. */
+  triggers: [] as Array<Record<string, any>>,
 }));
 
 vi.mock('@supabase/supabase-js', () => {
@@ -66,7 +68,7 @@ vi.mock('@supabase/supabase-js', () => {
     from,
     rpc: (fn: string, args: Record<string, any>) => {
       db.rpcs.push({ fn, args });
-      if (fn === 'get_active_triggers') return Promise.resolve({ data: [], error: null });
+      if (fn === 'get_active_triggers') return Promise.resolve({ data: db.triggers, error: null });
       return Promise.resolve({ data: null, error: null });
     },
   };
@@ -84,7 +86,7 @@ const ACTIVITY_ID = 'aaaaaaaa-0000-4000-8000-000000000001';
 let sends: Array<{ to: string }>;
 
 beforeEach(() => {
-  Object.assign(db, { rows: [], rpcs: [], categoryModes: {}, categoryReads: [] });
+  Object.assign(db, { rows: [], rpcs: [], categoryModes: {}, categoryReads: [], triggers: [] });
   sends = [];
   delete process.env.NOTIFICATION_EMAIL_ENABLED;
   delete process.env.NOTIFICATION_OUTBOX_DELIVERY;
@@ -163,5 +165,44 @@ describe('feedback_reply — one bell row for the reporter, never a mail', () =>
     await NotificationService.triggerNotification('feedback_reply', payload(overrides));
     expect(db.rows).toHaveLength(0);
     expect(sends).toHaveLength(0);
+  });
+});
+
+describe('feedback_reply — a stored template never overrides the fixed texts and address', () => {
+  const storedTrigger = (triggerId: string) => ({
+    trigger_id: triggerId,
+    category: 'system',
+    template: {
+      title_template: 'Respuesta sobre {feedback_id}',
+      description_template: 'El reporte {feedback_id} tiene una respuesta',
+      url_template: '/dashboard',
+      importance: 'high',
+    },
+  });
+
+  it('an active stored trigger for feedback_reply still gives the two fixed texts and /profile/reportes', async () => {
+    db.triggers = [storedTrigger('db-feedback-reply')];
+    const result = await NotificationService.triggerNotification('feedback_reply', payload());
+    expect(result).toMatchObject({ success: true, notificationsCreated: 1 });
+    expect(db.rows).toHaveLength(1);
+    expect(db.rows[0]).toMatchObject({
+      user_id: REPORTER,
+      title: 'Tu reporte tiene una respuesta de Soporte',
+      description: 'Soporte respondió a un problema que reportaste. Ábrelo en «Mis reportes».',
+      related_url: '/profile/reportes',
+    });
+    expect(JSON.stringify(db.rows[0])).not.toContain(FEEDBACK_ID);
+    expect(sends).toHaveLength(0);
+  });
+
+  it('another event (new_feedback) still takes its stored template', async () => {
+    db.triggers = [storedTrigger('db-new-feedback')];
+    await NotificationService.triggerNotification('new_feedback', { feedback_id: FEEDBACK_ID, assigned_users: [OTHER] });
+    expect(db.rows).toHaveLength(1);
+    expect(db.rows[0]).toMatchObject({
+      user_id: OTHER,
+      title: `Respuesta sobre ${FEEDBACK_ID}`,
+      description: `El reporte ${FEEDBACK_ID} tiene una respuesta`,
+    });
   });
 });

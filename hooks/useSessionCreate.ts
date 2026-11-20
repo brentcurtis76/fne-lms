@@ -598,15 +598,25 @@ export function useSessionCreate() {
       ? `¿Está seguro de que desea programar estas ${sessionCount} sesiones? Se notificará a los participantes.`
       : '¿Está seguro de que desea programar esta sesión? Se notificará a los participantes.';
 
-  const handleScheduleSession = async () => {
-    if (!validateForm()) return;
-
+  /**
+   * «Programar» once the checks have passed and the person has said yes: the create request, then the
+   * approval, the toasts and the redirect, each statement as today's handler ran it after its
+   * question (redesign 6, release SB: split out so the new view can ask its own question). It asks
+   * nothing and checks nothing itself. Two optional callbacks, for the new view only, each called after
+   * today's error toast: `onCreateRefused(message)` when the server refused the create request (with the
+   * message the toast shows), and `onDraftsLeft()` when the create request was answered ok and read, the
+   * approval request was sent, and the approval failed (refused, or the request threw): the drafts then
+   * exist. Today's view passes neither, so for it nothing changes.
+   */
+  const scheduleConfirmedSession = async ({
+    onDraftsLeft,
+    onCreateRefused,
+  }: { onDraftsLeft?: () => void; onCreateRefused?: (message: string) => void } = {}) => {
     const sessionCount = isRecurring ? previewDates.length : 1;
-    const confirmed = window.confirm(
-      scheduleConfirmText(sessionCount)
-    );
-
-    if (!confirmed) return;
+    // For the two callbacks only: the server's refusal of the create request, and how far the approval got.
+    let createRefusal: string | null = null;
+    let approvalSent = false;
+    let approved = false;
 
     setSubmitting(true);
     try {
@@ -658,6 +668,7 @@ export function useSessionCreate() {
 
       if (!createResponse.ok) {
         const errorData = await createResponse.json();
+        createRefusal = errorData.error || 'Error al crear sesión';
         throw new Error(errorData.error || 'Error al crear sesión');
       }
 
@@ -665,6 +676,7 @@ export function useSessionCreate() {
 
       // For recurring series, use bulk approve; for single session, use single approve
       if (isRecurring && createResult.data.recurrence_group_id) {
+        approvalSent = true;
         const approveResponse = await fetch('/api/sessions/bulk-approve', {
           method: 'POST',
           headers: {
@@ -678,6 +690,7 @@ export function useSessionCreate() {
           const errorData = await approveResponse.json();
           throw new Error(errorData.error || 'Error al aprobar sesiones');
         }
+        approved = true;
 
         toast.success(`${sessionCount} sesiones programadas exitosamente`);
         router.push('/admin/sessions');
@@ -686,6 +699,7 @@ export function useSessionCreate() {
           ? createResult.data.sessions[0].id
           : createResult.data.session.id;
 
+        approvalSent = true;
         const approveResponse = await fetch(`/api/sessions/${sessionId}/approve`, {
           method: 'POST',
           headers: {
@@ -698,6 +712,7 @@ export function useSessionCreate() {
           const errorData = await approveResponse.json();
           throw new Error(errorData.error || 'Error al aprobar sesión');
         }
+        approved = true;
 
         toast.success('Sesión programada exitosamente');
         router.push(`/admin/sessions/${sessionId}`);
@@ -705,9 +720,25 @@ export function useSessionCreate() {
     } catch (error: unknown) {
       console.error('Error scheduling session:', error);
       toast.error(error instanceof Error ? error.message : 'Error al programar sesión');
+      if (createRefusal !== null) onCreateRefused?.(createRefusal);
+      if (approvalSent && !approved) onDraftsLeft?.();
     } finally {
       setSubmitting(false);
     }
+  };
+
+  // Today's «Programar»: the checks, the browser's question, then the confirmed part above.
+  const handleScheduleSession = async () => {
+    if (!validateForm()) return;
+
+    const sessionCount = isRecurring ? previewDates.length : 1;
+    const confirmed = window.confirm(
+      scheduleConfirmText(sessionCount)
+    );
+
+    if (!confirmed) return;
+
+    await scheduleConfirmedSession();
   };
 
   const handleLogout = async () => {
@@ -880,6 +911,8 @@ export function useSessionCreate() {
     handleCustomDateChange,
     handleSaveDraft,
     handleScheduleSession,
+    // SB: «Programar» after the checks and the question (the new view asks its own)
+    scheduleConfirmedSession,
     handleLogout,
     // Step 3: the inline handlers, named
     retryConsultants,

@@ -6,3 +6,9 @@ Branch `feat/rd-ses-form` on main (`600d75ae6`). Record and reviewer notes: `doc
 - **Rules that hold from now on:** "today" for a session's date is `todayInChile(now)`, never a UTC date cut from `toISOString()`. Digests 14b and 14d of `create.clasico` were re-accepted by name for the `min` of the date fields; the other 219 digests of the three session screens are untouched.
 - **Proof:** tests written first and failing before the change; an independent code read; pictures of every screen for every role identical to main's (3,040 of 3,040), the session screens also for tester accounts in both looks (220 of 220 each); an independent tester walking the scenarios on main and on this branch; a look in a real browser; type-check, lint, the whole unit suite and CI's browser list run locally.
 
+## GENERA fixes, release of 20 Nov (Gestión's money screens, first wave) — review ready
+
+- Branch `fix/f21s` (a straight line of commits) on main `00780a641` (pull request 207). In the cash flow and a contract's details the invoice decides what is paid, and dates follow the day in Chile; the contract form reads amounts the Chilean way and refuses ambiguous ones, keeps an existing client's data read-only apart from missing required fields, and checks RUTs; moving hours and saving an expense report are each one database function (F21).
+- Validation: database tests 111 files / 10,737; every rule reads the same after a rebuild (0 of 1,078 differ); unit 780 files / 21,820; type check; lint; CI's browser tests 348 of 348. Each build read by a second model, tested blind by a third, used by sight in a browser twice.
+- Review request: `docs/planning/reviews/fase-fixes-f21s-review-request.md`. Not merged, not published; release is the owner's.
+

@@ -70,6 +70,8 @@ type PropuestaConHistorial = PropuestaGenerada & { download_url: string | null }
 // HELPERS
 // ============================================================
 
+const PLATAFORMA_DISPONIBLE = false; // the platform section returns when it is built (Brent, 20 Nov 2026)
+
 const TIPO_LABELS: Record<DocumentoTipo, string> = {
   certificado_pertenencia: 'Cert. Pertenencia',
   evaluaciones_clientes: 'Eval. Clientes',
@@ -1062,6 +1064,7 @@ export default function ProposalConfigPanel({
               </div>
 
               {/* ── PLATAFORMA ── */}
+              {PLATAFORMA_DISPONIBLE && (
               <div>
                 <SectionHeader
                   title="Plataforma de Crecimiento"
@@ -1098,6 +1101,7 @@ export default function ProposalConfigPanel({
                   </div>
                 )}
               </div>
+              )}
 
               {/* ── CONSULTORES ── */}
               <div>

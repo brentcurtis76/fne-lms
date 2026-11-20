@@ -435,7 +435,8 @@ export default function ContractForm({ programas, clientes, editingContract, pre
       
       // Populate installments
       if (editingContract.cuotas && editingContract.cuotas.length > 0) {
-        const cuotasData = editingContract.cuotas.map((cuota: any) => ({
+        // by cuota number: the rows arrive in the order of their last change (F21)
+        const cuotasData = [...editingContract.cuotas].sort((a: any, b: any) => a.numero_cuota - b.numero_cuota).map((cuota: any) => ({
           id: cuota.id,
           numero_cuota: cuota.numero_cuota,
           fecha_vencimiento: cuota.fecha_vencimiento,

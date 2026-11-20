@@ -225,5 +225,11 @@ describe('ContractDetailsModal — a replaced invoice in the same window (send-b
     expect(toggle).toBeDisabled();
     expect(toggle).toHaveAttribute('title', 'Suba la factura primero');
   });
+  it('F21 send-back S: «Cronograma de Pagos» lists the cuotas by number, whatever order they arrive in', () => {
+    // the order of their last change, as the browser run saw it: 1, 6, 2, 3, 5, 4
+    renderModal([1, 6, 2, 3, 5, 4].map(n => cuota({ id: `q${n}`, numero_cuota: n, fecha_vencimiento: '2026-03-15' })));
+    const shown = screen.getAllByText(/^Cuota \d+$/).map(el => el.textContent);
+    expect(shown).toEqual(['Cuota 1', 'Cuota 2', 'Cuota 3', 'Cuota 4', 'Cuota 5', 'Cuota 6']);
+  });
 });
 

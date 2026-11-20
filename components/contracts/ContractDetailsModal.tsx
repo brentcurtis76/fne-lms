@@ -779,7 +779,8 @@ export default function ContractDetailsModal({
                     </tr>
                   </thead>
                   <tbody>
-                    {contrato.cuotas.map((cuota) => (
+                    {/* by cuota number: the rows arrive in the order of their last change (F21) */}
+                    {[...contrato.cuotas].sort((a, b) => a.numero_cuota - b.numero_cuota).map((cuota) => (
                       <tr key={cuota.id} className="hover:bg-gray-50">
                         <td className="border border-gray-200 px-4 py-3 font-medium">Cuota {cuota.numero_cuota}</td>
                         <td className="border border-gray-200 px-4 py-3">{formatDate(cuota.fecha_vencimiento)}</td>

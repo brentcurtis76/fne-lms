@@ -813,6 +813,13 @@ class NotificationService {
           }
           break;
 
+        case 'feedback_reply':
+          // The one person who reported the ticket (platform_feedback.created_by), read by the reply route.
+          if (typeof eventData.reporter_id === 'string' && eventData.reporter_id.length > 0) {
+            recipients.push({ id: eventData.reporter_id });
+          }
+          break;
+
         case 'qa_test_failed':
           // Recipients are admin users (passed in admin_user_ids)
           if (eventData.admin_user_ids && Array.isArray(eventData.admin_user_ids)) {
@@ -1208,6 +1215,13 @@ class NotificationService {
     // Until N5-06 the finalize route's summary is a meeting's only email, so its
     // notification is in-app only whatever the category mode or kill switch.
     if (notificationData.event_type === MEETING_SUMMARY_EVENT) {
+      console.log('📭 Notification email NOT sent', { status: 'in_app_only' });
+      return false;
+    }
+
+    // A Soporte reply reaches its reporter by "The bell only" (Brent, 20 Nov 2026):
+    // never mailed, whatever the person's category setting (F27).
+    if (notificationData.event_type === 'feedback_reply') {
       console.log('📭 Notification email NOT sent', { status: 'in_app_only' });
       return false;
     }

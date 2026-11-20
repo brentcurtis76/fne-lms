@@ -82,6 +82,8 @@ const AUDIENCE_APPLIES: Record<Audience, (scope: Scope) => boolean> = {
   group_consultants: (scope) => has(scope, 'admin', 'consultor'),
   // notify-pending.ts and quizReviewerAccess also treat an assigned equipo_directivo as a reviewer.
   quiz_reviewers: (scope) => has(scope, 'admin', 'consultor', 'equipo_directivo'),
+  // bell only (F27): no e-mail choice exists for it, so it never makes a section appear
+  feedback_reporter: () => false,
   unwired: () => false,
 };
 

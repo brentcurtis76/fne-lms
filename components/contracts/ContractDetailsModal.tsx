@@ -197,6 +197,10 @@ export default function ContractDetailsModal({
   const pendingActivation = contrato.estado !== 'activo';
   const firmaPendiente = isFirmaPendiente(contrato);
   const isBorrador = contrato.estado === 'borrador';
+  // F21: a draft whose signed document is stored (firmado + file) shows that file
+  // instead of the upload box, as a signed active contract does, and says it stays
+  // a draft. An imported draft carries its source PDF unsigned: it keeps the box.
+  const draftSignedDocStored = isBorrador && !!contrato.firmado && !!contrato.contrato_url;
   // GES-3.12: today's calendar day in Chile for «Vencida».
   const today = todayInChile(new Date());
   // «Horas contratadas» line: not for annexes (their hours are a later phase); at most
@@ -913,7 +917,29 @@ export default function ContractDetailsModal({
 
           {/* Contract Upload Section — pending contracts and active ones whose
               signature is still unconfirmed share one parameterized block */}
-          {(pendingActivation || firmaPendiente) && (
+          {draftSignedDocStored && (
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-brand_primary border-b pb-2">Contrato Firmado</h3>
+              <div
+                className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
+                data-testid="draft-signed-doc"
+              >
+                <p className="text-sm text-yellow-800">
+                  Documento firmado guardado. El contrato sigue en borrador hasta que se active.
+                </p>
+                <button
+                  onClick={() => onGeneratePDF(contrato)}
+                  data-testid="draft-signed-doc-open"
+                  className="inline-flex items-center justify-center space-x-2 px-4 py-2 bg-brand_primary text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors"
+                >
+                  <Eye size={16} />
+                  <span>Ver documento firmado</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {(pendingActivation || firmaPendiente) && !draftSignedDocStored && (
             <div className="space-y-4">
               <h3 className="text-lg font-semibold text-brand_primary border-b pb-2">Subir Contrato Firmado</h3>
               <div className={uploadVariant.container}>

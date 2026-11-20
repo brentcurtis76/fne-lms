@@ -241,6 +241,30 @@ describe('Contracts page — activation writes', () => {
     expect(state.contratos[0].incluir_en_flujo).toBe(false);
   });
 
+  it('F21 send-back S: a draft upload says the document was saved and the contract stays a draft, and shows the file', async () => {
+    const user = userEvent.setup();
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+    await renderPage([makeContrato({ estado: 'borrador', incluir_en_flujo: false })]);
+
+    await openContractModal(user, 'C-001');
+    await uploadSignedDoc('signed-doc-upload-input');
+
+    await waitFor(() =>
+      expect(toast.success).toHaveBeenCalledWith(
+        'Documento firmado guardado. El contrato sigue en borrador hasta que se active.',
+      ),
+    );
+    // The window shows the stored file, as for a signed active contract: no
+    // upload box any more, and the document opens from the window.
+    const stored = await screen.findByTestId('draft-signed-doc');
+    expect(stored).toHaveTextContent('Documento firmado guardado. El contrato sigue en borrador hasta que se active.');
+    expect(screen.queryByTestId('signed-doc-upload-input')).not.toBeInTheDocument();
+    await user.click(screen.getByTestId('draft-signed-doc-open'));
+    expect(openSpy).toHaveBeenCalledWith('https://storage.test/signed.pdf', '_blank');
+    expect(state.contratos[0].estado).toBe('borrador');
+    openSpy.mockRestore();
+  });
+
   it('a late upload on an active opted-out contract preserves incluir_en_flujo=false', async () => {
     const user = userEvent.setup();
     const client = await renderPage([

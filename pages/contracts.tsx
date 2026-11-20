@@ -434,6 +434,11 @@ export default function ContractsPage() {
 
       if (updateError) throw updateError;
 
+      // F21: a draft is not activated, so say the document was kept (toast
+      // before the refresh, which raises its own error toast if it fails)
+      if (contrato.estado === 'borrador') {
+        toast.success('Documento firmado guardado. El contrato sigue en borrador hasta que se active.');
+      }
       await refreshContratos(contrato.id);
 
     } catch (error) {

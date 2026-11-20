@@ -187,4 +187,21 @@ describe('ContractDetailsModal — activation without signed document', () => {
     expect(screen.queryByTestId('late-upload-input')).not.toBeInTheDocument();
     expect(screen.queryByTestId('mark-signed-btn')).not.toBeInTheDocument();
   });
+  it('F21 send-back S: a draft with its signed document stored shows the file and says it stays a draft', async () => {
+    const user = userEvent.setup();
+    const props = renderModal({ estado: 'borrador', firmado: true, contrato_url: 'https://storage.test/signed.pdf' });
+    expect(screen.getByTestId('draft-signed-doc')).toHaveTextContent(
+      'Documento firmado guardado. El contrato sigue en borrador hasta que se active.',
+    );
+    expect(screen.queryByTestId('signed-doc-upload-input')).not.toBeInTheDocument();
+    expect(screen.queryByText('Subir Contrato Firmado')).not.toBeInTheDocument();
+    await user.click(screen.getByTestId('draft-signed-doc-open'));
+    expect(props.onGeneratePDF).toHaveBeenCalledTimes(1);
+  });
+
+  it('F21 send-back S: an imported draft whose PDF is not yet signed still offers the upload', () => {
+    renderModal({ estado: 'borrador', firmado: false, contrato_url: 'https://storage.test/imported.pdf' });
+    expect(screen.getByTestId('signed-doc-upload-input')).toBeInTheDocument();
+    expect(screen.queryByTestId('draft-signed-doc')).not.toBeInTheDocument();
+  });
 });

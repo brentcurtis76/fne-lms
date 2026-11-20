@@ -596,6 +596,77 @@ SELECT is((SELECT count(*)::int FROM public.assessment_instances
             WHERE course_structure_id = '17400000-0000-4000-8000-0000000000a7'), 1,
   'C-10: control: the sweep did reach these fixtures (course Z got its registro)');
 
+-- =============================================================================
+-- [C-11] Same instrument, two snapshots: the newest snapshot already holds a
+--        SENT (course I) or CANCELLED (course J) registro. The started one on
+--        the old snapshot is closed; the new teacher is NOT attached to the
+--        sent or cancelled one and nothing is created. (The ordinary case,
+--        exactly one fresh empty registro, is C-4, C-5 and C-7.)
+-- =============================================================================
+INSERT INTO public.school_course_structure (id, school_id, context_id, grade_level, course_name, grade_id) VALUES
+  ('17400000-0000-4000-8000-0000000000a9', 9740, '17400000-0000-4000-8000-00000000c0a1', '1_basico', 'CD I', 97401),
+  ('17400000-0000-4000-8000-0000000000aa', 9740, '17400000-0000-4000-8000-00000000c0a1', '1_basico', 'CD J', 97401);
+INSERT INTO public.school_course_docente_assignments (course_structure_id, docente_id, assigned_by, is_active) VALUES
+  ('17400000-0000-4000-8000-0000000000a9', tests.get_supabase_uid('cd_old'), tests.get_supabase_uid('cd_dir'), true),
+  ('17400000-0000-4000-8000-0000000000aa', tests.get_supabase_uid('cd_old'), tests.get_supabase_uid('cd_dir'), true);
+INSERT INTO public.assessment_instances
+  (id, template_snapshot_id, school_id, course_structure_id, transformation_year, generation_type, status) VALUES
+  ('17400000-0000-4000-8000-000000000b91', '17400000-0000-4000-8000-0000000000f1', 9740, '17400000-0000-4000-8000-0000000000a9', 2, 'GI', 'in_progress'),
+  ('17400000-0000-4000-8000-000000000b92', '17400000-0000-4000-8000-0000000000f2', 9740, '17400000-0000-4000-8000-0000000000a9', 2, 'GI', 'completed'),
+  ('17400000-0000-4000-8000-000000000ba1', '17400000-0000-4000-8000-0000000000f1', 9740, '17400000-0000-4000-8000-0000000000aa', 2, 'GI', 'in_progress'),
+  ('17400000-0000-4000-8000-000000000ba2', '17400000-0000-4000-8000-0000000000f2', 9740, '17400000-0000-4000-8000-0000000000aa', 2, 'GI', 'pending');
+INSERT INTO public.assessment_instance_assignees
+  (id, instance_id, user_id, can_edit, can_submit, has_started, has_submitted, assigned_by)
+SELECT ('17400000-0000-4000-8000-000000000' || right(i.id::text, 3))::uuid, i.id, tests.get_supabase_uid('cd_old'),
+       true, true, i.status <> 'pending', i.status = 'completed', tests.get_supabase_uid('cd_dir')
+  FROM public.assessment_instances i
+ WHERE i.course_structure_id IN ('17400000-0000-4000-8000-0000000000a9', '17400000-0000-4000-8000-0000000000aa');
+SELECT public.cancel_assessment_instance(tests.get_supabase_uid('cd_admin'),
+  '17400000-0000-4000-8000-000000000ba2', 'Cancelación sintética para la prueba 174 (J)');
+INSERT INTO public.assessment_responses (id, instance_id, indicator_id, coverage_value, responded_by, rationale) VALUES
+  ('17400000-0000-4000-8000-000000000d91', '17400000-0000-4000-8000-000000000b91',
+   '17400000-0000-4000-8000-000000000101', true, tests.get_supabase_uid('cd_old'), 'Respuesta sintética I'),
+  ('17400000-0000-4000-8000-000000000d92', '17400000-0000-4000-8000-000000000b92',
+   '17400000-0000-4000-8000-000000000101', true, tests.get_supabase_uid('cd_old'), 'Respuesta sintética I enviada');
+
+SELECT tests.authenticate_as('cd_dir');
+CREATE TEMP TABLE cd_res_i AS
+  SELECT pg_temp.try_change('17400000-0000-4000-8000-0000000000a9', pg_temp.uid('cd_new'), 'Cambio con registro enviado') AS t;
+CREATE TEMP TABLE cd_res_j AS
+  SELECT pg_temp.try_change('17400000-0000-4000-8000-0000000000aa', pg_temp.uid('cd_new'), 'Cambio con registro anulado') AS t;
+RESET ROLE;
+
+-- (i) started on the old snapshot + SENT on the newest.
+SELECT is((SELECT t FROM cd_res_i), 'ok', 'C-11 (i): the change of I succeeds');
+SELECT results_eq($$
+  SELECT (c.closed_instance_ids)::text, (c.kept_instance_ids)::text, cardinality(c.created_instance_ids)
+    FROM public.course_docente_changes c WHERE c.course_structure_id = '17400000-0000-4000-8000-0000000000a9'
+$$, $$ VALUES ('{17400000-0000-4000-8000-000000000b91}', '{17400000-0000-4000-8000-000000000b92}', 0) $$,
+  'C-11 (i): history: the started one closed, the sent one kept, nothing created');
+SELECT is((SELECT count(*)::int FROM public.assessment_instance_assignees
+            WHERE instance_id = '17400000-0000-4000-8000-000000000b92' AND user_id = tests.get_supabase_uid('cd_new')), 0,
+  'C-11 (i): the new teacher has NO grant on the sent registro');
+SELECT is((SELECT count(*)::int FROM public.assessment_instances WHERE course_structure_id = '17400000-0000-4000-8000-0000000000a9'), 2,
+  'C-11 (i): no new registro exists for that instrument');
+SELECT results_eq($$
+  SELECT id::text, status FROM public.assessment_instances
+   WHERE course_structure_id = '17400000-0000-4000-8000-0000000000a9' ORDER BY id
+$$, $$ VALUES ('17400000-0000-4000-8000-000000000b91', 'archived'), ('17400000-0000-4000-8000-000000000b92', 'completed') $$,
+  'C-11 (i): the started one is archived, the sent one stays completed');
+
+-- (ii) started on the old snapshot + CANCELLED (not archived) on the newest.
+SELECT is((SELECT t FROM cd_res_j), 'ok', 'C-11 (ii): the change of J succeeds');
+SELECT results_eq($$
+  SELECT (c.closed_instance_ids)::text, (c.kept_instance_ids)::text, cardinality(c.created_instance_ids)
+    FROM public.course_docente_changes c WHERE c.course_structure_id = '17400000-0000-4000-8000-0000000000aa'
+$$, $$ VALUES ('{17400000-0000-4000-8000-000000000ba1}', '{}', 0) $$,
+  'C-11 (ii): history: the started one closed, nothing kept, nothing created');
+SELECT is((SELECT count(*)::int FROM public.assessment_instance_assignees
+            WHERE instance_id = '17400000-0000-4000-8000-000000000ba2' AND user_id = tests.get_supabase_uid('cd_new')), 0,
+  'C-11 (ii): the new teacher has NO grant on the cancelled registro');
+SELECT is((SELECT count(*)::int FROM public.assessment_instances WHERE course_structure_id = '17400000-0000-4000-8000-0000000000aa'), 2,
+  'C-11 (ii): nothing was created for J');
+
 -- Per-state table for the build report.
 SELECT diag(format('%s | %s | %s | grant(old) edit=%s submit=%s',
        c.course_name, i.status, CASE WHEN i.cancelled_at IS NOT NULL THEN 'cancelled' ELSE 'live' END,

@@ -28,8 +28,10 @@
 --                 snapshot of the same instrument, through
 --                 attach_course_docente_assessment, in this transaction — only
 --                 when the instrument is still published, not archived and
---                 its vía is assigned by course. Otherwise nothing is created
---                 for it (a newer version arrives by normal delivery).
+--                 its vía is assigned by course, and the course has no sent
+--                 or cancelled registro on that current snapshot. Otherwise
+--                 nothing is created for it and the new teacher is attached
+--                 to nothing (a newer version arrives by normal delivery).
 --       UNTOUCHED (pending, no answer): handed to the new teacher as today:
 --                 the old teacher's grant row is given to the new teacher
 --                 with fresh flags; if the new teacher already has a row on
@@ -333,6 +335,14 @@ BEGIN
        WHERE template_id = v_template_id
        ORDER BY created_at DESC, id
        LIMIT 1;
+      -- The course already has a sent or cancelled registro of this
+      -- instrument's current edition: no grant on it, no fresh one.
+      CONTINUE WHEN EXISTS (
+        SELECT 1 FROM public.assessment_instances x
+         WHERE x.course_structure_id = p_course_structure_id
+           AND x.template_snapshot_id = v_snapshot_id
+           AND x.status <> 'archived'
+           AND (x.status = 'completed' OR x.cancelled_at IS NOT NULL));
       v_result := public.attach_course_docente_assessment(
         p_course_structure_id, p_new_docente_id, v_snapshot_id, v_year, v_generation::text, v_caller);
       IF v_result->>'outcome' = 'created' THEN

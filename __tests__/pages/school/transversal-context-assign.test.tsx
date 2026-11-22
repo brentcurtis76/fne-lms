@@ -297,7 +297,7 @@ describe('Transversal context — docente assignment (PROC-CONTAIN-01 A-02 · PR
 
       const note = await screen.findByTestId(`course-assignment-locked-${COURSE_ID}`);
       expect(note).toHaveTextContent('ya tiene un docente asignado');
-      expect(note).toHaveTextContent('resolución administrativa controlada');
+      expect(note).toHaveTextContent('uno que ya comenzó se cierra como historial');
 
       expect(screen.queryByTestId(`open-assign-docente-${COURSE_ID}`)).toBeNull();
       expect(screen.queryByText('Asignar')).toBeNull();
@@ -412,7 +412,7 @@ describe('Transversal context — docente assignment (PROC-CONTAIN-01 A-02 · PR
 
       const note = await screen.findByTestId(`course-assignment-locked-${COURSE_ID}`);
       expect(note).toHaveTextContent('ya tiene un docente asignado');
-      expect(note).toHaveTextContent('resolución administrativa controlada');
+      expect(note).toHaveTextContent('uno que ya comenzó se cierra como historial');
       expect(screen.getByTestId('course-active-assignment-a-cur')).toHaveTextContent(CURRENT_DOCENTE_NAME);
       expect(screen.queryByTestId(`course-assignment-integrity-warning-${COURSE_ID}`)).toBeNull();
       if (viewer.offersReplace) {

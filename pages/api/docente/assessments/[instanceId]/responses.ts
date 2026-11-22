@@ -215,6 +215,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (saveError) {
       console.error('Error saving responses:', saveError);
+      // A write refused by the registro's rules or guards (for example its
+      // course's teacher was changed meanwhile) is a refusal, not a failure.
+      if (saveError.code === '42501') {
+        return res.status(403).json({
+          error: 'No tienes permiso de edición para este registro'
+        });
+      }
       return res.status(500).json({ error: 'Error al guardar respuestas' });
     }
 

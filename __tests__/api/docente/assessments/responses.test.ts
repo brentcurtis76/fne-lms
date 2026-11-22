@@ -54,7 +54,7 @@ function recordingChain(outcome: { data: unknown; error: unknown }) {
   return { chain: new Proxy({}, proxyHandler) as any, calls };
 }
 
-function buildClient(opts: { instanceStatus?: string; statusUpdateError?: unknown } = {}) {
+function buildClient(opts: { instanceStatus?: string; statusUpdateError?: unknown; responsesError?: unknown } = {}) {
   const assignee = { id: 'asg-1', instance_id: INSTANCE_ID, user_id: DOCENTE_UUID, can_edit: true, has_started: false };
   const instance = { id: INSTANCE_ID, status: opts.instanceStatus ?? 'pending', template_snapshot_id: 'snap-1' };
   const snapshot = { snapshot_data: { modules: [{ indicators: [{ id: IND_ID, category: 'cobertura' }] }] } };
@@ -68,7 +68,11 @@ function buildClient(opts: { instanceStatus?: string; statusUpdateError?: unknow
     if (table === 'assessment_instances' && seen[table] === 1) outcome = { data: instance, error: null };
     if (table === 'assessment_instances' && seen[table] === 2) outcome = { data: null, error: opts.statusUpdateError ?? null };
     if (table === 'assessment_template_snapshots') outcome = { data: snapshot, error: null };
-    if (table === 'assessment_responses') outcome = { data: [{ id: 'r1', indicator_id: IND_ID }], error: null };
+    if (table === 'assessment_responses') {
+      outcome = opts.responsesError
+        ? { data: null, error: opts.responsesError }
+        : { data: [{ id: 'r1', indicator_id: IND_ID }], error: null };
+    }
     const { chain, calls } = recordingChain(outcome);
     chains.push({ table, calls });
     return chain;
@@ -141,6 +145,29 @@ describe('PUT /api/docente/assessments/[instanceId]/responses — progress flags
     expect(r.status).toBe(400);
     expect(client.from).not.toHaveBeenCalledWith('assessment_responses');
     expect(client.chains.filter(c => isWrite(c.calls))).toEqual([]);
+  });
+
+  // GC-20: a write refused by the registro's rules or guards after the
+  // route's own checks (the course's teacher was changed meanwhile) is a clean
+  // refusal, the same answer as a caller without an edit grant.
+  it('answers the no-edit-grant 403 when the database refuses the write (42501), and changes no status', async () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const client = buildClient({ responsesError: { code: '42501', message: 'not_an_assignee' } });
+    const r = await put(client);
+    expect(r.status).toBe(403);
+    expect(r.json).toEqual({ error: 'No tienes permiso de edición para este registro' });
+    expect(spy).toHaveBeenCalledWith('Error saving responses:', expect.objectContaining({ code: '42501' }));
+    expect(client.chains.filter(c => c.table === 'assessment_instances' && isWrite(c.calls))).toEqual([]);
+    spy.mockRestore();
+  });
+
+  it('still answers 500 when the write fails for any other reason', async () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const client = buildClient({ responsesError: { code: '23505', message: 'duplicate' } });
+    const r = await put(client);
+    expect(r.status).toBe(500);
+    expect(r.json).toEqual({ error: 'Error al guardar respuestas' });
+    spy.mockRestore();
   });
 });
 

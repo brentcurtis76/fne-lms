@@ -8,8 +8,8 @@
  * possible while the evaluation has not started and that answers are never
  * transferred, and excludes the current docente from the candidates; submit
  * posts { course_structure_id, docente_id } to /replace-docente; a 409
- * evaluation_started keeps the modal open with the explanation inline and
- * does not refresh; a stale 409 (no_active_assignment) keeps the modal open
+ * reason_required keeps the modal open with the explanation inline, does not
+ * refresh and asks for «Motivo del cambio», which is then posted as `reason`; a stale 409 (no_active_assignment) keeps the modal open
  * and refreshes; success closes the modal, refreshes the course list and
  * shows the success notice; a read-only consultor never sees the control
  * (PROC-CONSULTOR-C1 D4/D5: the consultor now READS the page, so the absence
@@ -205,6 +205,14 @@ async function openSelectAndSubmit() {
   fireEvent.click(submit);
 }
 
+/** Picks the new teacher in an already-open modal and submits. */
+async function openSelectAndSubmitAgain() {
+  fireEvent.change(screen.getByTestId('replace-docente-select'), { target: { value: NEW_DOCENTE_ID } });
+  const submit = screen.getByTestId('replace-docente-submit');
+  await waitFor(() => expect(submit).not.toBeDisabled());
+  fireEvent.click(submit);
+}
+
 const replacePosts = (log: FetchCall[]) => log.filter(c => c.url === REPLACE_URL && c.init?.method === 'POST');
 const contextGets = (log: FetchCall[]) => log.filter(c => c.url.startsWith('/api/school/transversal-context?school_id='));
 const NOTHING_REPLACED = { previousDocenteId: null, newDocenteId: null, instancesReattached: 0 };
@@ -213,9 +221,14 @@ function refusal(code: string, message: string, status: number, extra: Record<st
   return { status, body: { success: false, code, error: message, message, replacement: NOTHING_REPLACED, ...extra } };
 }
 
-const EVALUATION_STARTED_MESSAGE =
-  'El registro de este curso ya comenzó o tiene respuestas, por lo que no es posible cambiar el docente desde aquí. ' +
-  'Se requiere una resolución administrativa; las respuestas del docente anterior nunca se transfieren.';
+const REASON_REQUIRED_MESSAGE =
+  'El registro de este curso ya comenzó: 1 registro(s) iniciado(s) se cerrarán y quedarán como historial ' +
+  '(el docente anterior podrá verlos en «Archivados») y el nuevo docente empezará uno en blanco. ' +
+  'Las respuestas nunca se transfieren. Escriba el motivo del cambio para continuar.';
+const CLOSED_SUCCESS_MESSAGE =
+  'Docente cambiado correctamente. 0 registro(s) pendiente(s) reasignado(s) al nuevo docente; ' +
+  '1 registro(s) iniciado(s) cerrado(s) y guardado(s) como historial, con 1 registro(s) en blanco para el nuevo docente; ' +
+  '0 registro(s) enviado(s) se mantienen como resultado del curso. Ninguna respuesta fue transferida.';
 const NO_ACTIVE_MESSAGE = 'Este curso no tiene un docente activo asignado; use "Asignar" en lugar de cambiar el docente.';
 const SUCCESS_MESSAGE =
   'Docente cambiado correctamente. 2 registro(s) pendiente(s) reasignado(s) al nuevo docente; ninguna respuesta fue transferida.';
@@ -247,7 +260,7 @@ describe('Transversal context — docente replacement modal (PR 2 item 2)', () =
 
     expect(screen.getByRole('heading', { name: 'Cambiar Docente' })).toBeInTheDocument();
     expect(screen.getByTestId('replace-docente-current')).toHaveTextContent(`Docente actual: ${CURRENT_DOCENTE_NAME}`);
-    expect(screen.getByText(/mientras el registro del curso no haya comenzado/i)).toBeInTheDocument();
+    expect(screen.getByText(/Los registros pendientes pasan al nuevo docente en blanco/i)).toBeInTheDocument();
     expect(screen.getByText(/las respuestas nunca se transfieren/i)).toBeInTheDocument();
 
     const options = within(select).getAllByRole('option').map(o => (o as HTMLOptionElement).value);
@@ -291,9 +304,9 @@ describe('Transversal context — docente replacement modal (PR 2 item 2)', () =
     });
   });
 
-  it('409 evaluation_started: shows the explanation inline, keeps the modal open and does not refresh', async () => {
-    replace.current = refusal('evaluation_started', EVALUATION_STARTED_MESSAGE, 409, {
-      counts: { instancesStarted: 1, instancesWithResponses: 0 },
+  it('409 reason_required: shows the explanation inline, keeps the modal open and does not refresh', async () => {
+    replace.current = refusal('reason_required', REASON_REQUIRED_MESSAGE, 409, {
+      counts: { closing: 1, kept: 0 },
     });
 
     render(<TransversalContextDashboard />);
@@ -303,16 +316,108 @@ describe('Transversal context — docente replacement modal (PR 2 item 2)', () =
     const errorBox = await screen.findByTestId('replace-docente-error');
     expect(errorBox).toHaveAttribute('role', 'alert');
     expect(errorBox).toHaveTextContent('El registro ya comenzó');
-    expect(errorBox).toHaveTextContent('ya comenzó o tiene respuestas');
+    expect(errorBox).toHaveTextContent('se cerrarán y quedarán como historial');
     expect(errorBox).toHaveTextContent('nunca se transfieren');
     expect(screen.getByRole('heading', { name: 'Cambiar Docente' })).toBeInTheDocument(); // modal still open
-    expect(mockToastError).toHaveBeenCalledWith(EVALUATION_STARTED_MESSAGE, expect.objectContaining({ duration: 8000 }));
+    expect(mockToastError).toHaveBeenCalledWith(REASON_REQUIRED_MESSAGE, expect.objectContaining({ duration: 8000 }));
     expect(mockToastSuccess).not.toHaveBeenCalled();
     expect(screen.queryByTestId('replace-docente-success')).toBeNull();
     expect(replacePosts(fetchLog)).toHaveLength(1);
     expect(contextGets(fetchLog).length).toBe(initialContextLoads);
     // The course stays as it was: still locked on the current docente
     expect(screen.getByTestId('course-active-assignment-a-cur')).toHaveTextContent(CURRENT_DOCENTE_NAME);
+  });
+
+  it('409 reason_required: asks for the reason, the submit waits for a non-blank one and posts it with the same course and teacher', async () => {
+    replace.current = refusal('reason_required', REASON_REQUIRED_MESSAGE, 409, { counts: { closing: 1, kept: 0 } });
+
+    render(<TransversalContextDashboard />);
+    await openReplaceModal();
+    expect(screen.queryByTestId('replace-docente-reason')).toBeNull(); // not asked before the function says so
+    await openSelectAndSubmitAgain();
+
+    const reason = await screen.findByTestId('replace-docente-reason');
+    expect(reason.tagName).toBe('TEXTAREA');
+    expect(reason).toHaveAttribute('maxLength', '500');
+    expect(screen.getByLabelText('Motivo del cambio')).toBe(reason);
+    expect(screen.getByTestId('replace-docente-error')).toHaveTextContent(REASON_REQUIRED_MESSAGE);
+    const submit = screen.getByTestId('replace-docente-submit');
+    expect(submit).toHaveTextContent('Cerrar registro y cambiar docente');
+    expect(submit).toBeDisabled();
+
+    fireEvent.change(reason, { target: { value: '   ' } });
+    expect(submit).toBeDisabled();
+
+    replace.current = {
+      status: 200,
+      body: {
+        success: true,
+        code: 'docente_replaced',
+        message: CLOSED_SUCCESS_MESSAGE,
+        replacement: { previousDocenteId: CURRENT_DOCENTE_ID, newDocenteId: NEW_DOCENTE_ID, instancesReattached: 0 },
+      },
+      afterPost: () => { courses.current = [courseWith(NEW_ACTIVE)]; },
+    };
+    fireEvent.change(reason, { target: { value: 'Licencia médica del docente' } });
+    expect(submit).not.toBeDisabled();
+    fireEvent.click(submit);
+
+    await waitFor(() => expect(replacePosts(fetchLog)).toHaveLength(2));
+    expect(JSON.parse(String(replacePosts(fetchLog)[0].init?.body))).toEqual({
+      course_structure_id: COURSE_ID,
+      docente_id: NEW_DOCENTE_ID,
+    });
+    expect(JSON.parse(String(replacePosts(fetchLog)[1].init?.body))).toEqual({
+      course_structure_id: COURSE_ID,
+      docente_id: NEW_DOCENTE_ID,
+      reason: 'Licencia médica del docente',
+    });
+
+    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Cambiar Docente' })).toBeNull());
+    expect(mockToastSuccess).toHaveBeenCalledWith(CLOSED_SUCCESS_MESSAGE);
+    const notice = await screen.findByTestId('replace-docente-success');
+    expect(notice).toHaveTextContent('Docente cambiado: 3° Básico A');
+    expect(notice).toHaveTextContent('cerrado(s) y guardado(s) como historial');
+  });
+
+  it('the reason is cleared when the teacher changes and when the modal is reopened', async () => {
+    replace.current = refusal('reason_required', REASON_REQUIRED_MESSAGE, 409, { counts: { closing: 1, kept: 0 } });
+
+    render(<TransversalContextDashboard />);
+    await openReplaceModal();
+    await openSelectAndSubmitAgain();
+    const reason = await screen.findByTestId('replace-docente-reason');
+    fireEvent.change(reason, { target: { value: 'Motivo escrito' } });
+    expect(reason).toHaveValue('Motivo escrito');
+
+    fireEvent.change(screen.getByTestId('replace-docente-select'), { target: { value: '' } });
+    fireEvent.change(screen.getByTestId('replace-docente-select'), { target: { value: NEW_DOCENTE_ID } });
+    expect(screen.getByTestId('replace-docente-reason')).toHaveValue('');
+
+    fireEvent.change(screen.getByTestId('replace-docente-reason'), { target: { value: 'Otro motivo' } });
+    fireEvent.click(screen.getByTestId('replace-docente-cancel'));
+    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Cambiar Docente' })).toBeNull());
+
+    await openReplaceModal();
+    expect(screen.queryByTestId('replace-docente-reason')).toBeNull();
+    expect(screen.getByTestId('replace-docente-submit')).toHaveTextContent('Cambiar docente');
+    expect(screen.getByTestId('replace-docente-submit')).not.toHaveTextContent('Cerrar registro');
+  });
+
+  it('a reason refused by the server (422 reason_invalid) keeps the reason field and the text', async () => {
+    replace.current = refusal('reason_required', REASON_REQUIRED_MESSAGE, 409, { counts: { closing: 1, kept: 0 } });
+
+    render(<TransversalContextDashboard />);
+    await openReplaceModal();
+    await openSelectAndSubmitAgain();
+    const reason = await screen.findByTestId('replace-docente-reason');
+    replace.current = refusal('reason_invalid', 'El motivo es obligatorio y puede tener hasta 500 caracteres.', 422);
+    fireEvent.change(reason, { target: { value: 'Motivo' } });
+    fireEvent.click(screen.getByTestId('replace-docente-submit'));
+
+    await waitFor(() => expect(screen.getByTestId('replace-docente-error')).toHaveTextContent('puede tener hasta 500 caracteres'));
+    expect(screen.getByTestId('replace-docente-reason')).toHaveValue('Motivo');
+    expect(screen.getByRole('heading', { name: 'Cambiar Docente' })).toBeInTheDocument();
   });
 
   it('stale 409 no_active_assignment: keeps the modal open with the message and refreshes the course list', async () => {

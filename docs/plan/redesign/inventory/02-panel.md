@@ -1,7 +1,7 @@
 # Panel (Mi Panel)
 
 Area `02-panel`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `6f507a060` (2026-11-19).
+Read from commit `c7e27398c` (2026-11-22).
 
 1 screen files, 6 API files, 56 pieces.
 

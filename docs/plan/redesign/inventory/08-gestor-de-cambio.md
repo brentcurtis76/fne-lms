@@ -1,7 +1,7 @@
 # Gestor de Cambio (registros, context, migration plan, results)
 
 Area `08-gestor-de-cambio`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `6f507a060` (2026-11-19).
+Read from commit `c7e27398c` (2026-11-22).
 
 16 screen files, 41 API files, 31 pieces.
 
@@ -24,7 +24,7 @@ Read from commit `6f507a060` (2026-11-19).
 | `/docente/assessments` | `pages/docente/assessments/index.tsx` | 407 | Mi Aprendizaje › Feedback; Gestor de Cambio › Mis Registros |  |
 | `/school/migration-plan` | `pages/school/migration-plan/index.tsx` | 837 | Gestor de Cambio › Plan de Migración |  |
 | `/school/transversal-context/edit` | `pages/school/transversal-context/edit.tsx` | 1081 | — |  |
-| `/school/transversal-context` | `pages/school/transversal-context/index.tsx` | 1678 | Gestor de Cambio › Contexto Transversal; Vías de Transformación › Contexto Transversal |  |
+| `/school/transversal-context` | `pages/school/transversal-context/index.tsx` | 1712 | Gestor de Cambio › Contexto Transversal; Vías de Transformación › Contexto Transversal |  |
 
 ## /admin/assessment-builder/[templateId]/expectations
 
@@ -2586,7 +2586,7 @@ File `pages/school/migration-plan/index.tsx` · 837 lines · frame: MainLayout
   - l.107 `router.push → /login  (when !session?.user)`
   - l.361 `router.push → /login`
   - l.396 `No tienes permiso para acceder al Plan de Migración.`
-- Linked from: `components/layout/Sidebar.tsx:310`, `pages/school/transversal-context/index.tsx:969`, `pages/school/transversal-context/index.tsx:970`
+- Linked from: `components/layout/Sidebar.tsx:310`, `pages/school/transversal-context/index.tsx:983`, `pages/school/transversal-context/index.tsx:984`
 - Tests: no browser test that CI runs; unit tests of the page: `__tests__/pages/school-migration-plan-defaults.test.tsx`, `__tests__/pages/school/migration-plan-denied-state.test.tsx`.
 - QA scenarios that name this address: admin 2, consultor 1, equipo_directivo 1.
 
@@ -2780,7 +2780,7 @@ File `pages/school/transversal-context/edit.tsx` · 1081 lines · frame: MainLay
   - l.84 `router.push → /login  (when !session?.user)`
   - l.113 `isAdmin = roles.some(r => r.role_type === 'admin')`
   - l.408 `router.push → /login`
-- Linked from: `pages/school/transversal-context/index.tsx:1429`, `pages/school/transversal-context/index.tsx:1430`, `pages/school/transversal-context/index.tsx:928`, `pages/school/transversal-context/index.tsx:929`
+- Linked from: `pages/school/transversal-context/index.tsx:1443`, `pages/school/transversal-context/index.tsx:1444`, `pages/school/transversal-context/index.tsx:942`, `pages/school/transversal-context/index.tsx:943`
 - Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/proc-pilot-journey.spec.ts`; unit tests of the page: `__tests__/pages/school/transversal-context-edit.test.tsx`.
 
 | Role | Sees it in the menu | Middleware |
@@ -2990,7 +2990,7 @@ File `pages/school/transversal-context/edit.tsx` · 1081 lines · frame: MainLay
 
 ## /school/transversal-context
 
-File `pages/school/transversal-context/index.tsx` · 1678 lines · frame: MainLayout
+File `pages/school/transversal-context/index.tsx` · 1712 lines · frame: MainLayout
 
 ### Who reaches it
 
@@ -2998,10 +2998,10 @@ File `pages/school/transversal-context/index.tsx` · 1678 lines · frame: MainLa
 - Menu: Vías de Transformación › «Contexto Transversal» → `/school/transversal-context` — everyone signed in; the group: admin only (`Sidebar.tsx` l.341)
 - Middleware: signed-in only; with ?school_id= an equipo directivo only passes for its own school. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page:
-  - l.182 `router.push → /login  (when !session?.user)`
-  - l.212 `isAdmin = roles.some(r => r.role_type === 'admin')`
-  - l.239 `router.push → /dashboard  (when (!(isAdmin \|\| isConsultor)) && directivoRole?.school_id && parsedQuerySchoolId !== null && parsedQuerySchoolId !== effectiveSchoolId)`
-  - l.431 `router.push → /login`
+  - l.186 `router.push → /login  (when !session?.user)`
+  - l.216 `isAdmin = roles.some(r => r.role_type === 'admin')`
+  - l.243 `router.push → /dashboard  (when (!(isAdmin \|\| isConsultor)) && directivoRole?.school_id && parsedQuerySchoolId !== null && parsedQuerySchoolId !== effectiveSchoolId)`
+  - l.435 `router.push → /login`
 - Linked from: `components/layout/Sidebar.tsx:286`, `components/layout/Sidebar.tsx:343`, `middleware.ts:278`, `pages/admin/context-questions/overview.tsx:414`, `pages/admin/context-questions/overview.tsx:415`, `pages/school/migration-plan/index.tsx:533`, `pages/school/migration-plan/index.tsx:639`, `pages/school/migration-plan/index.tsx:640`, `pages/school/transversal-context/edit.tsx:1031`, `pages/school/transversal-context/edit.tsx:1032`, `pages/school/transversal-context/edit.tsx:396`, `pages/school/transversal-context/edit.tsx:979` and 1 more
 - Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/proc-pilot-journey.spec.ts`; unit tests of the page: `__tests__/pages/school/transversal-context-assign.test.tsx`, `__tests__/pages/school/transversal-context-late-answer.test.tsx`, `__tests__/pages/school/transversal-context-replace.test.tsx`, `__tests__/pages/school/transversal-context-resend.test.tsx`.
 - QA scenarios that name this address: admin 3, community_manager 1, consultor 2, equipo_directivo 2.
@@ -3024,133 +3024,134 @@ File `pages/school/transversal-context/index.tsx` · 1678 lines · frame: MainLa
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «Acceso Denegado» | h1 | `hasPermission === false` | TransversalContextDashboard · l.728 |
-| «Selecciona una escuela» | h3 | `!schoolId` | TransversalContextDashboard · l.772 |
-| «{q.question_text}» | h3 | `context && each allQuestions && widgetType === 'total_students'` | TransversalContextDashboard · l.997 |
-| «{q.question_text} ( {sortedGradeLevels.length} seleccionados)» | h3 | `context && each allQuestions && widgetType === 'grade_levels'` | TransversalContextDashboard · l.1018 |
-| «{q.question_text}» | h3 | `context && each allQuestions && widgetType === 'courses_per_level'` | TransversalContextDashboard · l.1052 |
-| «{q.question_text}» | h3 | `context && each allQuestions && widgetType === 'implementation_year'` | TransversalContextDashboard · l.1085 |
-| «{q.question_text}» | h3 | `context && each allQuestions && widgetType === 'period_system'` | TransversalContextDashboard · l.1113 |
-| «{q.question_text}» | h3 | `context && each allQuestions && widgetType === 'programa_inicia'` | TransversalContextDashboard · l.1138 |
-| «{q.question_text}» | h3 | `context && each allQuestions && widgetType === 'generic'` | TransversalContextDashboard · l.1168 |
-| «Estructura de Cursos» | h3 | `courseStructure.length > 0` | TransversalContextDashboard · l.1252 |
-| «{GRADE_LEVEL_LABELS[gradeLevel as Gr…} / {gradeLevel}» | h4 | `courseStructure.length > 0 && each Object.entries(coursesByGrade)` | TransversalContextDashboard · l.1261 |
-| «Escuela sin configurar / Configure su escuela» | h3 | `!context` | TransversalContextDashboard · l.1418 |
-| «Asignar Docente» | h3 | `assignModalOpen` | TransversalContextDashboard · l.1448 |
-| «Cambiar Docente» | h3 | `replaceModalOpen` | TransversalContextDashboard · l.1561 |
+| «Acceso Denegado» | h1 | `hasPermission === false` | TransversalContextDashboard · l.742 |
+| «Selecciona una escuela» | h3 | `!schoolId` | TransversalContextDashboard · l.786 |
+| «{q.question_text}» | h3 | `context && each allQuestions && widgetType === 'total_students'` | TransversalContextDashboard · l.1011 |
+| «{q.question_text} ( {sortedGradeLevels.length} seleccionados)» | h3 | `context && each allQuestions && widgetType === 'grade_levels'` | TransversalContextDashboard · l.1032 |
+| «{q.question_text}» | h3 | `context && each allQuestions && widgetType === 'courses_per_level'` | TransversalContextDashboard · l.1066 |
+| «{q.question_text}» | h3 | `context && each allQuestions && widgetType === 'implementation_year'` | TransversalContextDashboard · l.1099 |
+| «{q.question_text}» | h3 | `context && each allQuestions && widgetType === 'period_system'` | TransversalContextDashboard · l.1127 |
+| «{q.question_text}» | h3 | `context && each allQuestions && widgetType === 'programa_inicia'` | TransversalContextDashboard · l.1152 |
+| «{q.question_text}» | h3 | `context && each allQuestions && widgetType === 'generic'` | TransversalContextDashboard · l.1182 |
+| «Estructura de Cursos» | h3 | `courseStructure.length > 0` | TransversalContextDashboard · l.1266 |
+| «{GRADE_LEVEL_LABELS[gradeLevel as Gr…} / {gradeLevel}» | h4 | `courseStructure.length > 0 && each Object.entries(coursesByGrade)` | TransversalContextDashboard · l.1275 |
+| «Escuela sin configurar / Configure su escuela» | h3 | `!context` | TransversalContextDashboard · l.1432 |
+| «Asignar Docente» | h3 | `assignModalOpen` | TransversalContextDashboard · l.1462 |
+| «Cambiar Docente» | h3 | `replaceModalOpen` | TransversalContextDashboard · l.1575 |
 
 **Buttons** (12)
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «Volver a Selección de Escuelas» | `{async () => { setSchoolId(null); setSchoolName(''); setContext(null); setCourse…}` | `canSelectSchool` |  |  | TransversalContextDashboard · l.853 |
-| «[icon X]» · tooltip «Cerrar» | `{() => setAssignmentNotice(null)}` | `assignmentNotice` |  | `testid=assign-docente-warnings-dismiss` | TransversalContextDashboard · l.1212 |
-| «[icon X]» · tooltip «Cerrar» | `{() => setReplacementNotice(null)}` | `replacementNotice` |  | `testid=replace-docente-success-dismiss` | TransversalContextDashboard · l.1236 |
-| «Asignar» | `{() => openAssignModal(course)}` | `courseStructure.length > 0 && each Object.entries(coursesByGrade) && each courses && canOfferAssign` |  | `testid=open-assign-docente-{course.id}` | TransversalContextDashboard · l.1301 |
-| «Cambiar docente» | `{() => openReplaceModal(course)}` | `each Object.entries(coursesByGrade) && each courses && isLocked && canReplaceDocente` |  | `testid=open-replace-docente-{course.id}` | TransversalContextDashboard · l.1340 |
-| «Reenviar registros» | `{() => resendRegistros(course.id, activeAssignments[0].docente_id)}` | `each Object.entries(coursesByGrade) && each courses && isLocked && canReplaceDocente` | `{resendingCourses[course.id] === true}` | `testid=resend-registros-{course.id}` | TransversalContextDashboard · l.1350 |
-| «[icon X]» | `{closeAssignModal}` | `assignModalOpen` |  | `testid=assign-docente-close` | TransversalContextDashboard · l.1451 |
-| «Cancelar» | `{closeAssignModal}` | `assignModalOpen` |  | `testid=assign-docente-cancel` | TransversalContextDashboard · l.1526 |
-| «Asignando... / Asignar» | `{handleAssignDocente}` | `assignModalOpen` | `{!selectedDocente \|\| assigning}` | `testid=assign-docente-submit` | TransversalContextDashboard · l.1533 |
-| «[icon X]» | `{closeReplaceModal}` | `replaceModalOpen` |  | `testid=replace-docente-close` | TransversalContextDashboard · l.1564 |
-| «Cancelar» | `{closeReplaceModal}` | `replaceModalOpen` |  | `testid=replace-docente-cancel` | TransversalContextDashboard · l.1644 |
-| «Cambiando... / Cambiar docente» | `{handleReplaceDocente}` | `replaceModalOpen` | `{!selectedReplacement \|\| replacing}` | `testid=replace-docente-submit` | TransversalContextDashboard · l.1651 |
+| «Volver a Selección de Escuelas» | `{async () => { setSchoolId(null); setSchoolName(''); setContext(null); setCourse…}` | `canSelectSchool` |  |  | TransversalContextDashboard · l.867 |
+| «[icon X]» · tooltip «Cerrar» | `{() => setAssignmentNotice(null)}` | `assignmentNotice` |  | `testid=assign-docente-warnings-dismiss` | TransversalContextDashboard · l.1226 |
+| «[icon X]» · tooltip «Cerrar» | `{() => setReplacementNotice(null)}` | `replacementNotice` |  | `testid=replace-docente-success-dismiss` | TransversalContextDashboard · l.1250 |
+| «Asignar» | `{() => openAssignModal(course)}` | `courseStructure.length > 0 && each Object.entries(coursesByGrade) && each courses && canOfferAssign` |  | `testid=open-assign-docente-{course.id}` | TransversalContextDashboard · l.1315 |
+| «Cambiar docente» | `{() => openReplaceModal(course)}` | `each Object.entries(coursesByGrade) && each courses && isLocked && canReplaceDocente` |  | `testid=open-replace-docente-{course.id}` | TransversalContextDashboard · l.1354 |
+| «Reenviar registros» | `{() => resendRegistros(course.id, activeAssignments[0].docente_id)}` | `each Object.entries(coursesByGrade) && each courses && isLocked && canReplaceDocente` | `{resendingCourses[course.id] === true}` | `testid=resend-registros-{course.id}` | TransversalContextDashboard · l.1364 |
+| «[icon X]» | `{closeAssignModal}` | `assignModalOpen` |  | `testid=assign-docente-close` | TransversalContextDashboard · l.1465 |
+| «Cancelar» | `{closeAssignModal}` | `assignModalOpen` |  | `testid=assign-docente-cancel` | TransversalContextDashboard · l.1540 |
+| «Asignando... / Asignar» | `{handleAssignDocente}` | `assignModalOpen` | `{!selectedDocente \|\| assigning}` | `testid=assign-docente-submit` | TransversalContextDashboard · l.1547 |
+| «[icon X]» | `{closeReplaceModal}` | `replaceModalOpen` |  | `testid=replace-docente-close` | TransversalContextDashboard · l.1578 |
+| «Cancelar» | `{closeReplaceModal}` | `replaceModalOpen` |  | `testid=replace-docente-cancel` | TransversalContextDashboard · l.1678 |
+| «Cambiando... / Cerrar registro y cambiar docente / Cambiar docente» | `{handleReplaceDocente}` | `replaceModalOpen` | `{!selectedReplacement \|\| replacing \|\| (replaceReasonAsked && replaceReason.trim(…}` | `testid=replace-docente-submit` | TransversalContextDashboard · l.1685 |
 
 **Links** (8)
 
 | Text | Goes to | Shown when | Hook | Where |
 |---|---|---|---|---|
-| «Ir al Panel» | `/dashboard` | `hasPermission === false` |  | TransversalContextDashboard · l.734 |
-| «Ir al Panel» |  | `hasPermission === false` |  | TransversalContextDashboard · l.735 |
-| «Editar / Completar» | `/school/transversal-context/edit[*]` | `!isReadOnlyViewer` |  | TransversalContextDashboard · l.928 |
-| «Editar / Completar» |  | `!isReadOnlyViewer` |  | TransversalContextDashboard · l.932 |
-| «Ver Plan de Migración» | `/school/migration-plan[*]` | `context` |  | TransversalContextDashboard · l.969 |
-| «Ver Plan de Migración» |  | `context` |  | TransversalContextDashboard · l.973 |
-| «Completar Cuestionario» | `/school/transversal-context/edit[*]` | `!context && !isReadOnlyViewer` |  | TransversalContextDashboard · l.1429 |
-| «Completar Cuestionario» |  | `!context && !isReadOnlyViewer` |  | TransversalContextDashboard · l.1433 |
+| «Ir al Panel» | `/dashboard` | `hasPermission === false` |  | TransversalContextDashboard · l.748 |
+| «Ir al Panel» |  | `hasPermission === false` |  | TransversalContextDashboard · l.749 |
+| «Editar / Completar» | `/school/transversal-context/edit[*]` | `!isReadOnlyViewer` |  | TransversalContextDashboard · l.942 |
+| «Editar / Completar» |  | `!isReadOnlyViewer` |  | TransversalContextDashboard · l.946 |
+| «Ver Plan de Migración» | `/school/migration-plan[*]` | `context` |  | TransversalContextDashboard · l.983 |
+| «Ver Plan de Migración» |  | `context` |  | TransversalContextDashboard · l.987 |
+| «Completar Cuestionario» | `/school/transversal-context/edit[*]` | `!context && !isReadOnlyViewer` |  | TransversalContextDashboard · l.1443 |
+| «Completar Cuestionario» |  | `!context && !isReadOnlyViewer` |  | TransversalContextDashboard · l.1447 |
 
-**Fields** (3)
+**Fields** (4)
 
 | Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
 |---|---|---|---|---|---|---|
-|  | select |  | «-- Seleccionar escuela --», «(lista) {school.name}» | `!schoolId && !(loadingSchools) && schools.length > 0` |  | TransversalContextDashboard · l.787 |
-| «Seleccionar Docente» | select |  | «-- Seleccionar --», «(lista) {displayName} — {roleLabels} / {displayName}» | `assignModalOpen && !(loadingDocentes) && !(availableDocentes.length === 0)` | `testid=assign-docente-select` | TransversalContextDashboard · l.1484 |
-| «Nuevo docente» | select |  | «-- Seleccionar --», «(lista) {displayName} — {roleLabels} / {displayName}» | `replaceModalOpen && !(loadingReplaceCandidates) && !(replaceCandidates.length === 0)` | `testid=replace-docente-select` | TransversalContextDashboard · l.1605 |
+|  | select |  | «-- Seleccionar escuela --», «(lista) {school.name}» | `!schoolId && !(loadingSchools) && schools.length > 0` |  | TransversalContextDashboard · l.801 |
+| «Seleccionar Docente» | select |  | «-- Seleccionar --», «(lista) {displayName} — {roleLabels} / {displayName}» | `assignModalOpen && !(loadingDocentes) && !(availableDocentes.length === 0)` | `testid=assign-docente-select` | TransversalContextDashboard · l.1498 |
+| «Nuevo docente» | select |  | «-- Seleccionar --», «(lista) {displayName} — {roleLabels} / {displayName}» | `replaceModalOpen && !(loadingReplaceCandidates) && !(replaceCandidates.length === 0)` | `testid=replace-docente-select` | TransversalContextDashboard · l.1619 |
+| «Motivo del cambio» | textarea | `maxLength={500}` |  | `replaceModalOpen && replaceReasonAsked` | `testid=replace-docente-reason` | TransversalContextDashboard · l.1664 |
 
 **Pop-ups** (2)
 
 | Name or title | How | Opens when | Texts passed to it | Where |
 |---|---|---|---|---|
-| «Asignar Docente» | written in this file | `assignModalOpen` |  | TransversalContextDashboard · l.1445 |
-| «Cambiar Docente» | written in this file | `replaceModalOpen` |  | TransversalContextDashboard · l.1558 |
+| «Asignar Docente» | written in this file | `assignModalOpen` |  | TransversalContextDashboard · l.1459 |
+| «Cambiar Docente» | written in this file | `replaceModalOpen` |  | TransversalContextDashboard · l.1572 |
 
 **Toasts** (13)
 
 | Kind | Text | When | Where |
 |---|---|---|---|
-| error | «Error al cargar el contexto» |  | TransversalContextDashboard · l.352 |
-| error | «Error al cargar docentes» |  | openAssignModal · l.472 |
-| error | «{message}» | `!response.ok \|\| data.success !== true` | handleAssignDocente · l.530 |
-| plain | «{message} Hay advertencias que revisar.» | `warnings.length > 0` | handleAssignDocente · l.543 |
-| success | «{message}» | `!(warnings.length > 0)` | handleAssignDocente · l.546 |
-| error | «{message}» |  | handleAssignDocente · l.555 |
-| success | «{data.message}» | `response.ok && data.success === true` | resendRegistros · l.589 |
-| error | «No se pudieron reenviar los registros» | `!(response.ok && data.success === true)` | resendRegistros · l.591 |
-| error | «No se pudieron reenviar los registros» |  | resendRegistros · l.595 |
-| error | «Error al cargar docentes» |  | openReplaceModal · l.628 |
-| error | «{message}» | `!response.ok \|\| data.success !== true` | handleReplaceDocente · l.670 |
-| success | «{message}» |  | handleReplaceDocente · l.679 |
-| error | «{message}» |  | handleReplaceDocente · l.686 |
+| error | «Error al cargar el contexto» |  | TransversalContextDashboard · l.356 |
+| error | «Error al cargar docentes» |  | openAssignModal · l.476 |
+| error | «{message}» | `!response.ok \|\| data.success !== true` | handleAssignDocente · l.534 |
+| plain | «{message} Hay advertencias que revisar.» | `warnings.length > 0` | handleAssignDocente · l.547 |
+| success | «{message}» | `!(warnings.length > 0)` | handleAssignDocente · l.550 |
+| error | «{message}» |  | handleAssignDocente · l.559 |
+| success | «{data.message}» | `response.ok && data.success === true` | resendRegistros · l.593 |
+| error | «No se pudieron reenviar los registros» | `!(response.ok && data.success === true)` | resendRegistros · l.595 |
+| error | «No se pudieron reenviar los registros» |  | resendRegistros · l.599 |
+| error | «Error al cargar docentes» |  | openReplaceModal · l.634 |
+| error | «{message}» | `!response.ok \|\| data.success !== true` | handleReplaceDocente · l.681 |
+| success | «{message}» |  | handleReplaceDocente · l.693 |
+| error | «{message}» |  | handleReplaceDocente · l.700 |
 
 **Messages set on the page** (3)
 
 | Text | Set by | When | Where |
 |---|---|---|---|
-| «Error al cargar el contexto» | `throw (shown by whoever catches it)` | `!response.ok` | TransversalContextDashboard · l.340 |
-| «Error al cargar docentes» | `throw (shown by whoever catches it)` | `!response.ok` | openAssignModal · l.454 |
-| «Error al cargar docentes» | `throw (shown by whoever catches it)` | `!response.ok` | openReplaceModal · l.619 |
+| «Error al cargar el contexto» | `throw (shown by whoever catches it)` | `!response.ok` | TransversalContextDashboard · l.344 |
+| «Error al cargar docentes» | `throw (shown by whoever catches it)` | `!response.ok` | openAssignModal · l.458 |
+| «Error al cargar docentes» | `throw (shown by whoever catches it)` | `!response.ok` | openReplaceModal · l.625 |
 
 **Moves to another page from code** (5)
 
 | Goes to | How | When | Where |
 |---|---|---|---|
-| `/login` | `router.push` | `!session?.user` | checkAuth · l.182 |
-| `/dashboard` | `router.push` | `(!(isAdmin \|\| isConsultor)) && directivoRole?.school_id && parsedQuerySchoolId !== null && parsedQuerySchoolId !== effectiveSchoolId` | checkAuth · l.239 |
-| `/login` | `router.push` |  | handleLogout · l.431 |
-| `/school/transversal-context?school_id=[*]` | `router.push` | `selectedId` | handleSchoolSelect · l.750 |
-| `/school/transversal-context` | `router.push` | `canSelectSchool` | TransversalContextDashboard · l.871 |
+| `/login` | `router.push` | `!session?.user` | checkAuth · l.186 |
+| `/dashboard` | `router.push` | `(!(isAdmin \|\| isConsultor)) && directivoRole?.school_id && parsedQuerySchoolId !== null && parsedQuerySchoolId !== effectiveSchoolId` | checkAuth · l.243 |
+| `/login` | `router.push` |  | handleLogout · l.435 |
+| `/school/transversal-context?school_id=[*]` | `router.push` | `selectedId` | handleSchoolSelect · l.764 |
+| `/school/transversal-context` | `router.push` | `canSelectSchool` | TransversalContextDashboard · l.885 |
 
 **Access checks in the code** (1)
 
 | Line of code | Where |
 |---|---|
-| `isAdmin = roles.some(r => r.role_type === 'admin')` | checkAuth · l.212 |
+| `isAdmin = roles.some(r => r.role_type === 'admin')` | checkAuth · l.216 |
 
 **Draws nothing when** (6)
 
 | Condition | Where |
 |---|---|
-| `!isCurrent()` | TransversalContextDashboard · l.346 |
 | `!isCurrent()` | TransversalContextDashboard · l.350 |
-| `!schoolId \|\| !hasPermission` | TransversalContextDashboard · l.369 |
-| `previousSchoolId === null \|\| previousSchoolId === schoolId` | TransversalContextDashboard · l.413 |
-| `!context.courses_per_level \|\| Object.keys(context.courses_per_level).length === 0` | TransversalContextDashboard · l.1042 |
-| `isReadOnlyViewer` | TransversalContextDashboard · l.1158 |
+| `!isCurrent()` | TransversalContextDashboard · l.354 |
+| `!schoolId \|\| !hasPermission` | TransversalContextDashboard · l.373 |
+| `previousSchoolId === null \|\| previousSchoolId === schoolId` | TransversalContextDashboard · l.417 |
+| `!context.courses_per_level \|\| Object.keys(context.courses_per_level).length === 0` | TransversalContextDashboard · l.1056 |
+| `isReadOnlyViewer` | TransversalContextDashboard · l.1172 |
 
 **Pieces placed here, with the texts and settings handed to them** (10)
 
 | Piece | Texts and settings | Shown when | Hook | Where |
 |---|---|---|---|---|
-| `MainLayout` |  | `hasPermission === false` |  | TransversalContextDashboard · l.717 |
-| `MainLayout` |  | `!schoolId` |  | TransversalContextDashboard · l.755 |
-| `ResponsiveFunctionalPageHeader` | title: Contexto Transversal · subtitle: Selecciona una escuela | `!schoolId` |  | TransversalContextDashboard · l.764 |
-| `MainLayout` |  |  |  | TransversalContextDashboard · l.835 |
-| `ResponsiveFunctionalPageHeader` | title: Contexto Transversal · subtitle: Mi Escuela |  |  | TransversalContextDashboard · l.844 |
-| `CompletionStatusBadge` |  | `schoolId && Object.keys(completionStatus).length > 0` |  | TransversalContextDashboard · l.945 |
-| `CompletionStatusBadge` |  | `schoolId && Object.keys(completionStatus).length > 0` |  | TransversalContextDashboard · l.955 |
-| `ViaResponsiblesSection` |  | `context && schoolId` |  | TransversalContextDashboard · l.1388 |
-| `ChangeHistorySection` | feature: transversal_context | `context && schoolId && !isReadOnlyViewer` |  | TransversalContextDashboard · l.1395 |
-| `ChangeHistorySection` | feature: context_responses | `context && schoolId && !isReadOnlyViewer` |  | TransversalContextDashboard · l.1401 |
+| `MainLayout` |  | `hasPermission === false` |  | TransversalContextDashboard · l.731 |
+| `MainLayout` |  | `!schoolId` |  | TransversalContextDashboard · l.769 |
+| `ResponsiveFunctionalPageHeader` | title: Contexto Transversal · subtitle: Selecciona una escuela | `!schoolId` |  | TransversalContextDashboard · l.778 |
+| `MainLayout` |  |  |  | TransversalContextDashboard · l.849 |
+| `ResponsiveFunctionalPageHeader` | title: Contexto Transversal · subtitle: Mi Escuela |  |  | TransversalContextDashboard · l.858 |
+| `CompletionStatusBadge` |  | `schoolId && Object.keys(completionStatus).length > 0` |  | TransversalContextDashboard · l.959 |
+| `CompletionStatusBadge` |  | `schoolId && Object.keys(completionStatus).length > 0` |  | TransversalContextDashboard · l.969 |
+| `ViaResponsiblesSection` |  | `context && schoolId` |  | TransversalContextDashboard · l.1402 |
+| `ChangeHistorySection` | feature: transversal_context | `context && schoolId && !isReadOnlyViewer` |  | TransversalContextDashboard · l.1409 |
+| `ChangeHistorySection` | feature: context_responses | `context && schoolId && !isReadOnlyViewer` |  | TransversalContextDashboard · l.1415 |
 
 **Texts kept in lists and helpers in the code (labels, options, status names)** (1)
 
@@ -3162,97 +3163,98 @@ File `pages/school/transversal-context/index.tsx` · 1678 lines · frame: MainLa
 
 | Text | Where |
 |---|---|
-| «No se pudo completar la asignación del docente» | TransversalContextDashboard · l.527 |
-| «Docente asignado correctamente» | TransversalContextDashboard · l.540 |
-| «Error al asignar docente» | TransversalContextDashboard · l.553 |
-| «Docente cambiado correctamente» | TransversalContextDashboard · l.677 |
-| «Error al cambiar docente» | TransversalContextDashboard · l.684 |
-| «Complete el cuestionario transversal para configurar su escuela» | TransversalContextDashboard · l.921 |
-| «El equipo directivo de esta escuela aún no ha completado el cuestionario transversal. Como administrador puede completarlo ahora.» | TransversalContextDashboard · l.1425 |
-| «Complete el cuestionario transversal para configurar los datos de su escuela y habilitar los registros de transformación.» | TransversalContextDashboard · l.1426 |
+| «No se pudo completar la asignación del docente» | TransversalContextDashboard · l.531 |
+| «Docente asignado correctamente» | TransversalContextDashboard · l.544 |
+| «Error al asignar docente» | TransversalContextDashboard · l.557 |
+| «Docente cambiado correctamente» | TransversalContextDashboard · l.691 |
+| «Error al cambiar docente» | TransversalContextDashboard · l.698 |
+| «Complete el cuestionario transversal para configurar su escuela» | TransversalContextDashboard · l.935 |
+| «El equipo directivo de esta escuela aún no ha completado el cuestionario transversal. Como administrador puede completarlo ahora.» | TransversalContextDashboard · l.1439 |
+| «Complete el cuestionario transversal para configurar los datos de su escuela y habilitar los registros de transformación.» | TransversalContextDashboard · l.1440 |
 
 **Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (19)
 
 | Kind | What | Where |
 |---|---|---|
-| mark | `testid=access-denied` | TransversalContextDashboard · l.727 |
-| mark | `testid=school-picker-hint` | TransversalContextDashboard · l.775 |
-| role | `role=status` | TransversalContextDashboard · l.882 |
-| mark | `testid=consultor-read-only-notice` | TransversalContextDashboard · l.882 |
-| role | `role=status` | TransversalContextDashboard · l.1195 |
-| mark | `testid=assign-docente-warnings` | TransversalContextDashboard · l.1195 |
-| role | `role=status` | TransversalContextDashboard · l.1226 |
-| mark | `testid=replace-docente-success` | TransversalContextDashboard · l.1226 |
-| mark | `testid=course-card-{course.id}` | TransversalContextDashboard · l.1282 |
-| mark | `testid=course-active-assignment-{assignment.id}` | TransversalContextDashboard · l.1316 |
-| mark | `testid=course-assignment-locked-{course.id}` | TransversalContextDashboard · l.1331 |
-| role | `role=alert` | TransversalContextDashboard · l.1364 |
-| mark | `testid=course-assignment-integrity-warning-{course.id}` | TransversalContextDashboard · l.1364 |
-| role | `role=alert` | TransversalContextDashboard · l.1507 |
-| mark | `testid=assign-docente-error` | TransversalContextDashboard · l.1507 |
-| mark | `testid=replace-docente-current` | TransversalContextDashboard · l.1577 |
-| role | `role=alert` | TransversalContextDashboard · l.1628 |
-| mark | `testid=replace-docente-error` | TransversalContextDashboard · l.1628 |
+| mark | `testid=access-denied` | TransversalContextDashboard · l.741 |
+| mark | `testid=school-picker-hint` | TransversalContextDashboard · l.789 |
+| role | `role=status` | TransversalContextDashboard · l.896 |
+| mark | `testid=consultor-read-only-notice` | TransversalContextDashboard · l.896 |
+| role | `role=status` | TransversalContextDashboard · l.1209 |
+| mark | `testid=assign-docente-warnings` | TransversalContextDashboard · l.1209 |
+| role | `role=status` | TransversalContextDashboard · l.1240 |
+| mark | `testid=replace-docente-success` | TransversalContextDashboard · l.1240 |
+| mark | `testid=course-card-{course.id}` | TransversalContextDashboard · l.1296 |
+| mark | `testid=course-active-assignment-{assignment.id}` | TransversalContextDashboard · l.1330 |
+| mark | `testid=course-assignment-locked-{course.id}` | TransversalContextDashboard · l.1345 |
+| role | `role=alert` | TransversalContextDashboard · l.1378 |
+| mark | `testid=course-assignment-integrity-warning-{course.id}` | TransversalContextDashboard · l.1378 |
+| role | `role=alert` | TransversalContextDashboard · l.1521 |
+| mark | `testid=assign-docente-error` | TransversalContextDashboard · l.1521 |
+| mark | `testid=replace-docente-current` | TransversalContextDashboard · l.1591 |
+| role | `role=alert` | TransversalContextDashboard · l.1645 |
+| mark | `testid=replace-docente-error` | TransversalContextDashboard · l.1645 |
 | address value | `?school_id` | l.1 |
 
 **Values shown from data** (14)
 
-- `{GRADE_LEVEL_LABELS[level as GradeLe…} / {level}` — TransversalContextDashboard · l.1023, when `context && each allQuestions && widgetType === 'grade_levels' && each sortedGradeLevels`
-- `{GRADE_LEVEL_LABELS[level as GradeLe…} / {level}` — TransversalContextDashboard · l.1060, when `context && each allQuestions && widgetType === 'courses_per_level' && each sortedGradeLevels`
-- `{count}` — TransversalContextDashboard · l.1063, when `context && each allQuestions && widgetType === 'courses_per_level' && each sortedGradeLevels`
-- `{assignmentNotice.message}` — TransversalContextDashboard · l.1205, when `assignmentNotice`
-- `{w}` — TransversalContextDashboard · l.1208, when `assignmentNotice && each assignmentNotice.warnings`
-- `{replacementNotice.message}` — TransversalContextDashboard · l.1234, when `replacementNotice`
-- `{course.course_name}` — TransversalContextDashboard · l.1295, when `courseStructure.length > 0 && each Object.entries(coursesByGrade) && each courses`
-- `{assignment.profiles?.name} / {assignment.docente_id}` — TransversalContextDashboard · l.1321, when `each Object.entries(coursesByGrade) && each courses && activeCount > 0 && each activeAssignments`
-- `{selectedCourse?.course_name}` — TransversalContextDashboard · l.1462, when `assignModalOpen`
-- `{assignError}` — TransversalContextDashboard · l.1513, when `assignModalOpen && assignError`
-- `{w}` — TransversalContextDashboard · l.1517, when `assignModalOpen && assignError && assignErrorWarnings.length > 0 && each assignErrorWarnings`
-- `{replaceCourse?.course_name}` — TransversalContextDashboard · l.1575, when `replaceModalOpen`
-- `{currentDocenteOf(replaceCourse)?.pr…} / {currentDocenteOf(replaceCourse)?.do…} / —` — TransversalContextDashboard · l.1579, when `replaceModalOpen`
-- `{replaceError.message}` — TransversalContextDashboard · l.1638, when `replaceModalOpen && replaceError`
+- `{GRADE_LEVEL_LABELS[level as GradeLe…} / {level}` — TransversalContextDashboard · l.1037, when `context && each allQuestions && widgetType === 'grade_levels' && each sortedGradeLevels`
+- `{GRADE_LEVEL_LABELS[level as GradeLe…} / {level}` — TransversalContextDashboard · l.1074, when `context && each allQuestions && widgetType === 'courses_per_level' && each sortedGradeLevels`
+- `{count}` — TransversalContextDashboard · l.1077, when `context && each allQuestions && widgetType === 'courses_per_level' && each sortedGradeLevels`
+- `{assignmentNotice.message}` — TransversalContextDashboard · l.1219, when `assignmentNotice`
+- `{w}` — TransversalContextDashboard · l.1222, when `assignmentNotice && each assignmentNotice.warnings`
+- `{replacementNotice.message}` — TransversalContextDashboard · l.1248, when `replacementNotice`
+- `{course.course_name}` — TransversalContextDashboard · l.1309, when `courseStructure.length > 0 && each Object.entries(coursesByGrade) && each courses`
+- `{assignment.profiles?.name} / {assignment.docente_id}` — TransversalContextDashboard · l.1335, when `each Object.entries(coursesByGrade) && each courses && activeCount > 0 && each activeAssignments`
+- `{selectedCourse?.course_name}` — TransversalContextDashboard · l.1476, when `assignModalOpen`
+- `{assignError}` — TransversalContextDashboard · l.1527, when `assignModalOpen && assignError`
+- `{w}` — TransversalContextDashboard · l.1531, when `assignModalOpen && assignError && assignErrorWarnings.length > 0 && each assignErrorWarnings`
+- `{replaceCourse?.course_name}` — TransversalContextDashboard · l.1589, when `replaceModalOpen`
+- `{currentDocenteOf(replaceCourse)?.pr…} / {currentDocenteOf(replaceCourse)?.do…} / —` — TransversalContextDashboard · l.1593, when `replaceModalOpen`
+- `{replaceError.message}` — TransversalContextDashboard · l.1655, when `replaceModalOpen && replaceError`
 
-**Other texts on screen** (39)
+**Other texts on screen** (40)
 
-- «Solo directivos, consultores y administradores pueden acceder al contexto transversal.» — TransversalContextDashboard · l.732, when `hasPermission === false`
-- «Como administrador, selecciona una escuela para ver su contexto transversal. / Como consultor, selecciona una escuela para consultar su contexto transversal en modo solo lectura.» — TransversalContextDashboard · l.775, when `!schoolId`
-- «No hay escuelas disponibles» — TransversalContextDashboard · l.801, when `!schoolId && !(loadingSchools) && !(schools.length > 0)`
-- «Vista de solo lectura» — TransversalContextDashboard · l.887, when `isReadOnlyViewer`
-- «Como consultor puede consultar el contexto transversal de cualquier escuela registrada, pero no puede editarlo ni asignar o cambiar docentes.» — TransversalContextDashboard · l.889, when `isReadOnlyViewer`
-- «Contexto Estructural» — TransversalContextDashboard · l.905, when `hasCompleteContext`
-- «Última actualización: {new Date(context.updated_at).toLoca…}» — TransversalContextDashboard · l.906, when `hasCompleteContext`
-- «Cuestionario pendiente» — TransversalContextDashboard · l.915, when `!(hasCompleteContext)`
-- «El equipo directivo de esta escuela aún no ha completado el cuestionario transversal / El equipo directivo debe completar el cuestionario transversal; como administrador también puede completarlo / Complete el cuestionario transversal para…» — TransversalContextDashboard · l.916, when `!(hasCompleteContext)`
-- «Contexto Estructural» — TransversalContextDashboard · l.944, when `schoolId && Object.keys(completionStatus).length > 0`
-- «Preguntas de Contexto» — TransversalContextDashboard · l.954, when `schoolId && Object.keys(completionStatus).length > 0`
-- «{context.total_students?.toLocaleStr…} / No especificado» — TransversalContextDashboard · l.1000, when `context && each allQuestions && widgetType === 'total_students'`
-- «No hay niveles seleccionados» — TransversalContextDashboard · l.1031, when `context && each allQuestions && widgetType === 'grade_levels' && sortedGradeLevels.length === 0`
-- «Año {context.implementation_year_2026} / No especificado» — TransversalContextDashboard · l.1088, when `context && each allQuestions && widgetType === 'implementation_year'`
-- «[Incipiente - Primer año de transformación] [En Desarrollo - Segundo año de transformación] [Avanzado - Tercer año de transformación] [Consolidando - Cuarto año de transformación] [Consolidado - Quinto año de transformación]» — TransversalContextDashboard · l.1091, when `context && each allQuestions && widgetType === 'implementation_year'`
-- «{context.period_system} / No especificado» — TransversalContextDashboard · l.1116, when `context && each allQuestions && widgetType === 'period_system'`
-- «[2 períodos por año académico] [3 períodos por año académico]» — TransversalContextDashboard · l.1119, when `context && each allQuestions && widgetType === 'period_system'`
-- «Sí / No» — TransversalContextDashboard · l.1141, when `context && each allQuestions && widgetType === 'programa_inicia'`
-- «{context.programa_inicia_hours} horas/año» — TransversalContextDashboard · l.1145, when `context && each allQuestions && widgetType === 'programa_inicia' && context.programa_inicia_completed && context.programa_inicia_hours`
-- «Sí / No» — TransversalContextDashboard · l.1172, when `context && each allQuestions && widgetType === 'generic'`
-- «Sin respuesta» — TransversalContextDashboard · l.1173, when `context && each allQuestions && widgetType === 'generic' && (value === undefined \|\| value === null \|\| value === '')`
-- «Docente asignado con advertencias: {assignmentNotice.courseName}» — TransversalContextDashboard · l.1202, when `assignmentNotice`
-- «Docente cambiado: {replacementNotice.courseName}» — TransversalContextDashboard · l.1233, when `replacementNotice`
-- «{courseStructure.length} cursos configurados» — TransversalContextDashboard · l.1253, when `courseStructure.length > 0`
-- «Este curso ya tiene un docente asignado. Mientras el registro no haya comenzado, el equipo directivo puede cambiar el docente con «Cambiar docente»; si ya comenzó, se requiere una resolución administrativa controlada. No es posible desasignar desde esta página.» — TransversalContextDashboard · l.1335, when `courseStructure.length > 0 && each Object.entries(coursesByGrade) && each courses && isLocked`
-- «Estado de asignación inválido» — TransversalContextDashboard · l.1369, when `courseStructure.length > 0 && each Object.entries(coursesByGrade) && each courses && hasIntegrityConflict`
-- «Este curso registra {activeCount} docentes activos y solo debe tener uno. No es posible asignar ni desasignar desde esta página: solicite una resolución administrativa controlada para corregir la asignación de este curso.» — TransversalContextDashboard · l.1370, when `courseStructure.length > 0 && each Object.entries(coursesByGrade) && each courses && hasIntegrityConflict`
-- «El equipo directivo de esta escuela aún no ha completado el cuestionario transversal. No hay contexto que consultar por ahora. / El equipo directivo de esta escuela aún no ha completado el cuestionario transversal. Como administrador puede…» — TransversalContextDashboard · l.1421, when `!context`
-- «Asignar docente al curso» — TransversalContextDashboard · l.1462, when `assignModalOpen`
-- «No hay docentes disponibles para asignar» — TransversalContextDashboard · l.1473, when `assignModalOpen && !(loadingDocentes) && availableDocentes.length === 0`
-- «Todos los docentes ya están asignados o no hay docentes en esta escuela» — TransversalContextDashboard · l.1476, when `assignModalOpen && !(loadingDocentes) && availableDocentes.length === 0`
-- «Seleccionar Docente» (label) — TransversalContextDashboard · l.1481, when `assignModalOpen && !(loadingDocentes) && !(availableDocentes.length === 0)`
-- «No se pudo completar la asignación» — TransversalContextDashboard · l.1512, when `assignModalOpen && assignError`
-- «Curso» — TransversalContextDashboard · l.1575, when `replaceModalOpen`
-- «Docente actual:» — TransversalContextDashboard · l.1578, when `replaceModalOpen`
-- «El cambio solo es posible mientras el registro del curso no haya comenzado y no registre respuestas. El docente anterior pierde el acceso a los registros pendientes y el nuevo docente los recibe en blanco: las respuestas nunca se transfieren.» — TransversalContextDashboard · l.1584, when `replaceModalOpen`
-- «No hay otros docentes disponibles en esta escuela» — TransversalContextDashboard · l.1597, when `replaceModalOpen && !(loadingReplaceCandidates) && replaceCandidates.length === 0`
-- «Nuevo docente» (label) — TransversalContextDashboard · l.1602, when `replaceModalOpen && !(loadingReplaceCandidates) && !(replaceCandidates.length === 0)`
-- «El registro ya comenzó / No se pudo cambiar el docente» — TransversalContextDashboard · l.1633, when `replaceModalOpen && replaceError`
+- «Solo directivos, consultores y administradores pueden acceder al contexto transversal.» — TransversalContextDashboard · l.746, when `hasPermission === false`
+- «Como administrador, selecciona una escuela para ver su contexto transversal. / Como consultor, selecciona una escuela para consultar su contexto transversal en modo solo lectura.» — TransversalContextDashboard · l.789, when `!schoolId`
+- «No hay escuelas disponibles» — TransversalContextDashboard · l.815, when `!schoolId && !(loadingSchools) && !(schools.length > 0)`
+- «Vista de solo lectura» — TransversalContextDashboard · l.901, when `isReadOnlyViewer`
+- «Como consultor puede consultar el contexto transversal de cualquier escuela registrada, pero no puede editarlo ni asignar o cambiar docentes.» — TransversalContextDashboard · l.903, when `isReadOnlyViewer`
+- «Contexto Estructural» — TransversalContextDashboard · l.919, when `hasCompleteContext`
+- «Última actualización: {new Date(context.updated_at).toLoca…}» — TransversalContextDashboard · l.920, when `hasCompleteContext`
+- «Cuestionario pendiente» — TransversalContextDashboard · l.929, when `!(hasCompleteContext)`
+- «El equipo directivo de esta escuela aún no ha completado el cuestionario transversal / El equipo directivo debe completar el cuestionario transversal; como administrador también puede completarlo / Complete el cuestionario transversal para…» — TransversalContextDashboard · l.930, when `!(hasCompleteContext)`
+- «Contexto Estructural» — TransversalContextDashboard · l.958, when `schoolId && Object.keys(completionStatus).length > 0`
+- «Preguntas de Contexto» — TransversalContextDashboard · l.968, when `schoolId && Object.keys(completionStatus).length > 0`
+- «{context.total_students?.toLocaleStr…} / No especificado» — TransversalContextDashboard · l.1014, when `context && each allQuestions && widgetType === 'total_students'`
+- «No hay niveles seleccionados» — TransversalContextDashboard · l.1045, when `context && each allQuestions && widgetType === 'grade_levels' && sortedGradeLevels.length === 0`
+- «Año {context.implementation_year_2026} / No especificado» — TransversalContextDashboard · l.1102, when `context && each allQuestions && widgetType === 'implementation_year'`
+- «[Incipiente - Primer año de transformación] [En Desarrollo - Segundo año de transformación] [Avanzado - Tercer año de transformación] [Consolidando - Cuarto año de transformación] [Consolidado - Quinto año de transformación]» — TransversalContextDashboard · l.1105, when `context && each allQuestions && widgetType === 'implementation_year'`
+- «{context.period_system} / No especificado» — TransversalContextDashboard · l.1130, when `context && each allQuestions && widgetType === 'period_system'`
+- «[2 períodos por año académico] [3 períodos por año académico]» — TransversalContextDashboard · l.1133, when `context && each allQuestions && widgetType === 'period_system'`
+- «Sí / No» — TransversalContextDashboard · l.1155, when `context && each allQuestions && widgetType === 'programa_inicia'`
+- «{context.programa_inicia_hours} horas/año» — TransversalContextDashboard · l.1159, when `context && each allQuestions && widgetType === 'programa_inicia' && context.programa_inicia_completed && context.programa_inicia_hours`
+- «Sí / No» — TransversalContextDashboard · l.1186, when `context && each allQuestions && widgetType === 'generic'`
+- «Sin respuesta» — TransversalContextDashboard · l.1187, when `context && each allQuestions && widgetType === 'generic' && (value === undefined \|\| value === null \|\| value === '')`
+- «Docente asignado con advertencias: {assignmentNotice.courseName}» — TransversalContextDashboard · l.1216, when `assignmentNotice`
+- «Docente cambiado: {replacementNotice.courseName}» — TransversalContextDashboard · l.1247, when `replacementNotice`
+- «{courseStructure.length} cursos configurados» — TransversalContextDashboard · l.1267, when `courseStructure.length > 0`
+- «Este curso ya tiene un docente asignado. El equipo directivo puede cambiarlo con «Cambiar docente»: los registros enviados se mantienen como resultado del curso y uno que ya comenzó se cierra como historial. No es posible desasignar desde esta página.» — TransversalContextDashboard · l.1349, when `courseStructure.length > 0 && each Object.entries(coursesByGrade) && each courses && isLocked`
+- «Estado de asignación inválido» — TransversalContextDashboard · l.1383, when `courseStructure.length > 0 && each Object.entries(coursesByGrade) && each courses && hasIntegrityConflict`
+- «Este curso registra {activeCount} docentes activos y solo debe tener uno. No es posible asignar ni desasignar desde esta página: solicite una resolución administrativa controlada para corregir la asignación de este curso.» — TransversalContextDashboard · l.1384, when `courseStructure.length > 0 && each Object.entries(coursesByGrade) && each courses && hasIntegrityConflict`
+- «El equipo directivo de esta escuela aún no ha completado el cuestionario transversal. No hay contexto que consultar por ahora. / El equipo directivo de esta escuela aún no ha completado el cuestionario transversal. Como administrador puede…» — TransversalContextDashboard · l.1435, when `!context`
+- «Asignar docente al curso» — TransversalContextDashboard · l.1476, when `assignModalOpen`
+- «No hay docentes disponibles para asignar» — TransversalContextDashboard · l.1487, when `assignModalOpen && !(loadingDocentes) && availableDocentes.length === 0`
+- «Todos los docentes ya están asignados o no hay docentes en esta escuela» — TransversalContextDashboard · l.1490, when `assignModalOpen && !(loadingDocentes) && availableDocentes.length === 0`
+- «Seleccionar Docente» (label) — TransversalContextDashboard · l.1495, when `assignModalOpen && !(loadingDocentes) && !(availableDocentes.length === 0)`
+- «No se pudo completar la asignación» — TransversalContextDashboard · l.1526, when `assignModalOpen && assignError`
+- «Curso» — TransversalContextDashboard · l.1589, when `replaceModalOpen`
+- «Docente actual:» — TransversalContextDashboard · l.1592, when `replaceModalOpen`
+- «Los registros pendientes pasan al nuevo docente en blanco. Un registro ya enviado se mantiene como resultado del curso. Un registro que ya comenzó se cierra y queda como historial, y el nuevo docente empieza uno en blanco; en ese caso se pide el motivo. Las respuestas nunca se transfieren.» — TransversalContextDashboard · l.1598, when `replaceModalOpen`
+- «No hay otros docentes disponibles en esta escuela» — TransversalContextDashboard · l.1611, when `replaceModalOpen && !(loadingReplaceCandidates) && replaceCandidates.length === 0`
+- «Nuevo docente» (label) — TransversalContextDashboard · l.1616, when `replaceModalOpen && !(loadingReplaceCandidates) && !(replaceCandidates.length === 0)`
+- «El registro ya comenzó / No se pudo cambiar el docente» — TransversalContextDashboard · l.1650, when `replaceModalOpen && replaceError`
+- «Motivo del cambio» (label) — TransversalContextDashboard · l.1661, when `replaceModalOpen && replaceReasonAsked`
 
 **Reads and writes the database directly:** `table:profiles` (select), `table:schools` (select), `table:user_roles` (select)
 
@@ -3270,14 +3272,14 @@ File `pages/school/transversal-context/index.tsx` · 1678 lines · frame: MainLa
 | Address | Method | Called from |
 |---|---|---|
 | `/api/school/change-history` | GET | `components/school/ChangeHistorySection.tsx:87` |
-| `/api/school/completion-status` | GET | `pages/school/transversal-context/index.tsx:385` |
-| `/api/school/transversal-context` | GET | `pages/school/transversal-context/index.tsx:338` |
-| `/api/school/transversal-context/assign-docente` | POST | `pages/school/transversal-context/index.tsx:504`, `pages/school/transversal-context/index.tsx:577` |
-| `/api/school/transversal-context/custom-responses` | GET | `pages/school/transversal-context/index.tsx:384` |
-| `/api/school/transversal-context/docentes` | GET | `pages/school/transversal-context/index.tsx:447`, `pages/school/transversal-context/index.tsx:613` |
-| `/api/school/transversal-context/questions` | GET | `pages/school/transversal-context/index.tsx:374` |
-| `/api/school/transversal-context/replace-docente` | POST | `pages/school/transversal-context/index.tsx:651` |
-| `/api/school/transversal-context/schools` | GET | `pages/school/transversal-context/index.tsx:295`, `pages/school/transversal-context/index.tsx:861` |
+| `/api/school/completion-status` | GET | `pages/school/transversal-context/index.tsx:389` |
+| `/api/school/transversal-context` | GET | `pages/school/transversal-context/index.tsx:342` |
+| `/api/school/transversal-context/assign-docente` | POST | `pages/school/transversal-context/index.tsx:508`, `pages/school/transversal-context/index.tsx:581` |
+| `/api/school/transversal-context/custom-responses` | GET | `pages/school/transversal-context/index.tsx:388` |
+| `/api/school/transversal-context/docentes` | GET | `pages/school/transversal-context/index.tsx:451`, `pages/school/transversal-context/index.tsx:619` |
+| `/api/school/transversal-context/questions` | GET | `pages/school/transversal-context/index.tsx:378` |
+| `/api/school/transversal-context/replace-docente` | POST | `pages/school/transversal-context/index.tsx:661` |
+| `/api/school/transversal-context/schools` | GET | `pages/school/transversal-context/index.tsx:299`, `pages/school/transversal-context/index.tsx:875` |
 | `/api/school/transversal-context/via-responsibles` | GET, POST | `components/school/ViaResponsiblesSection.tsx:111`, `components/school/ViaResponsiblesSection.tsx:84` |
 
 ## Pieces

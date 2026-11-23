@@ -1,7 +1,7 @@
 # Sistema (configuration, support, roadmap, test and debug pages, scheduled jobs)
 
 Area `19-sistema`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `6f507a060` (2026-11-19).
+Read from commit `c7e27398c` (2026-11-22).
 
 4 screen files, 27 API files, 8 pieces.
 

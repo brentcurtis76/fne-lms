@@ -1,7 +1,7 @@
 # Notificaciones
 
 Area `16-notificaciones`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `6f507a060` (2026-11-19).
+Read from commit `c7e27398c` (2026-11-22).
 
 6 screen files, 10 API files, 20 pieces.
 
@@ -27,7 +27,7 @@ File `pages/configuracion/apariencia.tsx` · 196 lines · frame: MainLayout · g
 - In the page:
   - l.41 `server redirect → /login?next=[*]  (when !viewer)`
 - Linked from: `pages/configuracion/notificaciones.tsx:442`, `pages/configuracion/piezas.tsx:225`, `pages/configuracion/piezas.tsx:398`
-- Tests: browser tests that CI runs: `tests/e2e/look-frame.spec.ts`, `tests/e2e/look-kit.spec.ts`, `tests/e2e/look-panel.spec.ts`, `tests/e2e/look-switch.spec.ts`; unit tests of the page: `__tests__/pages/apariencia.test.tsx`.
+- Tests: browser tests that CI runs: `tests/e2e/look-frame.spec.ts`, `tests/e2e/look-kit.spec.ts`, `tests/e2e/look-panel.spec.ts`, `tests/e2e/look-sessions.spec.ts`, `tests/e2e/look-switch.spec.ts`; unit tests of the page: `__tests__/pages/apariencia.test.tsx`.
 
 | Role | Sees it in the menu | Middleware |
 |---|---|---|

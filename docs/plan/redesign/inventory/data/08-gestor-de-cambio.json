@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "6f507a060b6706a92713ad8f8668b6386970cec7",
-  "date": "2026-11-19T20:11:06-03:00"
+  "commit": "c7e27398ca230dbbc3e581dcde19f92480491fcd",
+  "date": "2026-11-22T23:11:25-03:00"
  },
  "screens": [
   {
@@ -10623,8 +10623,8 @@
     ],
     "linkedFrom": [
      "components/layout/Sidebar.tsx:310",
-     "pages/school/transversal-context/index.tsx:969",
-     "pages/school/transversal-context/index.tsx:970"
+     "pages/school/transversal-context/index.tsx:983",
+     "pages/school/transversal-context/index.tsx:984"
     ],
     "qaScenarios": {
      "admin": [
@@ -11348,10 +11348,10 @@
      }
     ],
     "linkedFrom": [
-     "pages/school/transversal-context/index.tsx:1429",
-     "pages/school/transversal-context/index.tsx:1430",
-     "pages/school/transversal-context/index.tsx:928",
-     "pages/school/transversal-context/index.tsx:929"
+     "pages/school/transversal-context/index.tsx:1443",
+     "pages/school/transversal-context/index.tsx:1444",
+     "pages/school/transversal-context/index.tsx:942",
+     "pages/school/transversal-context/index.tsx:943"
     ],
     "qaScenarios": {},
     "tests": {
@@ -12213,7 +12213,7 @@
   {
    "file": "pages/school/transversal-context/index.tsx",
    "route": "/school/transversal-context",
-   "lines": 1678,
+   "lines": 1712,
    "marks": {},
    "frame": "MainLayout",
    "server": "none",
@@ -12283,19 +12283,19 @@
     },
     "inPage": [
      {
-      "line": 182,
+      "line": 186,
       "text": "router.push → /login  (when !session?.user)"
      },
      {
-      "line": 212,
+      "line": 216,
       "text": "isAdmin = roles.some(r => r.role_type === 'admin')"
      },
      {
-      "line": 239,
+      "line": 243,
       "text": "router.push → /dashboard  (when (!(isAdmin || isConsultor)) && directivoRole?.school_id && parsedQuerySchoolId !== null && parsedQuerySchoolId !== effectiveSchoolId)"
      },
      {
-      "line": 431,
+      "line": 435,
       "text": "router.push → /login"
      }
     ],
@@ -12361,7 +12361,7 @@
     },
     {
      "kind": "nav",
-     "line": 182,
+     "line": 186,
      "in": "checkAuth",
      "when": "!session?.user",
      "text": "/login",
@@ -12369,14 +12369,14 @@
     },
     {
      "kind": "access",
-     "line": 212,
+     "line": 216,
      "in": "checkAuth",
      "text": "isAdmin = roles.some(r => r.role_type === 'admin')",
      "via": "declaration"
     },
     {
      "kind": "nav",
-     "line": 239,
+     "line": 243,
      "in": "checkAuth",
      "when": "(!(isAdmin || isConsultor)) && directivoRole?.school_id && parsedQuerySchoolId !== null && parsedQuerySchoolId !== effectiveSchoolId",
      "text": "/dashboard",
@@ -12384,17 +12384,11 @@
     },
     {
      "kind": "message",
-     "line": 340,
+     "line": 344,
      "in": "TransversalContextDashboard",
      "when": "!response.ok",
      "text": "Error al cargar el contexto",
      "via": "throw (shown by whoever catches it)"
-    },
-    {
-     "kind": "gate",
-     "line": 346,
-     "in": "TransversalContextDashboard",
-     "text": "!isCurrent()"
     },
     {
      "kind": "gate",
@@ -12403,34 +12397,40 @@
      "text": "!isCurrent()"
     },
     {
+     "kind": "gate",
+     "line": 354,
+     "in": "TransversalContextDashboard",
+     "text": "!isCurrent()"
+    },
+    {
      "kind": "toast",
-     "line": 352,
+     "line": 356,
      "in": "TransversalContextDashboard",
      "text": "Error al cargar el contexto",
      "variant": "error"
     },
     {
      "kind": "gate",
-     "line": 369,
+     "line": 373,
      "in": "TransversalContextDashboard",
      "text": "!schoolId || !hasPermission"
     },
     {
      "kind": "gate",
-     "line": 413,
+     "line": 417,
      "in": "TransversalContextDashboard",
      "text": "previousSchoolId === null || previousSchoolId === schoolId"
     },
     {
      "kind": "nav",
-     "line": 431,
+     "line": 435,
      "in": "handleLogout",
      "text": "/login",
      "via": "router.push"
     },
     {
      "kind": "message",
-     "line": 454,
+     "line": 458,
      "in": "openAssignModal",
      "when": "!response.ok",
      "text": "Error al cargar docentes",
@@ -12438,14 +12438,14 @@
     },
     {
      "kind": "toast",
-     "line": 472,
+     "line": 476,
      "in": "openAssignModal",
      "text": "Error al cargar docentes",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 530,
+     "line": 534,
      "in": "handleAssignDocente",
      "when": "!response.ok || data.success !== true",
      "text": "{message}",
@@ -12453,7 +12453,7 @@
     },
     {
      "kind": "toast",
-     "line": 543,
+     "line": 547,
      "in": "handleAssignDocente",
      "when": "warnings.length > 0",
      "text": "{message} Hay advertencias que revisar.",
@@ -12461,7 +12461,7 @@
     },
     {
      "kind": "toast",
-     "line": 546,
+     "line": 550,
      "in": "handleAssignDocente",
      "when": "!(warnings.length > 0)",
      "text": "{message}",
@@ -12469,14 +12469,14 @@
     },
     {
      "kind": "toast",
-     "line": 555,
+     "line": 559,
      "in": "handleAssignDocente",
      "text": "{message}",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 589,
+     "line": 593,
      "in": "resendRegistros",
      "when": "response.ok && data.success === true",
      "text": "{data.message}",
@@ -12484,7 +12484,7 @@
     },
     {
      "kind": "toast",
-     "line": 591,
+     "line": 595,
      "in": "resendRegistros",
      "when": "!(response.ok && data.success === true)",
      "text": "No se pudieron reenviar los registros",
@@ -12492,14 +12492,14 @@
     },
     {
      "kind": "toast",
-     "line": 595,
+     "line": 599,
      "in": "resendRegistros",
      "text": "No se pudieron reenviar los registros",
      "variant": "error"
     },
     {
      "kind": "message",
-     "line": 619,
+     "line": 625,
      "in": "openReplaceModal",
      "when": "!response.ok",
      "text": "Error al cargar docentes",
@@ -12507,14 +12507,14 @@
     },
     {
      "kind": "toast",
-     "line": 628,
+     "line": 634,
      "in": "openReplaceModal",
      "text": "Error al cargar docentes",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 670,
+     "line": 681,
      "in": "handleReplaceDocente",
      "when": "!response.ok || data.success !== true",
      "text": "{message}",
@@ -12522,21 +12522,21 @@
     },
     {
      "kind": "toast",
-     "line": 679,
+     "line": 693,
      "in": "handleReplaceDocente",
      "text": "{message}",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 686,
+     "line": 700,
      "in": "handleReplaceDocente",
      "text": "{message}",
      "variant": "error"
     },
     {
      "kind": "piece",
-     "line": 717,
+     "line": 731,
      "in": "TransversalContextDashboard",
      "when": "hasPermission === false",
      "text": "",
@@ -12544,7 +12544,7 @@
     },
     {
      "kind": "hook",
-     "line": 727,
+     "line": 741,
      "in": "TransversalContextDashboard",
      "when": "hasPermission === false",
      "text": "testid=access-denied",
@@ -12553,7 +12553,7 @@
     },
     {
      "kind": "heading",
-     "line": 728,
+     "line": 742,
      "in": "TransversalContextDashboard",
      "when": "hasPermission === false",
      "text": "Acceso Denegado",
@@ -12561,14 +12561,14 @@
     },
     {
      "kind": "text",
-     "line": 732,
+     "line": 746,
      "in": "TransversalContextDashboard",
      "when": "hasPermission === false",
      "text": "Solo directivos, consultores y administradores pueden acceder al contexto transversal."
     },
     {
      "kind": "link",
-     "line": 734,
+     "line": 748,
      "in": "TransversalContextDashboard",
      "when": "hasPermission === false",
      "text": "Ir al Panel",
@@ -12576,7 +12576,7 @@
     },
     {
      "kind": "link",
-     "line": 735,
+     "line": 749,
      "in": "TransversalContextDashboard",
      "when": "hasPermission === false",
      "text": "Ir al Panel",
@@ -12584,7 +12584,7 @@
     },
     {
      "kind": "nav",
-     "line": 750,
+     "line": 764,
      "in": "handleSchoolSelect",
      "when": "selectedId",
      "text": "/school/transversal-context?school_id=[*]",
@@ -12592,7 +12592,7 @@
     },
     {
      "kind": "piece",
-     "line": 755,
+     "line": 769,
      "in": "TransversalContextDashboard",
      "when": "!schoolId",
      "text": "",
@@ -12600,7 +12600,7 @@
     },
     {
      "kind": "piece",
-     "line": 764,
+     "line": 778,
      "in": "TransversalContextDashboard",
      "when": "!schoolId",
      "text": "title: Contexto Transversal · subtitle: Selecciona una escuela",
@@ -12608,7 +12608,7 @@
     },
     {
      "kind": "heading",
-     "line": 772,
+     "line": 786,
      "in": "TransversalContextDashboard",
      "when": "!schoolId",
      "text": "Selecciona una escuela",
@@ -12616,7 +12616,7 @@
     },
     {
      "kind": "hook",
-     "line": 775,
+     "line": 789,
      "in": "TransversalContextDashboard",
      "when": "!schoolId",
      "text": "testid=school-picker-hint",
@@ -12625,14 +12625,14 @@
     },
     {
      "kind": "text",
-     "line": 775,
+     "line": 789,
      "in": "TransversalContextDashboard",
      "when": "!schoolId",
      "text": "Como administrador, selecciona una escuela para ver su contexto transversal. / Como consultor, selecciona una escuela para consultar su contexto transversal en modo solo lectura."
     },
     {
      "kind": "field",
-     "line": 787,
+     "line": 801,
      "in": "TransversalContextDashboard",
      "when": "!schoolId && !(loadingSchools) && schools.length > 0",
      "text": "",
@@ -12645,28 +12645,28 @@
     },
     {
      "kind": "text",
-     "line": 801,
+     "line": 815,
      "in": "TransversalContextDashboard",
      "when": "!schoolId && !(loadingSchools) && !(schools.length > 0)",
      "text": "No hay escuelas disponibles"
     },
     {
      "kind": "piece",
-     "line": 835,
+     "line": 849,
      "in": "TransversalContextDashboard",
      "text": "",
      "tag": "MainLayout"
     },
     {
      "kind": "piece",
-     "line": 844,
+     "line": 858,
      "in": "TransversalContextDashboard",
      "text": "title: Contexto Transversal · subtitle: Mi Escuela",
      "tag": "ResponsiveFunctionalPageHeader"
     },
     {
      "kind": "button",
-     "line": 853,
+     "line": 867,
      "in": "TransversalContextDashboard",
      "when": "canSelectSchool",
      "text": "Volver a Selección de Escuelas",
@@ -12674,7 +12674,7 @@
     },
     {
      "kind": "nav",
-     "line": 871,
+     "line": 885,
      "in": "TransversalContextDashboard",
      "when": "canSelectSchool",
      "text": "/school/transversal-context",
@@ -12682,7 +12682,7 @@
     },
     {
      "kind": "hook",
-     "line": 882,
+     "line": 896,
      "in": "TransversalContextDashboard",
      "when": "isReadOnlyViewer",
      "text": "role=status",
@@ -12691,7 +12691,7 @@
     },
     {
      "kind": "hook",
-     "line": 882,
+     "line": 896,
      "in": "TransversalContextDashboard",
      "when": "isReadOnlyViewer",
      "text": "testid=consultor-read-only-notice",
@@ -12700,49 +12700,49 @@
     },
     {
      "kind": "text",
-     "line": 887,
+     "line": 901,
      "in": "TransversalContextDashboard",
      "when": "isReadOnlyViewer",
      "text": "Vista de solo lectura"
     },
     {
      "kind": "text",
-     "line": 889,
+     "line": 903,
      "in": "TransversalContextDashboard",
      "when": "isReadOnlyViewer",
      "text": "Como consultor puede consultar el contexto transversal de cualquier escuela registrada, pero no puede editarlo ni asignar o cambiar docentes."
     },
     {
      "kind": "text",
-     "line": 905,
+     "line": 919,
      "in": "TransversalContextDashboard",
      "when": "hasCompleteContext",
      "text": "Contexto Estructural"
     },
     {
      "kind": "text",
-     "line": 906,
+     "line": 920,
      "in": "TransversalContextDashboard",
      "when": "hasCompleteContext",
      "text": "Última actualización: {new Date(context.updated_at).toLoca…}"
     },
     {
      "kind": "text",
-     "line": 915,
+     "line": 929,
      "in": "TransversalContextDashboard",
      "when": "!(hasCompleteContext)",
      "text": "Cuestionario pendiente"
     },
     {
      "kind": "text",
-     "line": 916,
+     "line": 930,
      "in": "TransversalContextDashboard",
      "when": "!(hasCompleteContext)",
      "text": "El equipo directivo de esta escuela aún no ha completado el cuestionario transversal / El equipo directivo debe completar el cuestionario transversal; como administrador también puede completarlo / Complete el cuestionario transversal para…"
     },
     {
      "kind": "link",
-     "line": 928,
+     "line": 942,
      "in": "TransversalContextDashboard",
      "when": "!isReadOnlyViewer",
      "text": "Editar / Completar",
@@ -12750,7 +12750,7 @@
     },
     {
      "kind": "link",
-     "line": 932,
+     "line": 946,
      "in": "TransversalContextDashboard",
      "when": "!isReadOnlyViewer",
      "text": "Editar / Completar",
@@ -12758,14 +12758,14 @@
     },
     {
      "kind": "text",
-     "line": 944,
+     "line": 958,
      "in": "TransversalContextDashboard",
      "when": "schoolId && Object.keys(completionStatus).length > 0",
      "text": "Contexto Estructural"
     },
     {
      "kind": "piece",
-     "line": 945,
+     "line": 959,
      "in": "TransversalContextDashboard",
      "when": "schoolId && Object.keys(completionStatus).length > 0",
      "text": "",
@@ -12773,14 +12773,14 @@
     },
     {
      "kind": "text",
-     "line": 954,
+     "line": 968,
      "in": "TransversalContextDashboard",
      "when": "schoolId && Object.keys(completionStatus).length > 0",
      "text": "Preguntas de Contexto"
     },
     {
      "kind": "piece",
-     "line": 955,
+     "line": 969,
      "in": "TransversalContextDashboard",
      "when": "schoolId && Object.keys(completionStatus).length > 0",
      "text": "",
@@ -12788,7 +12788,7 @@
     },
     {
      "kind": "link",
-     "line": 969,
+     "line": 983,
      "in": "TransversalContextDashboard",
      "when": "context",
      "text": "Ver Plan de Migración",
@@ -12796,7 +12796,7 @@
     },
     {
      "kind": "link",
-     "line": 973,
+     "line": 987,
      "in": "TransversalContextDashboard",
      "when": "context",
      "text": "Ver Plan de Migración",
@@ -12804,7 +12804,7 @@
     },
     {
      "kind": "heading",
-     "line": 997,
+     "line": 1011,
      "in": "TransversalContextDashboard",
      "when": "context && each allQuestions && widgetType === 'total_students'",
      "text": "{q.question_text}",
@@ -12812,14 +12812,14 @@
     },
     {
      "kind": "text",
-     "line": 1000,
+     "line": 1014,
      "in": "TransversalContextDashboard",
      "when": "context && each allQuestions && widgetType === 'total_students'",
      "text": "{context.total_students?.toLocaleStr…} / No especificado"
     },
     {
      "kind": "heading",
-     "line": 1018,
+     "line": 1032,
      "in": "TransversalContextDashboard",
      "when": "context && each allQuestions && widgetType === 'grade_levels'",
      "text": "{q.question_text} ( {sortedGradeLevels.length} seleccionados)",
@@ -12827,28 +12827,28 @@
     },
     {
      "kind": "value",
-     "line": 1023,
+     "line": 1037,
      "in": "TransversalContextDashboard",
      "when": "context && each allQuestions && widgetType === 'grade_levels' && each sortedGradeLevels",
      "text": "{GRADE_LEVEL_LABELS[level as GradeLe…} / {level}"
     },
     {
      "kind": "text",
-     "line": 1031,
+     "line": 1045,
      "in": "TransversalContextDashboard",
      "when": "context && each allQuestions && widgetType === 'grade_levels' && sortedGradeLevels.length === 0",
      "text": "No hay niveles seleccionados"
     },
     {
      "kind": "gate",
-     "line": 1042,
+     "line": 1056,
      "in": "TransversalContextDashboard",
      "when": "context && each allQuestions && widgetType === 'courses_per_level'",
      "text": "!context.courses_per_level || Object.keys(context.courses_per_level).length === 0"
     },
     {
      "kind": "heading",
-     "line": 1052,
+     "line": 1066,
      "in": "TransversalContextDashboard",
      "when": "context && each allQuestions && widgetType === 'courses_per_level'",
      "text": "{q.question_text}",
@@ -12856,21 +12856,21 @@
     },
     {
      "kind": "value",
-     "line": 1060,
+     "line": 1074,
      "in": "TransversalContextDashboard",
      "when": "context && each allQuestions && widgetType === 'courses_per_level' && each sortedGradeLevels",
      "text": "{GRADE_LEVEL_LABELS[level as GradeLe…} / {level}"
     },
     {
      "kind": "value",
-     "line": 1063,
+     "line": 1077,
      "in": "TransversalContextDashboard",
      "when": "context && each allQuestions && widgetType === 'courses_per_level' && each sortedGradeLevels",
      "text": "{count}"
     },
     {
      "kind": "heading",
-     "line": 1085,
+     "line": 1099,
      "in": "TransversalContextDashboard",
      "when": "context && each allQuestions && widgetType === 'implementation_year'",
      "text": "{q.question_text}",
@@ -12878,21 +12878,21 @@
     },
     {
      "kind": "text",
-     "line": 1088,
+     "line": 1102,
      "in": "TransversalContextDashboard",
      "when": "context && each allQuestions && widgetType === 'implementation_year'",
      "text": "Año {context.implementation_year_2026} / No especificado"
     },
     {
      "kind": "text",
-     "line": 1091,
+     "line": 1105,
      "in": "TransversalContextDashboard",
      "when": "context && each allQuestions && widgetType === 'implementation_year'",
      "text": "[Incipiente - Primer año de transformación] [En Desarrollo - Segundo año de transformación] [Avanzado - Tercer año de transformación] [Consolidando - Cuarto año de transformación] [Consolidado - Quinto año de transformación]"
     },
     {
      "kind": "heading",
-     "line": 1113,
+     "line": 1127,
      "in": "TransversalContextDashboard",
      "when": "context && each allQuestions && widgetType === 'period_system'",
      "text": "{q.question_text}",
@@ -12900,21 +12900,21 @@
     },
     {
      "kind": "text",
-     "line": 1116,
+     "line": 1130,
      "in": "TransversalContextDashboard",
      "when": "context && each allQuestions && widgetType === 'period_system'",
      "text": "{context.period_system} / No especificado"
     },
     {
      "kind": "text",
-     "line": 1119,
+     "line": 1133,
      "in": "TransversalContextDashboard",
      "when": "context && each allQuestions && widgetType === 'period_system'",
      "text": "[2 períodos por año académico] [3 períodos por año académico]"
     },
     {
      "kind": "heading",
-     "line": 1138,
+     "line": 1152,
      "in": "TransversalContextDashboard",
      "when": "context && each allQuestions && widgetType === 'programa_inicia'",
      "text": "{q.question_text}",
@@ -12922,28 +12922,28 @@
     },
     {
      "kind": "text",
-     "line": 1141,
+     "line": 1155,
      "in": "TransversalContextDashboard",
      "when": "context && each allQuestions && widgetType === 'programa_inicia'",
      "text": "Sí / No"
     },
     {
      "kind": "text",
-     "line": 1145,
+     "line": 1159,
      "in": "TransversalContextDashboard",
      "when": "context && each allQuestions && widgetType === 'programa_inicia' && context.programa_inicia_completed && context.programa_inicia_hours",
      "text": "{context.programa_inicia_hours} horas/año"
     },
     {
      "kind": "gate",
-     "line": 1158,
+     "line": 1172,
      "in": "TransversalContextDashboard",
      "when": "context && each allQuestions && widgetType === 'generic'",
      "text": "isReadOnlyViewer"
     },
     {
      "kind": "heading",
-     "line": 1168,
+     "line": 1182,
      "in": "TransversalContextDashboard",
      "when": "context && each allQuestions && widgetType === 'generic'",
      "text": "{q.question_text}",
@@ -12951,21 +12951,21 @@
     },
     {
      "kind": "text",
-     "line": 1172,
+     "line": 1186,
      "in": "TransversalContextDashboard",
      "when": "context && each allQuestions && widgetType === 'generic'",
      "text": "Sí / No"
     },
     {
      "kind": "text",
-     "line": 1173,
+     "line": 1187,
      "in": "TransversalContextDashboard",
      "when": "context && each allQuestions && widgetType === 'generic' && (value === undefined || value === null || value === '')",
      "text": "Sin respuesta"
     },
     {
      "kind": "hook",
-     "line": 1195,
+     "line": 1209,
      "in": "TransversalContextDashboard",
      "when": "assignmentNotice",
      "text": "role=status",
@@ -12974,7 +12974,7 @@
     },
     {
      "kind": "hook",
-     "line": 1195,
+     "line": 1209,
      "in": "TransversalContextDashboard",
      "when": "assignmentNotice",
      "text": "testid=assign-docente-warnings",
@@ -12983,28 +12983,28 @@
     },
     {
      "kind": "text",
-     "line": 1202,
+     "line": 1216,
      "in": "TransversalContextDashboard",
      "when": "assignmentNotice",
      "text": "Docente asignado con advertencias: {assignmentNotice.courseName}"
     },
     {
      "kind": "value",
-     "line": 1205,
+     "line": 1219,
      "in": "TransversalContextDashboard",
      "when": "assignmentNotice",
      "text": "{assignmentNotice.message}"
     },
     {
      "kind": "value",
-     "line": 1208,
+     "line": 1222,
      "in": "TransversalContextDashboard",
      "when": "assignmentNotice && each assignmentNotice.warnings",
      "text": "{w}"
     },
     {
      "kind": "button",
-     "line": 1212,
+     "line": 1226,
      "in": "TransversalContextDashboard",
      "when": "assignmentNotice",
      "text": "[icon X]",
@@ -13016,7 +13016,7 @@
     },
     {
      "kind": "hook",
-     "line": 1226,
+     "line": 1240,
      "in": "TransversalContextDashboard",
      "when": "replacementNotice",
      "text": "role=status",
@@ -13025,7 +13025,7 @@
     },
     {
      "kind": "hook",
-     "line": 1226,
+     "line": 1240,
      "in": "TransversalContextDashboard",
      "when": "replacementNotice",
      "text": "testid=replace-docente-success",
@@ -13034,21 +13034,21 @@
     },
     {
      "kind": "text",
-     "line": 1233,
+     "line": 1247,
      "in": "TransversalContextDashboard",
      "when": "replacementNotice",
      "text": "Docente cambiado: {replacementNotice.courseName}"
     },
     {
      "kind": "value",
-     "line": 1234,
+     "line": 1248,
      "in": "TransversalContextDashboard",
      "when": "replacementNotice",
      "text": "{replacementNotice.message}"
     },
     {
      "kind": "button",
-     "line": 1236,
+     "line": 1250,
      "in": "TransversalContextDashboard",
      "when": "replacementNotice",
      "text": "[icon X]",
@@ -13060,7 +13060,7 @@
     },
     {
      "kind": "heading",
-     "line": 1252,
+     "line": 1266,
      "in": "TransversalContextDashboard",
      "when": "courseStructure.length > 0",
      "text": "Estructura de Cursos",
@@ -13068,14 +13068,14 @@
     },
     {
      "kind": "text",
-     "line": 1253,
+     "line": 1267,
      "in": "TransversalContextDashboard",
      "when": "courseStructure.length > 0",
      "text": "{courseStructure.length} cursos configurados"
     },
     {
      "kind": "heading",
-     "line": 1261,
+     "line": 1275,
      "in": "TransversalContextDashboard",
      "when": "courseStructure.length > 0 && each Object.entries(coursesByGrade)",
      "text": "{GRADE_LEVEL_LABELS[gradeLevel as Gr…} / {gradeLevel}",
@@ -13083,7 +13083,7 @@
     },
     {
      "kind": "hook",
-     "line": 1282,
+     "line": 1296,
      "in": "TransversalContextDashboard",
      "when": "courseStructure.length > 0 && each Object.entries(coursesByGrade) && each courses",
      "text": "testid=course-card-{course.id}",
@@ -13092,14 +13092,14 @@
     },
     {
      "kind": "value",
-     "line": 1295,
+     "line": 1309,
      "in": "TransversalContextDashboard",
      "when": "courseStructure.length > 0 && each Object.entries(coursesByGrade) && each courses",
      "text": "{course.course_name}"
     },
     {
      "kind": "button",
-     "line": 1301,
+     "line": 1315,
      "in": "TransversalContextDashboard",
      "when": "courseStructure.length > 0 && each Object.entries(coursesByGrade) && each courses && canOfferAssign",
      "text": "Asignar",
@@ -13110,7 +13110,7 @@
     },
     {
      "kind": "hook",
-     "line": 1316,
+     "line": 1330,
      "in": "TransversalContextDashboard",
      "when": "each Object.entries(coursesByGrade) && each courses && activeCount > 0 && each activeAssignments",
      "text": "testid=course-active-assignment-{assignment.id}",
@@ -13119,14 +13119,14 @@
     },
     {
      "kind": "value",
-     "line": 1321,
+     "line": 1335,
      "in": "TransversalContextDashboard",
      "when": "each Object.entries(coursesByGrade) && each courses && activeCount > 0 && each activeAssignments",
      "text": "{assignment.profiles?.name} / {assignment.docente_id}"
     },
     {
      "kind": "hook",
-     "line": 1331,
+     "line": 1345,
      "in": "TransversalContextDashboard",
      "when": "courseStructure.length > 0 && each Object.entries(coursesByGrade) && each courses && isLocked",
      "text": "testid=course-assignment-locked-{course.id}",
@@ -13135,14 +13135,14 @@
     },
     {
      "kind": "text",
-     "line": 1335,
+     "line": 1349,
      "in": "TransversalContextDashboard",
      "when": "courseStructure.length > 0 && each Object.entries(coursesByGrade) && each courses && isLocked",
-     "text": "Este curso ya tiene un docente asignado. Mientras el registro no haya comenzado, el equipo directivo puede cambiar el docente con «Cambiar docente»; si ya comenzó, se requiere una resolución administrativa controlada. No es posible desasignar desde esta página."
+     "text": "Este curso ya tiene un docente asignado. El equipo directivo puede cambiarlo con «Cambiar docente»: los registros enviados se mantienen como resultado del curso y uno que ya comenzó se cierra como historial. No es posible desasignar desde esta página."
     },
     {
      "kind": "button",
-     "line": 1340,
+     "line": 1354,
      "in": "TransversalContextDashboard",
      "when": "each Object.entries(coursesByGrade) && each courses && isLocked && canReplaceDocente",
      "text": "Cambiar docente",
@@ -13153,7 +13153,7 @@
     },
     {
      "kind": "button",
-     "line": 1350,
+     "line": 1364,
      "in": "TransversalContextDashboard",
      "when": "each Object.entries(coursesByGrade) && each courses && isLocked && canReplaceDocente",
      "text": "Reenviar registros",
@@ -13165,7 +13165,7 @@
     },
     {
      "kind": "hook",
-     "line": 1364,
+     "line": 1378,
      "in": "TransversalContextDashboard",
      "when": "courseStructure.length > 0 && each Object.entries(coursesByGrade) && each courses && hasIntegrityConflict",
      "text": "role=alert",
@@ -13174,7 +13174,7 @@
     },
     {
      "kind": "hook",
-     "line": 1364,
+     "line": 1378,
      "in": "TransversalContextDashboard",
      "when": "courseStructure.length > 0 && each Object.entries(coursesByGrade) && each courses && hasIntegrityConflict",
      "text": "testid=course-assignment-integrity-warning-{course.id}",
@@ -13183,21 +13183,21 @@
     },
     {
      "kind": "text",
-     "line": 1369,
+     "line": 1383,
      "in": "TransversalContextDashboard",
      "when": "courseStructure.length > 0 && each Object.entries(coursesByGrade) && each courses && hasIntegrityConflict",
      "text": "Estado de asignación inválido"
     },
     {
      "kind": "text",
-     "line": 1370,
+     "line": 1384,
      "in": "TransversalContextDashboard",
      "when": "courseStructure.length > 0 && each Object.entries(coursesByGrade) && each courses && hasIntegrityConflict",
      "text": "Este curso registra {activeCount} docentes activos y solo debe tener uno. No es posible asignar ni desasignar desde esta página: solicite una resolución administrativa controlada para corregir la asignación de este curso."
     },
     {
      "kind": "piece",
-     "line": 1388,
+     "line": 1402,
      "in": "TransversalContextDashboard",
      "when": "context && schoolId",
      "text": "",
@@ -13205,7 +13205,7 @@
     },
     {
      "kind": "piece",
-     "line": 1395,
+     "line": 1409,
      "in": "TransversalContextDashboard",
      "when": "context && schoolId && !isReadOnlyViewer",
      "text": "feature: transversal_context",
@@ -13213,7 +13213,7 @@
     },
     {
      "kind": "piece",
-     "line": 1401,
+     "line": 1415,
      "in": "TransversalContextDashboard",
      "when": "context && schoolId && !isReadOnlyViewer",
      "text": "feature: context_responses",
@@ -13221,7 +13221,7 @@
     },
     {
      "kind": "heading",
-     "line": 1418,
+     "line": 1432,
      "in": "TransversalContextDashboard",
      "when": "!context",
      "text": "Escuela sin configurar / Configure su escuela",
@@ -13229,14 +13229,14 @@
     },
     {
      "kind": "text",
-     "line": 1421,
+     "line": 1435,
      "in": "TransversalContextDashboard",
      "when": "!context",
      "text": "El equipo directivo de esta escuela aún no ha completado el cuestionario transversal. No hay contexto que consultar por ahora. / El equipo directivo de esta escuela aún no ha completado el cuestionario transversal. Como administrador puede…"
     },
     {
      "kind": "link",
-     "line": 1429,
+     "line": 1443,
      "in": "TransversalContextDashboard",
      "when": "!context && !isReadOnlyViewer",
      "text": "Completar Cuestionario",
@@ -13244,7 +13244,7 @@
     },
     {
      "kind": "link",
-     "line": 1433,
+     "line": 1447,
      "in": "TransversalContextDashboard",
      "when": "!context && !isReadOnlyViewer",
      "text": "Completar Cuestionario",
@@ -13252,7 +13252,7 @@
     },
     {
      "kind": "popup",
-     "line": 1445,
+     "line": 1459,
      "in": "TransversalContextDashboard",
      "when": "assignModalOpen",
      "text": "Asignar Docente",
@@ -13260,7 +13260,7 @@
     },
     {
      "kind": "heading",
-     "line": 1448,
+     "line": 1462,
      "in": "TransversalContextDashboard",
      "when": "assignModalOpen",
      "text": "Asignar Docente",
@@ -13268,7 +13268,7 @@
     },
     {
      "kind": "button",
-     "line": 1451,
+     "line": 1465,
      "in": "TransversalContextDashboard",
      "when": "assignModalOpen",
      "text": "[icon X]",
@@ -13279,42 +13279,42 @@
     },
     {
      "kind": "text",
-     "line": 1462,
+     "line": 1476,
      "in": "TransversalContextDashboard",
      "when": "assignModalOpen",
      "text": "Asignar docente al curso"
     },
     {
      "kind": "value",
-     "line": 1462,
+     "line": 1476,
      "in": "TransversalContextDashboard",
      "when": "assignModalOpen",
      "text": "{selectedCourse?.course_name}"
     },
     {
      "kind": "text",
-     "line": 1473,
+     "line": 1487,
      "in": "TransversalContextDashboard",
      "when": "assignModalOpen && !(loadingDocentes) && availableDocentes.length === 0",
      "text": "No hay docentes disponibles para asignar"
     },
     {
      "kind": "text",
-     "line": 1476,
+     "line": 1490,
      "in": "TransversalContextDashboard",
      "when": "assignModalOpen && !(loadingDocentes) && availableDocentes.length === 0",
      "text": "Todos los docentes ya están asignados o no hay docentes en esta escuela"
     },
     {
      "kind": "label",
-     "line": 1481,
+     "line": 1495,
      "in": "TransversalContextDashboard",
      "when": "assignModalOpen && !(loadingDocentes) && !(availableDocentes.length === 0)",
      "text": "Seleccionar Docente"
     },
     {
      "kind": "field",
-     "line": 1484,
+     "line": 1498,
      "in": "TransversalContextDashboard",
      "when": "assignModalOpen && !(loadingDocentes) && !(availableDocentes.length === 0)",
      "text": "Seleccionar Docente",
@@ -13330,7 +13330,7 @@
     },
     {
      "kind": "hook",
-     "line": 1507,
+     "line": 1521,
      "in": "TransversalContextDashboard",
      "when": "assignModalOpen && assignError",
      "text": "role=alert",
@@ -13339,7 +13339,7 @@
     },
     {
      "kind": "hook",
-     "line": 1507,
+     "line": 1521,
      "in": "TransversalContextDashboard",
      "when": "assignModalOpen && assignError",
      "text": "testid=assign-docente-error",
@@ -13348,28 +13348,28 @@
     },
     {
      "kind": "text",
-     "line": 1512,
+     "line": 1526,
      "in": "TransversalContextDashboard",
      "when": "assignModalOpen && assignError",
      "text": "No se pudo completar la asignación"
     },
     {
      "kind": "value",
-     "line": 1513,
+     "line": 1527,
      "in": "TransversalContextDashboard",
      "when": "assignModalOpen && assignError",
      "text": "{assignError}"
     },
     {
      "kind": "value",
-     "line": 1517,
+     "line": 1531,
      "in": "TransversalContextDashboard",
      "when": "assignModalOpen && assignError && assignErrorWarnings.length > 0 && each assignErrorWarnings",
      "text": "{w}"
     },
     {
      "kind": "button",
-     "line": 1526,
+     "line": 1540,
      "in": "TransversalContextDashboard",
      "when": "assignModalOpen",
      "text": "Cancelar",
@@ -13380,7 +13380,7 @@
     },
     {
      "kind": "button",
-     "line": 1533,
+     "line": 1547,
      "in": "TransversalContextDashboard",
      "when": "assignModalOpen",
      "text": "Asignando... / Asignar",
@@ -13392,7 +13392,7 @@
     },
     {
      "kind": "popup",
-     "line": 1558,
+     "line": 1572,
      "in": "TransversalContextDashboard",
      "when": "replaceModalOpen",
      "text": "Cambiar Docente",
@@ -13400,7 +13400,7 @@
     },
     {
      "kind": "heading",
-     "line": 1561,
+     "line": 1575,
      "in": "TransversalContextDashboard",
      "when": "replaceModalOpen",
      "text": "Cambiar Docente",
@@ -13408,7 +13408,7 @@
     },
     {
      "kind": "button",
-     "line": 1564,
+     "line": 1578,
      "in": "TransversalContextDashboard",
      "when": "replaceModalOpen",
      "text": "[icon X]",
@@ -13419,21 +13419,21 @@
     },
     {
      "kind": "text",
-     "line": 1575,
+     "line": 1589,
      "in": "TransversalContextDashboard",
      "when": "replaceModalOpen",
      "text": "Curso"
     },
     {
      "kind": "value",
-     "line": 1575,
+     "line": 1589,
      "in": "TransversalContextDashboard",
      "when": "replaceModalOpen",
      "text": "{replaceCourse?.course_name}"
     },
     {
      "kind": "hook",
-     "line": 1577,
+     "line": 1591,
      "in": "TransversalContextDashboard",
      "when": "replaceModalOpen",
      "text": "testid=replace-docente-current",
@@ -13442,47 +13442,47 @@
     },
     {
      "kind": "text",
-     "line": 1578,
+     "line": 1592,
      "in": "TransversalContextDashboard",
      "when": "replaceModalOpen",
      "text": "Docente actual:"
     },
     {
      "kind": "value",
-     "line": 1579,
+     "line": 1593,
      "in": "TransversalContextDashboard",
      "when": "replaceModalOpen",
      "text": "{currentDocenteOf(replaceCourse)?.pr…} / {currentDocenteOf(replaceCourse)?.do…} / —"
     },
     {
      "kind": "text",
-     "line": 1584,
+     "line": 1598,
      "in": "TransversalContextDashboard",
      "when": "replaceModalOpen",
-     "text": "El cambio solo es posible mientras el registro del curso no haya comenzado y no registre respuestas. El docente anterior pierde el acceso a los registros pendientes y el nuevo docente los recibe en blanco: las respuestas nunca se transfieren."
+     "text": "Los registros pendientes pasan al nuevo docente en blanco. Un registro ya enviado se mantiene como resultado del curso. Un registro que ya comenzó se cierra y queda como historial, y el nuevo docente empieza uno en blanco; en ese caso se pide el motivo. Las respuestas nunca se transfieren."
     },
     {
      "kind": "text",
-     "line": 1597,
+     "line": 1611,
      "in": "TransversalContextDashboard",
      "when": "replaceModalOpen && !(loadingReplaceCandidates) && replaceCandidates.length === 0",
      "text": "No hay otros docentes disponibles en esta escuela"
     },
     {
      "kind": "label",
-     "line": 1602,
+     "line": 1616,
      "in": "TransversalContextDashboard",
      "when": "replaceModalOpen && !(loadingReplaceCandidates) && !(replaceCandidates.length === 0)",
      "text": "Nuevo docente"
     },
     {
      "kind": "field",
-     "line": 1605,
+     "line": 1619,
      "in": "TransversalContextDashboard",
      "when": "replaceModalOpen && !(loadingReplaceCandidates) && !(replaceCandidates.length === 0)",
      "text": "Nuevo docente",
      "type": "select",
-     "action": "{(e) => setSelectedReplacement(e.target.value)}",
+     "action": "{(e) => { setSelectedReplacement(e.target.value); setReplaceReason(''); }}",
      "options": [
       "-- Seleccionar --",
       "(lista) {displayName} — {roleLabels} / {displayName}"
@@ -13493,7 +13493,7 @@
     },
     {
      "kind": "hook",
-     "line": 1628,
+     "line": 1645,
      "in": "TransversalContextDashboard",
      "when": "replaceModalOpen && replaceError",
      "text": "role=alert",
@@ -13502,7 +13502,7 @@
     },
     {
      "kind": "hook",
-     "line": 1628,
+     "line": 1645,
      "in": "TransversalContextDashboard",
      "when": "replaceModalOpen && replaceError",
      "text": "testid=replace-docente-error",
@@ -13511,21 +13511,42 @@
     },
     {
      "kind": "text",
-     "line": 1633,
+     "line": 1650,
      "in": "TransversalContextDashboard",
      "when": "replaceModalOpen && replaceError",
      "text": "El registro ya comenzó / No se pudo cambiar el docente"
     },
     {
      "kind": "value",
-     "line": 1638,
+     "line": 1655,
      "in": "TransversalContextDashboard",
      "when": "replaceModalOpen && replaceError",
      "text": "{replaceError.message}"
     },
     {
+     "kind": "label",
+     "line": 1661,
+     "in": "TransversalContextDashboard",
+     "when": "replaceModalOpen && replaceReasonAsked",
+     "text": "Motivo del cambio"
+    },
+    {
+     "kind": "field",
+     "line": 1664,
+     "in": "TransversalContextDashboard",
+     "when": "replaceModalOpen && replaceReasonAsked",
+     "text": "Motivo del cambio",
+     "type": "textarea",
+     "aria": "Motivo del cambio",
+     "limits": "maxLength={500}",
+     "action": "{(e) => setReplaceReason(e.target.value)}",
+     "hook": {
+      "testid": "replace-docente-reason"
+     }
+    },
+    {
      "kind": "button",
-     "line": 1644,
+     "line": 1678,
      "in": "TransversalContextDashboard",
      "when": "replaceModalOpen",
      "text": "Cancelar",
@@ -13536,61 +13557,61 @@
     },
     {
      "kind": "button",
-     "line": 1651,
+     "line": 1685,
      "in": "TransversalContextDashboard",
      "when": "replaceModalOpen",
-     "text": "Cambiando... / Cambiar docente",
+     "text": "Cambiando... / Cerrar registro y cambiar docente / Cambiar docente",
      "action": "{handleReplaceDocente}",
-     "disabled": "{!selectedReplacement || replacing}",
+     "disabled": "{!selectedReplacement || replacing || (replaceReasonAsked && replaceReason.trim(…}",
      "hook": {
       "testid": "replace-docente-submit"
      }
     },
     {
      "kind": "string",
-     "line": 527,
+     "line": 531,
      "in": "TransversalContextDashboard",
      "text": "No se pudo completar la asignación del docente"
     },
     {
      "kind": "string",
-     "line": 540,
+     "line": 544,
      "in": "TransversalContextDashboard",
      "text": "Docente asignado correctamente"
     },
     {
      "kind": "string",
-     "line": 553,
+     "line": 557,
      "in": "TransversalContextDashboard",
      "text": "Error al asignar docente"
     },
     {
      "kind": "string",
-     "line": 677,
+     "line": 691,
      "in": "TransversalContextDashboard",
      "text": "Docente cambiado correctamente"
     },
     {
      "kind": "string",
-     "line": 684,
+     "line": 698,
      "in": "TransversalContextDashboard",
      "text": "Error al cambiar docente"
     },
     {
      "kind": "string",
-     "line": 921,
+     "line": 935,
      "in": "TransversalContextDashboard",
      "text": "Complete el cuestionario transversal para configurar su escuela"
     },
     {
      "kind": "string",
-     "line": 1425,
+     "line": 1439,
      "in": "TransversalContextDashboard",
      "text": "El equipo directivo de esta escuela aún no ha completado el cuestionario transversal. Como administrador puede completarlo ahora."
     },
     {
      "kind": "string",
-     "line": 1426,
+     "line": 1440,
      "in": "TransversalContextDashboard",
      "text": "Complete el cuestionario transversal para configurar los datos de su escuela y habilitar los registros de transformación."
     },
@@ -13647,7 +13668,7 @@
       "GET"
      ],
      "from": [
-      "pages/school/transversal-context/index.tsx:385"
+      "pages/school/transversal-context/index.tsx:389"
      ]
     },
     {
@@ -13657,7 +13678,7 @@
       "GET"
      ],
      "from": [
-      "pages/school/transversal-context/index.tsx:338"
+      "pages/school/transversal-context/index.tsx:342"
      ]
     },
     {
@@ -13667,8 +13688,8 @@
       "POST"
      ],
      "from": [
-      "pages/school/transversal-context/index.tsx:504",
-      "pages/school/transversal-context/index.tsx:577"
+      "pages/school/transversal-context/index.tsx:508",
+      "pages/school/transversal-context/index.tsx:581"
      ]
     },
     {
@@ -13678,7 +13699,7 @@
       "GET"
      ],
      "from": [
-      "pages/school/transversal-context/index.tsx:384"
+      "pages/school/transversal-context/index.tsx:388"
      ]
     },
     {
@@ -13688,8 +13709,8 @@
       "GET"
      ],
      "from": [
-      "pages/school/transversal-context/index.tsx:447",
-      "pages/school/transversal-context/index.tsx:613"
+      "pages/school/transversal-context/index.tsx:451",
+      "pages/school/transversal-context/index.tsx:619"
      ]
     },
     {
@@ -13699,7 +13720,7 @@
       "GET"
      ],
      "from": [
-      "pages/school/transversal-context/index.tsx:374"
+      "pages/school/transversal-context/index.tsx:378"
      ]
     },
     {
@@ -13709,7 +13730,7 @@
       "POST"
      ],
      "from": [
-      "pages/school/transversal-context/index.tsx:651"
+      "pages/school/transversal-context/index.tsx:661"
      ]
     },
     {
@@ -13719,8 +13740,8 @@
       "GET"
      ],
      "from": [
-      "pages/school/transversal-context/index.tsx:295",
-      "pages/school/transversal-context/index.tsx:861"
+      "pages/school/transversal-context/index.tsx:299",
+      "pages/school/transversal-context/index.tsx:875"
      ]
     },
     {

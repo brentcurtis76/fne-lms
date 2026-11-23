@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "6f507a060b6706a92713ad8f8668b6386970cec7",
-  "date": "2026-11-19T20:11:06-03:00"
+  "commit": "c7e27398ca230dbbc3e581dcde19f92480491fcd",
+  "date": "2026-11-22T23:11:25-03:00"
  },
  "screens": [
   {
@@ -507,7 +507,7 @@
   {
    "file": "pages/expense-reports.tsx",
    "route": "/expense-reports",
-   "lines": 852,
+   "lines": 854,
    "marks": {},
    "frame": "MainLayout",
    "server": "none",
@@ -568,27 +568,27 @@
     },
     "inPage": [
      {
-      "line": 113,
+      "line": 114,
       "text": "router.push → /login  (when !session?.user)"
      },
      {
-      "line": 128,
+      "line": 129,
       "text": "userRole = await getUserPrimaryRole(session.user.id)"
      },
      {
-      "line": 139,
+      "line": 140,
       "text": "hasAccess = !canFileError && canFile === true"
      },
      {
-      "line": 142,
+      "line": 143,
       "text": "router.push → /dashboard  (when !hasAccess)"
      },
      {
-      "line": 155,
+      "line": 156,
       "text": "router.push → /login"
      },
      {
-      "line": 204,
+      "line": 205,
       "text": "router.push → /login"
      }
     ],
@@ -611,6 +611,7 @@
      "e2e": [],
      "unit": [
       "__tests__/pages/expense-reports.access.test.tsx",
+      "__tests__/pages/expense-reports.dates.test.tsx",
       "__tests__/pages/expense-reports.review.test.tsx"
      ]
     }
@@ -618,7 +619,7 @@
    "rows": [
     {
      "kind": "message",
-     "line": 96,
+     "line": 97,
      "in": "handleConnectTelegram",
      "when": "!response.ok",
      "text": "link-code request failed: {response.status}",
@@ -626,14 +627,14 @@
     },
     {
      "kind": "toast",
-     "line": 102,
+     "line": 103,
      "in": "handleConnectTelegram",
      "text": "No se pudo generar el código. Inténtalo de nuevo.",
      "variant": "error"
     },
     {
      "kind": "nav",
-     "line": 113,
+     "line": 114,
      "in": "checkSession",
      "when": "!session?.user",
      "text": "/login",
@@ -641,7 +642,7 @@
     },
     {
      "kind": "access",
-     "line": 128,
+     "line": 129,
      "in": "checkSession",
      "when": "profile",
      "text": "userRole = await getUserPrimaryRole(session.user.id)",
@@ -649,14 +650,14 @@
     },
     {
      "kind": "access",
-     "line": 139,
+     "line": 140,
      "in": "checkSession",
      "text": "hasAccess = !canFileError && canFile === true",
      "via": "declaration"
     },
     {
      "kind": "nav",
-     "line": 142,
+     "line": 143,
      "in": "checkSession",
      "when": "!hasAccess",
      "text": "/dashboard",
@@ -664,49 +665,49 @@
     },
     {
      "kind": "nav",
-     "line": 155,
+     "line": 156,
      "in": "checkSession",
      "text": "/login",
      "via": "router.push"
     },
     {
      "kind": "toast",
-     "line": 180,
+     "line": 181,
      "in": "loadExpenseReports",
      "text": "Error al cargar los reportes de gastos",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 196,
+     "line": 197,
      "in": "loadCategories",
      "text": "Error al cargar las categorías",
      "variant": "error"
     },
     {
      "kind": "hook",
-     "line": 202,
+     "line": 203,
      "in": "handleLogout",
      "text": "localStorage: rememberMe",
      "type": "storage"
     },
     {
      "kind": "hook",
-     "line": 203,
+     "line": 204,
      "in": "handleLogout",
      "text": "sessionStorage: sessionOnly",
      "type": "storage"
     },
     {
      "kind": "nav",
-     "line": 204,
+     "line": 205,
      "in": "handleLogout",
      "text": "/login",
      "via": "router.push"
     },
     {
      "kind": "toast",
-     "line": 270,
+     "line": 272,
      "in": "handleDeleteReport",
      "when": "!data || data.length === 0",
      "text": "No se pudo eliminar el reporte: en su estado actual ya no puede eliminarse.",
@@ -714,77 +715,77 @@
     },
     {
      "kind": "toast",
-     "line": 276,
+     "line": 278,
      "in": "handleDeleteReport",
      "text": "Reporte eliminado exitosamente",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 280,
+     "line": 282,
      "in": "handleDeleteReport",
      "text": "Error al eliminar el reporte:",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 300,
+     "line": 302,
      "in": "handleSubmitReport",
      "text": "Reporte enviado para revisión",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 304,
+     "line": 306,
      "in": "handleSubmitReport",
      "text": "Error al enviar el reporte:",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 326,
+     "line": 328,
      "in": "handleApproveReport",
      "text": "Reporte aprobado",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 330,
+     "line": 332,
      "in": "handleApproveReport",
      "text": "Error al aprobar el reporte:",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 376,
+     "line": 378,
      "in": "handleRejectReport",
      "text": "Reporte rechazado",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 380,
+     "line": 382,
      "in": "handleRejectReport",
      "text": "Error al rechazar el reporte:",
      "variant": "error"
     },
     {
      "kind": "text",
-     "line": 390,
+     "line": 392,
      "in": "ExpenseReportsPage",
      "when": "loading",
      "text": "Cargando..."
     },
     {
      "kind": "piece",
-     "line": 397,
+     "line": 399,
      "in": "ExpenseReportsPage",
      "text": "",
      "tag": "MainLayout"
     },
     {
      "kind": "piece",
-     "line": 407,
+     "line": 409,
      "in": "ExpenseReportsPage",
      "when": "activeTab === 'lista'",
      "text": "title: Rendición de Gastos · subtitle: Gestión de reportes de gastos y reembolsos · searchPlaceholder: Buscar por nombre, descripción... · primaryAction: Nuevo Reporte",
@@ -792,7 +793,7 @@
     },
     {
      "kind": "button",
-     "line": 420,
+     "line": 422,
      "in": "ExpenseReportsPage",
      "when": "activeTab === 'lista'",
      "text": "Generando… / Conectar Telegram",
@@ -802,7 +803,7 @@
     },
     {
      "kind": "button",
-     "line": 432,
+     "line": 434,
      "in": "ExpenseReportsPage",
      "when": "activeTab === 'lista' && expenseReports.length > 0",
      "text": "PDF",
@@ -811,7 +812,7 @@
     },
     {
      "kind": "toast",
-     "line": 436,
+     "line": 438,
      "in": "ExpenseReportsPage",
      "when": "activeTab === 'lista' && expenseReports.length > 0",
      "text": "Resumen exportado como PDF",
@@ -819,7 +820,7 @@
     },
     {
      "kind": "toast",
-     "line": 438,
+     "line": 440,
      "in": "ExpenseReportsPage",
      "when": "activeTab === 'lista' && expenseReports.length > 0",
      "text": "Error al exportar PDF",
@@ -827,7 +828,7 @@
     },
     {
      "kind": "button",
-     "line": 448,
+     "line": 450,
      "in": "ExpenseReportsPage",
      "when": "activeTab === 'lista' && expenseReports.length > 0",
      "text": "Excel",
@@ -836,7 +837,7 @@
     },
     {
      "kind": "toast",
-     "line": 452,
+     "line": 454,
      "in": "ExpenseReportsPage",
      "when": "activeTab === 'lista' && expenseReports.length > 0",
      "text": "Resumen exportado como Excel",
@@ -844,7 +845,7 @@
     },
     {
      "kind": "toast",
-     "line": 454,
+     "line": 456,
      "in": "ExpenseReportsPage",
      "when": "activeTab === 'lista' && expenseReports.length > 0",
      "text": "Error al exportar Excel",
@@ -852,7 +853,7 @@
     },
     {
      "kind": "button",
-     "line": 476,
+     "line": 478,
      "in": "ExpenseReportsPage",
      "when": "(activeTab === 'nuevo' || activeTab === 'editar')",
      "text": "Volver a Reportes",
@@ -860,7 +861,7 @@
     },
     {
      "kind": "heading",
-     "line": 484,
+     "line": 486,
      "in": "ExpenseReportsPage",
      "when": "(activeTab === 'nuevo' || activeTab === 'editar')",
      "text": "Crear Nuevo Reporte / Editar Reporte",
@@ -868,70 +869,70 @@
     },
     {
      "kind": "text",
-     "line": 496,
+     "line": 498,
      "in": "ExpenseReportsPage",
      "when": "activeTab === 'lista'",
      "text": "{expenseReports.length} reporte / reportes"
     },
     {
      "kind": "column",
-     "line": 506,
+     "line": 508,
      "in": "ExpenseReportsPage",
      "when": "activeTab === 'lista' && expenseReports.length > 0",
      "text": "Nombre"
     },
     {
      "kind": "column",
-     "line": 507,
+     "line": 509,
      "in": "ExpenseReportsPage",
      "when": "activeTab === 'lista' && expenseReports.length > 0",
      "text": "Período"
     },
     {
      "kind": "column",
-     "line": 508,
+     "line": 510,
      "in": "ExpenseReportsPage",
      "when": "activeTab === 'lista' && expenseReports.length > 0",
      "text": "Total"
     },
     {
      "kind": "column",
-     "line": 509,
+     "line": 511,
      "in": "ExpenseReportsPage",
      "when": "activeTab === 'lista' && expenseReports.length > 0",
      "text": "Estado"
     },
     {
      "kind": "column",
-     "line": 510,
+     "line": 512,
      "in": "ExpenseReportsPage",
      "when": "activeTab === 'lista' && expenseReports.length > 0",
      "text": "Enviado por"
     },
     {
      "kind": "column",
-     "line": 511,
+     "line": 513,
      "in": "ExpenseReportsPage",
      "when": "activeTab === 'lista' && expenseReports.length > 0",
      "text": "Acciones"
     },
     {
      "kind": "value",
-     "line": 530,
+     "line": 532,
      "in": "ExpenseReportsPage",
      "when": "activeTab === 'lista' && expenseReports.length > 0 && each expenseReports .filter(report => { if (!searchQue…",
      "text": "{report.report_name}"
     },
     {
      "kind": "value",
-     "line": 532,
+     "line": 534,
      "in": "ExpenseReportsPage",
      "when": "activeTab === 'lista' && expenseReports.length > 0 && each expenseReports .filter(report => { if (!searchQue… && report.description",
      "text": "{report.description}"
     },
     {
      "kind": "hook",
-     "line": 535,
+     "line": 537,
      "in": "ExpenseReportsPage",
      "when": "activeTab === 'lista' && expenseReports.length > 0 && each expenseReports .filter(report => { if (!searchQue… && report.status === 'rejected' && report.review_comments",
      "text": "testid=reject-reason-shown-{report.id}",
@@ -940,42 +941,42 @@
     },
     {
      "kind": "text",
-     "line": 535,
+     "line": 537,
      "in": "ExpenseReportsPage",
      "when": "activeTab === 'lista' && expenseReports.length > 0 && each expenseReports .filter(report => { if (!searchQue… && report.status === 'rejected' && report.review_comments",
      "text": "Motivo del rechazo: {report.review_comments}"
     },
     {
      "kind": "value",
-     "line": 545,
+     "line": 547,
      "in": "ExpenseReportsPage",
      "when": "activeTab === 'lista' && expenseReports.length > 0 && each expenseReports .filter(report => { if (!searchQue…",
-     "text": "{formatDate(report.start_date)} - {formatDate(report.end_date)}"
+     "text": "{formatDay(report.start_date)} - {formatDay(report.end_date)}"
     },
     {
      "kind": "value",
-     "line": 550,
+     "line": 552,
      "in": "ExpenseReportsPage",
      "when": "activeTab === 'lista' && expenseReports.length > 0 && each expenseReports .filter(report => { if (!searchQue…",
      "text": "{formatCurrency(report.total_amount)}"
     },
     {
      "kind": "value",
-     "line": 555,
+     "line": 557,
      "in": "ExpenseReportsPage",
      "when": "activeTab === 'lista' && expenseReports.length > 0 && each expenseReports .filter(report => { if (!searchQue…",
      "text": "{getStatusText(report.status)}"
     },
     {
      "kind": "value",
-     "line": 560,
+     "line": 562,
      "in": "ExpenseReportsPage",
      "when": "activeTab === 'lista' && expenseReports.length > 0 && each expenseReports .filter(report => { if (!searchQue…",
      "text": "{report.profiles?.first_name} {report.profiles?.last_name}"
     },
     {
      "kind": "button",
-     "line": 566,
+     "line": 568,
      "in": "ExpenseReportsPage",
      "when": "activeTab === 'lista' && expenseReports.length > 0 && each expenseReports .filter(report => { if (!searchQue…",
      "text": "[icon Eye]",
@@ -984,7 +985,7 @@
     },
     {
      "kind": "button",
-     "line": 576,
+     "line": 578,
      "in": "ExpenseReportsPage",
      "when": "activeTab === 'lista' && expenseReports.length > 0 && each expenseReports .filter(report => { if (!searchQue… && ((report.status === 'draft' || report.status === 'rejected') && report.submitted_by === currentUser.id)",
      "text": "[icon Edit]",
@@ -993,7 +994,7 @@
     },
     {
      "kind": "button",
-     "line": 586,
+     "line": 588,
      "in": "ExpenseReportsPage",
      "when": "activeTab === 'lista' && expenseReports.length > 0 && each expenseReports .filter(report => { if (!searchQue… && ((report.status === 'draft' || report.status === 'rejected') && report.submitted_by === currentUser.id)",
      "text": "[icon Send]",
@@ -1002,7 +1003,7 @@
     },
     {
      "kind": "button",
-     "line": 598,
+     "line": 600,
      "in": "ExpenseReportsPage",
      "when": "activeTab === 'lista' && expenseReports.length > 0 && each expenseReports .filter(report => { if (!searchQue… && isAdmin && report.status === 'submitted'",
      "text": "[icon Check]",
@@ -1011,7 +1012,7 @@
     },
     {
      "kind": "button",
-     "line": 605,
+     "line": 607,
      "in": "ExpenseReportsPage",
      "when": "activeTab === 'lista' && expenseReports.length > 0 && each expenseReports .filter(report => { if (!searchQue… && isAdmin && report.status === 'submitted'",
      "text": "[icon X]",
@@ -1020,7 +1021,7 @@
     },
     {
      "kind": "button",
-     "line": 616,
+     "line": 618,
      "in": "ExpenseReportsPage",
      "when": "activeTab === 'lista' && expenseReports.length > 0 && each expenseReports .filter(report => { if (!searchQue… && expenseReportActions(report, currentUser.id, isAdmin).canDelete",
      "text": "[icon Trash2]",
@@ -1029,7 +1030,7 @@
     },
     {
      "kind": "heading",
-     "line": 634,
+     "line": 636,
      "in": "ExpenseReportsPage",
      "when": "activeTab === 'lista' && !(expenseReports.length > 0)",
      "text": "No hay reportes de gastos",
@@ -1037,14 +1038,14 @@
     },
     {
      "kind": "text",
-     "line": 635,
+     "line": 637,
      "in": "ExpenseReportsPage",
      "when": "activeTab === 'lista' && !(expenseReports.length > 0)",
      "text": "Comienza creando tu primer reporte de gastos"
     },
     {
      "kind": "button",
-     "line": 636,
+     "line": 638,
      "in": "ExpenseReportsPage",
      "when": "activeTab === 'lista' && !(expenseReports.length > 0)",
      "text": "Crear Primer Reporte",
@@ -1052,7 +1053,7 @@
     },
     {
      "kind": "piece",
-     "line": 649,
+     "line": 651,
      "in": "ExpenseReportsPage",
      "when": "activeTab === 'nuevo'",
      "text": "",
@@ -1060,7 +1061,7 @@
     },
     {
      "kind": "piece",
-     "line": 660,
+     "line": 662,
      "in": "ExpenseReportsPage",
      "when": "activeTab === 'editar' && editingReport",
      "text": "",
@@ -1068,7 +1069,7 @@
     },
     {
      "kind": "popup",
-     "line": 677,
+     "line": 679,
      "in": "ExpenseReportsPage",
      "when": "deleteModalReport",
      "text": "Eliminar Reporte",
@@ -1076,7 +1077,7 @@
     },
     {
      "kind": "heading",
-     "line": 685,
+     "line": 687,
      "in": "ExpenseReportsPage",
      "when": "deleteModalReport",
      "text": "Eliminar Reporte",
@@ -1084,35 +1085,35 @@
     },
     {
      "kind": "text",
-     "line": 686,
+     "line": 688,
      "in": "ExpenseReportsPage",
      "when": "deleteModalReport",
      "text": "Esta acción no se puede deshacer"
     },
     {
      "kind": "text",
-     "line": 692,
+     "line": 694,
      "in": "ExpenseReportsPage",
      "when": "deleteModalReport",
      "text": "¿Estás seguro de que deseas eliminar el reporte"
     },
     {
      "kind": "value",
-     "line": 693,
+     "line": 695,
      "in": "ExpenseReportsPage",
      "when": "deleteModalReport",
      "text": "{deleteModalReport.report_name}"
     },
     {
      "kind": "text",
-     "line": 696,
+     "line": 698,
      "in": "ExpenseReportsPage",
      "when": "deleteModalReport",
      "text": "Se eliminarán también todos los gastos asociados a este reporte."
     },
     {
      "kind": "button",
-     "line": 701,
+     "line": 703,
      "in": "ExpenseReportsPage",
      "when": "deleteModalReport",
      "text": "Cancelar",
@@ -1120,7 +1121,7 @@
     },
     {
      "kind": "button",
-     "line": 707,
+     "line": 709,
      "in": "ExpenseReportsPage",
      "when": "deleteModalReport",
      "text": "Eliminar Reporte",
@@ -1128,7 +1129,7 @@
     },
     {
      "kind": "popup",
-     "line": 721,
+     "line": 723,
      "in": "ExpenseReportsPage",
      "when": "rejectModalReport",
      "text": "Rechazar reporte",
@@ -1136,7 +1137,7 @@
     },
     {
      "kind": "heading",
-     "line": 729,
+     "line": 731,
      "in": "ExpenseReportsPage",
      "when": "rejectModalReport",
      "text": "Rechazar reporte",
@@ -1144,21 +1145,21 @@
     },
     {
      "kind": "value",
-     "line": 730,
+     "line": 732,
      "in": "ExpenseReportsPage",
      "when": "rejectModalReport",
      "text": "{rejectModalReport.report_name}"
     },
     {
      "kind": "label",
-     "line": 735,
+     "line": 737,
      "in": "ExpenseReportsPage",
      "when": "rejectModalReport",
      "text": "Motivo del rechazo"
     },
     {
      "kind": "field",
-     "line": 737,
+     "line": 739,
      "in": "ExpenseReportsPage",
      "when": "rejectModalReport",
      "text": "Motivo del rechazo",
@@ -1171,21 +1172,21 @@
     },
     {
      "kind": "text",
-     "line": 750,
+     "line": 752,
      "in": "ExpenseReportsPage",
      "when": "rejectModalReport && rejectReasonError",
      "text": "Escribe el motivo del rechazo."
     },
     {
      "kind": "text",
-     "line": 753,
+     "line": 755,
      "in": "ExpenseReportsPage",
      "when": "rejectModalReport",
      "text": "Escribe el motivo: la persona lo verá y podrá corregir y reenviar el reporte."
     },
     {
      "kind": "button",
-     "line": 758,
+     "line": 760,
      "in": "ExpenseReportsPage",
      "when": "rejectModalReport",
      "text": "Cancelar",
@@ -1196,7 +1197,7 @@
     },
     {
      "kind": "button",
-     "line": 765,
+     "line": 767,
      "in": "ExpenseReportsPage",
      "when": "rejectModalReport",
      "text": "Rechazar",
@@ -1207,7 +1208,7 @@
     },
     {
      "kind": "popup",
-     "line": 780,
+     "line": 782,
      "in": "ExpenseReportsPage",
      "when": "telegramLink",
      "text": "Conectar Telegram",
@@ -1215,7 +1216,7 @@
     },
     {
      "kind": "heading",
-     "line": 788,
+     "line": 790,
      "in": "ExpenseReportsPage",
      "when": "telegramLink",
      "text": "Conectar Telegram",
@@ -1223,28 +1224,28 @@
     },
     {
      "kind": "text",
-     "line": 789,
+     "line": 791,
      "in": "ExpenseReportsPage",
      "when": "telegramLink",
      "text": "Envía boletas desde tu celular"
     },
     {
      "kind": "text",
-     "line": 795,
+     "line": 797,
      "in": "ExpenseReportsPage",
      "when": "telegramLink",
      "text": "Abre Telegram y envíale este código al bot, o toca el enlace directo:"
     },
     {
      "kind": "value",
-     "line": 798,
+     "line": 800,
      "in": "ExpenseReportsPage",
      "when": "telegramLink",
      "text": "{telegramLink.code}"
     },
     {
      "kind": "link",
-     "line": 803,
+     "line": 805,
      "in": "ExpenseReportsPage",
      "when": "telegramLink && telegramLink.deepLink",
      "text": "Abrir Telegram",
@@ -1253,14 +1254,14 @@
     },
     {
      "kind": "text",
-     "line": 813,
+     "line": 815,
      "in": "ExpenseReportsPage",
      "when": "telegramLink",
      "text": "El código vence en 15 minutos. Luego solo envía una foto de tu boleta al bot."
     },
     {
      "kind": "button",
-     "line": 818,
+     "line": 820,
      "in": "ExpenseReportsPage",
      "when": "telegramLink",
      "text": "Cerrar",
@@ -1268,7 +1269,7 @@
     },
     {
      "kind": "popup",
-     "line": 831,
+     "line": 833,
      "in": "ExpenseReportsPage",
      "text": "ExpenseReportDetails",
      "how": "component",
@@ -1276,31 +1277,31 @@
     },
     {
      "kind": "string",
-     "line": 93,
+     "line": 94,
      "in": "ExpenseReportsPage",
      "text": "Bearer {session.access_token}"
     },
     {
      "kind": "string",
-     "line": 249,
+     "line": 251,
      "in": "ExpenseReportsPage",
      "text": "Borrador"
     },
     {
      "kind": "string",
-     "line": 251,
+     "line": 253,
      "in": "ExpenseReportsPage",
      "text": "Aprobado"
     },
     {
      "kind": "string",
-     "line": 252,
+     "line": 254,
      "in": "ExpenseReportsPage",
      "text": "Rechazado"
     },
     {
      "kind": "list",
-     "line": 249,
+     "line": 251,
      "in": "getStatusText",
      "text": "getStatusText()",
      "items": [
@@ -1355,7 +1356,7 @@
       "POST"
      ],
      "from": [
-      "pages/expense-reports.tsx:91"
+      "pages/expense-reports.tsx:92"
      ]
     },
     {
@@ -1365,7 +1366,7 @@
       "POST"
      ],
      "from": [
-      "pages/expense-reports.tsx:217"
+      "pages/expense-reports.tsx:218"
      ]
     },
     {
@@ -1373,8 +1374,8 @@
      "route": "/api/expense-reports/receipt-link",
      "methods": [],
      "from": [
-      "components/expenses/ExpenseReportDetails.tsx:179",
-      "components/expenses/ExpenseReportForm.tsx:707"
+      "components/expenses/ExpenseReportDetails.tsx:185",
+      "components/expenses/ExpenseReportForm.tsx:812"
      ]
     }
    ]
@@ -2090,11 +2091,11 @@
    "usedBy": [
     "/expense-reports"
    ],
-   "lines": 546,
+   "lines": 552,
    "rows": [
     {
      "kind": "list",
-     "line": 75,
+     "line": 76,
      "text": "HISTORY_FALLBACK_NAME",
      "items": [
       "Equipo GENERA"
@@ -2102,19 +2103,19 @@
     },
     {
      "kind": "gate",
-     "line": 115,
+     "line": 116,
      "in": "ExpenseReportDetails",
      "text": "!reportId"
     },
     {
      "kind": "gate",
-     "line": 143,
+     "line": 144,
      "in": "ExpenseReportDetails",
      "text": "!isOpen || !report"
     },
     {
      "kind": "nav",
-     "line": 194,
+     "line": 200,
      "in": "handleReceiptClick",
      "when": "url",
      "text": "{url}",
@@ -2122,7 +2123,7 @@
     },
     {
      "kind": "toast",
-     "line": 196,
+     "line": 202,
      "in": "handleReceiptClick",
      "when": "!(url)",
      "text": "No se pudo abrir la boleta",
@@ -2130,7 +2131,7 @@
     },
     {
      "kind": "button",
-     "line": 208,
+     "line": 214,
      "in": "ReceiptCell",
      "when": "hasReceipt",
      "text": "[icon Eye]",
@@ -2139,7 +2140,7 @@
     },
     {
      "kind": "button",
-     "line": 215,
+     "line": 221,
      "in": "ReceiptCell",
      "when": "hasReceipt",
      "text": "[icon Download]",
@@ -2148,7 +2149,7 @@
     },
     {
      "kind": "download",
-     "line": 221,
+     "line": 227,
      "in": "ReceiptCell",
      "when": "hasReceipt && url",
      "text": "archivo: receipt.pdf",
@@ -2156,7 +2157,7 @@
     },
     {
      "kind": "toast",
-     "line": 224,
+     "line": 230,
      "in": "ReceiptCell",
      "when": "hasReceipt && !(url)",
      "text": "No se pudo abrir la boleta",
@@ -2164,7 +2165,7 @@
     },
     {
      "kind": "text",
-     "line": 232,
+     "line": 238,
      "in": "ReceiptCell",
      "when": "hasReceipt",
      "text": "Boleta disponible",
@@ -2172,52 +2173,52 @@
     },
     {
      "kind": "text",
-     "line": 239,
+     "line": 245,
      "in": "ReceiptCell",
      "text": "Sin boleta"
     },
     {
      "kind": "popup",
-     "line": 243,
+     "line": 249,
      "in": "ExpenseReportDetails",
      "text": "{report.report_name}",
      "how": "written in this file"
     },
     {
      "kind": "heading",
-     "line": 249,
+     "line": 255,
      "in": "ExpenseReportDetails",
      "text": "{report.report_name}",
      "level": 2
     },
     {
      "kind": "text",
-     "line": 250,
+     "line": 256,
      "in": "ExpenseReportDetails",
      "text": "Detalles del Reporte de Gastos"
     },
     {
      "kind": "button",
-     "line": 252,
+     "line": 258,
      "in": "ExpenseReportDetails",
      "text": "[icon X]",
      "action": "{onClose}"
     },
     {
      "kind": "value",
-     "line": 265,
+     "line": 271,
      "in": "ExpenseReportDetails",
      "text": "{getStatusText(report.status)}"
     },
     {
      "kind": "text",
-     "line": 269,
+     "line": 275,
      "in": "ExpenseReportDetails",
      "text": "Total:"
     },
     {
      "kind": "button",
-     "line": 274,
+     "line": 280,
      "in": "ExpenseReportDetails",
      "text": "PDF",
      "action": "{async () => { try { console.log('ExpenseReportExporter:', ExpenseReportExporter…}",
@@ -2225,7 +2226,7 @@
     },
     {
      "kind": "toast",
-     "line": 283,
+     "line": 289,
      "in": "ExpenseReportDetails",
      "when": "ExpenseReportExporter && typeof ExpenseReportExporter.exportToPDF === 'function'",
      "text": "Reporte exportado como PDF",
@@ -2233,7 +2234,7 @@
     },
     {
      "kind": "message",
-     "line": 285,
+     "line": 291,
      "in": "ExpenseReportDetails",
      "when": "!(ExpenseReportExporter && typeof ExpenseReportExporter.exportToPDF === 'function')",
      "text": "exportToPDF is not a function",
@@ -2241,14 +2242,14 @@
     },
     {
      "kind": "toast",
-     "line": 288,
+     "line": 294,
      "in": "ExpenseReportDetails",
      "text": "Error al exportar PDF",
      "variant": "error"
     },
     {
      "kind": "button",
-     "line": 298,
+     "line": 304,
      "in": "ExpenseReportDetails",
      "text": "Excel",
      "action": "{async () => { try { await ExpenseReportExporter.exportToExcel(report); toast.su…}",
@@ -2256,21 +2257,21 @@
     },
     {
      "kind": "toast",
-     "line": 302,
+     "line": 308,
      "in": "ExpenseReportDetails",
      "text": "Reporte exportado como Excel",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 304,
+     "line": 310,
      "in": "ExpenseReportDetails",
      "text": "Error al exportar Excel",
      "variant": "error"
     },
     {
      "kind": "button",
-     "line": 316,
+     "line": 322,
      "in": "ExpenseReportDetails",
      "when": "actions.canEdit",
      "text": "Editar",
@@ -2279,7 +2280,7 @@
     },
     {
      "kind": "button",
-     "line": 326,
+     "line": 332,
      "in": "ExpenseReportDetails",
      "when": "actions.canDelete",
      "text": "Eliminar",
@@ -2287,107 +2288,107 @@
     },
     {
      "kind": "heading",
-     "line": 340,
+     "line": 346,
      "in": "ExpenseReportDetails",
      "text": "Información General",
      "level": 3
     },
     {
      "kind": "text",
-     "line": 344,
+     "line": 350,
      "in": "ExpenseReportDetails",
      "text": "Período"
     },
     {
      "kind": "text",
-     "line": 353,
+     "line": 359,
      "in": "ExpenseReportDetails",
      "when": "report.description",
      "text": "Descripción"
     },
     {
      "kind": "value",
-     "line": 354,
+     "line": 360,
      "in": "ExpenseReportDetails",
      "when": "report.description",
      "text": "{report.description}"
     },
     {
      "kind": "text",
-     "line": 359,
+     "line": 365,
      "in": "ExpenseReportDetails",
      "text": "Enviado por"
     },
     {
      "kind": "value",
-     "line": 362,
+     "line": 368,
      "in": "ExpenseReportDetails",
      "text": "{report.profiles?.email}"
     },
     {
      "kind": "heading",
-     "line": 369,
+     "line": 375,
      "in": "ExpenseReportDetails",
      "text": "Estado y Fechas",
      "level": 3
     },
     {
      "kind": "text",
-     "line": 373,
+     "line": 379,
      "in": "ExpenseReportDetails",
      "text": "Creado"
     },
     {
      "kind": "value",
-     "line": 374,
+     "line": 380,
      "in": "ExpenseReportDetails",
      "text": "{formatDate(report.created_at)}"
     },
     {
      "kind": "text",
-     "line": 379,
+     "line": 385,
      "in": "ExpenseReportDetails",
      "when": "report.submitted_at",
      "text": "Enviado"
     },
     {
      "kind": "value",
-     "line": 380,
+     "line": 386,
      "in": "ExpenseReportDetails",
      "when": "report.submitted_at",
      "text": "{formatDate(report.submitted_at)}"
     },
     {
      "kind": "text",
-     "line": 386,
+     "line": 392,
      "in": "ExpenseReportDetails",
      "when": "report.reviewed_at",
      "text": "Revisado"
     },
     {
      "kind": "value",
-     "line": 387,
+     "line": 393,
      "in": "ExpenseReportDetails",
      "when": "report.reviewed_at",
      "text": "{formatDate(report.reviewed_at)}"
     },
     {
      "kind": "text",
-     "line": 393,
+     "line": 399,
      "in": "ExpenseReportDetails",
      "when": "report.review_comments",
      "text": "Comentarios de Revisión"
     },
     {
      "kind": "value",
-     "line": 394,
+     "line": 400,
      "in": "ExpenseReportDetails",
      "when": "report.review_comments",
      "text": "{report.review_comments}"
     },
     {
      "kind": "heading",
-     "line": 406,
+     "line": 412,
      "in": "ExpenseReportDetails",
      "when": "report.expense_items && report.expense_items.length > 0",
      "text": "Gastos Detallados ( {report.expense_items.length} )",
@@ -2395,133 +2396,133 @@
     },
     {
      "kind": "column",
-     "line": 414,
+     "line": 420,
      "in": "ExpenseReportDetails",
      "when": "report.expense_items && report.expense_items.length > 0",
      "text": "Fecha"
     },
     {
      "kind": "column",
-     "line": 415,
+     "line": 421,
      "in": "ExpenseReportDetails",
      "when": "report.expense_items && report.expense_items.length > 0",
      "text": "Categoría"
     },
     {
      "kind": "column",
-     "line": 416,
+     "line": 422,
      "in": "ExpenseReportDetails",
      "when": "report.expense_items && report.expense_items.length > 0",
      "text": "Descripción"
     },
     {
      "kind": "column",
-     "line": 417,
+     "line": 423,
      "in": "ExpenseReportDetails",
      "when": "report.expense_items && report.expense_items.length > 0",
      "text": "Proveedor"
     },
     {
      "kind": "column",
-     "line": 418,
+     "line": 424,
      "in": "ExpenseReportDetails",
      "when": "report.expense_items && report.expense_items.length > 0",
      "text": "N° Factura/Boleta"
     },
     {
      "kind": "column",
-     "line": 419,
+     "line": 425,
      "in": "ExpenseReportDetails",
      "when": "report.expense_items && report.expense_items.length > 0",
      "text": "Monto"
     },
     {
      "kind": "column",
-     "line": 420,
+     "line": 426,
      "in": "ExpenseReportDetails",
      "when": "report.expense_items && report.expense_items.length > 0",
      "text": "Boleta"
     },
     {
      "kind": "value",
-     "line": 426,
+     "line": 432,
      "in": "ExpenseReportDetails",
      "when": "report.expense_items && report.expense_items.length > 0 && each report.expense_items",
-     "text": "{formatDate(item.expense_date)}"
+     "text": "{formatDay(item.expense_date)}"
     },
     {
      "kind": "text",
-     "line": 435,
+     "line": 441,
      "in": "ExpenseReportDetails",
      "when": "report.expense_items && report.expense_items.length > 0 && each report.expense_items",
      "text": "{item.expense_categories?.name} / Sin categoría"
     },
     {
      "kind": "value",
-     "line": 441,
+     "line": 447,
      "in": "ExpenseReportDetails",
      "when": "report.expense_items && report.expense_items.length > 0 && each report.expense_items",
      "text": "{item.description}"
     },
     {
      "kind": "value",
-     "line": 443,
+     "line": 449,
      "in": "ExpenseReportDetails",
      "when": "report.expense_items && report.expense_items.length > 0 && each report.expense_items && item.notes",
      "text": "{item.notes}"
     },
     {
      "kind": "value",
-     "line": 446,
+     "line": 452,
      "in": "ExpenseReportDetails",
      "when": "report.expense_items && report.expense_items.length > 0 && each report.expense_items",
      "text": "{item.vendor} / -"
     },
     {
      "kind": "value",
-     "line": 449,
+     "line": 455,
      "in": "ExpenseReportDetails",
      "when": "report.expense_items && report.expense_items.length > 0 && each report.expense_items",
      "text": "{item.expense_number} / -"
     },
     {
      "kind": "value",
-     "line": 456,
+     "line": 462,
      "in": "ExpenseReportDetails",
      "when": "report.expense_items && report.expense_items.length > 0 && each report.expense_items && item.currency && item.currency !== 'CLP' && item.original_amount",
      "text": "{formatCurrencyWithSymbol(item.origi…}"
     },
     {
      "kind": "text",
-     "line": 459,
+     "line": 465,
      "in": "ExpenseReportDetails",
      "when": "report.expense_items && report.expense_items.length > 0 && each report.expense_items && item.currency && item.currency !== 'CLP' && item.original_amount",
      "text": "≈ $ {item.amount.toLocaleString('es-CL')} CLP"
     },
     {
      "kind": "value",
-     "line": 464,
+     "line": 470,
      "in": "ExpenseReportDetails",
      "when": "report.expense_items && report.expense_items.length > 0 && each report.expense_items && !(item.currency && item.currency !== 'CLP' && item.original_amount)",
      "text": "$ {item.amount.toLocaleString('es-CL')}"
     },
     {
      "kind": "text",
-     "line": 477,
+     "line": 483,
      "in": "ExpenseReportDetails",
      "when": "report.expense_items && report.expense_items.length > 0",
      "text": "Total:"
     },
     {
      "kind": "value",
-     "line": 479,
+     "line": 485,
      "in": "ExpenseReportDetails",
      "when": "report.expense_items && report.expense_items.length > 0",
      "text": "{formatCurrency(report.total_amount)}"
     },
     {
      "kind": "heading",
-     "line": 493,
+     "line": 499,
      "in": "ExpenseReportDetails",
      "when": "report.expense_items && report.expense_items.length > 0",
      "text": "Resumen por Categoría",
@@ -2529,7 +2530,7 @@
     },
     {
      "kind": "heading",
-     "line": 517,
+     "line": 523,
      "in": "ExpenseReportDetails",
      "when": "report.expense_items && report.expense_items.length > 0 && each Object.entries( report.expense_items.reduce((acc,…",
      "text": "{category}",
@@ -2537,21 +2538,21 @@
     },
     {
      "kind": "text",
-     "line": 519,
+     "line": 525,
      "in": "ExpenseReportDetails",
      "when": "report.expense_items && report.expense_items.length > 0 && each Object.entries( report.expense_items.reduce((acc,…",
      "text": "{data.count} gasto s"
     },
     {
      "kind": "value",
-     "line": 522,
+     "line": 528,
      "in": "ExpenseReportDetails",
      "when": "report.expense_items && report.expense_items.length > 0 && each Object.entries( report.expense_items.reduce((acc,…",
      "text": "{formatCurrency(data.total)}"
     },
     {
      "kind": "hook",
-     "line": 533,
+     "line": 539,
      "in": "ExpenseReportDetails",
      "when": "history.length > 0",
      "text": "testid=expense-history",
@@ -2560,7 +2561,7 @@
     },
     {
      "kind": "heading",
-     "line": 534,
+     "line": 540,
      "in": "ExpenseReportDetails",
      "when": "history.length > 0",
      "text": "Historial",
@@ -2568,50 +2569,50 @@
     },
     {
      "kind": "value",
-     "line": 537,
+     "line": 543,
      "in": "ExpenseReportDetails",
      "when": "history.length > 0 && each history",
      "text": "{line.text}"
     },
     {
      "kind": "string",
-     "line": 80,
+     "line": 81,
      "in": "historyEventText",
      "text": "Reenviado"
     },
     {
      "kind": "string",
-     "line": 81,
+     "line": 82,
      "in": "historyEventText",
      "text": "Rechazado: {event.comment}"
     },
     {
      "kind": "string",
-     "line": 81,
+     "line": 82,
      "in": "historyEventText",
      "text": "Rechazado"
     },
     {
      "kind": "string",
-     "line": 82,
+     "line": 83,
      "in": "historyEventText",
      "text": "Aprobado"
     },
     {
      "kind": "string",
-     "line": 83,
+     "line": 84,
      "in": "historyEventText",
      "text": "Reabierto"
     },
     {
      "kind": "string",
-     "line": 167,
+     "line": 173,
      "in": "ExpenseReportDetails",
      "text": "Borrador"
     },
     {
      "kind": "list",
-     "line": 79,
+     "line": 80,
      "in": "historyEventText",
      "text": "historyEventText()",
      "items": [
@@ -2624,7 +2625,7 @@
     },
     {
      "kind": "list",
-     "line": 167,
+     "line": 173,
      "in": "getStatusText",
      "text": "getStatusText()",
      "items": [
@@ -2648,11 +2649,67 @@
    "usedBy": [
     "/expense-reports"
    ],
-   "lines": 826,
+   "lines": 933,
    "rows": [
     {
+     "kind": "list",
+     "line": 48,
+     "text": "PESOS_NO_DECIMALS",
+     "items": [
+      "Los montos en pesos no llevan decimales."
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 49,
+     "text": "FOREIGN_TWO_DECIMALS",
+     "items": [
+      "Los montos en moneda extranjera llevan hasta dos decimales."
+     ]
+    },
+    {
+     "kind": "message",
+     "line": 94,
+     "in": "rowProblems",
+     "when": "!item.description.trim()",
+     "text": "El gasto {number} no tiene descripción.",
+     "via": "out.push"
+    },
+    {
+     "kind": "message",
+     "line": 95,
+     "in": "rowProblems",
+     "when": "!item.category_id",
+     "text": "El gasto {number} no tiene categoría.",
+     "via": "out.push"
+    },
+    {
+     "kind": "message",
+     "line": 97,
+     "in": "rowProblems",
+     "when": "typed?.problem",
+     "text": "El gasto {number}: {typed.problem}",
+     "via": "out.push"
+    },
+    {
+     "kind": "message",
+     "line": 99,
+     "in": "rowProblems",
+     "when": "!(typed?.problem) && (!(item.amount > 0) || (typed !== null && !(typed.value !== null && typed.value > 0)))",
+     "text": "El gasto {number} no tiene monto.",
+     "via": "out.push"
+    },
+    {
+     "kind": "message",
+     "line": 101,
+     "in": "rowProblems",
+     "when": "!item.expense_date",
+     "text": "El gasto {number} no tiene fecha.",
+     "via": "out.push"
+    },
+    {
      "kind": "toast",
-     "line": 173,
+     "line": 267,
      "in": "updateExpenseItem",
      "when": "(field === 'currency' || field === 'amount') && sourceAmount > 0 && item.currency",
      "text": "Error al convertir moneda",
@@ -2660,28 +2717,28 @@
     },
     {
      "kind": "download",
-     "line": 199,
+     "line": 303,
      "in": "handleReceiptUpload",
      "text": "URL.createObjectURL()",
      "how": "createObjectURL"
     },
     {
      "kind": "toast",
-     "line": 210,
+     "line": 312,
      "in": "handleReceiptUpload",
      "text": "✅ Boleta subida exitosamente: {file.name}",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 214,
+     "line": 316,
      "in": "handleReceiptUpload",
      "text": "Error al subir la boleta:",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 241,
+     "line": 347,
      "in": "handleReceiptDelete",
      "when": "fileName && deleteError",
      "text": "Error al eliminar la boleta del servidor:",
@@ -2689,7 +2746,7 @@
     },
     {
      "kind": "toast",
-     "line": 258,
+     "line": 364,
      "in": "handleReceiptDelete",
      "when": "item.id && dbError",
      "text": "Error al actualizar la base de datos",
@@ -2697,21 +2754,21 @@
     },
     {
      "kind": "toast",
-     "line": 293,
+     "line": 394,
      "in": "handleReceiptDelete",
      "text": "Boleta eliminada",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 297,
+     "line": 398,
      "in": "handleReceiptDelete",
      "text": "Error al eliminar la boleta",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 310,
+     "line": 425,
      "in": "handleSaveReport",
      "when": "!reportForm.report_name.trim()",
      "text": "El nombre del reporte es obligatorio",
@@ -2719,7 +2776,7 @@
     },
     {
      "kind": "toast",
-     "line": 315,
+     "line": 430,
      "in": "handleSaveReport",
      "when": "!reportForm.start_date || !reportForm.end_date",
      "text": "Las fechas de inicio y fin son obligatorias",
@@ -2727,7 +2784,7 @@
     },
     {
      "kind": "toast",
-     "line": 320,
+     "line": 435,
      "in": "handleSaveReport",
      "when": "new Date(reportForm.start_date) > new Date(reportForm.end_date)",
      "text": "La fecha de inicio no puede ser posterior a la fecha de fin",
@@ -2735,7 +2792,15 @@
     },
     {
      "kind": "toast",
-     "line": 329,
+     "line": 443,
+     "in": "handleSaveReport",
+     "when": "problems.length > 0",
+     "text": "{problems.join(' ')}",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 449,
      "in": "handleSaveReport",
      "when": "validItems.length === 0",
      "text": "Debe agregar al menos un gasto válido",
@@ -2743,7 +2808,7 @@
     },
     {
      "kind": "toast",
-     "line": 390,
+     "line": 497,
      "in": "handleSaveReport",
      "when": "editingReport",
      "text": "Reporte actualizado exitosamente",
@@ -2751,7 +2816,7 @@
     },
     {
      "kind": "message",
-     "line": 395,
+     "line": 502,
      "in": "handleSaveReport",
      "when": "!(editingReport) && !user",
      "text": "Usuario no autenticado",
@@ -2759,7 +2824,7 @@
     },
     {
      "kind": "toast",
-     "line": 444,
+     "line": 551,
      "in": "handleSaveReport",
      "when": "!(editingReport)",
      "text": "Reporte creado exitosamente",
@@ -2767,34 +2832,34 @@
     },
     {
      "kind": "toast",
-     "line": 450,
+     "line": 557,
      "in": "handleSaveReport",
      "text": "Error al guardar el reporte:",
      "variant": "error"
     },
     {
      "kind": "heading",
-     "line": 459,
+     "line": 566,
      "in": "ExpenseReportForm",
      "text": "Editar Reporte de Gastos / Nuevo Reporte de Gastos",
      "level": 2
     },
     {
      "kind": "heading",
-     "line": 467,
+     "line": 574,
      "in": "ExpenseReportForm",
      "text": "Información del Reporte",
      "level": 3
     },
     {
      "kind": "label",
-     "line": 471,
+     "line": 578,
      "in": "ExpenseReportForm",
      "text": "Nombre del Reporte *"
     },
     {
      "kind": "field",
-     "line": 474,
+     "line": 581,
      "in": "ExpenseReportForm",
      "text": "Nombre del Reporte *",
      "type": "text",
@@ -2803,13 +2868,13 @@
     },
     {
      "kind": "label",
-     "line": 484,
+     "line": 591,
      "in": "ExpenseReportForm",
      "text": "Descripción"
     },
     {
      "kind": "field",
-     "line": 487,
+     "line": 594,
      "in": "ExpenseReportForm",
      "text": "Descripción",
      "type": "text",
@@ -2818,13 +2883,13 @@
     },
     {
      "kind": "label",
-     "line": 497,
+     "line": 604,
      "in": "ExpenseReportForm",
      "text": "Fecha de Inicio *"
     },
     {
      "kind": "field",
-     "line": 500,
+     "line": 607,
      "in": "ExpenseReportForm",
      "text": "Fecha de Inicio *",
      "type": "date",
@@ -2832,13 +2897,13 @@
     },
     {
      "kind": "label",
-     "line": 509,
+     "line": 616,
      "in": "ExpenseReportForm",
      "text": "Fecha de Fin *"
     },
     {
      "kind": "field",
-     "line": 512,
+     "line": 619,
      "in": "ExpenseReportForm",
      "text": "Fecha de Fin *",
      "type": "date",
@@ -2847,27 +2912,27 @@
     },
     {
      "kind": "heading",
-     "line": 526,
+     "line": 633,
      "in": "ExpenseReportForm",
      "text": "Gastos",
      "level": 3
     },
     {
      "kind": "button",
-     "line": 527,
+     "line": 634,
      "in": "ExpenseReportForm",
      "text": "Agregar Gasto",
      "action": "{addExpenseItem}"
     },
     {
      "kind": "text",
-     "line": 539,
+     "line": 646,
      "in": "ExpenseReportForm",
      "text": "Total del Reporte:"
     },
     {
      "kind": "heading",
-     "line": 547,
+     "line": 654,
      "in": "ExpenseReportForm",
      "when": "each expenseItems",
      "text": "Gasto {index + 1}",
@@ -2875,7 +2940,7 @@
     },
     {
      "kind": "button",
-     "line": 549,
+     "line": 656,
      "in": "ExpenseReportForm",
      "when": "each expenseItems && expenseItems.length > 1",
      "text": "[icon Trash2]",
@@ -2884,14 +2949,14 @@
     },
     {
      "kind": "label",
-     "line": 562,
+     "line": 669,
      "in": "ExpenseReportForm",
      "when": "each expenseItems",
      "text": "Categoría *"
     },
     {
      "kind": "field",
-     "line": 565,
+     "line": 672,
      "in": "ExpenseReportForm",
      "when": "each expenseItems",
      "text": "Categoría *",
@@ -2904,14 +2969,14 @@
     },
     {
      "kind": "label",
-     "line": 580,
+     "line": 687,
      "in": "ExpenseReportForm",
      "when": "each expenseItems",
      "text": "Descripción *"
     },
     {
      "kind": "field",
-     "line": 583,
+     "line": 690,
      "in": "ExpenseReportForm",
      "when": "each expenseItems",
      "text": "Descripción *",
@@ -2921,14 +2986,14 @@
     },
     {
      "kind": "label",
-     "line": 593,
+     "line": 700,
      "in": "ExpenseReportForm",
      "when": "each expenseItems",
      "text": "💰 Moneda *"
     },
     {
      "kind": "field",
-     "line": 596,
+     "line": 703,
      "in": "ExpenseReportForm",
      "when": "each expenseItems",
      "text": "💰 Moneda *",
@@ -2940,46 +3005,55 @@
     },
     {
      "kind": "label",
-     "line": 610,
+     "line": 717,
      "in": "ExpenseReportForm",
      "when": "each expenseItems",
      "text": "💵 Monto ( {item.currency} ) *"
     },
     {
      "kind": "field",
-     "line": 614,
+     "line": 721,
      "in": "ExpenseReportForm",
      "when": "each expenseItems",
      "text": "💵 Monto ( {item.currency} ) *",
-     "type": "number",
-     "placeholder": "0.00",
-     "limits": "min=0 step={(item.currency === 'CLP' || !item.currency) ? '1' : '0.01'}",
-     "action": "{(e) => { const value = parseFloat(e.target.value) || 0; if (item.currency === '…}"
+     "type": "text",
+     "placeholder": "{(item.currency === 'CLP' || !item.currency) ? '0' : '0,00'}",
+     "action": "{(e) => updateTypedAmount(index, e.target.value)}",
+     "hook": {
+      "testid": "expense-amount-input"
+     }
+    },
+    {
+     "kind": "value",
+     "line": 733,
+     "in": "ExpenseReportForm",
+     "when": "each expenseItems && item.amountText !== undefined && readTypedAmount(item.amountText, item.currency).problem",
+     "text": "{readTypedAmount(item.amountText, it…}"
     },
     {
      "kind": "text",
-     "line": 632,
+     "line": 737,
      "in": "ExpenseReportForm",
      "when": "each expenseItems && item.currency !== 'CLP' && item.conversion_rate && item.original_amount",
      "text": "CLP"
     },
     {
      "kind": "text",
-     "line": 633,
+     "line": 738,
      "in": "ExpenseReportForm",
      "when": "each expenseItems && item.currency !== 'CLP' && item.conversion_rate && item.original_amount",
      "text": "Tasa: {item.conversion_rate?.toFixed(2)}"
     },
     {
      "kind": "label",
-     "line": 640,
+     "line": 745,
      "in": "ExpenseReportForm",
      "when": "each expenseItems",
      "text": "Fecha del Gasto *"
     },
     {
      "kind": "field",
-     "line": 643,
+     "line": 748,
      "in": "ExpenseReportForm",
      "when": "each expenseItems",
      "text": "Fecha del Gasto *",
@@ -2988,14 +3062,14 @@
     },
     {
      "kind": "label",
-     "line": 652,
+     "line": 757,
      "in": "ExpenseReportForm",
      "when": "each expenseItems",
      "text": "Proveedor"
     },
     {
      "kind": "field",
-     "line": 655,
+     "line": 760,
      "in": "ExpenseReportForm",
      "when": "each expenseItems",
      "text": "Proveedor",
@@ -3005,14 +3079,14 @@
     },
     {
      "kind": "label",
-     "line": 665,
+     "line": 770,
      "in": "ExpenseReportForm",
      "when": "each expenseItems",
      "text": "Número de Factura/Boleta"
     },
     {
      "kind": "field",
-     "line": 668,
+     "line": 773,
      "in": "ExpenseReportForm",
      "when": "each expenseItems",
      "text": "Número de Factura/Boleta",
@@ -3022,28 +3096,28 @@
     },
     {
      "kind": "label",
-     "line": 681,
+     "line": 786,
      "in": "ExpenseReportForm",
      "when": "each expenseItems",
      "text": "📄 Boleta/Recibo"
     },
     {
      "kind": "text",
-     "line": 690,
+     "line": 795,
      "in": "ExpenseReportForm",
      "when": "each expenseItems && ((item.receipt_url || item.receipt_filename))",
      "text": "✅ {item.receipt_filename} / Archivo subido"
     },
     {
      "kind": "text",
-     "line": 693,
+     "line": 798,
      "in": "ExpenseReportForm",
      "when": "each expenseItems && ((item.receipt_url || item.receipt_filename))",
      "text": "Boleta subida correctamente"
     },
     {
      "kind": "button",
-     "line": 699,
+     "line": 804,
      "in": "ExpenseReportForm",
      "when": "each expenseItems && ((item.receipt_url || item.receipt_filename))",
      "text": "Ver Boleta",
@@ -3052,7 +3126,7 @@
     },
     {
      "kind": "nav",
-     "line": 717,
+     "line": 822,
      "in": "ExpenseReportForm",
      "when": "each expenseItems && ((item.receipt_url || item.receipt_filename)) && url",
      "text": "{url}",
@@ -3060,7 +3134,7 @@
     },
     {
      "kind": "toast",
-     "line": 719,
+     "line": 824,
      "in": "ExpenseReportForm",
      "when": "each expenseItems && ((item.receipt_url || item.receipt_filename)) && !(url)",
      "text": "No se pudo abrir la boleta",
@@ -3068,7 +3142,7 @@
     },
     {
      "kind": "toast",
-     "line": 723,
+     "line": 828,
      "in": "ExpenseReportForm",
      "when": "each expenseItems && ((item.receipt_url || item.receipt_filename))",
      "text": "Error al abrir la boleta",
@@ -3076,41 +3150,43 @@
     },
     {
      "kind": "button",
-     "line": 732,
+     "line": 837,
      "in": "ExpenseReportForm",
      "when": "each expenseItems && ((item.receipt_url || item.receipt_filename))",
      "text": "Eliminar",
      "action": "{() => handleReceiptDelete(index)}",
+     "disabled": "{deletingReceipts.has(item.rowKey)}",
      "title": "Eliminar y reemplazar"
     },
     {
      "kind": "label",
-     "line": 744,
+     "line": 850,
      "in": "ExpenseReportForm",
      "when": "each expenseItems && (!((item.receipt_url || item.receipt_filename)))",
      "text": "Subiendo archivo... / Hacer clic para subir boleta PDF, JPG, PNG (máx. 50MB)"
     },
     {
      "kind": "field",
-     "line": 745,
+     "line": 851,
      "in": "ExpenseReportForm",
      "when": "each expenseItems && (!((item.receipt_url || item.receipt_filename)))",
      "screen": "hidden",
      "text": "Subiendo archivo... / Hacer clic para subir boleta PDF, JPG, PNG (máx. 50MB)",
      "type": "file",
+     "disabled": "{uploadingReceipts.has(item.rowKey)}",
      "accept": ".pdf,.jpg,.jpeg,.png,.gif,.webp",
      "action": "{(e) => { const file = e.target.files?.[0]; if (file) handleReceiptUpload(index,…}"
     },
     {
      "kind": "label",
-     "line": 777,
+     "line": 884,
      "in": "ExpenseReportForm",
      "when": "each expenseItems",
      "text": "Notas"
     },
     {
      "kind": "field",
-     "line": 780,
+     "line": 887,
      "in": "ExpenseReportForm",
      "when": "each expenseItems",
      "text": "Notas",
@@ -3121,14 +3197,14 @@
     },
     {
      "kind": "button",
-     "line": 796,
+     "line": 903,
      "in": "ExpenseReportForm",
      "text": "Cancelar",
      "action": "{onCancel}"
     },
     {
      "kind": "button",
-     "line": 804,
+     "line": 911,
      "in": "ExpenseReportForm",
      "text": "Guardando... / Actualizar Reporte / Guardar Reporte",
      "action": "{handleSaveReport}",
@@ -3148,9 +3224,12 @@
      "ops": []
     },
     {
+     "what": "rpc:save_expense_report",
+     "ops": []
+    },
+    {
      "what": "table:expense_items",
      "ops": [
-      "delete",
       "insert",
       "update"
      ]
@@ -3159,8 +3238,7 @@
      "what": "table:expense_reports",
      "ops": [
       "insert",
-      "select",
-      "update"
+      "select"
      ]
     }
    ]
@@ -3897,11 +3975,11 @@
    "usedBy": [
     "/expense-reports"
    ],
-   "lines": 618,
+   "lines": 629,
    "rows": [
     {
      "kind": "list",
-     "line": 314,
+     "line": 325,
      "in": "exportToPDF",
      "text": "filename",
      "items": [
@@ -3910,14 +3988,14 @@
     },
     {
      "kind": "download",
-     "line": 315,
+     "line": 326,
      "in": "exportToPDF",
      "text": "doc.save()",
      "how": "save"
     },
     {
      "kind": "list",
-     "line": 323,
+     "line": 334,
      "in": "exportToExcel",
      "text": "summaryData",
      "items": [
@@ -3926,7 +4004,7 @@
       "Nombre del Reporte:",
       "Estado:",
       "Período:",
-      "{this.formatDate(report.star…} - {this.formatDate(report.end_…}",
+      "{this.formatDay(report.start…} - {this.formatDay(report.end_d…}",
       "Total:",
       "Descripción:",
       "Información del Solicitante",
@@ -3939,7 +4017,7 @@
     },
     {
      "kind": "list",
-     "line": 357,
+     "line": 368,
      "in": "exportToExcel",
      "when": "report.expense_items && report.expense_items.length > 0",
      "text": "itemsData",
@@ -3959,7 +4037,7 @@
     },
     {
      "kind": "list",
-     "line": 423,
+     "line": 434,
      "in": "exportToExcel",
      "when": "report.expense_items && report.expense_items.length > 0",
      "text": "categoryData",
@@ -3972,7 +4050,7 @@
     },
     {
      "kind": "list",
-     "line": 461,
+     "line": 472,
      "in": "exportToExcel",
      "text": "filename",
      "items": [
@@ -3981,14 +4059,14 @@
     },
     {
      "kind": "download",
-     "line": 462,
+     "line": 473,
      "in": "exportToExcel",
      "text": "XLSX.writeFile()",
      "how": "writeFile"
     },
     {
      "kind": "list",
-     "line": 556,
+     "line": 567,
      "in": "exportMultipleReportsToPDF",
      "text": "filename",
      "items": [
@@ -3997,14 +4075,14 @@
     },
     {
      "kind": "download",
-     "line": 557,
+     "line": 568,
      "in": "exportMultipleReportsToPDF",
      "text": "doc.save()",
      "how": "save"
     },
     {
      "kind": "list",
-     "line": 565,
+     "line": 576,
      "in": "exportMultipleReportsToExcel",
      "text": "summaryData",
      "items": [
@@ -4022,7 +4100,7 @@
     },
     {
      "kind": "list",
-     "line": 615,
+     "line": 626,
      "in": "exportMultipleReportsToExcel",
      "text": "filename",
      "items": [
@@ -4031,86 +4109,86 @@
     },
     {
      "kind": "download",
-     "line": 616,
+     "line": 627,
      "in": "exportMultipleReportsToExcel",
      "text": "XLSX.writeFile()",
      "how": "writeFile"
     },
     {
      "kind": "string",
-     "line": 119,
+     "line": 130,
      "in": "ExpenseReportExporter",
      "text": "Borrador"
     },
     {
      "kind": "string",
-     "line": 121,
+     "line": 132,
      "in": "ExpenseReportExporter",
      "text": "Aprobado"
     },
     {
      "kind": "string",
-     "line": 122,
+     "line": 133,
      "in": "ExpenseReportExporter",
      "text": "Rechazado"
     },
     {
      "kind": "string",
-     "line": 161,
+     "line": 172,
      "in": "ExpenseReportExporter",
      "text": "Información del Reporte"
     },
     {
      "kind": "string",
-     "line": 178,
+     "line": 189,
      "in": "ExpenseReportExporter",
      "text": "Enviado por: {report.profiles?.first_name} {report.profiles?.last_name}"
     },
     {
      "kind": "string",
-     "line": 182,
+     "line": 193,
      "in": "ExpenseReportExporter",
      "text": "Fecha de creación: {this.formatDate(report.crea…}"
     },
     {
      "kind": "string",
-     "line": 185,
+     "line": 196,
      "in": "ExpenseReportExporter",
      "text": "Fecha de envío: {this.formatDate(report.subm…}"
     },
     {
      "kind": "string",
-     "line": 196,
+     "line": 207,
      "in": "ExpenseReportExporter",
      "text": "Detalle de Gastos"
     },
     {
      "kind": "string",
-     "line": 201,
+     "line": 212,
      "in": "ExpenseReportExporter",
      "text": "Sin categoría"
     },
     {
      "kind": "string",
-     "line": 306,
+     "line": 317,
      "in": "ExpenseReportExporter",
      "text": "Página {i} de {pageCount} - Generado el {new Date().toLocaleString('…}"
     },
     {
      "kind": "string",
-     "line": 410,
+     "line": 421,
      "in": "ExpenseReportExporter",
      "text": "Gastos Detallados"
     },
     {
      "kind": "string",
-     "line": 457,
+     "line": 468,
      "in": "ExpenseReportExporter",
      "text": "Resumen Categorías"
     },
     {
      "kind": "list",
-     "line": 119,
+     "line": 130,
      "in": "getStatusText",
      "text": "getStatusText()",
      "items": [
@@ -4624,9 +4702,11 @@
     "__tests__/pages/admin/sessions/create-timezone.test.tsx",
     "__tests__/pages/admin/sessions/create-zoom-managed.test.tsx",
     "__tests__/pages/admin/sessions/create.clasico.test.tsx",
+    "__tests__/pages/admin/sessions/sessionCreateFakes.tsx",
     "components/admin/ConsultantRateManager.tsx",
     "hooks/useSessionCreate.ts",
-    "pages/admin/bulk-tag-sessions.tsx"
+    "pages/admin/bulk-tag-sessions.tsx",
+    "tests/e2e/look-sessions.spec.ts"
    ]
   }
  ]

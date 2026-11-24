@@ -1,7 +1,7 @@
 # Licitaciones (processes, templates, proposals)
 
 Area `10-licitaciones`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `02daebb57` (2026-11-25).
+Read from commit `297c129d4` (2026-11-25).
 
 11 screen files, 42 API files, 32 pieces.
 

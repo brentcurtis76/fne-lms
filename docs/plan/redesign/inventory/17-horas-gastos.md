@@ -1,7 +1,7 @@
 # Horas, tarifas y gastos
 
 Area `17-horas-gastos`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `02daebb57` (2026-11-25).
+Read from commit `297c129d4` (2026-11-25).
 
 4 screen files, 10 API files, 16 pieces.
 

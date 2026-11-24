@@ -113,7 +113,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const { data: cliente } = await serviceClient
       .from('clientes')
-      .select('ciudad, nombre_representante')
+      .select('ciudad, nombre_representante, nombre_legal')
       .eq('id', licitacion.cliente_id)
       .single();
 
@@ -140,6 +140,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         name: school.name,
         ciudad: cliente?.ciudad as string | null,
         director_nombre: cliente?.nombre_representante as string | null,
+        sostenedor_nombre_legal: cliente?.nombre_legal as string | null,
       },
       fechaEmision: today,
     });

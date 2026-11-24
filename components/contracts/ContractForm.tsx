@@ -205,6 +205,8 @@ export default function ContractForm({ programas, clientes, editingContract, pre
   
   // Client form
   const [selectedClienteId, setSelectedClienteId] = useState(preSelectedClientId || '');
+  // The chosen client's representative's RUT as read afresh from the database (F22e send-back 1)
+  const [freshRepRut, setFreshRepRut] = useState<{ clienteId: string; value: string | null | undefined; ok: boolean } | null>(null);
   const [schools, setSchools] = useState<School[]>([]);
   const [selectedSchoolId, setSelectedSchoolId] = useState<number | ''>('');
   const [showNewSchoolForm, setShowNewSchoolForm] = useState(false);
@@ -656,7 +658,15 @@ export default function ContractForm({ programas, clientes, editingContract, pre
   const repRutMissing = isNewClient && repRutTyped === '';
   const repRutFiller = repRutWritten && isFillerRut(repRutTyped) && !(editingContract && isFillerRut(storedRepRut));
   const repRutInvalid = repRutWritten && repRutTyped !== '' && !isFillerRut(repRutTyped) && !validateRut(repRutTyped);
-  const selectedClientHasFiller = clientReadOnly && isFillerRut(storedCliente?.rut_representante);
+  // The client list the page loaded can be stale (send-back 1): an existing client is
+  // refused only on its stored value read afresh (freshRepRut, below); a failed read refuses.
+  const listedRepRut = storedCliente?.rut_representante;
+  const freshForSelected = freshRepRut && freshRepRut.clienteId === selectedClienteId ? freshRepRut : null;
+  const selectedClientHasFiller = clientReadOnly && (
+    freshForSelected
+      ? !freshForSelected.ok || isFillerRut(freshForSelected.value !== undefined ? freshForSelected.value : listedRepRut)
+      : isFillerRut(listedRepRut)
+  );
   const repRutProblem = repRutMissing || repRutInvalid || repRutFiller || selectedClientHasFiller;
   const repRutMessage = () =>
     selectedClientHasFiller ? FILLER_CLIENT_CONTRACT_MESSAGE
@@ -673,12 +683,45 @@ export default function ContractForm({ programas, clientes, editingContract, pre
     if (error) throw error;
     return (data as { rut_representante?: string | null } | null)?.rut_representante;
   };
+  // Whether a client's stored representative's RUT is the filler. A real RUT the form
+  // holds needs no read; a held filler (or no held value) is decided on the value read
+  // afresh from the database, as the held one may be stale (send-back 1). A failed
+  // read counts as the filler: refused, nothing written.
+  const storedRepRutIsFiller = async (clienteId: string, held: string | null | undefined): Promise<boolean> => {
+    if (held !== undefined && !isFillerRut(held)) return false;
+    try {
+      const fresh = await readStoredRepRut(clienteId);
+      return isFillerRut(fresh !== undefined ? fresh : held);
+    } catch (readError) {
+      console.error('Error reading the client representative RUT:', readError);
+      return true;
+    }
+  };
   // Whether the existing client chosen for a new contract or draft still has the filler
   const selectedClientStoredFiller = async (): Promise<boolean> => {
     if (!clientReadOnly) return false;
-    const held = storedCliente?.rut_representante;
-    return isFillerRut(held !== undefined ? held : await readStoredRepRut(selectedClienteId));
+    return storedRepRutIsFiller(selectedClienteId, listedRepRut);
   };
+  // On choosing an existing client the list shows with the filler (or without the
+  // column), its stored value is read afresh before the client step refuses it.
+  useEffect(() => {
+    if (!clientReadOnly || !selectedClienteId) return;
+    if (listedRepRut !== undefined && !isFillerRut(listedRepRut)) return;
+    let cancelled = false;
+    const clienteId = selectedClienteId;
+    (async () => {
+      try {
+        const value = await readStoredRepRut(clienteId);
+        if (!cancelled) setFreshRepRut({ clienteId, value, ok: true });
+      } catch (readError) {
+        console.error('Error reading the client representative RUT:', readError);
+        if (!cancelled) setFreshRepRut({ clienteId, value: undefined, ok: false });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [clientReadOnly, selectedClienteId, listedRepRut]);
 
   // Handle client selection
   const handleClienteSelection = (clienteId: string) => {
@@ -1130,9 +1173,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
           return;
         }
         if (editingContract.estado === 'borrador') {
-          const held = editingContract.clientes?.rut_representante;
-          const stored = held !== undefined ? held : await readStoredRepRut(editingContract.cliente_id);
-          if (isFillerRut(stored)) {
+          if (await storedRepRutIsFiller(editingContract.cliente_id, editingContract.clientes?.rut_representante)) {
             toast.error(FILLER_CLIENT_CONTRACT_MESSAGE);
             return;
           }

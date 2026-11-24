@@ -5,6 +5,7 @@ import { useRouter } from 'next/router';
 
 import { generateContractFromTemplate } from '../../lib/contract-template';
 import { generateAnnexFromTemplate } from '../../lib/annex-template';
+import { downloadContractDocument } from '../../lib/contracts/open-contract';
 import Head from 'next/head';
 
 interface Contrato {
@@ -64,6 +65,7 @@ export default function ContractPrintPage() {
   const [loading, setLoading] = useState(true);
   const [upgradeStep, setUpgradeStep] = useState<'idle' | 'confirming' | 'saving'>('idle');
   const [upgradeError, setUpgradeError] = useState<string | null>(null);
+  const [originalError, setOriginalError] = useState<string | null>(null);
 
   useEffect(() => {
     if (id) {
@@ -172,14 +174,24 @@ export default function ContractPrintPage() {
             Este contrato fue importado desde un documento externo, por lo que no se genera una versión desde plantilla.
           </p>
           {contrato.contrato_url ? (
-            <a
-              href={contrato.contrato_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-block px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-            >
-              Descargar documento original
-            </a>
+            <>
+              {/* F26 (N146): downloaded through a five-minute link, never a stored address. */}
+              <button
+                type="button"
+                onClick={() => {
+                  setOriginalError(null);
+                  void downloadContractDocument(contrato.id, setOriginalError);
+                }}
+                className="inline-block px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              >
+                Descargar documento original
+              </button>
+              {originalError && (
+                <p role="alert" className="mt-3 text-sm text-red-600">
+                  {originalError}
+                </p>
+              )}
+            </>
           ) : (
             <p className="text-sm text-gray-500">
               No hay un documento original cargado. Use &quot;Subir contrato&quot; para adjuntarlo.

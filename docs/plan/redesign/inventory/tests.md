@@ -1,11 +1,11 @@
 # Screens and their tests
 
-Written by `scripts/redesign/inventory.mjs` from commit `6f507a060`. For phase 3 (the safety net). A browser test is counted for a screen when the test file names the screen's address; that is weaker than "the test checks the screen". CI runs 31 of 72 browser test files (`scripts/ci/e2e-mandatory.mjs`).
+Written by `scripts/redesign/inventory.mjs` from commit `c7e27398c`. For phase 3 (the safety net). A browser test is counted for a screen when the test file names the screen's address; that is weaker than "the test checks the screen". CI runs 32 of 73 browser test files (`scripts/ci/e2e-mandatory.mjs`).
 
 - 152 screens with an address.
-- 35 are named by a browser test that CI runs.
-- 52 are named only by tests CI skips, or have only unit tests.
-- 65 have no test at all.
+- 39 are named by a browser test that CI runs.
+- 49 are named only by tests CI skips, or have only unit tests.
+- 64 have no test at all.
 
 ## No test at all
 
@@ -34,7 +34,6 @@ Written by `scripts/redesign/inventory.mjs` from commit `6f507a060`. For phase 3
 | 05-tareas | `/community/workspace/assignments/[id]/groups` | `pages/community/workspace/assignments/[id]/groups.tsx` |
 | 06-sesiones | `/admin/bulk-tag-sessions` | `pages/admin/bulk-tag-sessions.tsx` |
 | 06-sesiones | `/admin/consultant-assignments` | `pages/admin/consultant-assignments.tsx` |
-| 06-sesiones | `/admin/sessions/[id]` | `pages/admin/sessions/[id].tsx` |
 | 06-sesiones | `/admin/sessions/approvals` | `pages/admin/sessions/approvals.tsx` |
 | 06-sesiones | `/admin/sessions` | `pages/admin/sessions/index.tsx` |
 | 06-sesiones | `/consultor/sessions/reports` | `pages/consultor/sessions/reports.tsx` |
@@ -91,9 +90,6 @@ Written by `scripts/redesign/inventory.mjs` from commit `6f507a060`. For phase 3
 | 05-tareas | `/assignments/[id]` | `e2e/assessment-frequency-validation.spec.ts`, `e2e/due-reminders.spec.ts` | — |
 | 05-tareas | `/quiz-reviews` | `e2e/urgent-anonymous-boundaries.spec.ts`, `e2e/urgent-anonymous-current.spec.ts` | — |
 | 05-tareas | `/quiz-reviews/[id]` | `e2e/urgent-anonymous-boundaries.spec.ts`, `e2e/urgent-anonymous-current.spec.ts` | — |
-| 06-sesiones | `/admin/sessions/create` | `e2e/reservation.spec.ts` | 4 |
-| 06-sesiones | `/consultor/sessions/[id]` | `e2e/notification-catalog-links.spec.ts`, `e2e/session-reminders.spec.ts` | 2 |
-| 06-sesiones | `/consultor/sessions` | — | 2 |
 | 06-sesiones | `/meet/diag` | — | 4 |
 | 07-espacio-colaborativo | `/admin/growth-communities/[id]/members` | — | 2 |
 | 07-espacio-colaborativo | `/admin/growth-communities` | — | 2 |
@@ -119,11 +115,11 @@ Written by `scripts/redesign/inventory.mjs` from commit `6f507a060`. For phase 3
 | 10-licitaciones | `/propuesta/[slug]` | `e2e/flows/proposal-buckets.spec.ts`, `e2e/flows/proposal-web-view.spec.ts` | — |
 | 11-gestion | `/admin/quotes` | — | 1 |
 | 11-gestion | `/contract-print/[id]` | — | 1 |
-| 11-gestion | `/contracts` | `e2e/urgent-anonymous-boundaries.spec.ts`, `e2e/urgent-anonymous-current.spec.ts` | 4 |
+| 11-gestion | `/contracts` | `e2e/urgent-anonymous-boundaries.spec.ts`, `e2e/urgent-anonymous-current.spec.ts` | 5 |
 | 14-personas | `/admin/school-users` | — | 1 |
 | 15-comunicacion | `/admin/news` | `e2e/urgent-anonymous-boundaries.spec.ts`, `e2e/urgent-anonymous-current.spec.ts` | — |
 | 16-notificaciones | `/notificaciones/baja` | `e2e/notification-unsubscribe.spec.ts` | — |
-| 17-horas-gastos | `/expense-reports` | — | 2 |
+| 17-horas-gastos | `/expense-reports` | — | 3 |
 | 18-qa | `/admin/qa/import` | `qa/auth-redirects.spec.ts`, `qa/qa-system.spec.ts` | — |
 | 18-qa | `/admin/qa` | `qa/auth-redirects.spec.ts`, `qa/qa-system.spec.ts` | — |
 | 18-qa | `/admin/qa/runs` | `qa/qa-system.spec.ts` | — |
@@ -138,13 +134,17 @@ Written by `scripts/redesign/inventory.mjs` from commit `6f507a060`. For phase 3
 
 | Area | Address | Tests |
 |---|---|---|
-| 01-acceso | `/login` | `e2e/auth-cookie-identity.spec.ts`, `e2e/auth-lifecycle.spec.ts`, `e2e/login-resilience.spec.ts`, `e2e/look-frame.spec.ts`, `e2e/look-kit.spec.ts`, `e2e/look-panel.spec.ts`, `e2e/look-switch.spec.ts`, `e2e/notification-preferences-api.spec.ts`, `e2e/notification-settings.spec.ts`, `e2e/pasantias-leads-admin.spec.ts`, `e2e/smoke.spec.ts` |
+| 01-acceso | `/login` | `e2e/auth-cookie-identity.spec.ts`, `e2e/auth-lifecycle.spec.ts`, `e2e/login-resilience.spec.ts`, `e2e/look-frame.spec.ts`, `e2e/look-kit.spec.ts`, `e2e/look-panel.spec.ts`, `e2e/look-sessions.spec.ts`, `e2e/look-switch.spec.ts`, `e2e/notification-preferences-api.spec.ts`, `e2e/notification-settings.spec.ts`, `e2e/pasantias-leads-admin.spec.ts`, `e2e/smoke.spec.ts` |
 | 01-acceso | `/reset-password` | `e2e/auth-lifecycle.spec.ts` |
 | 02-panel | `/dashboard` | `e2e/auth-lifecycle.spec.ts`, `e2e/ci-fixture.spec.ts`, `e2e/footer-heading-order.spec.ts`, `e2e/look-frame.spec.ts`, `e2e/look-panel.spec.ts`, `e2e/look-switch.spec.ts`, `e2e/notification-settings.spec.ts`, `e2e/pasantias-leads-admin.spec.ts` |
 | 03-aprendizaje | `/mi-aprendizaje/ruta/[id]` | `e2e/look-panel.spec.ts` |
 | 03-aprendizaje | `/mi-aprendizaje/tareas` | `e2e/look-frame.spec.ts` |
 | 03-aprendizaje | `/student/course/[courseId]` | `e2e/look-panel.spec.ts` |
 | 05-tareas | `/community/workspace/assignments/[id]/discussion` | `e2e/finance-messaging-access.spec.ts` |
+| 06-sesiones | `/admin/sessions/[id]` | `e2e/look-sessions.spec.ts` |
+| 06-sesiones | `/admin/sessions/create` | `e2e/look-sessions.spec.ts` |
+| 06-sesiones | `/consultor/sessions/[id]` | `e2e/look-sessions.spec.ts` |
+| 06-sesiones | `/consultor/sessions` | `e2e/look-sessions.spec.ts` |
 | 06-sesiones | `/meet/session/[id]` | `e2e/session-disclosure.spec.ts`, `e2e/session-ical.spec.ts`, `e2e/zoom-join-authz.spec.ts`, `e2e/zoom-managed-join.spec.ts` |
 | 07-espacio-colaborativo | `/community/workspace` | `e2e/auth-lifecycle.spec.ts`, `e2e/community-document-links.spec.ts`, `e2e/meeting-create-and-access.spec.ts` |
 | 07-espacio-colaborativo | `/user/[userId]` | `e2e/look-panel.spec.ts` |
@@ -161,7 +161,7 @@ Written by `scripts/redesign/inventory.mjs` from commit `6f507a060`. For phase 3
 | 14-personas | `/admin/tractor-signups` | `e2e/auth-lifecycle.spec.ts` |
 | 14-personas | `/admin/user-management` | `e2e/auth-lifecycle.spec.ts` |
 | 14-personas | `/profile` | `e2e/look-frame.spec.ts`, `e2e/look-panel.spec.ts`, `e2e/notification-settings.spec.ts` |
-| 16-notificaciones | `/configuracion/apariencia` | `e2e/look-frame.spec.ts`, `e2e/look-kit.spec.ts`, `e2e/look-panel.spec.ts`, `e2e/look-switch.spec.ts` |
+| 16-notificaciones | `/configuracion/apariencia` | `e2e/look-frame.spec.ts`, `e2e/look-kit.spec.ts`, `e2e/look-panel.spec.ts`, `e2e/look-sessions.spec.ts`, `e2e/look-switch.spec.ts` |
 | 16-notificaciones | `/configuracion` | `e2e/look-switch.spec.ts`, `e2e/notification-settings.spec.ts` |
 | 16-notificaciones | `/configuracion/notificaciones` | `e2e/look-kit.spec.ts`, `e2e/look-switch.spec.ts`, `e2e/notification-settings.spec.ts` |
 | 16-notificaciones | `/configuracion/piezas` | `e2e/look-kit.spec.ts` |

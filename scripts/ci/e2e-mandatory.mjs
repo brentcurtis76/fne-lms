@@ -138,6 +138,13 @@ export const MANDATORY_SPECS = [
   // community bar opens, «Mi Perfil» shows on a phone, «Diseño actual» brings today's panel back; no
   // footer link meets the feedback button at 1,024 px and 390 px.
   'tests/e2e/look-panel.spec.ts',
+  // REDESIGN 6S (release SB) — the new view of the three session screens: switched off, a tester who has
+  // not chosen it and a non-tester get today's screens; switched on, the list's tabs count the data and a
+  // row opens by Enter, the session page opened from the new list is drawn once with one request each,
+  // the form lists every failed check, Enter opens the confirmation, a school change empties what depends
+  // on it, a faked refusal of a half-chosen hours pair shows under the two selects, a faked failed
+  // approval shows the drafts notice and a real one lands where today's does; no sideways scroll at 320 px.
+  'tests/e2e/look-sessions.spec.ts',
 ];
 
 /** The JSON report nests suites; flatten to one entry per spec. */

@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "6f507a060b6706a92713ad8f8668b6386970cec7",
-  "date": "2026-11-19T20:11:06-03:00"
+  "commit": "c7e27398ca230dbbc3e581dcde19f92480491fcd",
+  "date": "2026-11-22T23:11:25-03:00"
  },
  "screens": [
   {
@@ -1213,12 +1213,14 @@
     ],
     "linkedFrom": [
      "hooks/useSessionCreate.ts:585",
-     "hooks/useSessionCreate.ts:703",
+     "hooks/useSessionCreate.ts:718",
      "pages/admin/sessions/index.tsx:314"
     ],
     "qaScenarios": {},
     "tests": {
-     "e2eCi": [],
+     "e2eCi": [
+      "tests/e2e/look-sessions.spec.ts"
+     ],
      "e2e": [],
      "unit": []
     }
@@ -3066,7 +3068,7 @@
   {
    "file": "pages/admin/sessions/create.tsx",
    "route": "/admin/sessions/create",
-   "lines": 48,
+   "lines": 90,
    "marks": {},
    "frame": "MainLayout",
    "server": "none",
@@ -3137,7 +3139,9 @@
      ]
     },
     "tests": {
-     "e2eCi": [],
+     "e2eCi": [
+      "tests/e2e/look-sessions.spec.ts"
+     ],
      "e2e": [
       "tests/e2e/reservation.spec.ts"
      ],
@@ -3145,14 +3149,57 @@
       "__tests__/pages/admin/sessions/create-earliest-date.test.tsx",
       "__tests__/pages/admin/sessions/create-timezone.test.tsx",
       "__tests__/pages/admin/sessions/create-zoom-managed.test.tsx",
-      "__tests__/pages/admin/sessions/create.clasico.test.tsx"
+      "__tests__/pages/admin/sessions/create.clasico.test.tsx",
+      "__tests__/pages/admin/sessions/create.nuevo.test.tsx",
+      "__tests__/pages/admin/sessions/create.sameForm.test.tsx"
      ]
     }
    },
    "rows": [
     {
+     "kind": "list",
+     "line": 10,
+     "text": "BREADCRUMBS_NUEVO",
+     "items": [
+      "Sesiones",
+      "Programar Sesión"
+     ]
+    },
+    {
+     "kind": "piece",
+     "line": 24,
+     "in": "SessionCreatePage",
+     "when": "loading && isNuevo",
+     "text": "",
+     "tag": "MainLayout"
+    },
+    {
+     "kind": "piece",
+     "line": 32,
+     "in": "SessionCreatePage",
+     "when": "loading && isNuevo",
+     "text": "",
+     "tag": "SessionCreateSkeleton"
+    },
+    {
+     "kind": "piece",
+     "line": 46,
+     "in": "SessionCreatePage",
+     "when": "!isAdmin && isNuevo",
+     "text": "",
+     "tag": "MainLayout"
+    },
+    {
+     "kind": "piece",
+     "line": 54,
+     "in": "SessionCreatePage",
+     "when": "!isAdmin && isNuevo",
+     "text": "",
+     "tag": "SessionCreateDenied"
+    },
+    {
      "kind": "heading",
-     "line": 23,
+     "line": 61,
      "in": "SessionCreatePage",
      "when": "!isAdmin",
      "text": "Acceso Denegado",
@@ -3160,22 +3207,31 @@
     },
     {
      "kind": "text",
-     "line": 24,
+     "line": 62,
      "in": "SessionCreatePage",
      "when": "!isAdmin",
      "text": "No tiene permisos para acceder a esta página."
     },
     {
      "kind": "piece",
-     "line": 34,
+     "line": 72,
      "in": "SessionCreatePage",
      "text": "",
      "tag": "MainLayout"
     },
     {
      "kind": "piece",
-     "line": 42,
+     "line": 81,
      "in": "SessionCreatePage",
+     "when": "isNuevo",
+     "text": "",
+     "tag": "SessionCreateNuevo"
+    },
+    {
+     "kind": "piece",
+     "line": 83,
+     "in": "SessionCreatePage",
+     "when": "!(isNuevo)",
      "text": "",
      "tag": "SessionCreateClasico"
     }
@@ -3184,6 +3240,25 @@
    "pieces": [
     "components/layout/FunctionalPageHeader.tsx",
     "components/sessions/SessionCreateClasico.tsx",
+    "components/sessions/SessionCreateNuevo.tsx",
+    "components/sessions/create-nuevo/ConsultantsNuevo.tsx",
+    "components/sessions/create-nuevo/HoursNuevo.tsx",
+    "components/sessions/create-nuevo/RecurrenceNuevo.tsx",
+    "components/sessions/create-nuevo/SectionNuevo.tsx",
+    "components/sessions/create-nuevo/SessionCreateStates.tsx",
+    "components/sessions/create-nuevo/SummaryNuevo.tsx",
+    "components/sessions/create-nuevo/createNuevoText.ts",
+    "components/sessions/create-nuevo/fieldRow.ts",
+    "components/sessions/sessionCreateChecks.ts",
+    "components/ui/kit/Button.tsx",
+    "components/ui/kit/Card.tsx",
+    "components/ui/kit/ConfirmDialog.tsx",
+    "components/ui/kit/Dialog.tsx",
+    "components/ui/kit/EmptyState.tsx",
+    "components/ui/kit/Field.tsx",
+    "components/ui/kit/Loading.tsx",
+    "components/ui/kit/Notice.tsx",
+    "components/ui/kit/PageHeader.tsx",
     "hooks/useSessionCreate.ts",
     "lib/utils/recurrence.ts",
     "lib/utils/session-timezone.ts",
@@ -3219,7 +3294,7 @@
      ],
      "from": [
       "hooks/useSessionCreate.ts:559",
-      "hooks/useSessionCreate.ts:650"
+      "hooks/useSessionCreate.ts:660"
      ]
     },
     {
@@ -3229,7 +3304,7 @@
       "POST"
      ],
      "from": [
-      "hooks/useSessionCreate.ts:689"
+      "hooks/useSessionCreate.ts:703"
      ]
     },
     {
@@ -3239,7 +3314,7 @@
       "POST"
      ],
      "from": [
-      "hooks/useSessionCreate.ts:668"
+      "hooks/useSessionCreate.ts:680"
      ]
     }
    ]
@@ -3330,8 +3405,10 @@
     ],
     "linkedFrom": [
      "components/layout/Sidebar.tsx:494",
+     "components/sessions/SessionCreateNuevo.tsx:534",
      "hooks/useSessionCreate.ts:582",
-     "hooks/useSessionCreate.ts:683"
+     "hooks/useSessionCreate.ts:696",
+     "pages/admin/sessions/create.tsx:10"
     ],
     "qaScenarios": {
      "admin": [
@@ -4342,7 +4419,7 @@
   {
    "file": "pages/consultor/sessions/[id].tsx",
    "route": "/consultor/sessions/[id]",
-   "lines": 111,
+   "lines": 170,
    "marks": {},
    "frame": "MainLayout",
    "server": "none",
@@ -4394,6 +4471,8 @@
     "inPage": [],
     "linkedFrom": [
      "components/dashboard/unified/UpcomingSessionsCard.tsx:77",
+     "components/sessions/SessionsListNuevo.tsx:101",
+     "components/sessions/SessionsListNuevo.tsx:102",
      "components/workspace/WorkspaceSessionsTab.tsx:264",
      "components/workspace/WorkspaceSessionsTab.tsx:268",
      "hooks/useSessionsList.ts:326",
@@ -4407,138 +4486,207 @@
      ]
     },
     "tests": {
-     "e2eCi": [],
+     "e2eCi": [
+      "tests/e2e/look-sessions.spec.ts"
+     ],
      "e2e": [
       "tests/e2e/notification-catalog-links.spec.ts",
       "tests/e2e/session-reminders.spec.ts"
      ],
      "unit": [
       "__tests__/pages/consultor/sessions/detail.clasico.test.tsx",
+      "__tests__/pages/consultor/sessions/detail.latch.test.tsx",
+      "__tests__/pages/consultor/sessions/detail.nuevo.test.tsx",
+      "__tests__/pages/consultor/sessions/detail.sameSession.test.tsx",
       "__tests__/pages/consultor/sessions/detail.test.tsx"
      ]
     }
    },
    "rows": [
     {
+     "kind": "list",
+     "line": 13,
+     "text": "CRUMBS_NUEVO",
+     "items": [
+      "Mi Trabajo",
+      "Mis Sesiones"
+     ]
+    },
+    {
      "kind": "piece",
-     "line": 28,
-     "in": "SessionDetailPage",
+     "line": 59,
+     "in": "SessionDetailScreen",
      "when": "loading",
      "text": "",
      "tag": "MainLayout"
     },
     {
      "kind": "text",
-     "line": 30,
-     "in": "SessionDetailPage",
+     "line": 61,
+     "in": "SessionDetailScreen",
      "when": "loading",
      "text": "Cargando..."
     },
     {
      "kind": "piece",
-     "line": 38,
-     "in": "SessionDetailPage",
+     "line": 69,
+     "in": "SessionDetailScreen",
      "when": "fetchError === 'forbidden'",
      "text": "",
      "tag": "MainLayout"
     },
     {
      "kind": "heading",
-     "line": 41,
-     "in": "SessionDetailPage",
+     "line": 72,
+     "in": "SessionDetailScreen",
      "when": "fetchError === 'forbidden'",
      "text": "Acceso denegado",
      "level": 2
     },
     {
      "kind": "text",
-     "line": 42,
-     "in": "SessionDetailPage",
+     "line": 73,
+     "in": "SessionDetailScreen",
      "when": "fetchError === 'forbidden'",
      "text": "No tiene permisos para ver esta sesión."
     },
     {
      "kind": "piece",
-     "line": 50,
-     "in": "SessionDetailPage",
+     "line": 81,
+     "in": "SessionDetailScreen",
      "when": "fetchError === 'not_found' || !session",
      "text": "",
      "tag": "MainLayout"
     },
     {
      "kind": "heading",
-     "line": 53,
-     "in": "SessionDetailPage",
+     "line": 84,
+     "in": "SessionDetailScreen",
      "when": "fetchError === 'not_found' || !session",
      "text": "Sesión no encontrada",
      "level": 2
     },
     {
      "kind": "text",
-     "line": 54,
-     "in": "SessionDetailPage",
+     "line": 85,
+     "in": "SessionDetailScreen",
      "when": "fetchError === 'not_found' || !session",
      "text": "La sesión solicitada no existe o fue eliminada."
     },
     {
      "kind": "piece",
-     "line": 64,
-     "in": "SessionDetailPage",
+     "line": 95,
+     "in": "SessionDetailScreen",
      "text": "",
      "tag": "MainLayout"
     },
     {
      "kind": "piece",
-     "line": 66,
-     "in": "SessionDetailPage",
+     "line": 98,
+     "in": "SessionDetailScreen",
+     "when": "picked === 'nuevo'",
+     "text": "",
+     "tag": "SessionDetailNuevo"
+    },
+    {
+     "kind": "piece",
+     "line": 100,
+     "in": "SessionDetailScreen",
+     "when": "!(picked === 'nuevo')",
      "text": "",
      "tag": "SessionDetailClasico"
     },
     {
      "kind": "popup",
-     "line": 70,
-     "in": "SessionDetailPage",
-     "when": "showFinalizeModal",
-     "text": "Finalizar Sesión",
-     "how": "written in this file"
-    },
-    {
-     "kind": "heading",
-     "line": 72,
-     "in": "SessionDetailPage",
-     "when": "showFinalizeModal",
-     "text": "Finalizar Sesión",
-     "level": 3
-    },
-    {
-     "kind": "text",
-     "line": 74,
-     "in": "SessionDetailPage",
-     "when": "showFinalizeModal",
-     "text": "¿Está seguro que desea finalizar esta sesión? Esta acción no se puede deshacer."
+     "line": 106,
+     "in": "SessionDetailScreen",
+     "when": "picked === 'nuevo'",
+     "text": "Dialog",
+     "how": "component",
+     "open": "{showFinalizeModal}",
+     "props": "title: Finalizar Sesión",
+     "hook": {
+      "testid": "session-finalize-dialog"
+     }
     },
     {
      "kind": "button",
-     "line": 77,
-     "in": "SessionDetailPage",
-     "when": "showFinalizeModal",
+     "line": 114,
+     "in": "SessionDetailScreen",
+     "when": "picked === 'nuevo'",
      "text": "Cancelar",
      "action": "{closeFinalize}",
      "disabled": "{finalizing}"
     },
     {
      "kind": "button",
-     "line": 84,
-     "in": "SessionDetailPage",
-     "when": "showFinalizeModal",
+     "line": 117,
+     "in": "SessionDetailScreen",
+     "when": "picked === 'nuevo'",
+     "text": "Finalizando... / Finalizar",
+     "action": "{handleFinalize}",
+     "disabled": "{finalizing}"
+    },
+    {
+     "kind": "piece",
+     "line": 118,
+     "in": "SessionDetailScreen",
+     "when": "picked === 'nuevo'",
+     "text": "aria-hidden: true",
+     "tag": "CheckCircle2"
+    },
+    {
+     "kind": "text",
+     "line": 124,
+     "in": "SessionDetailScreen",
+     "when": "picked === 'nuevo'",
+     "text": "¿Está seguro que desea finalizar esta sesión? Esta acción no se puede deshacer."
+    },
+    {
+     "kind": "popup",
+     "line": 128,
+     "in": "SessionDetailScreen",
+     "when": "!(picked === 'nuevo') && showFinalizeModal",
+     "text": "Finalizar Sesión",
+     "how": "written in this file"
+    },
+    {
+     "kind": "heading",
+     "line": 130,
+     "in": "SessionDetailScreen",
+     "when": "!(picked === 'nuevo') && showFinalizeModal",
+     "text": "Finalizar Sesión",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 132,
+     "in": "SessionDetailScreen",
+     "when": "!(picked === 'nuevo') && showFinalizeModal",
+     "text": "¿Está seguro que desea finalizar esta sesión? Esta acción no se puede deshacer."
+    },
+    {
+     "kind": "button",
+     "line": 135,
+     "in": "SessionDetailScreen",
+     "when": "!(picked === 'nuevo') && showFinalizeModal",
+     "text": "Cancelar",
+     "action": "{closeFinalize}",
+     "disabled": "{finalizing}"
+    },
+    {
+     "kind": "button",
+     "line": 142,
+     "in": "SessionDetailScreen",
+     "when": "!(picked === 'nuevo') && showFinalizeModal",
      "text": "Finalizando... / Finalizar",
      "action": "{handleFinalize}",
      "disabled": "{finalizing}"
     },
     {
      "kind": "popup",
-     "line": 98,
-     "in": "SessionDetailPage",
+     "line": 157,
+     "in": "SessionDetailScreen",
      "when": "showEditRequestModal && session",
      "text": "EditRequestModal",
      "how": "component"
@@ -4551,6 +4699,21 @@
     "components/sessions/AudioReportUploader.tsx",
     "components/sessions/EditRequestModal.tsx",
     "components/sessions/SessionDetailClasico.tsx",
+    "components/sessions/SessionDetailNuevo.tsx",
+    "components/sessions/detail-nuevo/ActivityNuevo.tsx",
+    "components/sessions/detail-nuevo/AttendanceNuevo.tsx",
+    "components/sessions/detail-nuevo/HeaderNuevo.tsx",
+    "components/sessions/detail-nuevo/MaterialsNuevo.tsx",
+    "components/sessions/detail-nuevo/ReportNuevo.tsx",
+    "components/sessions/sessionTextNuevo.ts",
+    "components/ui/kit/Button.tsx",
+    "components/ui/kit/Card.tsx",
+    "components/ui/kit/ConfirmDialog.tsx",
+    "components/ui/kit/Dialog.tsx",
+    "components/ui/kit/Field.tsx",
+    "components/ui/kit/Notice.tsx",
+    "components/ui/kit/Table.tsx",
+    "components/ui/kit/Tabs.tsx",
     "hooks/useSessionDetail.ts",
     "lib/services/audio-transcription.ts",
     "lib/utils/session-timezone.ts",
@@ -4607,7 +4770,7 @@
       "POST"
      ],
      "from": [
-      "hooks/useSessionDetail.ts:560"
+      "hooks/useSessionDetail.ts:568"
      ]
     },
     {
@@ -4617,7 +4780,7 @@
       "POST"
      ],
      "from": [
-      "hooks/useSessionDetail.ts:495"
+      "hooks/useSessionDetail.ts:503"
      ]
     },
     {
@@ -4625,7 +4788,8 @@
      "route": "/api/sessions/[id]/ical",
      "methods": [],
      "from": [
-      "components/sessions/SessionDetailClasico.tsx:714"
+      "components/sessions/SessionDetailClasico.tsx:714",
+      "components/sessions/detail-nuevo/HeaderNuevo.tsx:116"
      ]
     },
     {
@@ -4645,7 +4809,7 @@
       "DELETE"
      ],
      "from": [
-      "hooks/useSessionDetail.ts:462"
+      "hooks/useSessionDetail.ts:470"
      ]
     },
     {
@@ -4672,7 +4836,7 @@
   {
    "file": "pages/consultor/sessions/index.tsx",
    "route": "/consultor/sessions",
-   "lines": 31,
+   "lines": 45,
    "marks": {},
    "frame": "MainLayout",
    "server": "none",
@@ -4743,7 +4907,8 @@
      "lib/notificationEvents.ts:597",
      "lib/notificationEvents.ts:611",
      "lib/notifications/catalog.ts:182",
-     "lib/notifications/catalog.ts:230"
+     "lib/notifications/catalog.ts:230",
+     "pages/consultor/sessions/[id].tsx:13"
     ],
     "qaScenarios": {
      "consultor": [
@@ -4772,18 +4937,31 @@
      ]
     },
     "tests": {
-     "e2eCi": [],
+     "e2eCi": [
+      "tests/e2e/look-sessions.spec.ts"
+     ],
      "e2e": [],
      "unit": [
       "__tests__/pages/consultor/sessions/list.clasico.test.tsx",
+      "__tests__/pages/consultor/sessions/list.nuevo.test.tsx",
+      "__tests__/pages/consultor/sessions/list.sameList.test.tsx",
       "__tests__/pages/consultor/sessions/list.test.tsx"
      ]
     }
    },
    "rows": [
     {
+     "kind": "list",
+     "line": 9,
+     "text": "FRAME_NUEVO",
+     "items": [
+      "Mi Trabajo",
+      "Mis Sesiones"
+     ]
+    },
+    {
      "kind": "piece",
-     "line": 12,
+     "line": 22,
      "in": "ConsultorSessionsPage",
      "when": "loading",
      "text": "",
@@ -4791,22 +4969,31 @@
     },
     {
      "kind": "text",
-     "line": 14,
+     "line": 24,
      "in": "ConsultorSessionsPage",
      "when": "loading",
      "text": "Cargando..."
     },
     {
      "kind": "piece",
-     "line": 24,
+     "line": 34,
      "in": "ConsultorSessionsPage",
      "text": "",
      "tag": "MainLayout"
     },
     {
      "kind": "piece",
-     "line": 25,
+     "line": 36,
      "in": "ConsultorSessionsPage",
+     "when": "isNuevo",
+     "text": "",
+     "tag": "SessionsListNuevo"
+    },
+    {
+     "kind": "piece",
+     "line": 38,
+     "in": "ConsultorSessionsPage",
+     "when": "!(isNuevo)",
      "text": "",
      "tag": "SessionsListClasico"
     }
@@ -4815,10 +5002,18 @@
    "pieces": [
     "components/layout/FunctionalPageHeader.tsx",
     "components/sessions/SessionsListClasico.tsx",
+    "components/sessions/SessionsListNuevo.tsx",
+    "components/sessions/sessionTextNuevo.ts",
     "components/tutorials/HelpButton.tsx",
     "components/tutorials/HelpDrawer.tsx",
     "components/tutorials/VimeoEmbed.tsx",
     "components/ui/dialog.tsx",
+    "components/ui/kit/Badge.tsx",
+    "components/ui/kit/Button.tsx",
+    "components/ui/kit/Card.tsx",
+    "components/ui/kit/Field.tsx",
+    "components/ui/kit/PageHeader.tsx",
+    "components/ui/kit/Tabs.tsx",
     "hooks/useSessionsList.ts",
     "lib/tutorials/content.ts",
     "lib/utils/session-timezone.ts",
@@ -10583,6 +10778,695 @@
    ],
    "db": []
   },
+  "components/sessions/SessionCreateNuevo.tsx": {
+   "usedBy": [
+    "/admin/sessions/create"
+   ],
+   "lines": 591,
+   "rows": [
+    {
+     "kind": "gate",
+     "line": 149,
+     "in": "SessionCreateNuevo",
+     "text": "presses === 0"
+    },
+    {
+     "kind": "gate",
+     "line": 151,
+     "in": "SessionCreateNuevo",
+     "text": "!box"
+    },
+    {
+     "kind": "hook",
+     "line": 152,
+     "in": "SessionCreateNuevo",
+     "when": "typeof box.scrollIntoView === 'function'",
+     "text": "box.scrollIntoView()",
+     "type": "scroll"
+    },
+    {
+     "kind": "gate",
+     "line": 166,
+     "in": "SessionCreateNuevo",
+     "text": "!draftsLeft || !notice || typeof notice.scrollIntoView !== 'function'"
+    },
+    {
+     "kind": "hook",
+     "line": 167,
+     "in": "SessionCreateNuevo",
+     "text": "notice.scrollIntoView()",
+     "type": "scroll"
+    },
+    {
+     "kind": "list",
+     "line": 190,
+     "in": "onConfirm",
+     "text": "kind",
+     "items": [
+      "serie / una"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 204,
+     "in": "SessionCreateNuevo",
+     "text": "scheduleLabel",
+     "items": [
+      "Programar serie ({previewDates.length} sesiones) / Programar sesión"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 205,
+     "in": "SessionCreateNuevo",
+     "text": "draftLabel",
+     "items": [
+      "Guardar serie como borrador ({previewDates.length} sesiones) / Guardar borrador"
+     ]
+    },
+    {
+     "kind": "hook",
+     "line": 211,
+     "in": "SessionCreateNuevo",
+     "text": "testid=session-create-nuevo",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "piece",
+     "line": 213,
+     "in": "SessionCreateNuevo",
+     "text": "title: Programar Sesión · description: Crear una nueva sesión de consultoría para una comunidad de crecimiento",
+     "tag": "PageHeader"
+    },
+    {
+     "kind": "form",
+     "line": 219,
+     "in": "SessionCreateNuevo",
+     "text": "{onSubmit}",
+     "hook": {
+      "testid": "session-create-nuevo-form"
+     }
+    },
+    {
+     "kind": "hook",
+     "line": 226,
+     "in": "SessionCreateNuevo",
+     "screen": "sr-only",
+     "text": "id=create-session-form-title",
+     "type": "mark",
+     "tag": "span"
+    },
+    {
+     "kind": "text",
+     "line": 227,
+     "in": "SessionCreateNuevo",
+     "screen": "sr-only",
+     "text": "Programar Sesión"
+    },
+    {
+     "kind": "text",
+     "line": 230,
+     "in": "SessionCreateNuevo",
+     "text": "* Campos obligatorios"
+    },
+    {
+     "kind": "piece",
+     "line": 233,
+     "in": "SessionCreateNuevo",
+     "when": "failures.length > 0",
+     "text": "tone: error",
+     "tag": "Notice",
+     "hook": {
+      "testid": "session-create-nuevo-checks"
+     }
+    },
+    {
+     "kind": "link",
+     "line": 244,
+     "in": "SessionCreateNuevo",
+     "when": "failures.length > 0 && each placed",
+     "text": "{failure.message}",
+     "target": "#[*]",
+     "action": "{(e) => { e.preventDefault(); moveTo(failure.fieldId); }}"
+    },
+    {
+     "kind": "piece",
+     "line": 261,
+     "in": "SessionCreateNuevo",
+     "when": "draftsLeft",
+     "text": "tone: warning",
+     "tag": "Notice",
+     "hook": {
+      "testid": "session-create-nuevo-drafts-left"
+     }
+    },
+    {
+     "kind": "value",
+     "line": 261,
+     "in": "SessionCreateNuevo",
+     "when": "draftsLeft",
+     "text": "{DRAFTS_LEFT_TEXT[draftsLeft]}"
+    },
+    {
+     "kind": "piece",
+     "line": 267,
+     "in": "SessionCreateNuevo",
+     "text": "title: Colegio y consultores",
+     "tag": "SectionNuevo",
+     "hook": {
+      "id": "create-session-s1"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 269,
+     "in": "SessionCreateNuevo",
+     "text": "label: Colegio",
+     "tag": "Field"
+    },
+    {
+     "kind": "field",
+     "line": 270,
+     "in": "SessionCreateNuevo",
+     "text": "school_id",
+     "type": "select",
+     "name": "school_id",
+     "action": "{handleInputChange}"
+    },
+    {
+     "kind": "piece",
+     "line": 286,
+     "in": "SessionCreateNuevo",
+     "text": "label: Comunidad de Crecimiento",
+     "tag": "Field"
+    },
+    {
+     "kind": "field",
+     "line": 287,
+     "in": "SessionCreateNuevo",
+     "text": "growth_community_id",
+     "type": "select",
+     "name": "growth_community_id",
+     "disabled": "{communitySelectDisabled}",
+     "action": "{handleInputChange}"
+    },
+    {
+     "kind": "piece",
+     "line": 306,
+     "in": "SessionCreateNuevo",
+     "when": "showConsultants",
+     "text": "",
+     "tag": "ConsultantsNuevo"
+    },
+    {
+     "kind": "piece",
+     "line": 315,
+     "in": "SessionCreateNuevo",
+     "text": "title: Datos de la sesión",
+     "tag": "SectionNuevo",
+     "hook": {
+      "id": "create-session-s2"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 316,
+     "in": "SessionCreateNuevo",
+     "text": "label: Título de la Sesión",
+     "tag": "Field"
+    },
+    {
+     "kind": "field",
+     "line": 317,
+     "in": "SessionCreateNuevo",
+     "text": "Ej: Sesión de planificación trimestral",
+     "type": "text",
+     "name": "title",
+     "placeholder": "Ej: Sesión de planificación trimestral",
+     "limits": "maxLength={200}",
+     "action": "{handleInputChange}"
+    },
+    {
+     "kind": "piece",
+     "line": 329,
+     "in": "SessionCreateNuevo",
+     "text": "label: Descripción",
+     "tag": "Field"
+    },
+    {
+     "kind": "field",
+     "line": 330,
+     "in": "SessionCreateNuevo",
+     "text": "Descripción de la sesión...",
+     "type": "textarea",
+     "name": "description",
+     "placeholder": "Descripción de la sesión...",
+     "limits": "",
+     "action": "{handleInputChange}"
+    },
+    {
+     "kind": "piece",
+     "line": 338,
+     "in": "SessionCreateNuevo",
+     "text": "label: Objetivos",
+     "tag": "Field"
+    },
+    {
+     "kind": "field",
+     "line": 339,
+     "in": "SessionCreateNuevo",
+     "text": "Objetivos de la sesión...",
+     "type": "textarea",
+     "name": "objectives",
+     "placeholder": "Objetivos de la sesión...",
+     "limits": "",
+     "action": "{handleInputChange}"
+    },
+    {
+     "kind": "piece",
+     "line": 351,
+     "in": "SessionCreateNuevo",
+     "text": "title: Fecha y hora",
+     "tag": "SectionNuevo",
+     "hook": {
+      "id": "create-session-s3"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 353,
+     "in": "SessionCreateNuevo",
+     "text": "label: Fecha",
+     "tag": "Field"
+    },
+    {
+     "kind": "field",
+     "line": 354,
+     "in": "SessionCreateNuevo",
+     "text": "session_date",
+     "type": "date",
+     "name": "session_date",
+     "limits": "min={earliestDate}",
+     "action": "{handleInputChange}"
+    },
+    {
+     "kind": "piece",
+     "line": 364,
+     "in": "SessionCreateNuevo",
+     "text": "",
+     "tag": "Field"
+    },
+    {
+     "kind": "text",
+     "line": 367,
+     "in": "SessionCreateNuevo",
+     "text": "Hora de inicio"
+    },
+    {
+     "kind": "text",
+     "line": 367,
+     "in": "SessionCreateNuevo",
+     "text": "(hora Chile)"
+    },
+    {
+     "kind": "field",
+     "line": 374,
+     "in": "SessionCreateNuevo",
+     "text": "start_time",
+     "type": "time",
+     "name": "start_time",
+     "action": "{handleInputChange}"
+    },
+    {
+     "kind": "piece",
+     "line": 383,
+     "in": "SessionCreateNuevo",
+     "text": "",
+     "tag": "Field"
+    },
+    {
+     "kind": "text",
+     "line": 386,
+     "in": "SessionCreateNuevo",
+     "text": "Hora de término"
+    },
+    {
+     "kind": "text",
+     "line": 386,
+     "in": "SessionCreateNuevo",
+     "text": "(hora Chile)"
+    },
+    {
+     "kind": "field",
+     "line": 393,
+     "in": "SessionCreateNuevo",
+     "text": "end_time",
+     "type": "time",
+     "name": "end_time",
+     "action": "{handleInputChange}"
+    },
+    {
+     "kind": "hook",
+     "line": 405,
+     "in": "SessionCreateNuevo",
+     "when": "spainTimePreview",
+     "text": "testid=create-session-spain-preview",
+     "type": "mark",
+     "tag": "p"
+    },
+    {
+     "kind": "text",
+     "line": 406,
+     "in": "SessionCreateNuevo",
+     "when": "spainTimePreview",
+     "text": "En España:"
+    },
+    {
+     "kind": "value",
+     "line": 406,
+     "in": "SessionCreateNuevo",
+     "when": "spainTimePreview",
+     "text": "{spainTimePreview}"
+    },
+    {
+     "kind": "piece",
+     "line": 412,
+     "in": "SessionCreateNuevo",
+     "text": "title: Tipo de sesión",
+     "tag": "SectionNuevo",
+     "hook": {
+      "id": "create-session-s4",
+      "idUsed": true
+     }
+    },
+    {
+     "kind": "hook",
+     "line": 413,
+     "in": "SessionCreateNuevo",
+     "text": "role=radiogroup",
+     "type": "role",
+     "tag": "div"
+    },
+    {
+     "kind": "piece",
+     "line": 414,
+     "in": "SessionCreateNuevo",
+     "text": "label: Sesión única",
+     "tag": "Radio"
+    },
+    {
+     "kind": "piece",
+     "line": 415,
+     "in": "SessionCreateNuevo",
+     "text": "label: Serie recurrente",
+     "tag": "Radio"
+    },
+    {
+     "kind": "piece",
+     "line": 418,
+     "in": "SessionCreateNuevo",
+     "when": "showRecurrence",
+     "text": "",
+     "tag": "RecurrenceNuevo"
+    },
+    {
+     "kind": "piece",
+     "line": 428,
+     "in": "SessionCreateNuevo",
+     "text": "",
+     "tag": "SectionNuevo",
+     "hook": {
+      "id": "create-session-s5",
+      "idUsed": true
+     }
+    },
+    {
+     "kind": "text",
+     "line": 433,
+     "in": "SessionCreateNuevo",
+     "text": "Modalidad"
+    },
+    {
+     "kind": "hook",
+     "line": 440,
+     "in": "SessionCreateNuevo",
+     "text": "role=radiogroup",
+     "type": "role",
+     "tag": "div"
+    },
+    {
+     "kind": "piece",
+     "line": 442,
+     "in": "SessionCreateNuevo",
+     "when": "each (['presencial', 'online', 'hibrida'] as const)",
+     "text": "",
+     "tag": "Radio"
+    },
+    {
+     "kind": "field",
+     "line": 457,
+     "in": "SessionCreateNuevo",
+     "when": "showMeetingFields && zoomManagedAvailable",
+     "text": "is_zoom_managed",
+     "type": "checkbox",
+     "name": "is_zoom_managed",
+     "action": "{handleZoomManagedChange}",
+     "hook": {
+      "testid": "session-zoom-managed"
+     }
+    },
+    {
+     "kind": "hook",
+     "line": 465,
+     "in": "SessionCreateNuevo",
+     "when": "showMeetingFields && zoomManagedAvailable && showZoomManagedHelp()",
+     "text": "testid=session-zoom-managed-help",
+     "type": "mark",
+     "tag": "p"
+    },
+    {
+     "kind": "text",
+     "line": 466,
+     "in": "SessionCreateNuevo",
+     "when": "showMeetingFields && zoomManagedAvailable && showZoomManagedHelp()",
+     "text": "GENERA crea la reunión y su enlace cuando se apruebe la sesión."
+    },
+    {
+     "kind": "piece",
+     "line": 474,
+     "in": "SessionCreateNuevo",
+     "when": "showMeetingFields && showManualMeetingFields()",
+     "text": "label: Enlace de reunión",
+     "tag": "Field"
+    },
+    {
+     "kind": "field",
+     "line": 475,
+     "in": "SessionCreateNuevo",
+     "when": "showMeetingFields && showManualMeetingFields()",
+     "text": "https://zoom.us/j/123456789",
+     "type": "url",
+     "name": "meeting_link",
+     "placeholder": "https://zoom.us/j/123456789",
+     "action": "{handleInputChange}"
+    },
+    {
+     "kind": "piece",
+     "line": 485,
+     "in": "SessionCreateNuevo",
+     "when": "showMeetingFields && showManualMeetingFields()",
+     "text": "label: Proveedor de reunión",
+     "tag": "Field"
+    },
+    {
+     "kind": "field",
+     "line": 486,
+     "in": "SessionCreateNuevo",
+     "when": "showMeetingFields && showManualMeetingFields()",
+     "text": "meeting_provider",
+     "type": "select",
+     "name": "meeting_provider",
+     "action": "{handleInputChange}"
+    },
+    {
+     "kind": "piece",
+     "line": 500,
+     "in": "SessionCreateNuevo",
+     "when": "showLocation",
+     "text": "label: Ubicación",
+     "tag": "Field"
+    },
+    {
+     "kind": "field",
+     "line": 501,
+     "in": "SessionCreateNuevo",
+     "when": "showLocation",
+     "text": "Ej: Sala de profesores",
+     "type": "text",
+     "name": "location",
+     "placeholder": "Ej: Sala de profesores",
+     "action": "{handleInputChange}"
+    },
+    {
+     "kind": "piece",
+     "line": 515,
+     "in": "SessionCreateNuevo",
+     "text": "title: Horas y contrato",
+     "tag": "SectionNuevo",
+     "hook": {
+      "id": "create-session-s6"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 516,
+     "in": "SessionCreateNuevo",
+     "text": "",
+     "tag": "HoursNuevo"
+    },
+    {
+     "kind": "piece",
+     "line": 520,
+     "in": "SessionCreateNuevo",
+     "text": "",
+     "tag": "SummaryNuevo"
+    },
+    {
+     "kind": "button",
+     "line": 521,
+     "in": "SessionCreateNuevo",
+     "text": "{scheduleLabel}",
+     "submit": true,
+     "disabled": "{scheduleDisabled}"
+    },
+    {
+     "kind": "piece",
+     "line": 527,
+     "in": "SessionCreateNuevo",
+     "when": "!(submitting && working === 'schedule')",
+     "text": "aria-hidden: true",
+     "tag": "Send"
+    },
+    {
+     "kind": "button",
+     "line": 530,
+     "in": "SessionCreateNuevo",
+     "text": "{draftLabel}",
+     "action": "{onDraft}",
+     "disabled": "{draftDisabled}"
+    },
+    {
+     "kind": "piece",
+     "line": 531,
+     "in": "SessionCreateNuevo",
+     "when": "!(submitting && working === 'draft')",
+     "text": "aria-hidden: true",
+     "tag": "Save"
+    },
+    {
+     "kind": "button",
+     "line": 534,
+     "in": "SessionCreateNuevo",
+     "text": "Cancelar",
+     "disabled": "{submitting}"
+    },
+    {
+     "kind": "popup",
+     "line": 541,
+     "in": "SessionCreateNuevo",
+     "text": "ConfirmDialog",
+     "how": "component",
+     "open": "{confirmOpen}",
+     "props": "cancelLabel: Cancelar",
+     "hook": {
+      "testid": "session-create-nuevo-confirm"
+     }
+    },
+    {
+     "kind": "value",
+     "line": 546,
+     "in": "SessionCreateNuevo",
+     "text": "{question.body}"
+    },
+    {
+     "kind": "text",
+     "line": 548,
+     "in": "SessionCreateNuevo",
+     "text": "Colegio"
+    },
+    {
+     "kind": "value",
+     "line": 549,
+     "in": "SessionCreateNuevo",
+     "text": "{facts.schoolName}"
+    },
+    {
+     "kind": "text",
+     "line": 550,
+     "in": "SessionCreateNuevo",
+     "text": "Comunidad"
+    },
+    {
+     "kind": "value",
+     "line": 551,
+     "in": "SessionCreateNuevo",
+     "text": "{facts.communityName}"
+    },
+    {
+     "kind": "value",
+     "line": 552,
+     "in": "SessionCreateNuevo",
+     "text": "{facts.dateTerm}"
+    },
+    {
+     "kind": "value",
+     "line": 553,
+     "in": "SessionCreateNuevo",
+     "text": "{facts.dateText}"
+    },
+    {
+     "kind": "text",
+     "line": 554,
+     "in": "SessionCreateNuevo",
+     "text": "Horario"
+    },
+    {
+     "kind": "text",
+     "line": 556,
+     "in": "SessionCreateNuevo",
+     "text": "a"
+    },
+    {
+     "kind": "text",
+     "line": 556,
+     "in": "SessionCreateNuevo",
+     "text": "(hora Chile)"
+    },
+    {
+     "kind": "piece",
+     "line": 563,
+     "in": "SessionCreateNuevo",
+     "text": "aria-hidden: true",
+     "tag": "Send"
+    },
+    {
+     "kind": "hook",
+     "line": 587,
+     "in": "moveTo",
+     "when": "typeof field.scrollIntoView === 'function'",
+     "text": "field.scrollIntoView()",
+     "type": "scroll"
+    },
+    {
+     "kind": "string",
+     "line": 462,
+     "in": "SessionCreateNuevo",
+     "text": "Generar reunión Zoom"
+    }
+   ],
+   "db": []
+  },
   "components/sessions/SessionDetailClasico.tsx": {
    "usedBy": [
     "/consultor/sessions/[id]"
@@ -11445,6 +12329,262 @@
    ],
    "db": []
   },
+  "components/sessions/SessionDetailNuevo.tsx": {
+   "usedBy": [
+    "/consultor/sessions/[id]"
+   ],
+   "lines": 166,
+   "rows": [
+    {
+     "kind": "hook",
+     "line": 39,
+     "in": "SessionDetailNuevo",
+     "text": "querySelector([role=\"tab\"][aria-selected=\"true\"])",
+     "type": "lookup"
+    },
+    {
+     "kind": "heading",
+     "line": 55,
+     "in": "renderTabContent",
+     "when": "activeTab === 'details'",
+     "text": "Descripción",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 56,
+     "in": "renderTabContent",
+     "when": "activeTab === 'details'",
+     "text": "{session.description} / Sin descripción"
+    },
+    {
+     "kind": "heading",
+     "line": 59,
+     "in": "renderTabContent",
+     "when": "activeTab === 'details'",
+     "text": "Objetivos",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 60,
+     "in": "renderTabContent",
+     "when": "activeTab === 'details'",
+     "text": "{session.objectives} / Sin objetivos definidos"
+    },
+    {
+     "kind": "heading",
+     "line": 63,
+     "in": "renderTabContent",
+     "when": "activeTab === 'details'",
+     "text": "Facilitadores",
+     "level": 3
+    },
+    {
+     "kind": "piece",
+     "line": 67,
+     "in": "renderTabContent",
+     "when": "activeTab === 'details' && each session.facilitators",
+     "text": "aria-hidden: true",
+     "tag": "Users"
+    },
+    {
+     "kind": "value",
+     "line": 68,
+     "in": "renderTabContent",
+     "when": "activeTab === 'details' && each session.facilitators",
+     "text": "{f.profiles?.first_name} {f.profiles?.last_name}"
+    },
+    {
+     "kind": "piece",
+     "line": 72,
+     "in": "renderTabContent",
+     "when": "activeTab === 'details' && each session.facilitators && f.is_lead",
+     "text": "tone: accent",
+     "tag": "Badge"
+    },
+    {
+     "kind": "text",
+     "line": 73,
+     "in": "renderTabContent",
+     "when": "activeTab === 'details' && each session.facilitators && f.is_lead",
+     "text": "Líder"
+    },
+    {
+     "kind": "value",
+     "line": 76,
+     "in": "renderTabContent",
+     "when": "activeTab === 'details' && each session.facilitators",
+     "text": "( {f.facilitator_role.replace(/_/g, ' …} )"
+    },
+    {
+     "kind": "piece",
+     "line": 85,
+     "in": "renderTabContent",
+     "when": "activeTab === 'details'",
+     "text": "",
+     "tag": "AttendanceSuggestionsPanel"
+    },
+    {
+     "kind": "piece",
+     "line": 86,
+     "in": "renderTabContent",
+     "when": "activeTab === 'details'",
+     "text": "",
+     "tag": "AttendanceNuevo"
+    },
+    {
+     "kind": "piece",
+     "line": 95,
+     "in": "renderTabContent",
+     "when": "activeTab === 'planning'",
+     "text": "aria-hidden: true",
+     "tag": "PenLine"
+    },
+    {
+     "kind": "text",
+     "line": 96,
+     "in": "renderTabContent",
+     "when": "activeTab === 'planning'",
+     "text": "Notas de planificación disponibles próximamente"
+    },
+    {
+     "kind": "piece",
+     "line": 101,
+     "in": "renderTabContent",
+     "when": "activeTab === 'materials'",
+     "text": "",
+     "tag": "MaterialsNuevo"
+    },
+    {
+     "kind": "piece",
+     "line": 104,
+     "in": "renderTabContent",
+     "when": "activeTab === 'report'",
+     "text": "",
+     "tag": "ReportNuevo"
+    },
+    {
+     "kind": "piece",
+     "line": 109,
+     "in": "renderTabContent",
+     "when": "activeTab === 'communications'",
+     "text": "aria-hidden: true",
+     "tag": "MessageSquare"
+    },
+    {
+     "kind": "text",
+     "line": 110,
+     "in": "renderTabContent",
+     "when": "activeTab === 'communications'",
+     "text": "Comunicaciones disponibles próximamente"
+    },
+    {
+     "kind": "piece",
+     "line": 115,
+     "in": "renderTabContent",
+     "when": "activeTab === 'activity'",
+     "text": "",
+     "tag": "ActivityNuevo"
+    },
+    {
+     "kind": "hook",
+     "line": 123,
+     "in": "SessionDetailNuevo",
+     "text": "testid=session-detail-nuevo",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "piece",
+     "line": 125,
+     "in": "SessionDetailNuevo",
+     "when": "conflictVisible",
+     "text": "tone: error",
+     "tag": "Notice"
+    },
+    {
+     "kind": "text",
+     "line": 127,
+     "in": "SessionDetailNuevo",
+     "when": "conflictVisible",
+     "text": "Otra persona editó esta sesión mientras trabajabas en ella. Recarga para ver los últimos cambios."
+    },
+    {
+     "kind": "button",
+     "line": 128,
+     "in": "SessionDetailNuevo",
+     "when": "conflictVisible",
+     "text": "Recargar",
+     "action": "{reload}"
+    },
+    {
+     "kind": "piece",
+     "line": 136,
+     "in": "SessionDetailNuevo",
+     "when": "showReadOnlyBand",
+     "text": "tone: warning",
+     "tag": "Notice"
+    },
+    {
+     "kind": "text",
+     "line": 137,
+     "in": "SessionDetailNuevo",
+     "when": "showReadOnlyBand",
+     "text": "Está viendo esta sesión en modo lectura. No está asignado como facilitador."
+    },
+    {
+     "kind": "piece",
+     "line": 141,
+     "in": "SessionDetailNuevo",
+     "text": "",
+     "tag": "HeaderNuevo"
+    },
+    {
+     "kind": "piece",
+     "line": 143,
+     "in": "SessionDetailNuevo",
+     "text": "",
+     "tag": "Card"
+    },
+    {
+     "kind": "piece",
+     "line": 144,
+     "in": "SessionDetailNuevo",
+     "text": "",
+     "tag": "Tabs"
+    },
+    {
+     "kind": "piece",
+     "line": 146,
+     "in": "SessionDetailNuevo",
+     "text": "label: Secciones de la sesión",
+     "tag": "TabList",
+     "also": "onFocus={revealFocusedTab}"
+    },
+    {
+     "kind": "tab",
+     "line": 150,
+     "in": "SessionDetailNuevo",
+     "when": "each tabs",
+     "text": "{tab.label}"
+    },
+    {
+     "kind": "piece",
+     "line": 158,
+     "in": "SessionDetailNuevo",
+     "text": "",
+     "tag": "TabPanel"
+    },
+    {
+     "kind": "value",
+     "line": 158,
+     "in": "SessionDetailNuevo",
+     "text": "{renderTabContent()}"
+    }
+   ],
+   "db": []
+  },
   "components/sessions/SessionStartControl.tsx": {
    "usedBy": [
     "/admin/sessions/[id]"
@@ -11779,6 +12919,2975 @@
    ],
    "db": []
   },
+  "components/sessions/SessionsListNuevo.tsx": {
+   "usedBy": [
+    "/consultor/sessions"
+   ],
+   "lines": 388,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 65,
+     "in": "useOpeningTab",
+     "text": "opening",
+     "items": [
+      "otras / mias"
+     ]
+    },
+    {
+     "kind": "hook",
+     "line": 75,
+     "in": "useOpeningTab",
+     "text": "setTimeout(…, OPENING_WAIT_MS)",
+     "type": "timer"
+    },
+    {
+     "kind": "link",
+     "line": 101,
+     "in": "AgendaRow",
+     "text": "Hoy / {block.weekday} {block.day} {block.month} [{block.year}] {formatTime(session.start_time)} {session.title} [# {session.session_number}] {formatTime(session.start_time)} - {formatTime(session.end_time)} (Chile) {getModalityIcon(session…",
+     "target": "/consultor/sessions/[*]",
+     "action": "{(event) => { // A plain click goes where today's card goes, the same way (the r…}",
+     "aria": "{`Ver detalles de ${session.title}`}"
+    },
+    {
+     "kind": "gate",
+     "line": 107,
+     "in": "AgendaRow",
+     "text": "event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0"
+    },
+    {
+     "kind": "piece",
+     "line": 132,
+     "in": "AgendaRow",
+     "when": "seriesNumberShown(session)",
+     "screen": "sm:flex",
+     "text": "aria-hidden: true",
+     "tag": "Link2"
+    },
+    {
+     "kind": "piece",
+     "line": 139,
+     "in": "AgendaRow",
+     "screen": "sm:flex",
+     "text": "aria-hidden: true",
+     "tag": "Clock"
+    },
+    {
+     "kind": "piece",
+     "line": 154,
+     "in": "AgendaRow",
+     "when": "((session.schools || session.growth_communities)) && session.schools",
+     "screen": "sm:flex",
+     "text": "aria-hidden: true",
+     "tag": "MapPin"
+    },
+    {
+     "kind": "piece",
+     "line": 160,
+     "in": "AgendaRow",
+     "when": "((session.schools || session.growth_communities)) && session.growth_communities",
+     "screen": "sm:flex",
+     "text": "aria-hidden: true",
+     "tag": "Users"
+    },
+    {
+     "kind": "piece",
+     "line": 170,
+     "in": "AgendaRow",
+     "screen": "sm:flex",
+     "text": "",
+     "tag": "Badge"
+    },
+    {
+     "kind": "piece",
+     "line": 173,
+     "in": "AgendaRow",
+     "when": "ledger?.status",
+     "screen": "sm:flex",
+     "text": "",
+     "tag": "Badge"
+    },
+    {
+     "kind": "piece",
+     "line": 177,
+     "in": "AgendaRow",
+     "when": "ledger?.status && ledger.admin_override",
+     "screen": "sm:flex",
+     "text": "tone: neutral",
+     "tag": "Badge"
+    },
+    {
+     "kind": "value",
+     "line": 208,
+     "in": "Agenda",
+     "when": "rows.length === 0",
+     "text": "{empty}"
+    },
+    {
+     "kind": "heading",
+     "line": 215,
+     "in": "Agenda",
+     "when": "each agendaGroups(rows, today)",
+     "text": "{group.title} {group.rows.length}",
+     "level": 3,
+     "hook": {
+      "id": "{idPrefix}-{group.id}"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 219,
+     "in": "Agenda",
+     "when": "each agendaGroups(rows, today)",
+     "text": "",
+     "tag": "Card"
+    },
+    {
+     "kind": "hook",
+     "line": 259,
+     "in": "SessionsListNuevo",
+     "text": "testid=sessions-list-nuevo",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "piece",
+     "line": 260,
+     "in": "SessionsListNuevo",
+     "text": "title: Mis Sesiones · description: Vista de sesiones de consultoría asignadas",
+     "tag": "PageHeader"
+    },
+    {
+     "kind": "link",
+     "line": 267,
+     "in": "SessionsListNuevo",
+     "when": "showExportCalendar",
+     "text": "Exportar Calendario",
+     "target": "{icalHref()}",
+     "download": true
+    },
+    {
+     "kind": "download",
+     "line": 267,
+     "in": "SessionsListNuevo",
+     "when": "showExportCalendar",
+     "text": "<a download> Exportar Calendario",
+     "how": "link with download"
+    },
+    {
+     "kind": "piece",
+     "line": 268,
+     "in": "SessionsListNuevo",
+     "when": "showExportCalendar",
+     "text": "aria-hidden: true",
+     "tag": "CalendarPlus"
+    },
+    {
+     "kind": "piece",
+     "line": 272,
+     "in": "SessionsListNuevo",
+     "text": "sectionId: mis-sesiones",
+     "tag": "HelpButton"
+    },
+    {
+     "kind": "piece",
+     "line": 279,
+     "in": "SessionsListNuevo",
+     "text": "",
+     "tag": "Card"
+    },
+    {
+     "kind": "piece",
+     "line": 280,
+     "in": "SessionsListNuevo",
+     "text": "",
+     "tag": "CardBody"
+    },
+    {
+     "kind": "text",
+     "line": 281,
+     "in": "SessionsListNuevo",
+     "text": "Total Sesiones"
+    },
+    {
+     "kind": "value",
+     "line": 282,
+     "in": "SessionsListNuevo",
+     "text": "{totalSessions}"
+    },
+    {
+     "kind": "piece",
+     "line": 285,
+     "in": "SessionsListNuevo",
+     "text": "",
+     "tag": "Card"
+    },
+    {
+     "kind": "piece",
+     "line": 286,
+     "in": "SessionsListNuevo",
+     "text": "",
+     "tag": "CardBody"
+    },
+    {
+     "kind": "text",
+     "line": 287,
+     "in": "SessionsListNuevo",
+     "text": "Informes Pendientes"
+    },
+    {
+     "kind": "value",
+     "line": 288,
+     "in": "SessionsListNuevo",
+     "text": "{pendingReportsCount}"
+    },
+    {
+     "kind": "piece",
+     "line": 293,
+     "in": "SessionsListNuevo",
+     "text": "",
+     "tag": "Card"
+    },
+    {
+     "kind": "piece",
+     "line": 294,
+     "in": "SessionsListNuevo",
+     "text": "",
+     "tag": "CardBody"
+    },
+    {
+     "kind": "text",
+     "line": 295,
+     "in": "SessionsListNuevo",
+     "text": "Próxima Sesión"
+    },
+    {
+     "kind": "value",
+     "line": 296,
+     "in": "SessionsListNuevo",
+     "text": "{nextSessionCountdown}"
+    },
+    {
+     "kind": "piece",
+     "line": 302,
+     "in": "SessionsListNuevo",
+     "text": "",
+     "tag": "Card"
+    },
+    {
+     "kind": "piece",
+     "line": 303,
+     "in": "SessionsListNuevo",
+     "text": "",
+     "tag": "CardBody"
+    },
+    {
+     "kind": "heading",
+     "line": 304,
+     "in": "SessionsListNuevo",
+     "text": "Filtros",
+     "level": 2
+    },
+    {
+     "kind": "piece",
+     "line": 305,
+     "in": "SessionsListNuevo",
+     "text": "aria-hidden: true",
+     "tag": "FilterIcon"
+    },
+    {
+     "kind": "piece",
+     "line": 309,
+     "in": "SessionsListNuevo",
+     "text": "label: Filtrar por colegio",
+     "tag": "Field"
+    },
+    {
+     "kind": "field",
+     "line": 310,
+     "in": "SessionsListNuevo",
+     "text": "",
+     "type": "select",
+     "action": "{changeSchoolFilter}"
+    },
+    {
+     "kind": "piece",
+     "line": 319,
+     "in": "SessionsListNuevo",
+     "text": "label: Filtrar por estado",
+     "tag": "Field"
+    },
+    {
+     "kind": "field",
+     "line": 320,
+     "in": "SessionsListNuevo",
+     "text": "",
+     "type": "select",
+     "action": "{changeStatusFilter}"
+    },
+    {
+     "kind": "piece",
+     "line": 331,
+     "in": "SessionsListNuevo",
+     "text": "label: Fecha desde",
+     "tag": "Field"
+    },
+    {
+     "kind": "field",
+     "line": 332,
+     "in": "SessionsListNuevo",
+     "text": "",
+     "type": "date",
+     "action": "{changeDateFromFilter}"
+    },
+    {
+     "kind": "piece",
+     "line": 334,
+     "in": "SessionsListNuevo",
+     "text": "label: Fecha hasta",
+     "tag": "Field"
+    },
+    {
+     "kind": "field",
+     "line": 335,
+     "in": "SessionsListNuevo",
+     "text": "",
+     "type": "date",
+     "action": "{changeDateToFilter}"
+    },
+    {
+     "kind": "button",
+     "line": 337,
+     "in": "SessionsListNuevo",
+     "text": "Limpiar filtros",
+     "action": "{handleClearFilters}"
+    },
+    {
+     "kind": "piece",
+     "line": 338,
+     "in": "SessionsListNuevo",
+     "text": "aria-hidden: true",
+     "tag": "X"
+    },
+    {
+     "kind": "piece",
+     "line": 347,
+     "in": "SessionsListNuevo",
+     "text": "",
+     "tag": "Tabs"
+    },
+    {
+     "kind": "piece",
+     "line": 348,
+     "in": "SessionsListNuevo",
+     "text": "label: Listas de sesiones",
+     "tag": "TabList"
+    },
+    {
+     "kind": "tab",
+     "line": 349,
+     "in": "SessionsListNuevo",
+     "text": "Mis Sesiones"
+    },
+    {
+     "kind": "text",
+     "line": 350,
+     "in": "SessionsListNuevo",
+     "text": "Mis Sesiones"
+    },
+    {
+     "kind": "piece",
+     "line": 350,
+     "in": "SessionsListNuevo",
+     "text": "",
+     "tag": "Count"
+    },
+    {
+     "kind": "tab",
+     "line": 352,
+     "in": "SessionsListNuevo",
+     "text": "Otras Sesiones en Mis Colegios"
+    },
+    {
+     "kind": "text",
+     "line": 353,
+     "in": "SessionsListNuevo",
+     "text": "Otras Sesiones en Mis Colegios"
+    },
+    {
+     "kind": "piece",
+     "line": 353,
+     "in": "SessionsListNuevo",
+     "text": "",
+     "tag": "Count"
+    },
+    {
+     "kind": "piece",
+     "line": 356,
+     "in": "SessionsListNuevo",
+     "text": "",
+     "tag": "TabPanel"
+    },
+    {
+     "kind": "piece",
+     "line": 357,
+     "in": "SessionsListNuevo",
+     "text": "empty: No está asignado como facilitador en ninguna sesión · idPrefix: grupo-mias",
+     "tag": "Agenda"
+    },
+    {
+     "kind": "piece",
+     "line": 366,
+     "in": "SessionsListNuevo",
+     "text": "",
+     "tag": "TabPanel"
+    },
+    {
+     "kind": "piece",
+     "line": 367,
+     "in": "SessionsListNuevo",
+     "text": "empty: No hay otras sesiones en sus colegios asignados · idPrefix: grupo-otras",
+     "tag": "Agenda"
+    },
+    {
+     "kind": "button",
+     "line": 380,
+     "in": "SessionsListNuevo",
+     "when": "showLoadMore",
+     "text": "Cargar más",
+     "action": "{handleLoadMore}"
+    },
+    {
+     "kind": "string",
+     "line": 174,
+     "in": "AgendaRow",
+     "text": "Penalizada"
+    },
+    {
+     "kind": "string",
+     "line": 174,
+     "in": "AgendaRow",
+     "text": "Devuelta"
+    }
+   ],
+   "db": []
+  },
+  "components/sessions/create-nuevo/ConsultantsNuevo.tsx": {
+   "usedBy": [
+    "/admin/sessions/create"
+   ],
+   "lines": 195,
+   "rows": [
+    {
+     "kind": "hook",
+     "line": 55,
+     "in": "ConsultantsNuevo",
+     "text": "role=group",
+     "type": "role",
+     "tag": "div"
+    },
+    {
+     "kind": "hook",
+     "line": 63,
+     "in": "ConsultantsNuevo",
+     "text": "id={CREATE_FIELD_IDS.consultants}-label",
+     "type": "mark",
+     "tag": "span"
+    },
+    {
+     "kind": "text",
+     "line": 64,
+     "in": "ConsultantsNuevo",
+     "text": "Consultor(es) asignados"
+    },
+    {
+     "kind": "text",
+     "line": 69,
+     "in": "ConsultantsNuevo",
+     "text": "Debe asignar al menos un consultor antes de crear la sesión."
+    },
+    {
+     "kind": "piece",
+     "line": 72,
+     "in": "ConsultantsNuevo",
+     "when": "showConsultantsLoading()",
+     "text": "label: Cargando consultores...",
+     "tag": "Spinner"
+    },
+    {
+     "kind": "piece",
+     "line": 76,
+     "in": "ConsultantsNuevo",
+     "when": "showConsultantsError()",
+     "text": "tone: error",
+     "tag": "Notice"
+    },
+    {
+     "kind": "text",
+     "line": 79,
+     "in": "ConsultantsNuevo",
+     "when": "showConsultantsError()",
+     "text": "Error al cargar consultores"
+    },
+    {
+     "kind": "button",
+     "line": 83,
+     "in": "ConsultantsNuevo",
+     "when": "showConsultantsError()",
+     "text": "Reintentar",
+     "action": "{retryConsultants}"
+    },
+    {
+     "kind": "piece",
+     "line": 91,
+     "in": "ConsultantsNuevo",
+     "when": "showConsultantsEmpty()",
+     "text": "tone: warning",
+     "tag": "Notice"
+    },
+    {
+     "kind": "text",
+     "line": 92,
+     "in": "ConsultantsNuevo",
+     "when": "showConsultantsEmpty()",
+     "text": "No hay consultores disponibles para este colegio. Verifique que existan usuarios con rol activo de consultor."
+    },
+    {
+     "kind": "gate",
+     "line": 100,
+     "in": "ConsultantsNuevo",
+     "when": "showFacilitators() && each facilitators",
+     "text": "!consultant"
+    },
+    {
+     "kind": "value",
+     "line": 110,
+     "in": "ConsultantsNuevo",
+     "when": "showFacilitators() && each facilitators",
+     "text": "{consultant.first_name} {consultant.last_name}"
+    },
+    {
+     "kind": "value",
+     "line": 113,
+     "in": "ConsultantsNuevo",
+     "when": "showFacilitators() && each facilitators",
+     "text": "{consultant.email}"
+    },
+    {
+     "kind": "hook",
+     "line": 117,
+     "in": "ConsultantsNuevo",
+     "when": "showFacilitators() && each facilitators",
+     "text": "role=group",
+     "type": "role",
+     "tag": "span",
+     "aria": "{`Tipo de consultor de ${name}`}"
+    },
+    {
+     "kind": "button",
+     "line": 125,
+     "in": "ConsultantsNuevo",
+     "when": "showFacilitators() && each facilitators && each (['Externo', 'Interno'] as const)",
+     "text": "{option}",
+     "action": "{() => { if (!chosen) handleToggleRole(facilitator.user_id); }}"
+    },
+    {
+     "kind": "label",
+     "line": 143,
+     "in": "ConsultantsNuevo",
+     "when": "showFacilitators() && each facilitators",
+     "text": "Consultor principal"
+    },
+    {
+     "kind": "field",
+     "line": 144,
+     "in": "ConsultantsNuevo",
+     "when": "showFacilitators() && each facilitators",
+     "text": "Consultor principal",
+     "type": "radio",
+     "name": "create-session-lead",
+     "action": "{() => handleToggleLead(facilitator.user_id)}"
+    },
+    {
+     "kind": "button",
+     "line": 154,
+     "in": "ConsultantsNuevo",
+     "when": "showFacilitators() && each facilitators",
+     "text": "Quitar",
+     "action": "{() => handleRemoveFacilitator(facilitator.user_id)}",
+     "aria": "{`Quitar consultor ${consultant.first_name} ${consultant.last_name}`}"
+    },
+    {
+     "kind": "field",
+     "line": 170,
+     "in": "ConsultantsNuevo",
+     "when": "showConsultantSelector()",
+     "text": "",
+     "type": "select",
+     "disabled": "{consultantSelectorDisabled()}",
+     "action": "{handleConsultantSelect}"
+    },
+    {
+     "kind": "hook",
+     "line": 186,
+     "in": "ConsultantsNuevo",
+     "when": "messages.length > 0",
+     "text": "id={CREATE_FIELD_IDS.consultants}-error",
+     "type": "mark",
+     "tag": "span"
+    },
+    {
+     "kind": "piece",
+     "line": 188,
+     "in": "ConsultantsNuevo",
+     "when": "messages.length > 0 && each messages",
+     "text": "",
+     "tag": "FieldMessage"
+    },
+    {
+     "kind": "value",
+     "line": 188,
+     "in": "ConsultantsNuevo",
+     "when": "messages.length > 0 && each messages",
+     "text": "{message}"
+    },
+    {
+     "kind": "string",
+     "line": 122,
+     "in": "ConsultantsNuevo",
+     "text": "Externo"
+    },
+    {
+     "kind": "string",
+     "line": 122,
+     "in": "ConsultantsNuevo",
+     "text": "Interno"
+    }
+   ],
+   "db": []
+  },
+  "components/sessions/create-nuevo/HoursNuevo.tsx": {
+   "usedBy": [
+    "/admin/sessions/create"
+   ],
+   "lines": 139,
+   "rows": [
+    {
+     "kind": "piece",
+     "line": 50,
+     "in": "HoursNuevo",
+     "when": "showHourTypesLoading",
+     "text": "label: Cargando tipos de hora...",
+     "tag": "Spinner"
+    },
+    {
+     "kind": "piece",
+     "line": 52,
+     "in": "HoursNuevo",
+     "when": "showHourTypesError",
+     "text": "tone: warning",
+     "tag": "Notice"
+    },
+    {
+     "kind": "text",
+     "line": 53,
+     "in": "HoursNuevo",
+     "when": "showHourTypesError",
+     "text": "No se pudieron cargar los tipos de hora. La sesión puede crearse sin seguimiento de horas."
+    },
+    {
+     "kind": "text",
+     "line": 58,
+     "in": "HoursNuevo",
+     "when": "showHourTypeSelects",
+     "text": "Elija ambos para registrar las horas, o deje los dos vacíos."
+    },
+    {
+     "kind": "piece",
+     "line": 60,
+     "in": "HoursNuevo",
+     "when": "showHourTypeSelects",
+     "text": "label: Tipo de Hora",
+     "tag": "Field"
+    },
+    {
+     "kind": "field",
+     "line": 61,
+     "in": "HoursNuevo",
+     "when": "showHourTypeSelects",
+     "text": "",
+     "type": "select",
+     "action": "{handleHourTypeChange}",
+     "hook": {
+      "id": "hour-type-select"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 71,
+     "in": "HoursNuevo",
+     "when": "showHourTypeSelects",
+     "text": "label: Contrato · help: No hay contratos activos para este colegio.",
+     "tag": "Field"
+    },
+    {
+     "kind": "field",
+     "line": 76,
+     "in": "HoursNuevo",
+     "when": "showHourTypeSelects",
+     "text": "",
+     "type": "select",
+     "disabled": "{contratoSelectDisabled()}",
+     "action": "{handleContratoChange}",
+     "hook": {
+      "id": "contrato-select"
+     }
+    },
+    {
+     "kind": "hook",
+     "line": 93,
+     "in": "HoursNuevo",
+     "when": "showHourTypeSelects && pairRefusal",
+     "text": "testid=session-create-nuevo-pair-refusal id=hour-pair-refusal",
+     "type": "mark",
+     "tag": "p"
+    },
+    {
+     "kind": "piece",
+     "line": 98,
+     "in": "HoursNuevo",
+     "when": "showHourTypeSelects && pairRefusal",
+     "text": "aria-hidden: true",
+     "tag": "AlertCircle"
+    },
+    {
+     "kind": "hook",
+     "line": 106,
+     "in": "HoursNuevo",
+     "when": "showHoursChip",
+     "text": "testid=session-create-nuevo-hours",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "piece",
+     "line": 108,
+     "in": "HoursNuevo",
+     "when": "showHoursChip && availableHoursLoading",
+     "text": "tone: neutral",
+     "tag": "Notice"
+    },
+    {
+     "kind": "piece",
+     "line": 108,
+     "in": "HoursNuevo",
+     "when": "showHoursChip && availableHoursLoading",
+     "text": "",
+     "tag": "Spinner"
+    },
+    {
+     "kind": "text",
+     "line": 109,
+     "in": "HoursNuevo",
+     "when": "showHoursChip && availableHoursLoading",
+     "text": "Cargando horas disponibles..."
+    },
+    {
+     "kind": "piece",
+     "line": 116,
+     "in": "HoursNuevo",
+     "when": "showHoursChip && !(availableHoursLoading) && hasHoursBucket() && isExhausted",
+     "text": "tone: error",
+     "tag": "Notice"
+    },
+    {
+     "kind": "text",
+     "line": 116,
+     "in": "HoursNuevo",
+     "when": "showHoursChip && !(availableHoursLoading) && hasHoursBucket() && isExhausted",
+     "text": "Sin horas disponibles en este tipo (se registrará como sobrepresupuesto)"
+    },
+    {
+     "kind": "piece",
+     "line": 120,
+     "in": "HoursNuevo",
+     "when": "showHoursChip && !(availableHoursLoading) && hasHoursBucket() && isWarning",
+     "text": "tone: warning",
+     "tag": "Notice"
+    },
+    {
+     "kind": "value",
+     "line": 121,
+     "in": "HoursNuevo",
+     "when": "showHoursChip && !(availableHoursLoading) && hasHoursBucket() && isWarning",
+     "text": "{decimalComma(hours)}"
+    },
+    {
+     "kind": "text",
+     "line": 121,
+     "in": "HoursNuevo",
+     "when": "showHoursChip && !(availableHoursLoading) && hasHoursBucket() && isWarning",
+     "text": "horas disponibles en este tipo — ¡Quedan menos del 25%!"
+    },
+    {
+     "kind": "piece",
+     "line": 126,
+     "in": "HoursNuevo",
+     "when": "showHoursChip && !(availableHoursLoading) && hasHoursBucket()",
+     "text": "tone: success",
+     "tag": "Notice"
+    },
+    {
+     "kind": "value",
+     "line": 127,
+     "in": "HoursNuevo",
+     "when": "showHoursChip && !(availableHoursLoading) && hasHoursBucket()",
+     "text": "{decimalComma(hours)}"
+    },
+    {
+     "kind": "text",
+     "line": 127,
+     "in": "HoursNuevo",
+     "when": "showHoursChip && !(availableHoursLoading) && hasHoursBucket()",
+     "text": "horas disponibles en este tipo"
+    },
+    {
+     "kind": "piece",
+     "line": 132,
+     "in": "HoursNuevo",
+     "when": "showHoursChip && !(availableHoursLoading) && !(hasHoursBucket())",
+     "text": "tone: warning",
+     "tag": "Notice"
+    },
+    {
+     "kind": "text",
+     "line": 132,
+     "in": "HoursNuevo",
+     "when": "showHoursChip && !(availableHoursLoading) && !(hasHoursBucket())",
+     "text": "No hay asignación de horas para este tipo en el contrato seleccionado"
+    }
+   ],
+   "db": []
+  },
+  "components/sessions/create-nuevo/RecurrenceNuevo.tsx": {
+   "usedBy": [
+    "/admin/sessions/create"
+   ],
+   "lines": 153,
+   "rows": [
+    {
+     "kind": "hook",
+     "line": 44,
+     "in": "RecurrenceNuevo",
+     "text": "testid=session-create-nuevo-recurrence",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "heading",
+     "line": 48,
+     "in": "RecurrenceNuevo",
+     "text": "Configuración de recurrencia",
+     "level": 3
+    },
+    {
+     "kind": "piece",
+     "line": 51,
+     "in": "RecurrenceNuevo",
+     "text": "label: Frecuencia · controlId: create-session-frequency",
+     "tag": "Field"
+    },
+    {
+     "kind": "field",
+     "line": 52,
+     "in": "RecurrenceNuevo",
+     "text": "",
+     "type": "select",
+     "action": "{handleFrequencyChange}"
+    },
+    {
+     "kind": "piece",
+     "line": 61,
+     "in": "RecurrenceNuevo",
+     "when": "showRecurrenceCount()",
+     "text": "label: Número de sesiones (2-52)",
+     "tag": "Field"
+    },
+    {
+     "kind": "field",
+     "line": 62,
+     "in": "RecurrenceNuevo",
+     "when": "showRecurrenceCount()",
+     "text": "",
+     "type": "number",
+     "limits": "min={2} max={52}",
+     "action": "{handleCountChange}"
+    },
+    {
+     "kind": "hook",
+     "line": 76,
+     "in": "RecurrenceNuevo",
+     "when": "showCustomDates()",
+     "text": "role=group",
+     "type": "role",
+     "tag": "div"
+    },
+    {
+     "kind": "hook",
+     "line": 77,
+     "in": "RecurrenceNuevo",
+     "when": "showCustomDates()",
+     "text": "id=create-session-custom-dates-label",
+     "type": "mark",
+     "tag": "span"
+    },
+    {
+     "kind": "text",
+     "line": 78,
+     "in": "RecurrenceNuevo",
+     "when": "showCustomDates()",
+     "text": "Fechas personalizadas"
+    },
+    {
+     "kind": "field",
+     "line": 83,
+     "in": "RecurrenceNuevo",
+     "when": "showCustomDates() && each customDates",
+     "text": "{`Fecha ${index + 1}`}",
+     "type": "date",
+     "aria": "{`Fecha ${index + 1}`}",
+     "limits": "min={customDateEarliest[index]}",
+     "action": "{(e) => handleCustomDateInput(index, e)}"
+    },
+    {
+     "kind": "button",
+     "line": 95,
+     "in": "RecurrenceNuevo",
+     "when": "showCustomDates() && each customDates && canRemoveCustomDate()",
+     "text": "[icon X]",
+     "action": "{() => handleRemoveCustomDate(index)}",
+     "aria": "Eliminar fecha"
+    },
+    {
+     "kind": "piece",
+     "line": 102,
+     "in": "RecurrenceNuevo",
+     "when": "showCustomDates() && each customDates && canRemoveCustomDate()",
+     "text": "aria-hidden: true",
+     "tag": "X"
+    },
+    {
+     "kind": "button",
+     "line": 109,
+     "in": "RecurrenceNuevo",
+     "when": "showCustomDates()",
+     "text": "Agregar fecha",
+     "action": "{handleAddCustomDate}"
+    },
+    {
+     "kind": "piece",
+     "line": 110,
+     "in": "RecurrenceNuevo",
+     "when": "showCustomDates()",
+     "text": "aria-hidden: true",
+     "tag": "Plus"
+    },
+    {
+     "kind": "piece",
+     "line": 114,
+     "in": "RecurrenceNuevo",
+     "when": "showCustomDates() && customDatesMessage",
+     "text": "",
+     "tag": "FieldMessage",
+     "hook": {
+      "id": "create-session-custom-dates-error"
+     }
+    },
+    {
+     "kind": "value",
+     "line": 114,
+     "in": "RecurrenceNuevo",
+     "when": "showCustomDates() && customDatesMessage",
+     "text": "{customDatesMessage}"
+    },
+    {
+     "kind": "heading",
+     "line": 120,
+     "in": "RecurrenceNuevo",
+     "when": "showPreview()",
+     "text": "Vista previa ( {previewDates.length} sesiones)",
+     "level": 4
+    },
+    {
+     "kind": "text",
+     "line": 136,
+     "in": "RecurrenceNuevo",
+     "when": "showPreview() && each previewDates",
+     "text": "Sesión {index + 1}"
+    },
+    {
+     "kind": "value",
+     "line": 137,
+     "in": "RecurrenceNuevo",
+     "when": "showPreview() && each previewDates",
+     "text": "{format(parsedDate, 'EEEE, dd MMMM y…}"
+    },
+    {
+     "kind": "piece",
+     "line": 140,
+     "in": "RecurrenceNuevo",
+     "when": "showPreview() && each previewDates && isWeekend",
+     "text": "aria-hidden: true",
+     "tag": "AlertTriangle"
+    },
+    {
+     "kind": "text",
+     "line": 141,
+     "in": "RecurrenceNuevo",
+     "when": "showPreview() && each previewDates && isWeekend",
+     "text": "Fin de semana"
+    }
+   ],
+   "db": []
+  },
+  "components/sessions/create-nuevo/SectionNuevo.tsx": {
+   "usedBy": [
+    "/admin/sessions/create"
+   ],
+   "lines": 53,
+   "rows": [
+    {
+     "kind": "piece",
+     "line": 27,
+     "in": "SectionNuevo",
+     "text": "",
+     "tag": "Card",
+     "hook": {
+      "testid": "{testId}"
+     }
+    },
+    {
+     "kind": "heading",
+     "line": 29,
+     "in": "SectionNuevo",
+     "text": "{n} {title}",
+     "level": 2
+    },
+    {
+     "kind": "piece",
+     "line": 48,
+     "in": "FieldMessage",
+     "text": "aria-hidden: true",
+     "tag": "AlertCircle"
+    },
+    {
+     "kind": "value",
+     "line": 49,
+     "in": "FieldMessage",
+     "text": "{children}"
+    }
+   ],
+   "db": []
+  },
+  "components/sessions/create-nuevo/SessionCreateStates.tsx": {
+   "usedBy": [
+    "/admin/sessions/create"
+   ],
+   "lines": 51,
+   "rows": [
+    {
+     "kind": "hook",
+     "line": 11,
+     "in": "SessionCreateSkeleton",
+     "text": "role=status",
+     "type": "role",
+     "tag": "div"
+    },
+    {
+     "kind": "hook",
+     "line": 11,
+     "in": "SessionCreateSkeleton",
+     "text": "testid=session-create-nuevo-loading",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "text",
+     "line": 12,
+     "in": "SessionCreateSkeleton",
+     "screen": "sr-only",
+     "text": "Cargando..."
+    },
+    {
+     "kind": "piece",
+     "line": 15,
+     "in": "SessionCreateSkeleton",
+     "text": "",
+     "tag": "Skeleton"
+    },
+    {
+     "kind": "piece",
+     "line": 17,
+     "in": "SessionCreateSkeleton",
+     "when": "each [1, 2, 3]",
+     "text": "",
+     "tag": "Card"
+    },
+    {
+     "kind": "piece",
+     "line": 18,
+     "in": "SessionCreateSkeleton",
+     "when": "each [1, 2, 3]",
+     "text": "",
+     "tag": "Skeleton"
+    },
+    {
+     "kind": "piece",
+     "line": 19,
+     "in": "SessionCreateSkeleton",
+     "when": "each [1, 2, 3]",
+     "text": "",
+     "tag": "Skeleton"
+    },
+    {
+     "kind": "piece",
+     "line": 20,
+     "in": "SessionCreateSkeleton",
+     "when": "each [1, 2, 3]",
+     "text": "",
+     "tag": "Skeleton"
+    },
+    {
+     "kind": "piece",
+     "line": 24,
+     "in": "SessionCreateSkeleton",
+     "text": "",
+     "tag": "Card"
+    },
+    {
+     "kind": "piece",
+     "line": 25,
+     "in": "SessionCreateSkeleton",
+     "text": "",
+     "tag": "Skeleton"
+    },
+    {
+     "kind": "piece",
+     "line": 26,
+     "in": "SessionCreateSkeleton",
+     "text": "",
+     "tag": "Skeleton"
+    },
+    {
+     "kind": "piece",
+     "line": 27,
+     "in": "SessionCreateSkeleton",
+     "text": "",
+     "tag": "Skeleton"
+    },
+    {
+     "kind": "hook",
+     "line": 40,
+     "in": "SessionCreateDenied",
+     "text": "testid=session-create-nuevo-denied",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "piece",
+     "line": 41,
+     "in": "SessionCreateDenied",
+     "text": "",
+     "tag": "Card"
+    },
+    {
+     "kind": "piece",
+     "line": 42,
+     "in": "SessionCreateDenied",
+     "text": "title: Acceso Denegado · description: No tiene permisos para acceder a esta página.",
+     "tag": "EmptyState"
+    }
+   ],
+   "db": []
+  },
+  "components/sessions/create-nuevo/SummaryNuevo.tsx": {
+   "usedBy": [
+    "/admin/sessions/create"
+   ],
+   "lines": 152,
+   "rows": [
+    {
+     "kind": "piece",
+     "line": 60,
+     "in": "SummaryNuevo",
+     "text": "",
+     "tag": "Card",
+     "hook": {
+      "testid": "session-create-nuevo-summary"
+     }
+    },
+    {
+     "kind": "heading",
+     "line": 66,
+     "in": "SummaryNuevo",
+     "text": "Resumen",
+     "level": 2,
+     "hook": {
+      "id": "create-session-summary-title",
+      "idUsed": true
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 70,
+     "in": "SummaryNuevo",
+     "when": "showSeriesCountInButtons()",
+     "text": "tone: neutral",
+     "tag": "Badge"
+    },
+    {
+     "kind": "text",
+     "line": 71,
+     "in": "SummaryNuevo",
+     "when": "showSeriesCountInButtons()",
+     "text": "Serie recurrente"
+    },
+    {
+     "kind": "text",
+     "line": 77,
+     "in": "SummaryNuevo",
+     "text": "Colegio"
+    },
+    {
+     "kind": "value",
+     "line": 78,
+     "in": "SummaryNuevo",
+     "text": "{facts.schoolName} / —"
+    },
+    {
+     "kind": "text",
+     "line": 79,
+     "in": "SummaryNuevo",
+     "text": "Comunidad"
+    },
+    {
+     "kind": "value",
+     "line": 80,
+     "in": "SummaryNuevo",
+     "text": "{facts.communityName} / —"
+    },
+    {
+     "kind": "text",
+     "line": 81,
+     "in": "SummaryNuevo",
+     "text": "Consultores"
+    },
+    {
+     "kind": "gate",
+     "line": 87,
+     "in": "SummaryNuevo",
+     "when": "!(facilitators.length === 0) && each facilitators",
+     "text": "!person"
+    },
+    {
+     "kind": "text",
+     "line": 91,
+     "in": "SummaryNuevo",
+     "when": "!(facilitators.length === 0) && each facilitators && f.is_lead",
+     "text": "· principal"
+    },
+    {
+     "kind": "value",
+     "line": 96,
+     "in": "SummaryNuevo",
+     "text": "{facts.dateTerm}"
+    },
+    {
+     "kind": "piece",
+     "line": 101,
+     "in": "SummaryNuevo",
+     "when": "weekends > 0",
+     "text": "aria-hidden: true",
+     "tag": "AlertTriangle"
+    },
+    {
+     "kind": "text",
+     "line": 102,
+     "in": "SummaryNuevo",
+     "when": "weekends > 0",
+     "text": "en fin de semana"
+    },
+    {
+     "kind": "text",
+     "line": 106,
+     "in": "SummaryNuevo",
+     "text": "Sesiones"
+    },
+    {
+     "kind": "value",
+     "line": 107,
+     "in": "SummaryNuevo",
+     "text": "{facts.sessions}"
+    },
+    {
+     "kind": "text",
+     "line": 108,
+     "in": "SummaryNuevo",
+     "text": "Horario"
+    },
+    {
+     "kind": "text",
+     "line": 112,
+     "in": "SummaryNuevo",
+     "when": "facts.hasTimes",
+     "text": "a"
+    },
+    {
+     "kind": "text",
+     "line": 112,
+     "in": "SummaryNuevo",
+     "when": "facts.hasTimes",
+     "text": "(hora Chile)"
+    },
+    {
+     "kind": "value",
+     "line": 117,
+     "in": "SummaryNuevo",
+     "when": "spainTimePreview",
+     "text": "{spainTimePreview}"
+    },
+    {
+     "kind": "text",
+     "line": 119,
+     "in": "SummaryNuevo",
+     "text": "Modalidad"
+    },
+    {
+     "kind": "text",
+     "line": 123,
+     "in": "SummaryNuevo",
+     "when": "showMeetingFields && zoomManagedAvailable && formData.is_zoom_managed",
+     "text": "· Zoom"
+    },
+    {
+     "kind": "text",
+     "line": 126,
+     "in": "SummaryNuevo",
+     "text": "Horas"
+    },
+    {
+     "kind": "text",
+     "line": 128,
+     "in": "SummaryNuevo",
+     "text": "Sin seguimiento de horas"
+    },
+    {
+     "kind": "text",
+     "line": 130,
+     "in": "SummaryNuevo",
+     "when": "withHours && perSession > 0",
+     "text": "h por sesión ·"
+    },
+    {
+     "kind": "text",
+     "line": 130,
+     "in": "SummaryNuevo",
+     "when": "withHours && perSession > 0",
+     "text": "h en total"
+    },
+    {
+     "kind": "text",
+     "line": 138,
+     "in": "SummaryNuevo",
+     "when": "overBudget",
+     "text": "Más de lo disponible en este tipo ( {decimalComma(Math.max(availableHour…} h)"
+    },
+    {
+     "kind": "value",
+     "line": 145,
+     "in": "SummaryNuevo",
+     "text": "{children}"
+    },
+    {
+     "kind": "string",
+     "line": 22,
+     "in": "summaryFacts",
+     "text": "Fechas"
+    },
+    {
+     "kind": "string",
+     "line": 22,
+     "in": "summaryFacts",
+     "text": "Fecha"
+    }
+   ],
+   "db": []
+  },
+  "components/sessions/create-nuevo/createNuevoText.ts": {
+   "usedBy": [
+    "/admin/sessions/create"
+   ],
+   "lines": 81,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 11,
+     "text": "MODALITY_LABELS",
+     "items": [
+      "Presencial",
+      "Online",
+      "Híbrida"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 18,
+     "text": "DRAFTS_LEFT_TEXT",
+     "items": [
+      "La sesión quedó guardada como borrador. Revise la lista de sesiones antes de volver a programar, para no crearla dos veces.",
+      "Las sesiones quedaron guardadas como borrador. Revise la lista de sesiones antes de volver a programar, para no crearlas dos veces."
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 31,
+     "text": "HOUR_PAIR_REFUSAL",
+     "items": [
+      "El contrato y el tipo de hora deben configurarse juntos."
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 34,
+     "text": "CHECKS_TITLE",
+     "items": [
+      "Revise lo siguiente antes de continuar:"
+     ]
+    }
+   ],
+   "db": []
+  },
+  "components/sessions/create-nuevo/fieldRow.ts": {
+   "usedBy": [
+    "/admin/sessions/create"
+   ],
+   "lines": 20,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 16,
+     "text": "ROW_FIELD",
+     "items": [
+      "row-span-3 {SUBGRID}"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 19,
+     "text": "ROW_FIELD_WITH_HELP",
+     "items": [
+      "row-span-4 {SUBGRID}"
+     ]
+    }
+   ],
+   "db": []
+  },
+  "components/sessions/detail-nuevo/ActivityNuevo.tsx": {
+   "usedBy": [
+    "/consultor/sessions/[id]"
+   ],
+   "lines": 94,
+   "rows": [
+    {
+     "kind": "heading",
+     "line": 28,
+     "in": "ActivityNuevo",
+     "when": "showEditRequests",
+     "text": "Historial de Solicitudes de Cambio",
+     "level": 3,
+     "hook": {
+      "id": "session-requests-title",
+      "idUsed": true
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 31,
+     "in": "ActivityNuevo",
+     "when": "showEditRequests",
+     "text": "",
+     "tag": "Card"
+    },
+    {
+     "kind": "piece",
+     "line": 35,
+     "in": "ActivityNuevo",
+     "when": "showEditRequests && each (session.edit_requests as SessionEditRequest[])",
+     "text": "",
+     "tag": "Badge"
+    },
+    {
+     "kind": "value",
+     "line": 35,
+     "in": "ActivityNuevo",
+     "when": "showEditRequests && each (session.edit_requests as SessionEditRequest[])",
+     "text": "{editRequestStatusLabel(request)}"
+    },
+    {
+     "kind": "value",
+     "line": 36,
+     "in": "ActivityNuevo",
+     "when": "showEditRequests && each (session.edit_requests as SessionEditRequest[])",
+     "text": "{format(parseISO(request.created_at)…}"
+    },
+    {
+     "kind": "value",
+     "line": 45,
+     "in": "ActivityNuevo",
+     "when": "showEditRequests && each (session.edit_requests as SessionEditRequest[]) && each Object.keys(request.changes)",
+     "text": "{editRequestFieldLabel(field)} :"
+    },
+    {
+     "kind": "value",
+     "line": 46,
+     "in": "ActivityNuevo",
+     "when": "showEditRequests && each (session.edit_requests as SessionEditRequest[]) && each Object.keys(request.changes)",
+     "text": "{requestValueText(field, change.old)}"
+    },
+    {
+     "kind": "value",
+     "line": 47,
+     "in": "ActivityNuevo",
+     "when": "showEditRequests && each (session.edit_requests as SessionEditRequest[]) && each Object.keys(request.changes)",
+     "text": "{requestValueText(field, change.new)}"
+    },
+    {
+     "kind": "text",
+     "line": 54,
+     "in": "ActivityNuevo",
+     "when": "showEditRequests && each (session.edit_requests as SessionEditRequest[]) && request.reason",
+     "text": "Razón:"
+    },
+    {
+     "kind": "text",
+     "line": 59,
+     "in": "ActivityNuevo",
+     "when": "showEditRequests && each (session.edit_requests as SessionEditRequest[]) && showReviewNotes(request)",
+     "text": "Nota del revisor:"
+    },
+    {
+     "kind": "heading",
+     "line": 69,
+     "in": "ActivityNuevo",
+     "when": "showEditRequests",
+     "text": "Actividad",
+     "level": 3
+    },
+    {
+     "kind": "piece",
+     "line": 71,
+     "in": "ActivityNuevo",
+     "when": "hasActivity()",
+     "text": "",
+     "tag": "Card"
+    },
+    {
+     "kind": "piece",
+     "line": 74,
+     "in": "ActivityNuevo",
+     "when": "hasActivity() && each (session.activity_log ?? [])",
+     "text": "aria-hidden: true",
+     "tag": "Activity"
+    },
+    {
+     "kind": "value",
+     "line": 77,
+     "in": "ActivityNuevo",
+     "when": "hasActivity() && each (session.activity_log ?? [])",
+     "text": "{log.profiles?.first_name} {log.profiles?.last_name}"
+    },
+    {
+     "kind": "value",
+     "line": 80,
+     "in": "ActivityNuevo",
+     "when": "hasActivity() && each (session.activity_log ?? [])",
+     "text": "{activityText(log.action)}"
+    },
+    {
+     "kind": "value",
+     "line": 82,
+     "in": "ActivityNuevo",
+     "when": "hasActivity() && each (session.activity_log ?? [])",
+     "text": "{format(parseISO(log.created_at), 'd…}"
+    },
+    {
+     "kind": "text",
+     "line": 88,
+     "in": "ActivityNuevo",
+     "when": "!(hasActivity())",
+     "text": "No hay actividad registrada"
+    }
+   ],
+   "db": []
+  },
+  "components/sessions/detail-nuevo/AttendanceNuevo.tsx": {
+   "usedBy": [
+    "/consultor/sessions/[id]"
+   ],
+   "lines": 236,
+   "rows": [
+    {
+     "kind": "piece",
+     "line": 17,
+     "in": "AttendedMark",
+     "when": "attended === true",
+     "text": "aria-hidden: true",
+     "tag": "Check"
+    },
+    {
+     "kind": "text",
+     "line": 18,
+     "in": "AttendedMark",
+     "when": "attended === true",
+     "screen": "sr-only",
+     "text": "Sí"
+    },
+    {
+     "kind": "piece",
+     "line": 25,
+     "in": "AttendedMark",
+     "when": "attended === false",
+     "text": "aria-hidden: true",
+     "tag": "X"
+    },
+    {
+     "kind": "text",
+     "line": 26,
+     "in": "AttendedMark",
+     "when": "attended === false",
+     "screen": "sr-only",
+     "text": "No"
+    },
+    {
+     "kind": "heading",
+     "line": 53,
+     "in": "AttendanceNuevo",
+     "text": "Asistencia ( {attendeeCount()} )",
+     "level": 3,
+     "hook": {
+      "id": "session-attendance-title",
+      "idUsed": true
+     }
+    },
+    {
+     "kind": "button",
+     "line": 58,
+     "in": "AttendanceNuevo",
+     "when": "canChange()",
+     "text": "Marcar todos presentes",
+     "action": "{handleMarkAllPresent}"
+    },
+    {
+     "kind": "button",
+     "line": 61,
+     "in": "AttendanceNuevo",
+     "when": "canChange()",
+     "text": "Guardando... / Guardar asistencia",
+     "action": "{handleSaveAttendance}",
+     "disabled": "{savingAttendance}"
+    },
+    {
+     "kind": "piece",
+     "line": 62,
+     "in": "AttendanceNuevo",
+     "when": "canChange()",
+     "text": "aria-hidden: true",
+     "tag": "Save"
+    },
+    {
+     "kind": "piece",
+     "line": 71,
+     "in": "AttendanceNuevo",
+     "text": "aria-hidden: true",
+     "tag": "CheckCircle2"
+    },
+    {
+     "kind": "text",
+     "line": 72,
+     "in": "AttendanceNuevo",
+     "text": "Presentes:"
+    },
+    {
+     "kind": "piece",
+     "line": 75,
+     "in": "AttendanceNuevo",
+     "text": "aria-hidden: true",
+     "tag": "X"
+    },
+    {
+     "kind": "text",
+     "line": 76,
+     "in": "AttendanceNuevo",
+     "text": "Ausentes:"
+    },
+    {
+     "kind": "text",
+     "line": 78,
+     "in": "AttendanceNuevo",
+     "text": "Sin marcar: {unmarkedCount()}"
+    },
+    {
+     "kind": "column",
+     "line": 86,
+     "in": "AttendanceNuevo",
+     "screen": "hidden md:block",
+     "text": "Nombre"
+    },
+    {
+     "kind": "column",
+     "line": 87,
+     "in": "AttendanceNuevo",
+     "screen": "hidden md:block",
+     "text": "Esperado"
+    },
+    {
+     "kind": "column",
+     "line": 88,
+     "in": "AttendanceNuevo",
+     "screen": "hidden md:block",
+     "text": "Asistió"
+    },
+    {
+     "kind": "column",
+     "line": 89,
+     "in": "AttendanceNuevo",
+     "screen": "hidden md:block",
+     "text": "Estado de llegada"
+    },
+    {
+     "kind": "column",
+     "line": 90,
+     "in": "AttendanceNuevo",
+     "screen": "hidden md:block",
+     "text": "Notas"
+    },
+    {
+     "kind": "value",
+     "line": 99,
+     "in": "AttendanceNuevo",
+     "when": "each session.attendees",
+     "screen": "hidden md:block",
+     "text": "{fullName}"
+    },
+    {
+     "kind": "piece",
+     "line": 103,
+     "in": "AttendanceNuevo",
+     "when": "each session.attendees && attendee.expected",
+     "screen": "hidden md:block",
+     "text": "aria-hidden: true",
+     "tag": "Check"
+    },
+    {
+     "kind": "text",
+     "line": 104,
+     "in": "AttendanceNuevo",
+     "when": "each session.attendees && attendee.expected",
+     "screen": "hidden md:block sr-only",
+     "text": "Esperado"
+    },
+    {
+     "kind": "piece",
+     "line": 108,
+     "in": "AttendanceNuevo",
+     "when": "each session.attendees && !(attendee.expected)",
+     "screen": "hidden md:block",
+     "text": "aria-hidden: true",
+     "tag": "X"
+    },
+    {
+     "kind": "text",
+     "line": 109,
+     "in": "AttendanceNuevo",
+     "when": "each session.attendees && !(attendee.expected)",
+     "screen": "hidden md:block sr-only",
+     "text": "No esperado"
+    },
+    {
+     "kind": "field",
+     "line": 117,
+     "in": "AttendanceNuevo",
+     "when": "each session.attendees && !(readMode())",
+     "screen": "hidden md:block",
+     "text": "{`Asistió: ${fullName}`}",
+     "type": "checkbox",
+     "aria": "{`Asistió: ${fullName}`}",
+     "action": "{(e) => handleAttendanceChange(attendee.user_id, 'attended', e.target.checked)}"
+    },
+    {
+     "kind": "value",
+     "line": 128,
+     "in": "AttendanceNuevo",
+     "when": "each session.attendees && readMode()",
+     "screen": "hidden md:block",
+     "text": "{arrivalText(attendee.arrival_status)}"
+    },
+    {
+     "kind": "field",
+     "line": 130,
+     "in": "AttendanceNuevo",
+     "when": "each session.attendees && !(readMode())",
+     "screen": "hidden md:block",
+     "text": "{`Estado de llegada: ${fullName}`}",
+     "type": "select",
+     "aria": "{`Estado de llegada: ${fullName}`}",
+     "action": "{(e) => handleAttendanceChange(attendee.user_id, 'arrival_status', e.target.valu…}",
+     "options": [
+      "—",
+      "A tiempo",
+      "Tarde",
+      "Salió temprano"
+     ]
+    },
+    {
+     "kind": "value",
+     "line": 145,
+     "in": "AttendanceNuevo",
+     "when": "each session.attendees && readMode()",
+     "screen": "hidden md:block",
+     "text": "{attendee.notes} / —"
+    },
+    {
+     "kind": "field",
+     "line": 147,
+     "in": "AttendanceNuevo",
+     "when": "each session.attendees && !(readMode())",
+     "screen": "hidden md:block",
+     "text": "{`Notas: ${fullName}`}",
+     "type": "text",
+     "placeholder": "Notas opcionales",
+     "aria": "{`Notas: ${fullName}`}",
+     "action": "{(e) => handleAttendanceChange(attendee.user_id, 'notes', e.target.value || null)}"
+    },
+    {
+     "kind": "text",
+     "line": 165,
+     "in": "AttendanceNuevo",
+     "screen": "md:hidden",
+     "text": "Lista de asistencia",
+     "attr": "aria-label"
+    },
+    {
+     "kind": "hook",
+     "line": 165,
+     "in": "AttendanceNuevo",
+     "screen": "md:hidden",
+     "text": "role=list",
+     "type": "role",
+     "tag": "ul",
+     "aria": "Lista de asistencia"
+    },
+    {
+     "kind": "heading",
+     "line": 175,
+     "in": "AttendanceNuevo",
+     "when": "each session.attendees",
+     "screen": "md:hidden",
+     "text": "{fullName}",
+     "level": 4
+    },
+    {
+     "kind": "piece",
+     "line": 176,
+     "in": "AttendanceNuevo",
+     "when": "each session.attendees",
+     "screen": "md:hidden",
+     "text": "",
+     "tag": "Badge"
+    },
+    {
+     "kind": "text",
+     "line": 176,
+     "in": "AttendanceNuevo",
+     "when": "each session.attendees",
+     "screen": "md:hidden",
+     "text": "Esperado / No esperado"
+    },
+    {
+     "kind": "label",
+     "line": 181,
+     "in": "AttendanceNuevo",
+     "when": "each session.attendees",
+     "screen": "md:hidden",
+     "text": "Asistió"
+    },
+    {
+     "kind": "field",
+     "line": 185,
+     "in": "AttendanceNuevo",
+     "when": "each session.attendees && !(readMode())",
+     "screen": "md:hidden",
+     "text": "Asistió",
+     "type": "checkbox",
+     "action": "{(e) => handleAttendanceChange(attendee.user_id, 'attended', e.target.checked)}"
+    },
+    {
+     "kind": "text",
+     "line": 196,
+     "in": "AttendanceNuevo",
+     "when": "each session.attendees",
+     "screen": "md:hidden",
+     "text": "Estado de llegada"
+    },
+    {
+     "kind": "value",
+     "line": 198,
+     "in": "AttendanceNuevo",
+     "when": "each session.attendees && readMode()",
+     "screen": "md:hidden",
+     "text": "{arrivalText(attendee.arrival_status)}"
+    },
+    {
+     "kind": "field",
+     "line": 200,
+     "in": "AttendanceNuevo",
+     "when": "each session.attendees && !(readMode())",
+     "screen": "md:hidden",
+     "text": "Asistió",
+     "type": "select",
+     "aria": "{`Estado de llegada: ${fullName}`}",
+     "action": "{(e) => handleAttendanceChange(attendee.user_id, 'arrival_status', e.target.valu…}",
+     "options": [
+      "—",
+      "A tiempo",
+      "Tarde",
+      "Salió temprano"
+     ]
+    },
+    {
+     "kind": "text",
+     "line": 215,
+     "in": "AttendanceNuevo",
+     "when": "each session.attendees",
+     "screen": "md:hidden",
+     "text": "Notas"
+    },
+    {
+     "kind": "value",
+     "line": 217,
+     "in": "AttendanceNuevo",
+     "when": "each session.attendees && readMode()",
+     "screen": "md:hidden",
+     "text": "{attendee.notes} / —"
+    },
+    {
+     "kind": "field",
+     "line": 219,
+     "in": "AttendanceNuevo",
+     "when": "each session.attendees && !(readMode())",
+     "screen": "md:hidden",
+     "text": "Asistió",
+     "type": "text",
+     "placeholder": "Notas opcionales",
+     "aria": "{`Notas: ${fullName}`}",
+     "action": "{(e) => handleAttendanceChange(attendee.user_id, 'notes', e.target.value || null)}"
+    }
+   ],
+   "db": []
+  },
+  "components/sessions/detail-nuevo/HeaderNuevo.tsx": {
+   "usedBy": [
+    "/consultor/sessions/[id]"
+   ],
+   "lines": 169,
+   "rows": [
+    {
+     "kind": "piece",
+     "line": 47,
+     "in": "HeaderNuevo",
+     "text": "",
+     "tag": "Card"
+    },
+    {
+     "kind": "piece",
+     "line": 51,
+     "in": "HeaderNuevo",
+     "text": "",
+     "tag": "Badge"
+    },
+    {
+     "kind": "value",
+     "line": 51,
+     "in": "HeaderNuevo",
+     "text": "{badge.label}"
+    },
+    {
+     "kind": "piece",
+     "line": 54,
+     "in": "HeaderNuevo",
+     "when": "seriesNumberShown",
+     "text": "aria-hidden: true",
+     "tag": "Link2"
+    },
+    {
+     "kind": "text",
+     "line": 55,
+     "in": "HeaderNuevo",
+     "when": "seriesNumberShown",
+     "text": "Sesión {session.session_number}"
+    },
+    {
+     "kind": "heading",
+     "line": 59,
+     "in": "HeaderNuevo",
+     "text": "{session.title}",
+     "level": 1
+    },
+    {
+     "kind": "piece",
+     "line": 63,
+     "in": "HeaderNuevo",
+     "text": "aria-hidden: true",
+     "tag": "Calendar"
+    },
+    {
+     "kind": "value",
+     "line": 64,
+     "in": "HeaderNuevo",
+     "text": "{format(parseISO(session.session_dat…}"
+    },
+    {
+     "kind": "piece",
+     "line": 67,
+     "in": "HeaderNuevo",
+     "text": "aria-hidden: true",
+     "tag": "Clock"
+    },
+    {
+     "kind": "text",
+     "line": 71,
+     "in": "HeaderNuevo",
+     "text": "(hora Chile)"
+    },
+    {
+     "kind": "text",
+     "line": 73,
+     "in": "HeaderNuevo",
+     "when": "spain",
+     "text": "En España: {spain}"
+    },
+    {
+     "kind": "value",
+     "line": 77,
+     "in": "HeaderNuevo",
+     "text": "{getModalityIcon(session.modality)}"
+    },
+    {
+     "kind": "value",
+     "line": 79,
+     "in": "HeaderNuevo",
+     "text": "{modalityText(session.modality)}"
+    },
+    {
+     "kind": "link",
+     "line": 81,
+     "in": "HeaderNuevo",
+     "when": "showJoinLink",
+     "text": "Enlace",
+     "target": "{session.join_path as string}",
+     "hook": {
+      "testid": "session-join-link"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 86,
+     "in": "HeaderNuevo",
+     "when": "showJoinLink",
+     "text": "aria-hidden: true",
+     "tag": "ExternalLink"
+    },
+    {
+     "kind": "piece",
+     "line": 94,
+     "in": "HeaderNuevo",
+     "when": "session.schools",
+     "text": "aria-hidden: true",
+     "tag": "MapPin"
+    },
+    {
+     "kind": "value",
+     "line": 95,
+     "in": "HeaderNuevo",
+     "when": "session.schools",
+     "text": "{session.schools.name}"
+    },
+    {
+     "kind": "piece",
+     "line": 100,
+     "in": "HeaderNuevo",
+     "when": "session.growth_communities",
+     "text": "aria-hidden: true",
+     "tag": "Users"
+    },
+    {
+     "kind": "value",
+     "line": 101,
+     "in": "HeaderNuevo",
+     "when": "session.growth_communities",
+     "text": "{session.growth_communities.name}"
+    },
+    {
+     "kind": "piece",
+     "line": 107,
+     "in": "HeaderNuevo",
+     "when": "helperText",
+     "text": "",
+     "tag": "Notice"
+    },
+    {
+     "kind": "value",
+     "line": 107,
+     "in": "HeaderNuevo",
+     "when": "helperText",
+     "text": "{helperText}"
+    },
+    {
+     "kind": "link",
+     "line": 116,
+     "in": "HeaderNuevo",
+     "when": "((showCalendarLink || showEditRequestButton)) && showCalendarLink",
+     "text": "Agregar al Calendario",
+     "target": "/api/sessions/[*]/ical",
+     "download": true
+    },
+    {
+     "kind": "download",
+     "line": 116,
+     "in": "HeaderNuevo",
+     "when": "((showCalendarLink || showEditRequestButton)) && showCalendarLink",
+     "text": "<a download> Agregar al Calendario",
+     "how": "link with download"
+    },
+    {
+     "kind": "piece",
+     "line": 117,
+     "in": "HeaderNuevo",
+     "when": "((showCalendarLink || showEditRequestButton)) && showCalendarLink",
+     "text": "aria-hidden: true",
+     "tag": "CalendarPlus"
+    },
+    {
+     "kind": "button",
+     "line": 122,
+     "in": "HeaderNuevo",
+     "when": "((showCalendarLink || showEditRequestButton)) && showEditRequestButton",
+     "text": "Solicitar Cambios",
+     "action": "{openEditRequest}",
+     "disabled": "{hasPendingEditRequest()}"
+    },
+    {
+     "kind": "piece",
+     "line": 123,
+     "in": "HeaderNuevo",
+     "when": "((showCalendarLink || showEditRequestButton)) && showEditRequestButton",
+     "text": "aria-hidden: true",
+     "tag": "Edit"
+    },
+    {
+     "kind": "text",
+     "line": 129,
+     "in": "HeaderNuevo",
+     "when": "((showCalendarLink || showEditRequestButton)) && pending",
+     "text": "Ya existe una solicitud de cambio pendiente para esta sesión."
+    },
+    {
+     "kind": "hook",
+     "line": 136,
+     "in": "HeaderNuevo",
+     "when": "showFinalizeCard",
+     "text": "testid=session-finalize-card",
+     "type": "mark",
+     "tag": "aside"
+    },
+    {
+     "kind": "heading",
+     "line": 141,
+     "in": "HeaderNuevo",
+     "when": "showFinalizeCard",
+     "text": "Para finalizar la sesión",
+     "level": 2,
+     "hook": {
+      "id": "session-finalize-title",
+      "idUsed": true
+     }
+    },
+    {
+     "kind": "text",
+     "line": 145,
+     "in": "HeaderNuevo",
+     "when": "showFinalizeCard && finalizeCheck.reasons.length > 0",
+     "text": "Condiciones faltantes: {finalizeCheck.reasons.length}"
+    },
+    {
+     "kind": "piece",
+     "line": 151,
+     "in": "HeaderNuevo",
+     "when": "showFinalizeCard && each finalizeChecklist(finalizeCheck.reasons) && item.met",
+     "text": "aria-hidden: true",
+     "tag": "CheckCircle2"
+    },
+    {
+     "kind": "piece",
+     "line": 153,
+     "in": "HeaderNuevo",
+     "when": "showFinalizeCard && each finalizeChecklist(finalizeCheck.reasons) && !(item.met)",
+     "text": "aria-hidden: true",
+     "tag": "Circle"
+    },
+    {
+     "kind": "value",
+     "line": 155,
+     "in": "HeaderNuevo",
+     "when": "showFinalizeCard && each finalizeChecklist(finalizeCheck.reasons)",
+     "text": "{item.text}"
+    },
+    {
+     "kind": "button",
+     "line": 159,
+     "in": "HeaderNuevo",
+     "when": "showFinalizeCard",
+     "text": "Finalizar Sesión",
+     "action": "{openFinalize}",
+     "disabled": "{!finalizeCheck.can}"
+    },
+    {
+     "kind": "piece",
+     "line": 160,
+     "in": "HeaderNuevo",
+     "when": "showFinalizeCard",
+     "text": "aria-hidden: true",
+     "tag": "CheckCircle2"
+    }
+   ],
+   "db": []
+  },
+  "components/sessions/detail-nuevo/MaterialsNuevo.tsx": {
+   "usedBy": [
+    "/consultor/sessions/[id]"
+   ],
+   "lines": 117,
+   "rows": [
+    {
+     "kind": "label",
+     "line": 27,
+     "in": "MaterialsNuevo",
+     "when": "canChange()",
+     "text": "Subiendo... / Subir material"
+    },
+    {
+     "kind": "piece",
+     "line": 30,
+     "in": "MaterialsNuevo",
+     "when": "canChange()",
+     "text": "aria-hidden: true",
+     "tag": "Upload"
+    },
+    {
+     "kind": "field",
+     "line": 32,
+     "in": "MaterialsNuevo",
+     "when": "canChange()",
+     "screen": "sr-only",
+     "text": "Subiendo... / Subir material",
+     "type": "file",
+     "disabled": "{uploadingMaterial}",
+     "action": "{handleUploadMaterial}"
+    },
+    {
+     "kind": "piece",
+     "line": 39,
+     "in": "MaterialsNuevo",
+     "when": "materials.length === 0",
+     "text": "aria-hidden: true",
+     "tag": "Paperclip"
+    },
+    {
+     "kind": "text",
+     "line": 40,
+     "in": "MaterialsNuevo",
+     "when": "materials.length === 0",
+     "text": "No hay materiales subidos"
+    },
+    {
+     "kind": "piece",
+     "line": 43,
+     "in": "MaterialsNuevo",
+     "when": "!(materials.length === 0)",
+     "text": "",
+     "tag": "Table"
+    },
+    {
+     "kind": "piece",
+     "line": 44,
+     "in": "MaterialsNuevo",
+     "when": "!(materials.length === 0)",
+     "text": "",
+     "tag": "TableHead"
+    },
+    {
+     "kind": "piece",
+     "line": 45,
+     "in": "MaterialsNuevo",
+     "when": "!(materials.length === 0)",
+     "text": "",
+     "tag": "TableRow"
+    },
+    {
+     "kind": "piece",
+     "line": 46,
+     "in": "MaterialsNuevo",
+     "when": "!(materials.length === 0)",
+     "text": "",
+     "tag": "TableHeaderCell"
+    },
+    {
+     "kind": "text",
+     "line": 46,
+     "in": "MaterialsNuevo",
+     "when": "!(materials.length === 0)",
+     "text": "Archivo"
+    },
+    {
+     "kind": "piece",
+     "line": 47,
+     "in": "MaterialsNuevo",
+     "when": "!(materials.length === 0)",
+     "text": "",
+     "tag": "TableHeaderCell"
+    },
+    {
+     "kind": "text",
+     "line": 47,
+     "in": "MaterialsNuevo",
+     "when": "!(materials.length === 0)",
+     "text": "Tipo"
+    },
+    {
+     "kind": "piece",
+     "line": 48,
+     "in": "MaterialsNuevo",
+     "when": "!(materials.length === 0)",
+     "text": "",
+     "tag": "TableHeaderCell"
+    },
+    {
+     "kind": "text",
+     "line": 48,
+     "in": "MaterialsNuevo",
+     "when": "!(materials.length === 0)",
+     "text": "Tamaño"
+    },
+    {
+     "kind": "piece",
+     "line": 49,
+     "in": "MaterialsNuevo",
+     "when": "!(materials.length === 0)",
+     "text": "",
+     "tag": "TableHeaderCell"
+    },
+    {
+     "kind": "text",
+     "line": 49,
+     "in": "MaterialsNuevo",
+     "when": "!(materials.length === 0)",
+     "text": "Subido por"
+    },
+    {
+     "kind": "piece",
+     "line": 50,
+     "in": "MaterialsNuevo",
+     "when": "!(materials.length === 0)",
+     "text": "",
+     "tag": "TableHeaderCell"
+    },
+    {
+     "kind": "text",
+     "line": 50,
+     "in": "MaterialsNuevo",
+     "when": "!(materials.length === 0)",
+     "text": "Fecha"
+    },
+    {
+     "kind": "piece",
+     "line": 51,
+     "in": "MaterialsNuevo",
+     "when": "!(materials.length === 0)",
+     "text": "",
+     "tag": "TableHeaderCell"
+    },
+    {
+     "kind": "text",
+     "line": 51,
+     "in": "MaterialsNuevo",
+     "when": "!(materials.length === 0)",
+     "text": "Acciones"
+    },
+    {
+     "kind": "piece",
+     "line": 54,
+     "in": "MaterialsNuevo",
+     "when": "!(materials.length === 0)",
+     "text": "",
+     "tag": "TableBody"
+    },
+    {
+     "kind": "piece",
+     "line": 58,
+     "in": "MaterialsNuevo",
+     "when": "!(materials.length === 0) && each materials",
+     "text": "",
+     "tag": "TableRow"
+    },
+    {
+     "kind": "piece",
+     "line": 59,
+     "in": "MaterialsNuevo",
+     "when": "!(materials.length === 0) && each materials",
+     "text": "",
+     "tag": "TableCell"
+    },
+    {
+     "kind": "value",
+     "line": 60,
+     "in": "MaterialsNuevo",
+     "when": "!(materials.length === 0) && each materials",
+     "text": "{material.file_name}"
+    },
+    {
+     "kind": "piece",
+     "line": 62,
+     "in": "MaterialsNuevo",
+     "when": "!(materials.length === 0) && each materials",
+     "text": "label: Tipo",
+     "tag": "TableCell"
+    },
+    {
+     "kind": "value",
+     "line": 63,
+     "in": "MaterialsNuevo",
+     "when": "!(materials.length === 0) && each materials",
+     "text": "{material.file_type}"
+    },
+    {
+     "kind": "piece",
+     "line": 65,
+     "in": "MaterialsNuevo",
+     "when": "!(materials.length === 0) && each materials",
+     "text": "label: Tamaño",
+     "tag": "TableCell"
+    },
+    {
+     "kind": "value",
+     "line": 65,
+     "in": "MaterialsNuevo",
+     "when": "!(materials.length === 0) && each materials",
+     "text": "{formatFileSize(material.file_size)}"
+    },
+    {
+     "kind": "piece",
+     "line": 66,
+     "in": "MaterialsNuevo",
+     "when": "!(materials.length === 0) && each materials",
+     "text": "label: Subido por",
+     "tag": "TableCell"
+    },
+    {
+     "kind": "value",
+     "line": 66,
+     "in": "MaterialsNuevo",
+     "when": "!(materials.length === 0) && each materials",
+     "text": "{uploaderNameText}"
+    },
+    {
+     "kind": "piece",
+     "line": 67,
+     "in": "MaterialsNuevo",
+     "when": "!(materials.length === 0) && each materials",
+     "text": "label: Fecha",
+     "tag": "TableCell"
+    },
+    {
+     "kind": "value",
+     "line": 67,
+     "in": "MaterialsNuevo",
+     "when": "!(materials.length === 0) && each materials",
+     "text": "{format(parseISO(material.created_at…}"
+    },
+    {
+     "kind": "piece",
+     "line": 68,
+     "in": "MaterialsNuevo",
+     "when": "!(materials.length === 0) && each materials",
+     "text": "label: Acciones",
+     "tag": "TableCell"
+    },
+    {
+     "kind": "button",
+     "line": 71,
+     "in": "MaterialsNuevo",
+     "when": "!(materials.length === 0) && each materials && material.download_url",
+     "text": "[icon ExternalLink]",
+     "aria": "{`Abrir ${material.file_name}`}"
+    },
+    {
+     "kind": "piece",
+     "line": 79,
+     "in": "MaterialsNuevo",
+     "when": "!(materials.length === 0) && each materials && material.download_url",
+     "text": "aria-hidden: true",
+     "tag": "ExternalLink"
+    },
+    {
+     "kind": "button",
+     "line": 83,
+     "in": "MaterialsNuevo",
+     "when": "!(materials.length === 0) && each materials && canDeleteMaterial(material)",
+     "text": "[icon Trash2]",
+     "action": "{() => setToDelete({ id: material.id, name: material.file_name })}",
+     "aria": "{`Eliminar ${material.file_name}`}"
+    },
+    {
+     "kind": "piece",
+     "line": 89,
+     "in": "MaterialsNuevo",
+     "when": "!(materials.length === 0) && each materials && canDeleteMaterial(material)",
+     "text": "aria-hidden: true",
+     "tag": "Trash2"
+    },
+    {
+     "kind": "popup",
+     "line": 101,
+     "in": "MaterialsNuevo",
+     "text": "ConfirmDialog",
+     "how": "component",
+     "open": "{toDelete !== null}",
+     "props": "title: ¿Está seguro que desea eliminar \"{toDelete.name}\"? · confirmLabel: Eliminar · tone: danger",
+     "hook": {
+      "testid": "session-material-delete"
+     }
+    }
+   ],
+   "db": []
+  },
+  "components/sessions/detail-nuevo/ReportNuevo.tsx": {
+   "usedBy": [
+    "/consultor/sessions/[id]"
+   ],
+   "lines": 136,
+   "rows": [
+    {
+     "kind": "piece",
+     "line": 54,
+     "in": "ReportNuevo",
+     "when": "onlyFacilitatorsReport()",
+     "text": "aria-hidden: true",
+     "tag": "FileText"
+    },
+    {
+     "kind": "text",
+     "line": 55,
+     "in": "ReportNuevo",
+     "when": "onlyFacilitatorsReport()",
+     "text": "Solo los facilitadores pueden crear informes"
+    },
+    {
+     "kind": "piece",
+     "line": 63,
+     "in": "ReportNuevo",
+     "when": "showAudioUploader()",
+     "text": "",
+     "tag": "AudioReportUploader"
+    },
+    {
+     "kind": "button",
+     "line": 67,
+     "in": "ReportNuevo",
+     "when": "showCreateReportButton()",
+     "text": "Crear Informe",
+     "action": "{startEditingReport}"
+    },
+    {
+     "kind": "piece",
+     "line": 68,
+     "in": "ReportNuevo",
+     "when": "showCreateReportButton()",
+     "text": "aria-hidden: true",
+     "tag": "FileText"
+    },
+    {
+     "kind": "button",
+     "line": 74,
+     "in": "ReportNuevo",
+     "when": "showEditReportButton()",
+     "text": "Editar Informe",
+     "action": "{startEditingReport}"
+    },
+    {
+     "kind": "piece",
+     "line": 75,
+     "in": "ReportNuevo",
+     "when": "showEditReportButton()",
+     "text": "aria-hidden: true",
+     "tag": "Edit"
+    },
+    {
+     "kind": "piece",
+     "line": 81,
+     "in": "ReportNuevo",
+     "when": "showReportEditor()",
+     "text": "",
+     "tag": "Card"
+    },
+    {
+     "kind": "piece",
+     "line": 82,
+     "in": "ReportNuevo",
+     "when": "showReportEditor()",
+     "text": "",
+     "tag": "CardBody"
+    },
+    {
+     "kind": "piece",
+     "line": 83,
+     "in": "ReportNuevo",
+     "when": "showReportEditor()",
+     "text": "label: Contenido del informe",
+     "tag": "Field"
+    },
+    {
+     "kind": "field",
+     "line": 84,
+     "in": "ReportNuevo",
+     "when": "showReportEditor()",
+     "text": "Escriba el informe de la sesión...",
+     "type": "textarea",
+     "placeholder": "Escriba el informe de la sesión...",
+     "limits": "",
+     "action": "{changeReportContent}"
+    },
+    {
+     "kind": "piece",
+     "line": 91,
+     "in": "ReportNuevo",
+     "when": "showReportEditor()",
+     "text": "label: Visibilidad",
+     "tag": "Field"
+    },
+    {
+     "kind": "field",
+     "line": 92,
+     "in": "ReportNuevo",
+     "when": "showReportEditor()",
+     "text": "",
+     "type": "select",
+     "action": "{changeReportVisibility}"
+    },
+    {
+     "kind": "button",
+     "line": 98,
+     "in": "ReportNuevo",
+     "when": "showReportEditor()",
+     "text": "Guardando... / Actualizar / Crear",
+     "action": "{handleSaveReport}",
+     "disabled": "{savingReport || !reportContent.trim()}"
+    },
+    {
+     "kind": "piece",
+     "line": 99,
+     "in": "ReportNuevo",
+     "when": "showReportEditor()",
+     "text": "aria-hidden: true",
+     "tag": "Save"
+    },
+    {
+     "kind": "button",
+     "line": 103,
+     "in": "ReportNuevo",
+     "when": "showReportEditor() && editingReport",
+     "text": "Cancelar",
+     "action": "{cancelEditingReport}"
+    },
+    {
+     "kind": "piece",
+     "line": 112,
+     "in": "ReportNuevo",
+     "when": "!(showReportEditor()) && existingReport && signedAudioUrl",
+     "text": "",
+     "tag": "AudioPlayer"
+    },
+    {
+     "kind": "piece",
+     "line": 113,
+     "in": "ReportNuevo",
+     "when": "!(showReportEditor()) && existingReport",
+     "text": "",
+     "tag": "Card"
+    },
+    {
+     "kind": "piece",
+     "line": 114,
+     "in": "ReportNuevo",
+     "when": "!(showReportEditor()) && existingReport",
+     "text": "",
+     "tag": "CardHeader"
+    },
+    {
+     "kind": "value",
+     "line": 116,
+     "in": "ReportNuevo",
+     "when": "!(showReportEditor()) && existingReport",
+     "text": "{format(parseISO(existingReport.crea…}"
+    },
+    {
+     "kind": "piece",
+     "line": 119,
+     "in": "ReportNuevo",
+     "when": "!(showReportEditor()) && existingReport",
+     "text": "",
+     "tag": "Badge"
+    },
+    {
+     "kind": "text",
+     "line": 119,
+     "in": "ReportNuevo",
+     "when": "!(showReportEditor()) && existingReport",
+     "text": "Todos los participantes / Solo facilitadores"
+    },
+    {
+     "kind": "piece",
+     "line": 124,
+     "in": "ReportNuevo",
+     "when": "!(showReportEditor()) && existingReport",
+     "text": "",
+     "tag": "CardBody"
+    },
+    {
+     "kind": "value",
+     "line": 124,
+     "in": "ReportNuevo",
+     "when": "!(showReportEditor()) && existingReport",
+     "text": "{existingReport.content}"
+    },
+    {
+     "kind": "piece",
+     "line": 129,
+     "in": "ReportNuevo",
+     "when": "!(showReportEditor()) && !(existingReport)",
+     "text": "aria-hidden: true",
+     "tag": "FileText"
+    },
+    {
+     "kind": "text",
+     "line": 130,
+     "in": "ReportNuevo",
+     "when": "!(showReportEditor()) && !(existingReport)",
+     "text": "No hay informe creado"
+    }
+   ],
+   "db": []
+  },
+  "components/sessions/sessionCreateChecks.ts": {
+   "usedBy": [
+    "/admin/sessions/create"
+   ],
+   "lines": 152,
+   "rows": [
+    {
+     "kind": "string",
+     "line": 86,
+     "in": "formChecks",
+     "text": "Debe seleccionar un colegio"
+    },
+    {
+     "kind": "string",
+     "line": 88,
+     "in": "formChecks",
+     "text": "Debe seleccionar una comunidad de crecimiento"
+    },
+    {
+     "kind": "string",
+     "line": 90,
+     "in": "formChecks",
+     "text": "Debe ingresar un título"
+    },
+    {
+     "kind": "string",
+     "line": 91,
+     "in": "formChecks",
+     "text": "Debe seleccionar una fecha"
+    },
+    {
+     "kind": "string",
+     "line": 97,
+     "in": "formChecks",
+     "text": "Debe ingresar hora de inicio y término"
+    },
+    {
+     "kind": "string",
+     "line": 104,
+     "in": "formChecks",
+     "text": "La hora de término debe ser posterior a la hora de inicio"
+    },
+    {
+     "kind": "string",
+     "line": 114,
+     "in": "formChecks",
+     "text": "Debe ingresar un enlace de reunión para modalidad online o híbrida"
+    },
+    {
+     "kind": "string",
+     "line": 119,
+     "in": "formChecks",
+     "text": "Debe ingresar una ubicación para modalidad presencial o híbrida"
+    },
+    {
+     "kind": "string",
+     "line": 127,
+     "in": "formChecks",
+     "text": "Debe asignar al menos un facilitador a la sesión"
+    },
+    {
+     "kind": "string",
+     "line": 134,
+     "in": "formChecks",
+     "text": "Debe haber exactamente un facilitador principal"
+    },
+    {
+     "kind": "string",
+     "line": 143,
+     "in": "formChecks",
+     "text": "Debe ingresar al menos 2 fechas personalizadas"
+    },
+    {
+     "kind": "string",
+     "line": 146,
+     "in": "formChecks",
+     "text": "El número de sesiones debe estar entre 2 y 52"
+    }
+   ],
+   "db": []
+  },
+  "components/sessions/sessionTextNuevo.ts": {
+   "usedBy": [
+    "/consultor/sessions/[id]",
+    "/consultor/sessions"
+   ],
+   "lines": 192,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 14,
+     "text": "ARRIVAL_NUEVO",
+     "items": [
+      "A tiempo",
+      "Tarde",
+      "Salió temprano"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 27,
+     "text": "ACTIVITY_NUEVO",
+     "items": [
+      "Sesión creada",
+      "Sesión vista",
+      "Sesión editada",
+      "Cambio de estado",
+      "Material subido",
+      "Material eliminado",
+      "Informe registrado",
+      "Informe actualizado",
+      "Asistencia registrada",
+      "Asistencia actualizada",
+      "Comunicación agregada",
+      "Cambio solicitado",
+      "Cambio aprobado",
+      "Cambio rechazado",
+      "Aprobación de cambio bloqueada",
+      "Facilitadores actualizados",
+      "Sesión cancelada",
+      "Sesión finalizada"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 54,
+     "text": "MODALITY_NUEVO",
+     "items": [
+      "Presencial",
+      "Online",
+      "Híbrida"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 69,
+     "text": "ROW_HELPER_TEXT",
+     "items": [
+      "Sesión en curso.",
+      "Sesión finalizada. Debe completar el informe y la asistencia."
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 97,
+     "text": "REQUEST_MODALITY",
+     "items": [
+      "Presencial",
+      "En línea",
+      "Híbrida"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 123,
+     "text": "FINALIZE_STATUS_UNMET",
+     "items": [
+      "La sesión debe estar en estado \"Pendiente de Informe\""
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 124,
+     "text": "FINALIZE_REPORT_UNMET",
+     "items": [
+      "Falta informe de sesión"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 125,
+     "text": "FINALIZE_MET",
+     "items": [
+      "Informe de sesión creado",
+      "Asistencia marcada para todos"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 159,
+     "text": "AGENDA_GROUP_TITLE",
+     "items": [
+      "Esta semana",
+      "Próximas",
+      "Pasadas"
+     ]
+    }
+   ],
+   "db": []
+  },
   "components/tutorials/HelpButton.tsx": {
    "usedBy": [
     "/consultor/sessions",
@@ -11947,11 +16056,746 @@
    ],
    "db": []
   },
+  "components/ui/kit/Badge.tsx": {
+   "usedBy": [
+    "/consultor/sessions"
+   ],
+   "lines": 77,
+   "rows": [
+    {
+     "kind": "value",
+     "line": 68,
+     "when": "label",
+     "text": "{value}"
+    },
+    {
+     "kind": "value",
+     "line": 69,
+     "when": "label",
+     "screen": "sr-only",
+     "text": "{label}"
+    }
+   ],
+   "db": []
+  },
+  "components/ui/kit/Button.tsx": {
+   "usedBy": [
+    "/admin/sessions/create",
+    "/consultor/sessions/[id]",
+    "/consultor/sessions"
+   ],
+   "lines": 178,
+   "rows": [
+    {
+     "kind": "piece",
+     "line": 120,
+     "when": "loading",
+     "text": "",
+     "tag": "SpinnerMark"
+    },
+    {
+     "kind": "link",
+     "line": 131,
+     "when": "typeof rest.href === 'string' && inert",
+     "text": "{content}",
+     "target": ""
+    },
+    {
+     "kind": "link",
+     "line": 145,
+     "when": "typeof rest.href === 'string' && href.startsWith('/')",
+     "text": "{content}",
+     "target": "{href}",
+     "action": "{onClick}"
+    },
+    {
+     "kind": "link",
+     "line": 151,
+     "when": "typeof rest.href === 'string'",
+     "text": "{content}",
+     "target": "{href}",
+     "action": "{onClick}"
+    },
+    {
+     "kind": "button",
+     "line": 159,
+     "text": "{content}",
+     "action": "{(event) => { if (loading) { // Not clickable while it works; also keeps a submi…}"
+    }
+   ],
+   "db": []
+  },
+  "components/ui/kit/Card.tsx": {
+   "usedBy": [
+    "/admin/sessions/create",
+    "/consultor/sessions/[id]",
+    "/consultor/sessions"
+   ],
+   "lines": 123,
+   "rows": [
+    {
+     "kind": "value",
+     "line": 50,
+     "when": "!rest.interactive",
+     "text": "{children}"
+    },
+    {
+     "kind": "link",
+     "line": 60,
+     "when": "typeof rest.href === 'string'",
+     "text": "{children}",
+     "target": "{href}"
+    },
+    {
+     "kind": "button",
+     "line": 68,
+     "text": "{children}"
+    }
+   ],
+   "db": []
+  },
+  "components/ui/kit/ConfirmDialog.tsx": {
+   "usedBy": [
+    "/admin/sessions/create",
+    "/consultor/sessions/[id]"
+   ],
+   "lines": 184,
+   "rows": [
+    {
+     "kind": "hook",
+     "line": 65,
+     "in": "ConfirmDialog",
+     "when": "open && before.open && before.key !== questionKey",
+     "text": "cancelRef.current.focus()",
+     "type": "focus"
+    },
+    {
+     "kind": "popup",
+     "line": 68,
+     "in": "ConfirmDialog",
+     "text": "Dialog",
+     "how": "component",
+     "open": "{open}",
+     "hook": {
+      "testid": "{testId}"
+     }
+    },
+    {
+     "kind": "button",
+     "line": 80,
+     "in": "ConfirmDialog",
+     "text": "{cancelLabel}",
+     "action": "{onCancel}",
+     "disabled": "{loading}",
+     "hook": {
+      "testid": "{testId ? `${testId}-cancel` : undefined}"
+     }
+    },
+    {
+     "kind": "button",
+     "line": 89,
+     "in": "ConfirmDialog",
+     "text": "{confirmLabel}",
+     "action": "{onConfirm}",
+     "hook": {
+      "testid": "{testId ? `${testId}-confirm` : undefined}"
+     }
+    },
+    {
+     "kind": "value",
+     "line": 100,
+     "in": "ConfirmDialog",
+     "when": "message && typeof message === 'string'",
+     "text": "{message}"
+    },
+    {
+     "kind": "string",
+     "line": 49,
+     "in": "ConfirmDialog",
+     "text": "Cancelar"
+    }
+   ],
+   "db": []
+  },
+  "components/ui/kit/Dialog.tsx": {
+   "usedBy": [
+    "/admin/sessions/create",
+    "/consultor/sessions/[id]"
+   ],
+   "lines": 235,
+   "rows": [
+    {
+     "kind": "hook",
+     "line": 75,
+     "in": "firstFocusable",
+     "text": "querySelectorAll({FOCUSABLE})",
+     "type": "lookup"
+    },
+    {
+     "kind": "hook",
+     "line": 130,
+     "in": "Dialog",
+     "text": "testid={testId}",
+     "type": "mark",
+     "tag": "RadixDialog.Content"
+    },
+    {
+     "kind": "hook",
+     "line": 151,
+     "in": "Dialog",
+     "text": "candidate.focus()",
+     "type": "focus"
+    },
+    {
+     "kind": "hook",
+     "line": 154,
+     "in": "Dialog",
+     "when": "!landed",
+     "text": "box.focus()",
+     "type": "focus"
+    },
+    {
+     "kind": "hook",
+     "line": 160,
+     "in": "Dialog",
+     "when": "target?.isConnected",
+     "text": "target.focus()",
+     "type": "focus"
+    },
+    {
+     "kind": "value",
+     "line": 179,
+     "in": "Dialog",
+     "when": "eyebrow",
+     "text": "{eyebrow}"
+    },
+    {
+     "kind": "value",
+     "line": 180,
+     "in": "Dialog",
+     "text": "{title}"
+    },
+    {
+     "kind": "value",
+     "line": 189,
+     "in": "Dialog",
+     "when": "description",
+     "text": "{description}"
+    },
+    {
+     "kind": "piece",
+     "line": 193,
+     "in": "Dialog",
+     "when": "dismissable",
+     "text": "aria-label: Cerrar",
+     "tag": "RadixDialog.Close",
+     "hook": {
+      "testid": "{testId ? `${testId}-close` : undefined}"
+     },
+     "aria": "Cerrar"
+    },
+    {
+     "kind": "piece",
+     "line": 204,
+     "in": "Dialog",
+     "when": "dismissable",
+     "text": "aria-hidden: true",
+     "tag": "X"
+    },
+    {
+     "kind": "value",
+     "line": 208,
+     "in": "Dialog",
+     "text": "{children}"
+    },
+    {
+     "kind": "value",
+     "line": 218,
+     "in": "Dialog",
+     "when": "footer",
+     "text": "{footer}"
+    }
+   ],
+   "db": []
+  },
+  "components/ui/kit/EmptyState.tsx": {
+   "usedBy": [
+    "/admin/sessions/create"
+   ],
+   "lines": 58,
+   "rows": [
+    {
+     "kind": "value",
+     "line": 43,
+     "text": "{title}"
+    },
+    {
+     "kind": "value",
+     "line": 52,
+     "when": "description",
+     "text": "{description}"
+    },
+    {
+     "kind": "value",
+     "line": 54,
+     "when": "action",
+     "text": "{action}"
+    }
+   ],
+   "db": []
+  },
+  "components/ui/kit/Field.tsx": {
+   "usedBy": [
+    "/admin/sessions/create",
+    "/consultor/sessions/[id]",
+    "/consultor/sessions"
+   ],
+   "lines": 396,
+   "rows": [
+    {
+     "kind": "value",
+     "line": 127,
+     "in": "Field",
+     "when": "help",
+     "text": "{help}"
+    },
+    {
+     "kind": "piece",
+     "line": 133,
+     "in": "Field",
+     "when": "error",
+     "text": "aria-hidden: true",
+     "tag": "AlertCircle"
+    },
+    {
+     "kind": "label",
+     "line": 152,
+     "in": "Field",
+     "when": "group",
+     "text": "{label} {mark}"
+    },
+    {
+     "kind": "value",
+     "line": 157,
+     "in": "Field",
+     "when": "group",
+     "text": "{children}"
+    },
+    {
+     "kind": "label",
+     "line": 166,
+     "in": "Field",
+     "text": "{label} {mark}",
+     "for": "{id}"
+    },
+    {
+     "kind": "value",
+     "line": 170,
+     "in": "Field",
+     "text": "{children}"
+    },
+    {
+     "kind": "list",
+     "line": 181,
+     "text": "AT_LEAST_ONE",
+     "items": [
+      "Marca al menos una opción."
+     ]
+    },
+    {
+     "kind": "hook",
+     "line": 194,
+     "in": "boxes",
+     "text": "querySelectorAll(input[type=\"checkbox\"])",
+     "type": "lookup"
+    },
+    {
+     "kind": "hook",
+     "line": 203,
+     "in": "useAtLeastOneTicked",
+     "text": "group.addEventListener('change')",
+     "type": "listener"
+    },
+    {
+     "kind": "hook",
+     "line": 204,
+     "in": "useAtLeastOneTicked",
+     "text": "form.addEventListener('reset')",
+     "type": "listener"
+    },
+    {
+     "kind": "field",
+     "line": 229,
+     "text": "",
+     "type": "{type}"
+    },
+    {
+     "kind": "field",
+     "line": 237,
+     "text": "",
+     "type": "textarea",
+     "limits": ""
+    },
+    {
+     "kind": "field",
+     "line": 248,
+     "text": "",
+     "type": "select"
+    },
+    {
+     "kind": "piece",
+     "line": 251,
+     "screen": "hidden",
+     "text": "aria-hidden: true",
+     "tag": "ChevronDown"
+    },
+    {
+     "kind": "piece",
+     "line": 264,
+     "text": "aria-hidden: true",
+     "tag": "Search"
+    },
+    {
+     "kind": "field",
+     "line": 268,
+     "text": "",
+     "type": "{type}"
+    },
+    {
+     "kind": "label",
+     "line": 302,
+     "in": "Choice",
+     "text": "{label}",
+     "for": "{inputId}"
+    },
+    {
+     "kind": "field",
+     "line": 304,
+     "in": "Choice",
+     "text": "{label}",
+     "type": "{kind}",
+     "required": "{isRequired}"
+    },
+    {
+     "kind": "piece",
+     "line": 314,
+     "in": "Choice",
+     "when": "kind === 'checkbox'",
+     "screen": "hidden",
+     "text": "aria-hidden: true",
+     "tag": "Check"
+    },
+    {
+     "kind": "value",
+     "line": 330,
+     "in": "Choice",
+     "when": "help",
+     "text": "{help}"
+    }
+   ],
+   "db": []
+  },
+  "components/ui/kit/Loading.tsx": {
+   "usedBy": [
+    "/admin/sessions/create"
+   ],
+   "lines": 109,
+   "rows": [
+    {
+     "kind": "hook",
+     "line": 46,
+     "text": "role=status",
+     "type": "role",
+     "tag": "span"
+    },
+    {
+     "kind": "value",
+     "line": 53,
+     "when": "label",
+     "text": "{label}"
+    },
+    {
+     "kind": "text",
+     "line": 53,
+     "when": "!(label)",
+     "screen": "sr-only",
+     "text": "Cargando…"
+    }
+   ],
+   "db": []
+  },
+  "components/ui/kit/Notice.tsx": {
+   "usedBy": [
+    "/admin/sessions/create",
+    "/consultor/sessions/[id]"
+   ],
+   "lines": 76,
+   "rows": [
+    {
+     "kind": "value",
+     "line": 68,
+     "when": "title",
+     "text": "{title}"
+    }
+   ],
+   "db": []
+  },
+  "components/ui/kit/PageHeader.tsx": {
+   "usedBy": [
+    "/admin/sessions/create",
+    "/consultor/sessions"
+   ],
+   "lines": 128,
+   "rows": [
+    {
+     "kind": "value",
+     "line": 78,
+     "when": "eyebrow",
+     "text": "{eyebrow}"
+    },
+    {
+     "kind": "value",
+     "line": 88,
+     "when": "icon",
+     "text": "{icon}"
+    },
+    {
+     "kind": "heading",
+     "line": 93,
+     "text": "{title}",
+     "level": 1
+    },
+    {
+     "kind": "value",
+     "line": 94,
+     "when": "description",
+     "text": "{description}"
+    },
+    {
+     "kind": "piece",
+     "line": 100,
+     "when": "hasActions && onSearchChange",
+     "text": "",
+     "tag": "SearchInput",
+     "aria": "{searchLabel}"
+    },
+    {
+     "kind": "button",
+     "line": 110,
+     "when": "hasActions && secondaryAction",
+     "text": "{secondaryAction.icon} {secondaryAction.label}",
+     "action": "{secondaryAction.onClick}",
+     "hook": {
+      "testid": "{secondaryAction['data-testid']}"
+     }
+    },
+    {
+     "kind": "button",
+     "line": 116,
+     "when": "hasActions && primaryAction",
+     "text": "{primaryAction.icon} {primaryAction.label}",
+     "action": "{primaryAction.onClick}",
+     "hook": {
+      "testid": "{primaryAction['data-testid']}"
+     }
+    },
+    {
+     "kind": "value",
+     "line": 124,
+     "when": "children",
+     "text": "{children}"
+    },
+    {
+     "kind": "string",
+     "line": 59,
+     "in": "PageHeader",
+     "text": "Buscar..."
+    },
+    {
+     "kind": "string",
+     "line": 60,
+     "in": "PageHeader",
+     "text": "Buscar"
+    }
+   ],
+   "db": []
+  },
+  "components/ui/kit/Table.tsx": {
+   "usedBy": [
+    "/consultor/sessions/[id]"
+   ],
+   "lines": 276,
+   "rows": [
+    {
+     "kind": "hook",
+     "line": 47,
+     "text": "role=table",
+     "type": "role",
+     "tag": "table"
+    },
+    {
+     "kind": "value",
+     "line": 47,
+     "text": "{children}"
+    },
+    {
+     "kind": "hook",
+     "line": 72,
+     "text": "role=rowgroup",
+     "type": "role",
+     "tag": "thead"
+    },
+    {
+     "kind": "hook",
+     "line": 81,
+     "text": "role=rowgroup",
+     "type": "role",
+     "tag": "tbody"
+    },
+    {
+     "kind": "hook",
+     "line": 98,
+     "text": "role=row",
+     "type": "role",
+     "tag": "tr"
+    },
+    {
+     "kind": "column",
+     "line": 139,
+     "text": "{children} / {children}"
+    },
+    {
+     "kind": "button",
+     "line": 148,
+     "when": "sortable",
+     "text": "{children}",
+     "action": "{onSort}"
+    },
+    {
+     "kind": "piece",
+     "line": 158,
+     "when": "sortable",
+     "text": "aria-hidden: true",
+     "tag": "Icon"
+    },
+    {
+     "kind": "hook",
+     "line": 189,
+     "text": "role=cell",
+     "type": "role",
+     "tag": "td"
+    },
+    {
+     "kind": "value",
+     "line": 213,
+     "when": "named",
+     "text": "{label}"
+    }
+   ],
+   "db": []
+  },
+  "components/ui/kit/Tabs.tsx": {
+   "usedBy": [
+    "/consultor/sessions/[id]",
+    "/consultor/sessions"
+   ],
+   "lines": 219,
+   "rows": [
+    {
+     "kind": "value",
+     "line": 60,
+     "in": "Tabs",
+     "text": "{children}"
+    },
+    {
+     "kind": "hook",
+     "line": 96,
+     "in": "TabList",
+     "text": "querySelectorAll([role=\"tab\"])",
+     "type": "lookup"
+    },
+    {
+     "kind": "hook",
+     "line": 104,
+     "in": "TabList",
+     "text": "role=tablist",
+     "type": "role",
+     "tag": "div",
+     "aria": "{label}",
+     "also": "onKeyDown={(event) => { onKeyDown?.(event); if (event.defaultPrevented) return; const tabs…}"
+    },
+    {
+     "kind": "value",
+     "line": 104,
+     "in": "TabList",
+     "text": "{children}"
+    },
+    {
+     "kind": "gate",
+     "line": 112,
+     "in": "TabList",
+     "text": "event.defaultPrevented"
+    },
+    {
+     "kind": "hook",
+     "line": 113,
+     "in": "TabList",
+     "text": "querySelectorAll([role=\"tab\"]:not([disabled]))",
+     "type": "lookup"
+    },
+    {
+     "kind": "gate",
+     "line": 115,
+     "in": "TabList",
+     "text": "at < 0 || tabs.length === 0"
+    },
+    {
+     "kind": "gate",
+     "line": 126,
+     "in": "TabList",
+     "text": "to < 0"
+    },
+    {
+     "kind": "hook",
+     "line": 128,
+     "in": "TabList",
+     "text": "tabs[to].focus()",
+     "type": "focus"
+    },
+    {
+     "kind": "tab",
+     "line": 150,
+     "text": "",
+     "action": "{(event) => { onClick?.(event); if (!event.defaultPrevented) select(value); }}"
+    },
+    {
+     "kind": "gate",
+     "line": 175,
+     "in": "TabPanel",
+     "text": "current !== value"
+    },
+    {
+     "kind": "hook",
+     "line": 177,
+     "in": "TabPanel",
+     "text": "role=tabpanel",
+     "type": "role",
+     "tag": "div"
+    },
+    {
+     "kind": "string",
+     "line": 144,
+     "in": "Tab",
+     "text": "Tab"
+    }
+   ],
+   "db": []
+  },
   "hooks/useSessionCreate.ts": {
    "usedBy": [
     "/admin/sessions/create"
    ],
-   "lines": 905,
+   "lines": 938,
    "rows": [
     {
      "kind": "nav",
@@ -12197,85 +17041,85 @@
      "variant": "error"
     },
     {
-     "kind": "confirm",
-     "line": 605,
-     "in": "handleScheduleSession",
-     "text": "{scheduleConfirmText(sessionCount)}"
-    },
-    {
      "kind": "toast",
-     "line": 617,
-     "in": "handleScheduleSession",
+     "line": 627,
+     "in": "scheduleConfirmedSession",
      "when": "!session?.access_token",
      "text": "Error de autenticación",
      "variant": "error"
     },
     {
      "kind": "message",
-     "line": 661,
-     "in": "handleScheduleSession",
+     "line": 672,
+     "in": "scheduleConfirmedSession",
      "when": "!createResponse.ok",
      "text": "Error al crear sesión",
      "via": "throw (shown by whoever catches it)"
     },
     {
      "kind": "message",
-     "line": 679,
-     "in": "handleScheduleSession",
+     "line": 691,
+     "in": "scheduleConfirmedSession",
      "when": "isRecurring && createResult.data.recurrence_group_id && !approveResponse.ok",
      "text": "Error al aprobar sesiones",
      "via": "throw (shown by whoever catches it)"
     },
     {
      "kind": "toast",
-     "line": 682,
-     "in": "handleScheduleSession",
+     "line": 695,
+     "in": "scheduleConfirmedSession",
      "when": "isRecurring && createResult.data.recurrence_group_id",
      "text": "{sessionCount} sesiones programadas exitosamente",
      "variant": "success"
     },
     {
      "kind": "nav",
-     "line": 683,
-     "in": "handleScheduleSession",
+     "line": 696,
+     "in": "scheduleConfirmedSession",
      "when": "isRecurring && createResult.data.recurrence_group_id",
      "text": "/admin/sessions",
      "via": "router.push"
     },
     {
      "kind": "message",
-     "line": 699,
-     "in": "handleScheduleSession",
+     "line": 713,
+     "in": "scheduleConfirmedSession",
      "when": "!(isRecurring && createResult.data.recurrence_group_id) && !approveResponse.ok",
      "text": "Error al aprobar sesión",
      "via": "throw (shown by whoever catches it)"
     },
     {
      "kind": "toast",
-     "line": 702,
-     "in": "handleScheduleSession",
+     "line": 717,
+     "in": "scheduleConfirmedSession",
      "when": "!(isRecurring && createResult.data.recurrence_group_id)",
      "text": "Sesión programada exitosamente",
      "variant": "success"
     },
     {
      "kind": "nav",
-     "line": 703,
-     "in": "handleScheduleSession",
+     "line": 718,
+     "in": "scheduleConfirmedSession",
      "when": "!(isRecurring && createResult.data.recurrence_group_id)",
      "text": "/admin/sessions/[*]",
      "via": "router.push"
     },
     {
      "kind": "toast",
-     "line": 707,
-     "in": "handleScheduleSession",
+     "line": 722,
+     "in": "scheduleConfirmedSession",
      "text": "Error al programar sesión",
      "variant": "error"
     },
     {
+     "kind": "confirm",
+     "line": 735,
+     "in": "handleScheduleSession",
+     "text": "{scheduleConfirmText(sessionCount)}"
+    },
+    {
      "kind": "nav",
-     "line": 715,
+     "line": 746,
      "in": "handleLogout",
      "text": "/login",
      "via": "router.push"
@@ -12300,13 +17144,13 @@
     },
     {
      "kind": "string",
-     "line": 804,
+     "line": 835,
      "in": "useSessionCreate",
      "text": "Externo"
     },
     {
      "kind": "string",
-     "line": 805,
+     "line": 836,
      "in": "useSessionCreate",
      "text": "Interno"
     }
@@ -12340,7 +17184,7 @@
    "usedBy": [
     "/consultor/sessions/[id]"
    ],
-   "lines": 818,
+   "lines": 827,
    "rows": [
     {
      "kind": "nav",
@@ -12561,43 +17405,43 @@
     },
     {
      "kind": "confirm",
-     "line": 449,
+     "line": 452,
      "in": "handleDeleteMaterial",
      "text": "¿Está seguro que desea eliminar \"{fileName}\"?"
     },
     {
      "kind": "toast",
-     "line": 458,
-     "in": "handleDeleteMaterial",
+     "line": 466,
+     "in": "deleteMaterialConfirmed",
      "when": "!authSession?.access_token",
      "text": "Error de autenticación",
      "variant": "error"
     },
     {
      "kind": "message",
-     "line": 471,
-     "in": "handleDeleteMaterial",
+     "line": 479,
+     "in": "deleteMaterialConfirmed",
      "when": "!response.ok",
      "text": "Error al eliminar material",
      "via": "throw (shown by whoever catches it)"
     },
     {
      "kind": "toast",
-     "line": 474,
-     "in": "handleDeleteMaterial",
+     "line": 482,
+     "in": "deleteMaterialConfirmed",
      "text": "Material eliminado correctamente",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 478,
-     "in": "handleDeleteMaterial",
+     "line": 486,
+     "in": "deleteMaterialConfirmed",
      "text": "Error al eliminar material",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 491,
+     "line": 499,
      "in": "handleFinalize",
      "when": "!authSession?.access_token",
      "text": "Error de autenticación",
@@ -12605,7 +17449,7 @@
     },
     {
      "kind": "message",
-     "line": 505,
+     "line": 513,
      "in": "handleFinalize",
      "when": "!response.ok",
      "text": "Error al finalizar sesión",
@@ -12613,21 +17457,21 @@
     },
     {
      "kind": "toast",
-     "line": 508,
+     "line": 516,
      "in": "handleFinalize",
      "text": "Sesión finalizada correctamente",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 513,
+     "line": 521,
      "in": "handleFinalize",
      "text": "Error al finalizar sesión",
      "variant": "error"
     },
     {
      "kind": "message",
-     "line": 525,
+     "line": 533,
      "in": "canFinalizeSession",
      "when": "session.status !== 'pendiente_informe'",
      "text": "La sesión debe estar en estado \"Pendiente de Informe\"",
@@ -12635,7 +17479,7 @@
     },
     {
      "kind": "message",
-     "line": 532,
+     "line": 540,
      "in": "canFinalizeSession",
      "when": "sessionReports.length === 0",
      "text": "Falta informe de sesión",
@@ -12643,7 +17487,7 @@
     },
     {
      "kind": "message",
-     "line": 538,
+     "line": 546,
      "in": "canFinalizeSession",
      "when": "unmarkedCount > 0",
      "text": "Hay {unmarkedCount} asistente(s) sin marcar",
@@ -12651,7 +17495,7 @@
     },
     {
      "kind": "toast",
-     "line": 556,
+     "line": 564,
      "in": "handleSubmitEditRequest",
      "when": "!authSession?.access_token",
      "text": "Error de autenticación",
@@ -12659,7 +17503,7 @@
     },
     {
      "kind": "message",
-     "line": 571,
+     "line": 579,
      "in": "handleSubmitEditRequest",
      "when": "!response.ok",
      "text": "Error al crear solicitud de cambio",
@@ -12667,28 +17511,28 @@
     },
     {
      "kind": "toast",
-     "line": 574,
+     "line": 582,
      "in": "handleSubmitEditRequest",
      "text": "Solicitud de cambio enviada correctamente",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 579,
+     "line": 587,
      "in": "handleSubmitEditRequest",
      "text": "Error al crear solicitud de cambio",
      "variant": "error"
     },
     {
      "kind": "access",
-     "line": 599,
+     "line": 607,
      "in": "useSessionDetail",
      "text": "canEdit = isFacilitator || userRole === 'admin'",
      "via": "declaration"
     },
     {
      "kind": "list",
-     "line": 632,
+     "line": 640,
      "in": "decide",
      "text": "tabs",
      "items": [
@@ -12702,7 +17546,7 @@
     },
     {
      "kind": "access",
-     "line": 645,
+     "line": 653,
      "in": "decide",
      "text": "isReadOnly = session!.status === 'completada' || session!.status === 'cancelada'",
      "via": "declaration"
@@ -12721,55 +17565,55 @@
     },
     {
      "kind": "string",
-     "line": 520,
+     "line": 528,
      "in": "useSessionDetail",
      "text": "Sesión no cargada"
     },
     {
      "kind": "string",
-     "line": 665,
+     "line": 673,
      "in": "useSessionDetail",
      "text": "Aprobada"
     },
     {
      "kind": "string",
-     "line": 666,
+     "line": 674,
      "in": "useSessionDetail",
      "text": "Rechazada"
     },
     {
      "kind": "string",
-     "line": 669,
+     "line": 677,
      "in": "useSessionDetail",
      "text": "Fecha"
     },
     {
      "kind": "string",
-     "line": 671,
+     "line": 679,
      "in": "useSessionDetail",
      "text": "Hora inicio"
     },
     {
      "kind": "string",
-     "line": 673,
+     "line": 681,
      "in": "useSessionDetail",
      "text": "Hora término"
     },
     {
      "kind": "string",
-     "line": 675,
+     "line": 683,
      "in": "useSessionDetail",
      "text": "Modalidad"
     },
     {
      "kind": "string",
-     "line": 689,
+     "line": 697,
      "in": "useSessionDetail",
      "text": "Usuario desconocido"
     },
     {
      "kind": "list",
-     "line": 687,
+     "line": 695,
      "in": "attendeeName",
      "text": "attendeeName()",
      "items": [
@@ -12778,7 +17622,7 @@
     },
     {
      "kind": "list",
-     "line": 696,
+     "line": 704,
      "in": "uploaderName",
      "text": "uploaderName()",
      "items": [
@@ -13953,6 +18797,9 @@
     "__tests__/pages/admin/sessions/create-timezone.test.tsx",
     "__tests__/pages/admin/sessions/create-zoom-managed.test.tsx",
     "__tests__/pages/admin/sessions/create.clasico.test.tsx",
+    "__tests__/pages/admin/sessions/create.nuevo.test.tsx",
+    "__tests__/pages/admin/sessions/create.sameForm.test.tsx",
+    "__tests__/pages/admin/sessions/sessionCreateFakes.tsx",
     "hooks/useSessionCreate.ts",
     "pages/admin/sessions/[id].tsx",
     "pages/admin/sessions/index.tsx"
@@ -14066,6 +18913,8 @@
     "__tests__/api/sessions/session-approve-zoom-provision.test.ts",
     "__tests__/api/sessions/session-lifecycle-notifications.test.ts",
     "__tests__/pages/admin/sessions/create.clasico.test.tsx",
+    "__tests__/pages/admin/sessions/create.nuevo.test.tsx",
+    "__tests__/pages/admin/sessions/create.sameForm.test.tsx",
     "hooks/useSessionCreate.ts",
     "pages/admin/sessions/[id].tsx",
     "pages/admin/sessions/index.tsx"
@@ -14087,7 +18936,8 @@
    ],
    "referencedIn": [
     "__tests__/api/sessions/attendance-suggestions.test.ts",
-    "components/sessions/AttendanceSuggestionsPanel.tsx"
+    "components/sessions/AttendanceSuggestionsPanel.tsx",
+    "tests/e2e/look-sessions.spec.ts"
    ]
   },
   {
@@ -14108,6 +18958,8 @@
    "referencedIn": [
     "__tests__/api/sessions/attendees.test.ts",
     "__tests__/pages/consultor/sessions/detail.clasico.test.tsx",
+    "__tests__/pages/consultor/sessions/detail.nuevo.test.tsx",
+    "__tests__/pages/consultor/sessions/detail.sameSession.test.tsx",
     "__tests__/pages/consultor/sessions/detail.test.tsx",
     "components/sessions/AttendanceSuggestionsPanel.tsx",
     "hooks/useSessionDetail.ts",
@@ -14176,6 +19028,7 @@
     "__tests__/api/sessions/session-notification-recipients.test.ts",
     "__tests__/api/sessions/session-notifications.test.ts",
     "__tests__/pages/consultor/sessions/detail.clasico.test.tsx",
+    "__tests__/pages/consultor/sessions/detail.sameSession.test.tsx",
     "hooks/useSessionDetail.ts"
    ]
   },
@@ -14215,6 +19068,8 @@
     "__tests__/api/sessions/finalize.test.ts",
     "__tests__/api/sessions/session-notification-recipients.test.ts",
     "__tests__/pages/consultor/sessions/detail.clasico.test.tsx",
+    "__tests__/pages/consultor/sessions/detail.nuevo.test.tsx",
+    "__tests__/pages/consultor/sessions/detail.sameSession.test.tsx",
     "hooks/useSessionDetail.ts"
    ]
   },
@@ -14238,7 +19093,9 @@
     "__tests__/api/sessions/ical-attendee-disclosure.test.ts",
     "__tests__/api/sessions/ical-sequence.test.ts",
     "__tests__/api/sessions/session-ical-export.test.ts",
+    "__tests__/pages/consultor/sessions/detail.nuevo.test.tsx",
     "components/sessions/SessionDetailClasico.tsx",
+    "components/sessions/detail-nuevo/HeaderNuevo.tsx",
     "pages/admin/sessions/[id].tsx",
     "tests/e2e/session-disclosure.spec.ts",
     "tests/e2e/session-ical.spec.ts"
@@ -14279,10 +19136,13 @@
     "__tests__/api/sessions/sessions-consultant-filter.test.ts",
     "__tests__/api/sessions/sessions-gc-member.test.ts",
     "__tests__/api/sessions/sessions-list-scope-union.test.ts",
+    "__tests__/helpers/sessionsFakes.tsx",
     "__tests__/lib/email/notification-worker.test.ts",
     "__tests__/middleware.forced-password-change.test.ts",
     "__tests__/pages/admin/sessions/zoom-entry-workflow.test.ts",
     "__tests__/pages/consultor/sessions/detail.clasico.test.tsx",
+    "__tests__/pages/consultor/sessions/detail.latch.test.tsx",
+    "__tests__/pages/consultor/sessions/detail.nuevo.test.tsx",
     "__tests__/pages/consultor/sessions/detail.test.tsx",
     "__tests__/stress/consultor-session-concurrency.test.ts",
     "hooks/useSessionDetail.ts",
@@ -14291,6 +19151,7 @@
     "scripts/redesign/harness/seed/30-sesiones-horas.mjs",
     "supabase/migrations/20260910120000_zoom_explicit_roster.sql",
     "supabase/tests/081-zoom-explicit-roster.sql",
+    "tests/e2e/look-sessions.spec.ts",
     "tests/e2e/session-disclosure.spec.ts",
     "tests/e2e/session-ical.spec.ts"
    ]
@@ -14313,7 +19174,9 @@
    "referencedIn": [
     "__tests__/api/sessions/materials.test.ts",
     "__tests__/pages/consultor/sessions/detail.clasico.test.tsx",
+    "__tests__/pages/consultor/sessions/detail.sameSession.test.tsx",
     "hooks/useSessionDetail.ts",
+    "tests/e2e/look-sessions.spec.ts",
     "tests/e2e/session-disclosure.spec.ts"
    ]
   },
@@ -14334,6 +19197,8 @@
    "referencedIn": [
     "__tests__/api/sessions/materials-detail.test.ts",
     "__tests__/pages/consultor/sessions/detail.clasico.test.tsx",
+    "__tests__/pages/consultor/sessions/detail.nuevo.test.tsx",
+    "__tests__/pages/consultor/sessions/detail.sameSession.test.tsx",
     "hooks/useSessionDetail.ts"
    ]
   },
@@ -14355,6 +19220,7 @@
    "referencedIn": [
     "__tests__/api/sessions/reports.test.ts",
     "__tests__/pages/consultor/sessions/detail.clasico.test.tsx",
+    "__tests__/pages/consultor/sessions/detail.sameSession.test.tsx",
     "hooks/useSessionDetail.ts",
     "tests/e2e/session-disclosure.spec.ts"
    ]
@@ -14379,6 +19245,7 @@
     "__tests__/api/sessions/report-detail-disclosure.test.ts",
     "__tests__/api/sessions/reports-detail.test.ts",
     "__tests__/pages/consultor/sessions/detail.clasico.test.tsx",
+    "__tests__/pages/consultor/sessions/detail.sameSession.test.tsx",
     "hooks/useSessionDetail.ts",
     "tests/e2e/session-disclosure.spec.ts"
    ]
@@ -14402,6 +19269,9 @@
     "__tests__/api/sessions/session-bulk-approve-zoom-provision.test.ts",
     "__tests__/api/sessions/session-lifecycle-notifications.test.ts",
     "__tests__/pages/admin/sessions/create.clasico.test.tsx",
+    "__tests__/pages/admin/sessions/create.nuevo.test.tsx",
+    "__tests__/pages/admin/sessions/create.sameForm.test.tsx",
+    "__tests__/pages/admin/sessions/sessionCreateFakes.tsx",
     "hooks/useSessionCreate.ts"
    ]
   },
@@ -14484,6 +19354,7 @@
     "__tests__/api/sessions/ical-sequence.test.ts",
     "__tests__/api/sessions/session-ical-export.test.ts",
     "__tests__/lib/utils/session-scope.test.ts",
+    "__tests__/pages/consultor/sessions/list.nuevo.test.tsx",
     "hooks/useSessionsList.ts",
     "pages/admin/sessions/index.tsx",
     "tests/e2e/session-ical.spec.ts"
@@ -14518,12 +19389,18 @@
     "__tests__/api/sessions/sessions-consultant-filter.test.ts",
     "__tests__/api/sessions/sessions-gc-member.test.ts",
     "__tests__/api/sessions/sessions-list-scope-union.test.ts",
+    "__tests__/helpers/sessionsListFixtures.ts",
     "__tests__/lib/utils/session-scope.test.ts",
     "__tests__/middleware.forced-password-change.test.ts",
     "__tests__/pages/admin/sessions/create-zoom-managed.test.tsx",
     "__tests__/pages/admin/sessions/create.clasico.test.tsx",
+    "__tests__/pages/admin/sessions/create.nuevo.test.tsx",
+    "__tests__/pages/admin/sessions/create.sameForm.test.tsx",
+    "__tests__/pages/admin/sessions/sessionCreateFakes.tsx",
     "__tests__/pages/consultor/sessions/detail.test.tsx",
     "__tests__/pages/consultor/sessions/list.clasico.test.tsx",
+    "__tests__/pages/consultor/sessions/list.nuevo.test.tsx",
+    "__tests__/pages/consultor/sessions/list.sameList.test.tsx",
     "__tests__/pages/consultor/sessions/list.test.tsx",
     "components/dashboard/unified/UpcomingSessionsCard.tsx",
     "components/workspace/WorkspaceSessionsTab.tsx",
@@ -14531,6 +19408,7 @@
     "hooks/useSessionsList.ts",
     "pages/admin/sessions/index.tsx",
     "supabase/migrations-archive/20260423120000_drop_duplicate_consultor_sessions_school_fk.sql",
+    "tests/e2e/look-sessions.spec.ts",
     "tests/e2e/meeting-finalize-email-outcome.spec.ts"
    ]
   },

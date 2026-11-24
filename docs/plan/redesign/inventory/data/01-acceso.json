@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "6f507a060b6706a92713ad8f8668b6386970cec7",
-  "date": "2026-11-19T20:11:06-03:00"
+  "commit": "c7e27398ca230dbbc3e581dcde19f92480491fcd",
+  "date": "2026-11-22T23:11:25-03:00"
  },
  "screens": [
   {
@@ -585,7 +585,7 @@
      "hooks/usePanel.ts:385",
      "hooks/useSessionCreate.ts:159",
      "hooks/useSessionCreate.ts:174",
-     "hooks/useSessionCreate.ts:715",
+     "hooks/useSessionCreate.ts:746",
      "hooks/useSessionDetail.ts:109",
      "hooks/useSessionDetail.ts:137",
      "hooks/useSessionDetail.ts:206",
@@ -778,9 +778,9 @@
      "pages/docente/assessments/[instanceId]/results.tsx:92",
      "pages/docente/assessments/index.tsx:143",
      "pages/docente/assessments/index.tsx:91",
-     "pages/expense-reports.tsx:113",
-     "pages/expense-reports.tsx:155",
-     "pages/expense-reports.tsx:204",
+     "pages/expense-reports.tsx:114",
+     "pages/expense-reports.tsx:156",
+     "pages/expense-reports.tsx:205",
      "pages/licitaciones/[id].tsx:210",
      "pages/licitaciones/[id].tsx:232",
      "pages/licitaciones/[id]/evaluacion.tsx:236",
@@ -826,8 +826,8 @@
      "pages/school/migration-plan/index.tsx:361",
      "pages/school/transversal-context/edit.tsx:408",
      "pages/school/transversal-context/edit.tsx:84",
-     "pages/school/transversal-context/index.tsx:182",
-     "pages/school/transversal-context/index.tsx:431",
+     "pages/school/transversal-context/index.tsx:186",
+     "pages/school/transversal-context/index.tsx:435",
      "pages/student/course/[courseId].tsx:391",
      "pages/student/course/[courseId].tsx:76",
      "pages/student/lesson/[lessonId].tsx:575",
@@ -845,6 +845,7 @@
       "tests/e2e/look-frame.spec.ts",
       "tests/e2e/look-kit.spec.ts",
       "tests/e2e/look-panel.spec.ts",
+      "tests/e2e/look-sessions.spec.ts",
       "tests/e2e/look-switch.spec.ts",
       "tests/e2e/notification-preferences-api.spec.ts",
       "tests/e2e/notification-settings.spec.ts",

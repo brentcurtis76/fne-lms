@@ -1,7 +1,7 @@
 # Personas (users, schools, networks, roles, profile)
 
 Area `14-personas`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `6f507a060` (2026-11-19).
+Read from commit `c7e27398c` (2026-11-22).
 
 7 screen files, 33 API files, 24 pieces.
 

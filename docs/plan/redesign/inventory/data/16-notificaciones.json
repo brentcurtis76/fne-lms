@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "6f507a060b6706a92713ad8f8668b6386970cec7",
-  "date": "2026-11-19T20:11:06-03:00"
+  "commit": "c7e27398ca230dbbc3e581dcde19f92480491fcd",
+  "date": "2026-11-22T23:11:25-03:00"
  },
  "screens": [
   {
@@ -77,6 +77,7 @@
       "tests/e2e/look-frame.spec.ts",
       "tests/e2e/look-kit.spec.ts",
       "tests/e2e/look-panel.spec.ts",
+      "tests/e2e/look-sessions.spec.ts",
       "tests/e2e/look-switch.spec.ts"
      ],
      "e2e": [],

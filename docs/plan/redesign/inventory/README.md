@@ -2,7 +2,7 @@
 
 What every screen of the platform offers today, so the redesign can prove that nothing is lost (PLAN.md, "The no-loss rules": the inventory is the contract).
 
-Read from commit `6f507a060b6706a92713ad8f8668b6386970cec7` (2026-11-19).
+Read from commit `c7e27398ca230dbbc3e581dcde19f92480491fcd` (2026-11-22).
 
 ## How to use it
 
@@ -35,22 +35,22 @@ What reading the code cannot see is added by the walk by sight and kept in `anno
 | [Mi Aprendizaje (the learner's courses, lessons and routes)](03-aprendizaje.md) | 7 | 1 | 25 | 634 |
 | [Cursos (course builder, upcoming courses, learning paths, assignment matrix)](04-cursos.md) | 15 | 30 | 45 | 1546 |
 | [Tareas y quizzes (assignments, group work, quiz review)](05-tareas.md) | 9 | 14 | 19 | 579 |
-| [Sesiones y consultorías (sessions, approvals, video meetings)](06-sesiones.md) | 11 | 34 | 37 | 1498 |
+| [Sesiones y consultorías (sessions, approvals, video meetings)](06-sesiones.md) | 11 | 34 | 67 | 2082 |
 | [Espacio Colaborativo y comunidades](07-espacio-colaborativo.md) | 4 | 19 | 73 | 1723 |
-| [Gestor de Cambio (registros, context, migration plan, results)](08-gestor-de-cambio.md) | 16 | 41 | 31 | 1680 |
+| [Gestor de Cambio (registros, context, migration plan, results)](08-gestor-de-cambio.md) | 16 | 41 | 31 | 1682 |
 | [Vías de Transformación (to be deleted)](09-vias-transformacion.md) | 10 | 17 | 0 | 0 |
 | [Licitaciones (processes, templates, proposals)](10-licitaciones.md) | 11 | 42 | 32 | 1619 |
-| [Gestión (clients, contracts, quotes)](11-gestion.md) | 7 | 15 | 22 | 1234 |
+| [Gestión (clients, contracts, quotes)](11-gestion.md) | 7 | 15 | 22 | 1265 |
 | [Pasantías (leads, travellers, panel, my trip)](12-pasantias.md) | 5 | 21 | 25 | 889 |
 | [Reportes](13-reportes.md) | 3 | 10 | 21 | 739 |
 | [Personas (users, schools, networks, roles, profile)](14-personas.md) | 7 | 33 | 24 | 1238 |
 | [Comunicación (news and events)](15-comunicacion.md) | 2 | 4 | 6 | 174 |
 | [Notificaciones](16-notificaciones.md) | 6 | 10 | 20 | 567 |
-| [Horas, tarifas y gastos](17-horas-gastos.md) | 4 | 10 | 16 | 465 |
+| [Horas, tarifas y gastos](17-horas-gastos.md) | 4 | 10 | 16 | 474 |
 | [QA (the platform's own test tool)](18-qa.md) | 16 | 21 | 13 | 1237 |
 | [Sistema (configuration, support, roadmap, test and debug pages, scheduled jobs)](19-sistema.md) | 4 | 27 | 8 | 308 |
 | [Sitio público (nuevaeducacion.org pages; not part of the platform redesign)](20-sitio-publico.md) | 8 | 1 | 29 | 832 |
-| **Total** | **155** | **371** | | **18525** |
+| **Total** | **155** | **371** | | **19151** |
 
 The menu has 18 entries at the top level and 61 children (`NAVIGATION_ITEMS` in `components/layout/Sidebar.tsx`).
 

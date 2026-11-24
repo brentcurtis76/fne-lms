@@ -1,9 +1,9 @@
 # Sesiones y consultorías (sessions, approvals, video meetings)
 
 Area `06-sesiones`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `6f507a060` (2026-11-19).
+Read from commit `c7e27398c` (2026-11-22).
 
-11 screen files, 34 API files, 37 pieces.
+11 screen files, 34 API files, 67 pieces.
 
 ## Screens
 
@@ -13,10 +13,10 @@ Read from commit `6f507a060` (2026-11-19).
 | `/admin/consultant-assignments` | `pages/admin/consultant-assignments.tsx` | 605 | Consultorías › Asignación de Consultores |  |
 | `/admin/sessions/[id]` | `pages/admin/sessions/[id].tsx` | 1224 | — |  |
 | `/admin/sessions/approvals` | `pages/admin/sessions/approvals.tsx` | 487 | Consultorías › Aprobaciones |  |
-| `/admin/sessions/create` | `pages/admin/sessions/create.tsx` | 48 | — |  |
+| `/admin/sessions/create` | `pages/admin/sessions/create.tsx` | 90 | — |  |
 | `/admin/sessions` | `pages/admin/sessions/index.tsx` | 1175 | Consultorías › Sesiones |  |
-| `/consultor/sessions/[id]` | `pages/consultor/sessions/[id].tsx` | 111 | — |  |
-| `/consultor/sessions` | `pages/consultor/sessions/index.tsx` | 31 | Mi Trabajo › Mis Sesiones |  |
+| `/consultor/sessions/[id]` | `pages/consultor/sessions/[id].tsx` | 170 | — |  |
+| `/consultor/sessions` | `pages/consultor/sessions/index.tsx` | 45 | Mi Trabajo › Mis Sesiones |  |
 | `/consultor/sessions/reports` | `pages/consultor/sessions/reports.tsx` | 890 | Mi Trabajo › Mis Reportes; Consultorías › Reportes |  |
 | `/meet/diag` | `pages/meet/diag.tsx` | 1038 | — | Looks like a leftover but is in use |
 | `/meet/session/[id]` | `pages/meet/session/[id].tsx` | 193 | — |  |
@@ -365,8 +365,8 @@ File `pages/admin/sessions/[id].tsx` · 1224 lines · frame: MainLayout
   - l.250 `router.push → /dashboard  (when !isAdminUser)`
   - l.255 `router.push → /login`
   - l.413 `router.push → /login`
-- Linked from: `hooks/useSessionCreate.ts:585`, `hooks/useSessionCreate.ts:703`, `pages/admin/sessions/index.tsx:314`
-- Tests: no browser test that CI runs.
+- Linked from: `hooks/useSessionCreate.ts:585`, `hooks/useSessionCreate.ts:718`, `pages/admin/sessions/index.tsx:314`
+- Tests: browser tests that CI runs: `tests/e2e/look-sessions.spec.ts`.
 
 | Role | Sees it in the menu | Middleware |
 |---|---|---|
@@ -800,7 +800,7 @@ File `pages/admin/sessions/approvals.tsx` · 487 lines · frame: MainLayout
 
 ## /admin/sessions/create
 
-File `pages/admin/sessions/create.tsx` · 48 lines · frame: MainLayout
+File `pages/admin/sessions/create.tsx` · 90 lines · frame: MainLayout
 
 ### Who reaches it
 
@@ -808,7 +808,7 @@ File `pages/admin/sessions/create.tsx` · 48 lines · frame: MainLayout
 - Middleware: the /admin rule. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page: no access check found by the script.
 - Linked from: `pages/admin/sessions/index.tsx:564`
-- Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/reservation.spec.ts`; unit tests of the page: `__tests__/pages/admin/sessions/create-earliest-date.test.tsx`, `__tests__/pages/admin/sessions/create-timezone.test.tsx`, `__tests__/pages/admin/sessions/create-zoom-managed.test.tsx`, `__tests__/pages/admin/sessions/create.clasico.test.tsx`.
+- Tests: browser tests that CI runs: `tests/e2e/look-sessions.spec.ts`; browser tests CI skips: `tests/e2e/reservation.spec.ts`; unit tests of the page: `__tests__/pages/admin/sessions/create-earliest-date.test.tsx`, `__tests__/pages/admin/sessions/create-timezone.test.tsx`, `__tests__/pages/admin/sessions/create-zoom-managed.test.tsx`, `__tests__/pages/admin/sessions/create.clasico.test.tsx`, `__tests__/pages/admin/sessions/create.nuevo.test.tsx`, `__tests__/pages/admin/sessions/create.sameForm.test.tsx`.
 - QA scenarios that name this address: consultor 1, lider_comunidad 1, director 1, supervisor 1, docente 1.
 
 | Role | Sees it in the menu | Middleware |
@@ -855,23 +855,53 @@ File `pages/admin/sessions/create.tsx` · 48 lines · frame: MainLayout
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «Acceso Denegado» | h1 | `!isAdmin` | SessionCreatePage · l.23 |
+| «Acceso Denegado» | h1 | `!isAdmin` | SessionCreatePage · l.61 |
 
-**Pieces placed here, with the texts and settings handed to them** (2)
+**Pieces placed here, with the texts and settings handed to them** (7)
 
 | Piece | Texts and settings | Shown when | Hook | Where |
 |---|---|---|---|---|
-| `MainLayout` |  |  |  | SessionCreatePage · l.34 |
-| `SessionCreateClasico` |  |  |  | SessionCreatePage · l.42 |
+| `MainLayout` |  | `loading && isNuevo` |  | SessionCreatePage · l.24 |
+| `SessionCreateSkeleton` |  | `loading && isNuevo` |  | SessionCreatePage · l.32 |
+| `MainLayout` |  | `!isAdmin && isNuevo` |  | SessionCreatePage · l.46 |
+| `SessionCreateDenied` |  | `!isAdmin && isNuevo` |  | SessionCreatePage · l.54 |
+| `MainLayout` |  |  |  | SessionCreatePage · l.72 |
+| `SessionCreateNuevo` |  | `isNuevo` |  | SessionCreatePage · l.81 |
+| `SessionCreateClasico` |  | `!(isNuevo)` |  | SessionCreatePage · l.83 |
+
+**Texts kept in lists and helpers in the code (labels, options, status names)** (1)
+
+| Name | Texts | Where |
+|---|---|---|
+| `BREADCRUMBS_NUEVO` | «Sesiones», «Programar Sesión» | l.10 |
 
 **Other texts on screen** (1)
 
-- «No tiene permisos para acceder a esta página.» — SessionCreatePage · l.24, when `!isAdmin`
+- «No tiene permisos para acceder a esta página.» — SessionCreatePage · l.62, when `!isAdmin`
 
 ### Pieces it uses (each is listed once, under "Pieces" below)
 
 - `components/layout/FunctionalPageHeader.tsx`
 - `components/sessions/SessionCreateClasico.tsx`
+- `components/sessions/SessionCreateNuevo.tsx`
+- `components/sessions/create-nuevo/ConsultantsNuevo.tsx`
+- `components/sessions/create-nuevo/HoursNuevo.tsx`
+- `components/sessions/create-nuevo/RecurrenceNuevo.tsx`
+- `components/sessions/create-nuevo/SectionNuevo.tsx`
+- `components/sessions/create-nuevo/SessionCreateStates.tsx`
+- `components/sessions/create-nuevo/SummaryNuevo.tsx`
+- `components/sessions/create-nuevo/createNuevoText.ts`
+- `components/sessions/create-nuevo/fieldRow.ts`
+- `components/sessions/sessionCreateChecks.ts`
+- `components/ui/kit/Button.tsx`
+- `components/ui/kit/Card.tsx`
+- `components/ui/kit/ConfirmDialog.tsx`
+- `components/ui/kit/Dialog.tsx`
+- `components/ui/kit/EmptyState.tsx`
+- `components/ui/kit/Field.tsx`
+- `components/ui/kit/Loading.tsx`
+- `components/ui/kit/Notice.tsx`
+- `components/ui/kit/PageHeader.tsx`
 - `hooks/useSessionCreate.ts`
 - `lib/utils/recurrence.ts`
 - `lib/utils/session-timezone.ts`
@@ -884,9 +914,9 @@ File `pages/admin/sessions/create.tsx` · 48 lines · frame: MainLayout
 |---|---|---|
 | `/api/admin/consultants` | GET | `hooks/useSessionCreate.ts:226` |
 | `/api/hour-types` | GET | `hooks/useSessionCreate.ts:266` |
-| `/api/sessions` | POST | `hooks/useSessionCreate.ts:559`, `hooks/useSessionCreate.ts:650` |
-| `/api/sessions/[id]/approve` | POST | `hooks/useSessionCreate.ts:689` |
-| `/api/sessions/bulk-approve` | POST | `hooks/useSessionCreate.ts:668` |
+| `/api/sessions` | POST | `hooks/useSessionCreate.ts:559`, `hooks/useSessionCreate.ts:660` |
+| `/api/sessions/[id]/approve` | POST | `hooks/useSessionCreate.ts:703` |
+| `/api/sessions/bulk-approve` | POST | `hooks/useSessionCreate.ts:680` |
 
 ## /admin/sessions
 
@@ -902,7 +932,7 @@ File `pages/admin/sessions/index.tsx` · 1175 lines · frame: MainLayout
   - l.172 `router.push → /dashboard  (when !isAdminUser)`
   - l.177 `router.push → /login`
   - l.403 `router.push → /login`
-- Linked from: `components/layout/Sidebar.tsx:494`, `hooks/useSessionCreate.ts:582`, `hooks/useSessionCreate.ts:683`
+- Linked from: `components/layout/Sidebar.tsx:494`, `components/sessions/SessionCreateNuevo.tsx:534`, `hooks/useSessionCreate.ts:582`, `hooks/useSessionCreate.ts:696`, `pages/admin/sessions/create.tsx:10`
 - Tests: no browser test that CI runs.
 - QA scenarios that name this address: admin 5, consultor 4, lider_comunidad 6, director 1, supervisor 1, docente 1.
 
@@ -1145,15 +1175,15 @@ File `pages/admin/sessions/index.tsx` · 1175 lines · frame: MainLayout
 
 ## /consultor/sessions/[id]
 
-File `pages/consultor/sessions/[id].tsx` · 111 lines · frame: MainLayout
+File `pages/consultor/sessions/[id].tsx` · 170 lines · frame: MainLayout
 
 ### Who reaches it
 
 - Menu: no entry.
 - Middleware: signed-in only. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page: no access check found by the script.
-- Linked from: `components/dashboard/unified/UpcomingSessionsCard.tsx:77`, `components/workspace/WorkspaceSessionsTab.tsx:264`, `components/workspace/WorkspaceSessionsTab.tsx:268`, `hooks/useSessionsList.ts:326`, `lib/notifications/catalog.ts:195`, `pages/consultor/sessions/reports.tsx:817`, `pages/consultor/sessions/reports.tsx:821`
-- Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/notification-catalog-links.spec.ts`, `tests/e2e/session-reminders.spec.ts`; unit tests of the page: `__tests__/pages/consultor/sessions/detail.clasico.test.tsx`, `__tests__/pages/consultor/sessions/detail.test.tsx`.
+- Linked from: `components/dashboard/unified/UpcomingSessionsCard.tsx:77`, `components/sessions/SessionsListNuevo.tsx:101`, `components/sessions/SessionsListNuevo.tsx:102`, `components/workspace/WorkspaceSessionsTab.tsx:264`, `components/workspace/WorkspaceSessionsTab.tsx:268`, `hooks/useSessionsList.ts:326`, `lib/notifications/catalog.ts:195`, `pages/consultor/sessions/reports.tsx:817`, `pages/consultor/sessions/reports.tsx:821`
+- Tests: browser tests that CI runs: `tests/e2e/look-sessions.spec.ts`; browser tests CI skips: `tests/e2e/notification-catalog-links.spec.ts`, `tests/e2e/session-reminders.spec.ts`; unit tests of the page: `__tests__/pages/consultor/sessions/detail.clasico.test.tsx`, `__tests__/pages/consultor/sessions/detail.latch.test.tsx`, `__tests__/pages/consultor/sessions/detail.nuevo.test.tsx`, `__tests__/pages/consultor/sessions/detail.sameSession.test.tsx`, `__tests__/pages/consultor/sessions/detail.test.tsx`.
 - QA scenarios that name this address: lider_comunidad 1.
 
 | Role | Sees it in the menu | Middleware |
@@ -1194,40 +1224,52 @@ File `pages/consultor/sessions/[id].tsx` · 111 lines · frame: MainLayout
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «Acceso denegado» | h2 | `fetchError === 'forbidden'` | SessionDetailPage · l.41 |
-| «Sesión no encontrada» | h2 | `fetchError === 'not_found' \|\| !session` | SessionDetailPage · l.53 |
-| «Finalizar Sesión» | h3 | `showFinalizeModal` | SessionDetailPage · l.72 |
+| «Acceso denegado» | h2 | `fetchError === 'forbidden'` | SessionDetailScreen · l.72 |
+| «Sesión no encontrada» | h2 | `fetchError === 'not_found' \|\| !session` | SessionDetailScreen · l.84 |
+| «Finalizar Sesión» | h3 | `!(picked === 'nuevo') && showFinalizeModal` | SessionDetailScreen · l.130 |
 
-**Buttons** (2)
+**Buttons** (4)
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «Cancelar» | `{closeFinalize}` | `showFinalizeModal` | `{finalizing}` |  | SessionDetailPage · l.77 |
-| «Finalizando... / Finalizar» | `{handleFinalize}` | `showFinalizeModal` | `{finalizing}` |  | SessionDetailPage · l.84 |
+| «Cancelar» | `{closeFinalize}` | `picked === 'nuevo'` | `{finalizing}` |  | SessionDetailScreen · l.114 |
+| «Finalizando... / Finalizar» | `{handleFinalize}` | `picked === 'nuevo'` | `{finalizing}` |  | SessionDetailScreen · l.117 |
+| «Cancelar» | `{closeFinalize}` | `!(picked === 'nuevo') && showFinalizeModal` | `{finalizing}` |  | SessionDetailScreen · l.135 |
+| «Finalizando... / Finalizar» | `{handleFinalize}` | `!(picked === 'nuevo') && showFinalizeModal` | `{finalizing}` |  | SessionDetailScreen · l.142 |
 
-**Pop-ups** (2)
+**Pop-ups** (3)
 
 | Name or title | How | Opens when | Texts passed to it | Where |
 |---|---|---|---|---|
-| «Finalizar Sesión» | written in this file | `showFinalizeModal` |  | SessionDetailPage · l.70 |
-| `EditRequestModal` | component | `showEditRequestModal && session` |  | SessionDetailPage · l.98 |
+| `Dialog` | component | `{showFinalizeModal}` | title: Finalizar Sesión | SessionDetailScreen · l.106 |
+| «Finalizar Sesión» | written in this file | `!(picked === 'nuevo') && showFinalizeModal` |  | SessionDetailScreen · l.128 |
+| `EditRequestModal` | component | `showEditRequestModal && session` |  | SessionDetailScreen · l.157 |
 
-**Pieces placed here, with the texts and settings handed to them** (5)
+**Pieces placed here, with the texts and settings handed to them** (7)
 
 | Piece | Texts and settings | Shown when | Hook | Where |
 |---|---|---|---|---|
-| `MainLayout` |  | `loading` |  | SessionDetailPage · l.28 |
-| `MainLayout` |  | `fetchError === 'forbidden'` |  | SessionDetailPage · l.38 |
-| `MainLayout` |  | `fetchError === 'not_found' \|\| !session` |  | SessionDetailPage · l.50 |
-| `MainLayout` |  |  |  | SessionDetailPage · l.64 |
-| `SessionDetailClasico` |  |  |  | SessionDetailPage · l.66 |
+| `MainLayout` |  | `loading` |  | SessionDetailScreen · l.59 |
+| `MainLayout` |  | `fetchError === 'forbidden'` |  | SessionDetailScreen · l.69 |
+| `MainLayout` |  | `fetchError === 'not_found' \|\| !session` |  | SessionDetailScreen · l.81 |
+| `MainLayout` |  |  |  | SessionDetailScreen · l.95 |
+| `SessionDetailNuevo` |  | `picked === 'nuevo'` |  | SessionDetailScreen · l.98 |
+| `SessionDetailClasico` |  | `!(picked === 'nuevo')` |  | SessionDetailScreen · l.100 |
+| `CheckCircle2` | aria-hidden: true | `picked === 'nuevo'` |  | SessionDetailScreen · l.118 |
 
-**Other texts on screen** (4)
+**Texts kept in lists and helpers in the code (labels, options, status names)** (1)
 
-- «Cargando...» — SessionDetailPage · l.30, when `loading`
-- «No tiene permisos para ver esta sesión.» — SessionDetailPage · l.42, when `fetchError === 'forbidden'`
-- «La sesión solicitada no existe o fue eliminada.» — SessionDetailPage · l.54, when `fetchError === 'not_found' \|\| !session`
-- «¿Está seguro que desea finalizar esta sesión? Esta acción no se puede deshacer.» — SessionDetailPage · l.74, when `showFinalizeModal`
+| Name | Texts | Where |
+|---|---|---|
+| `CRUMBS_NUEVO` | «Mi Trabajo», «Mis Sesiones» | l.13 |
+
+**Other texts on screen** (5)
+
+- «Cargando...» — SessionDetailScreen · l.61, when `loading`
+- «No tiene permisos para ver esta sesión.» — SessionDetailScreen · l.73, when `fetchError === 'forbidden'`
+- «La sesión solicitada no existe o fue eliminada.» — SessionDetailScreen · l.85, when `fetchError === 'not_found' \|\| !session`
+- «¿Está seguro que desea finalizar esta sesión? Esta acción no se puede deshacer.» — SessionDetailScreen · l.124, when `picked === 'nuevo'`
+- «¿Está seguro que desea finalizar esta sesión? Esta acción no se puede deshacer.» — SessionDetailScreen · l.132, when `!(picked === 'nuevo') && showFinalizeModal`
 
 ### Pieces it uses (each is listed once, under "Pieces" below)
 
@@ -1236,6 +1278,21 @@ File `pages/consultor/sessions/[id].tsx` · 111 lines · frame: MainLayout
 - `components/sessions/AudioReportUploader.tsx`
 - `components/sessions/EditRequestModal.tsx`
 - `components/sessions/SessionDetailClasico.tsx`
+- `components/sessions/SessionDetailNuevo.tsx`
+- `components/sessions/detail-nuevo/ActivityNuevo.tsx`
+- `components/sessions/detail-nuevo/AttendanceNuevo.tsx`
+- `components/sessions/detail-nuevo/HeaderNuevo.tsx`
+- `components/sessions/detail-nuevo/MaterialsNuevo.tsx`
+- `components/sessions/detail-nuevo/ReportNuevo.tsx`
+- `components/sessions/sessionTextNuevo.ts`
+- `components/ui/kit/Button.tsx`
+- `components/ui/kit/Card.tsx`
+- `components/ui/kit/ConfirmDialog.tsx`
+- `components/ui/kit/Dialog.tsx`
+- `components/ui/kit/Field.tsx`
+- `components/ui/kit/Notice.tsx`
+- `components/ui/kit/Table.tsx`
+- `components/ui/kit/Tabs.tsx`
 - `hooks/useSessionDetail.ts`
 - `lib/services/audio-transcription.ts`
 - `lib/utils/session-timezone.ts`
@@ -1251,25 +1308,25 @@ File `pages/consultor/sessions/[id].tsx` · 111 lines · frame: MainLayout
 | `/api/sessions/[id]/attendance-suggestions` | GET | `components/sessions/AttendanceSuggestionsPanel.tsx:55` |
 | `/api/sessions/[id]/attendees` | PUT | `components/sessions/AttendanceSuggestionsPanel.tsx:117`, `hooks/useSessionDetail.ts:307` |
 | `/api/sessions/[id]/audio-report` | POST | `components/sessions/AudioReportUploader.tsx:114` |
-| `/api/sessions/[id]/edit-requests` | POST | `hooks/useSessionDetail.ts:560` |
-| `/api/sessions/[id]/finalize` | POST | `hooks/useSessionDetail.ts:495` |
-| `/api/sessions/[id]/ical` | ? | `components/sessions/SessionDetailClasico.tsx:714` |
+| `/api/sessions/[id]/edit-requests` | POST | `hooks/useSessionDetail.ts:568` |
+| `/api/sessions/[id]/finalize` | POST | `hooks/useSessionDetail.ts:503` |
+| `/api/sessions/[id]/ical` | ? | `components/sessions/SessionDetailClasico.tsx:714`, `components/sessions/detail-nuevo/HeaderNuevo.tsx:116` |
 | `/api/sessions/[id]/materials` | POST | `hooks/useSessionDetail.ts:422` |
-| `/api/sessions/[id]/materials/[mid]` | DELETE | `hooks/useSessionDetail.ts:462` |
+| `/api/sessions/[id]/materials/[mid]` | DELETE | `hooks/useSessionDetail.ts:470` |
 | `/api/sessions/[id]/reports` | ? | `hooks/useSessionDetail.ts:356` |
 | `/api/sessions/[id]/reports/[rid]` | GET | `hooks/useSessionDetail.ts:222`, `hooks/useSessionDetail.ts:355` |
 
 ## /consultor/sessions
 
-File `pages/consultor/sessions/index.tsx` · 31 lines · frame: MainLayout
+File `pages/consultor/sessions/index.tsx` · 45 lines · frame: MainLayout
 
 ### Who reaches it
 
 - Menu: Mi Trabajo › «Mis Sesiones» → `/consultor/sessions` — admin or consultor; the group: admin or consultor (`Sidebar.tsx` l.178)
 - Middleware: signed-in only. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page: no access check found by the script.
-- Linked from: `components/dashboard/unified/UpcomingSessionsCard.tsx:81`, `components/layout/Sidebar.tsx:180`, `lib/notificationEvents.ts:480`, `lib/notificationEvents.ts:517`, `lib/notificationEvents.ts:535`, `lib/notificationEvents.ts:568`, `lib/notificationEvents.ts:582`, `lib/notificationEvents.ts:597`, `lib/notificationEvents.ts:611`, `lib/notifications/catalog.ts:182`, `lib/notifications/catalog.ts:230`
-- Tests: no browser test that CI runs; unit tests of the page: `__tests__/pages/consultor/sessions/list.clasico.test.tsx`, `__tests__/pages/consultor/sessions/list.test.tsx`.
+- Linked from: `components/dashboard/unified/UpcomingSessionsCard.tsx:81`, `components/layout/Sidebar.tsx:180`, `lib/notificationEvents.ts:480`, `lib/notificationEvents.ts:517`, `lib/notificationEvents.ts:535`, `lib/notificationEvents.ts:568`, `lib/notificationEvents.ts:582`, `lib/notificationEvents.ts:597`, `lib/notificationEvents.ts:611`, `lib/notifications/catalog.ts:182`, `lib/notifications/catalog.ts:230`, `pages/consultor/sessions/[id].tsx:13`
+- Tests: browser tests that CI runs: `tests/e2e/look-sessions.spec.ts`; unit tests of the page: `__tests__/pages/consultor/sessions/list.clasico.test.tsx`, `__tests__/pages/consultor/sessions/list.nuevo.test.tsx`, `__tests__/pages/consultor/sessions/list.sameList.test.tsx`, `__tests__/pages/consultor/sessions/list.test.tsx`.
 - QA scenarios that name this address: consultor 8, lider_comunidad 3, director 1, supervisor 1, docente 1.
 
 | Role | Sees it in the menu | Middleware |
@@ -1301,26 +1358,41 @@ File `pages/consultor/sessions/index.tsx` · 31 lines · frame: MainLayout
 
 ### What the page file itself draws
 
-**Pieces placed here, with the texts and settings handed to them** (3)
+**Pieces placed here, with the texts and settings handed to them** (4)
 
 | Piece | Texts and settings | Shown when | Hook | Where |
 |---|---|---|---|---|
-| `MainLayout` |  | `loading` |  | ConsultorSessionsPage · l.12 |
-| `MainLayout` |  |  |  | ConsultorSessionsPage · l.24 |
-| `SessionsListClasico` |  |  |  | ConsultorSessionsPage · l.25 |
+| `MainLayout` |  | `loading` |  | ConsultorSessionsPage · l.22 |
+| `MainLayout` |  |  |  | ConsultorSessionsPage · l.34 |
+| `SessionsListNuevo` |  | `isNuevo` |  | ConsultorSessionsPage · l.36 |
+| `SessionsListClasico` |  | `!(isNuevo)` |  | ConsultorSessionsPage · l.38 |
+
+**Texts kept in lists and helpers in the code (labels, options, status names)** (1)
+
+| Name | Texts | Where |
+|---|---|---|
+| `FRAME_NUEVO` | «Mi Trabajo», «Mis Sesiones» | l.9 |
 
 **Other texts on screen** (1)
 
-- «Cargando...» — ConsultorSessionsPage · l.14, when `loading`
+- «Cargando...» — ConsultorSessionsPage · l.24, when `loading`
 
 ### Pieces it uses (each is listed once, under "Pieces" below)
 
 - `components/layout/FunctionalPageHeader.tsx`
 - `components/sessions/SessionsListClasico.tsx`
+- `components/sessions/SessionsListNuevo.tsx`
+- `components/sessions/sessionTextNuevo.ts`
 - `components/tutorials/HelpButton.tsx`
 - `components/tutorials/HelpDrawer.tsx`
 - `components/tutorials/VimeoEmbed.tsx`
 - `components/ui/dialog.tsx`
+- `components/ui/kit/Badge.tsx`
+- `components/ui/kit/Button.tsx`
+- `components/ui/kit/Card.tsx`
+- `components/ui/kit/Field.tsx`
+- `components/ui/kit/PageHeader.tsx`
+- `components/ui/kit/Tabs.tsx`
 - `hooks/useSessionsList.ts`
 - `lib/tutorials/content.ts`
 - `lib/utils/session-timezone.ts`
@@ -2827,6 +2899,151 @@ Used by: `/admin/sessions/create`
 - «Proveedor de reunión» (label) — SessionCreateClasico · l.684, when `showMeetingFields && showManualMeetingFields()`
 - «Ubicación *» (label) — SessionCreateClasico · l.708, when `showLocation`
 
+### components/sessions/SessionCreateNuevo.tsx
+
+Used by: `/admin/sessions/create`
+
+**Buttons** (3)
+
+| Text | Does | Shown when | Disabled when | Hook | Where |
+|---|---|---|---|---|---|
+| «{scheduleLabel}» (submits the form) |  |  | `{scheduleDisabled}` |  | SessionCreateNuevo · l.521 |
+| «{draftLabel}» | `{onDraft}` |  | `{draftDisabled}` |  | SessionCreateNuevo · l.530 |
+| «Cancelar» |  |  | `{submitting}` |  | SessionCreateNuevo · l.534 |
+
+**Links** (1)
+
+| Text | Goes to | Shown when | Hook | Where |
+|---|---|---|---|---|
+| «{failure.message}» | `#[*]` | `failures.length > 0 && each placed` |  | SessionCreateNuevo · l.244 |
+
+**Fields** (12)
+
+| Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
+|---|---|---|---|---|---|---|
+| «school_id» | select | `school_id` |  |  |  | SessionCreateNuevo · l.270 |
+| «growth_community_id» | select | `growth_community_id` · disabled: `{communitySelectDisabled}` |  |  |  | SessionCreateNuevo · l.287 |
+| «Ej: Sesión de planificación trimestral» | text | `title` · «Ej: Sesión de planificación trimestral» · `maxLength={200}` |  |  |  | SessionCreateNuevo · l.317 |
+| «Descripción de la sesión...» | textarea | `description` · «Descripción de la sesión...» |  |  |  | SessionCreateNuevo · l.330 |
+| «Objetivos de la sesión...» | textarea | `objectives` · «Objetivos de la sesión...» |  |  |  | SessionCreateNuevo · l.339 |
+| «session_date» | date | `session_date` · `min={earliestDate}` |  |  |  | SessionCreateNuevo · l.354 |
+| «start_time» | time | `start_time` |  |  |  | SessionCreateNuevo · l.374 |
+| «end_time» | time | `end_time` |  |  |  | SessionCreateNuevo · l.393 |
+| «is_zoom_managed» | checkbox | `is_zoom_managed` |  | `showMeetingFields && zoomManagedAvailable` | `testid=session-zoom-managed` | SessionCreateNuevo · l.457 |
+| «https://zoom.us/j/123456789» | url | `meeting_link` · «https://zoom.us/j/123456789» |  | `showMeetingFields && showManualMeetingFields()` |  | SessionCreateNuevo · l.475 |
+| «meeting_provider» | select | `meeting_provider` |  | `showMeetingFields && showManualMeetingFields()` |  | SessionCreateNuevo · l.486 |
+| «Ej: Sala de profesores» | text | `location` · «Ej: Sala de profesores» |  | `showLocation` |  | SessionCreateNuevo · l.501 |
+
+**Forms** (1)
+
+| On submit | Shown when | Where |
+|---|---|---|
+| `{onSubmit}` |  | SessionCreateNuevo · l.219 |
+
+**Pop-ups** (1)
+
+| Name or title | How | Opens when | Texts passed to it | Where |
+|---|---|---|---|---|
+| `ConfirmDialog` | component | `{confirmOpen}` | cancelLabel: Cancelar | SessionCreateNuevo · l.541 |
+
+**Draws nothing when** (3)
+
+| Condition | Where |
+|---|---|
+| `presses === 0` | SessionCreateNuevo · l.149 |
+| `!box` | SessionCreateNuevo · l.151 |
+| `!draftsLeft \|\| !notice \|\| typeof notice.scrollIntoView !== 'function'` | SessionCreateNuevo · l.166 |
+
+**Pieces placed here, with the texts and settings handed to them** (30)
+
+| Piece | Texts and settings | Shown when | Hook | Where |
+|---|---|---|---|---|
+| `PageHeader` | title: Programar Sesión · description: Crear una nueva sesión de consultoría para una comunidad de crecimiento |  |  | SessionCreateNuevo · l.213 |
+| `Notice` | tone: error | `failures.length > 0` | `testid=session-create-nuevo-checks` | SessionCreateNuevo · l.233 |
+| `Notice` | tone: warning | `draftsLeft` | `testid=session-create-nuevo-drafts-left` | SessionCreateNuevo · l.261 |
+| `SectionNuevo` | title: Colegio y consultores |  | `id=create-session-s1` | SessionCreateNuevo · l.267 |
+| `Field` | label: Colegio |  |  | SessionCreateNuevo · l.269 |
+| `Field` | label: Comunidad de Crecimiento |  |  | SessionCreateNuevo · l.286 |
+| `ConsultantsNuevo` |  | `showConsultants` |  | SessionCreateNuevo · l.306 |
+| `SectionNuevo` | title: Datos de la sesión |  | `id=create-session-s2` | SessionCreateNuevo · l.315 |
+| `Field` | label: Título de la Sesión |  |  | SessionCreateNuevo · l.316 |
+| `Field` | label: Descripción |  |  | SessionCreateNuevo · l.329 |
+| `Field` | label: Objetivos |  |  | SessionCreateNuevo · l.338 |
+| `SectionNuevo` | title: Fecha y hora |  | `id=create-session-s3` | SessionCreateNuevo · l.351 |
+| `Field` | label: Fecha |  |  | SessionCreateNuevo · l.353 |
+| `Field` |  |  |  | SessionCreateNuevo · l.364 |
+| `Field` |  |  |  | SessionCreateNuevo · l.383 |
+| `SectionNuevo` | title: Tipo de sesión |  | `id=create-session-s4 (id used by code)` | SessionCreateNuevo · l.412 |
+| `Radio` | label: Sesión única |  |  | SessionCreateNuevo · l.414 |
+| `Radio` | label: Serie recurrente |  |  | SessionCreateNuevo · l.415 |
+| `RecurrenceNuevo` |  | `showRecurrence` |  | SessionCreateNuevo · l.418 |
+| `SectionNuevo` |  |  | `id=create-session-s5 (id used by code)` | SessionCreateNuevo · l.428 |
+| `Radio` |  | `each (['presencial', 'online', 'hibrida'] as const)` |  | SessionCreateNuevo · l.442 |
+| `Field` | label: Enlace de reunión | `showMeetingFields && showManualMeetingFields()` |  | SessionCreateNuevo · l.474 |
+| `Field` | label: Proveedor de reunión | `showMeetingFields && showManualMeetingFields()` |  | SessionCreateNuevo · l.485 |
+| `Field` | label: Ubicación | `showLocation` |  | SessionCreateNuevo · l.500 |
+| `SectionNuevo` | title: Horas y contrato |  | `id=create-session-s6` | SessionCreateNuevo · l.515 |
+| `HoursNuevo` |  |  |  | SessionCreateNuevo · l.516 |
+| `SummaryNuevo` |  |  |  | SessionCreateNuevo · l.520 |
+| `Send` | aria-hidden: true | `!(submitting && working === 'schedule')` |  | SessionCreateNuevo · l.527 |
+| `Save` | aria-hidden: true | `!(submitting && working === 'draft')` |  | SessionCreateNuevo · l.531 |
+| `Send` | aria-hidden: true |  |  | SessionCreateNuevo · l.563 |
+
+**Texts kept in lists and helpers in the code (labels, options, status names)** (3)
+
+| Name | Texts | Where |
+|---|---|---|
+| `kind` | «serie / una» | onConfirm · l.190 |
+| `scheduleLabel` | «Programar serie ({previewDates.length} sesiones) / Programar sesión» | SessionCreateNuevo · l.204 |
+| `draftLabel` | «Guardar serie como borrador ({previewDates.length} sesiones) / Guardar borrador» | SessionCreateNuevo · l.205 |
+
+**Other texts written in the code (safety net: not tied to an element by the script)** (1)
+
+| Text | Where |
+|---|---|
+| «Generar reunión Zoom» | SessionCreateNuevo · l.462 |
+
+**Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (9)
+
+| Kind | What | Where |
+|---|---|---|
+| scroll | `box.scrollIntoView()` | SessionCreateNuevo · l.152 |
+| scroll | `notice.scrollIntoView()` | SessionCreateNuevo · l.167 |
+| mark | `testid=session-create-nuevo` | SessionCreateNuevo · l.211 |
+| mark | `id=create-session-form-title` | SessionCreateNuevo · l.226 |
+| mark | `testid=create-session-spain-preview` | SessionCreateNuevo · l.405 |
+| role | `role=radiogroup` | SessionCreateNuevo · l.413 |
+| role | `role=radiogroup` | SessionCreateNuevo · l.440 |
+| mark | `testid=session-zoom-managed-help` | SessionCreateNuevo · l.465 |
+| scroll | `field.scrollIntoView()` | moveTo · l.587 |
+
+**Values shown from data** (7)
+
+- `{DRAFTS_LEFT_TEXT[draftsLeft]}` — SessionCreateNuevo · l.261, when `draftsLeft`
+- `{spainTimePreview}` — SessionCreateNuevo · l.406, when `spainTimePreview`
+- `{question.body}` — SessionCreateNuevo · l.546
+- `{facts.schoolName}` — SessionCreateNuevo · l.549
+- `{facts.communityName}` — SessionCreateNuevo · l.551
+- `{facts.dateTerm}` — SessionCreateNuevo · l.552
+- `{facts.dateText}` — SessionCreateNuevo · l.553
+
+**Other texts on screen** (14)
+
+- «Programar Sesión» — SessionCreateNuevo · l.227, hidden by its class (`sr-only`); another control opens it or it is for screen readers
+- «* Campos obligatorios» — SessionCreateNuevo · l.230
+- «Hora de inicio» — SessionCreateNuevo · l.367
+- «(hora Chile)» — SessionCreateNuevo · l.367
+- «Hora de término» — SessionCreateNuevo · l.386
+- «(hora Chile)» — SessionCreateNuevo · l.386
+- «En España:» — SessionCreateNuevo · l.406, when `spainTimePreview`
+- «Modalidad» — SessionCreateNuevo · l.433
+- «GENERA crea la reunión y su enlace cuando se apruebe la sesión.» — SessionCreateNuevo · l.466, when `showMeetingFields && zoomManagedAvailable && showZoomManagedHelp()`
+- «Colegio» — SessionCreateNuevo · l.548
+- «Comunidad» — SessionCreateNuevo · l.550
+- «Horario» — SessionCreateNuevo · l.554
+- «a» — SessionCreateNuevo · l.556
+- «(hora Chile)» — SessionCreateNuevo · l.556
+
 ### components/sessions/SessionDetailClasico.tsx
 
 Used by: `/consultor/sessions/[id]`
@@ -2985,6 +3202,74 @@ Used by: `/consultor/sessions/[id]`
 - «Razón:» — SessionDetailClasico · l.870, when `showEditRequests && each session.edit_requests && request.reason`
 - «Nota del revisor:» — SessionDetailClasico · l.875, when `showEditRequests && each session.edit_requests && showReviewNotes(request)`
 
+### components/sessions/SessionDetailNuevo.tsx
+
+Used by: `/consultor/sessions/[id]`
+
+**Titles** (3)
+
+| Text | Level | Shown when | Where |
+|---|---|---|---|
+| «Descripción» | h3 | `activeTab === 'details'` | renderTabContent · l.55 |
+| «Objetivos» | h3 | `activeTab === 'details'` | renderTabContent · l.59 |
+| «Facilitadores» | h3 | `activeTab === 'details'` | renderTabContent · l.63 |
+
+**Tabs** (1)
+
+| Text | Does | Shown when | Where |
+|---|---|---|---|
+| «{tab.label}» |  | `each tabs` | SessionDetailNuevo · l.150 |
+
+**Buttons** (1)
+
+| Text | Does | Shown when | Disabled when | Hook | Where |
+|---|---|---|---|---|---|
+| «Recargar» | `{reload}` | `conflictVisible` |  |  | SessionDetailNuevo · l.128 |
+
+**Pieces placed here, with the texts and settings handed to them** (16)
+
+| Piece | Texts and settings | Shown when | Hook | Where |
+|---|---|---|---|---|
+| `Users` | aria-hidden: true | `activeTab === 'details' && each session.facilitators` |  | renderTabContent · l.67 |
+| `Badge` | tone: accent | `activeTab === 'details' && each session.facilitators && f.is_lead` |  | renderTabContent · l.72 |
+| `AttendanceSuggestionsPanel` |  | `activeTab === 'details'` |  | renderTabContent · l.85 |
+| `AttendanceNuevo` |  | `activeTab === 'details'` |  | renderTabContent · l.86 |
+| `PenLine` | aria-hidden: true | `activeTab === 'planning'` |  | renderTabContent · l.95 |
+| `MaterialsNuevo` |  | `activeTab === 'materials'` |  | renderTabContent · l.101 |
+| `ReportNuevo` |  | `activeTab === 'report'` |  | renderTabContent · l.104 |
+| `MessageSquare` | aria-hidden: true | `activeTab === 'communications'` |  | renderTabContent · l.109 |
+| `ActivityNuevo` |  | `activeTab === 'activity'` |  | renderTabContent · l.115 |
+| `Notice` | tone: error | `conflictVisible` |  | SessionDetailNuevo · l.125 |
+| `Notice` | tone: warning | `showReadOnlyBand` |  | SessionDetailNuevo · l.136 |
+| `HeaderNuevo` |  |  |  | SessionDetailNuevo · l.141 |
+| `Card` |  |  |  | SessionDetailNuevo · l.143 |
+| `Tabs` |  |  |  | SessionDetailNuevo · l.144 |
+| `TabList` | label: Secciones de la sesión |  |  | SessionDetailNuevo · l.146 |
+| `TabPanel` |  |  |  | SessionDetailNuevo · l.158 |
+
+**Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (2)
+
+| Kind | What | Where |
+|---|---|---|
+| lookup | `querySelector([role="tab"][aria-selected="true"])` | SessionDetailNuevo · l.39 |
+| mark | `testid=session-detail-nuevo` | SessionDetailNuevo · l.123 |
+
+**Values shown from data** (3)
+
+- `{f.profiles?.first_name} {f.profiles?.last_name}` — renderTabContent · l.68, when `activeTab === 'details' && each session.facilitators`
+- `( {f.facilitator_role.replace(/_/g, ' …} )` — renderTabContent · l.76, when `activeTab === 'details' && each session.facilitators`
+- `{renderTabContent()}` — SessionDetailNuevo · l.158
+
+**Other texts on screen** (7)
+
+- «{session.description} / Sin descripción» — renderTabContent · l.56, when `activeTab === 'details'`
+- «{session.objectives} / Sin objetivos definidos» — renderTabContent · l.60, when `activeTab === 'details'`
+- «Líder» — renderTabContent · l.73, when `activeTab === 'details' && each session.facilitators && f.is_lead`
+- «Notas de planificación disponibles próximamente» — renderTabContent · l.96, when `activeTab === 'planning'`
+- «Comunicaciones disponibles próximamente» — renderTabContent · l.110, when `activeTab === 'communications'`
+- «Otra persona editó esta sesión mientras trabajabas en ella. Recarga para ver los últimos cambios.» — SessionDetailNuevo · l.127, when `conflictVisible`
+- «Está viendo esta sesión en modo lectura. No está asignado como facilitador.» — SessionDetailNuevo · l.137, when `showReadOnlyBand`
+
 ### components/sessions/SessionStartControl.tsx
 
 Used by: `/admin/sessions/[id]`
@@ -3094,6 +3379,789 @@ Used by: `/consultor/sessions`
 - «No está asignado como facilitador en ninguna sesión» — SessionsListClasico · l.220, when `noMySessions`
 - «No hay otras sesiones en sus colegios asignados» — SessionsListClasico · l.243, when `noOtherSessions`
 
+### components/sessions/SessionsListNuevo.tsx
+
+Used by: `/consultor/sessions`
+
+**Titles** (2)
+
+| Text | Level | Shown when | Where |
+|---|---|---|---|
+| «{group.title} {group.rows.length}» | h3 | `each agendaGroups(rows, today)` | Agenda · l.215 |
+| «Filtros» | h2 |  | SessionsListNuevo · l.304 |
+
+**Tabs** (2)
+
+| Text | Does | Shown when | Where |
+|---|---|---|---|
+| «Mis Sesiones» |  |  | SessionsListNuevo · l.349 |
+| «Otras Sesiones en Mis Colegios» |  |  | SessionsListNuevo · l.352 |
+
+**Buttons** (2)
+
+| Text | Does | Shown when | Disabled when | Hook | Where |
+|---|---|---|---|---|---|
+| «Limpiar filtros» | `{handleClearFilters}` |  |  |  | SessionsListNuevo · l.337 |
+| «Cargar más» | `{handleLoadMore}` | `showLoadMore` |  |  | SessionsListNuevo · l.380 |
+
+**Links** (2)
+
+| Text | Goes to | Shown when | Hook | Where |
+|---|---|---|---|---|
+| «Hoy / {block.weekday} {block.day} {block.month} [{block.year}] {formatTime(session.start_time)} {session.title} [# {session.session_number}] {formatTime(session.start_time)} - {formatTime(session.end_time)} (Chile) {getModalityIcon(session…» · aria «{`Ver detalles de ${session.title}`}» | `/consultor/sessions/[*]` |  |  | AgendaRow · l.101 |
+| «Exportar Calendario» | `{icalHref()}` | `showExportCalendar` |  | SessionsListNuevo · l.267 |
+
+**Fields** (4)
+
+| Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
+|---|---|---|---|---|---|---|
+|  | select |  |  |  |  | SessionsListNuevo · l.310 |
+|  | select |  |  |  |  | SessionsListNuevo · l.320 |
+|  | date |  |  |  |  | SessionsListNuevo · l.332 |
+|  | date |  |  |  |  | SessionsListNuevo · l.335 |
+
+**Downloads and printing** (1)
+
+| How | When | Where |
+|---|---|---|
+| `<a download> Exportar Calendario` | `showExportCalendar` | SessionsListNuevo · l.267 |
+
+**Draws nothing when** (1)
+
+| Condition | Where |
+|---|---|
+| `event.metaKey \|\| event.ctrlKey \|\| event.shiftKey \|\| event.altKey \|\| event.button !== 0` | AgendaRow · l.107 |
+
+**Pieces placed here, with the texts and settings handed to them** (33)
+
+| Piece | Texts and settings | Shown when | Hook | Where |
+|---|---|---|---|---|
+| `Link2` | aria-hidden: true | `seriesNumberShown(session)` · screen size: `sm:flex` |  | AgendaRow · l.132 |
+| `Clock` | aria-hidden: true | screen size: `sm:flex` |  | AgendaRow · l.139 |
+| `MapPin` | aria-hidden: true | `((session.schools \|\| session.growth_communities)) && session.schools` · screen size: `sm:flex` |  | AgendaRow · l.154 |
+| `Users` | aria-hidden: true | `((session.schools \|\| session.growth_communities)) && session.growth_communities` · screen size: `sm:flex` |  | AgendaRow · l.160 |
+| `Badge` |  | screen size: `sm:flex` |  | AgendaRow · l.170 |
+| `Badge` |  | `ledger?.status` · screen size: `sm:flex` |  | AgendaRow · l.173 |
+| `Badge` | tone: neutral | `ledger?.status && ledger.admin_override` · screen size: `sm:flex` |  | AgendaRow · l.177 |
+| `Card` |  | `each agendaGroups(rows, today)` |  | Agenda · l.219 |
+| `PageHeader` | title: Mis Sesiones · description: Vista de sesiones de consultoría asignadas |  |  | SessionsListNuevo · l.260 |
+| `CalendarPlus` | aria-hidden: true | `showExportCalendar` |  | SessionsListNuevo · l.268 |
+| `HelpButton` | sectionId: mis-sesiones |  |  | SessionsListNuevo · l.272 |
+| `Card` |  |  |  | SessionsListNuevo · l.279 |
+| `CardBody` |  |  |  | SessionsListNuevo · l.280 |
+| `Card` |  |  |  | SessionsListNuevo · l.285 |
+| `CardBody` |  |  |  | SessionsListNuevo · l.286 |
+| `Card` |  |  |  | SessionsListNuevo · l.293 |
+| `CardBody` |  |  |  | SessionsListNuevo · l.294 |
+| `Card` |  |  |  | SessionsListNuevo · l.302 |
+| `CardBody` |  |  |  | SessionsListNuevo · l.303 |
+| `FilterIcon` | aria-hidden: true |  |  | SessionsListNuevo · l.305 |
+| `Field` | label: Filtrar por colegio |  |  | SessionsListNuevo · l.309 |
+| `Field` | label: Filtrar por estado |  |  | SessionsListNuevo · l.319 |
+| `Field` | label: Fecha desde |  |  | SessionsListNuevo · l.331 |
+| `Field` | label: Fecha hasta |  |  | SessionsListNuevo · l.334 |
+| `X` | aria-hidden: true |  |  | SessionsListNuevo · l.338 |
+| `Tabs` |  |  |  | SessionsListNuevo · l.347 |
+| `TabList` | label: Listas de sesiones |  |  | SessionsListNuevo · l.348 |
+| `Count` |  |  |  | SessionsListNuevo · l.350 |
+| `Count` |  |  |  | SessionsListNuevo · l.353 |
+| `TabPanel` |  |  |  | SessionsListNuevo · l.356 |
+| `Agenda` | empty: No está asignado como facilitador en ninguna sesión · idPrefix: grupo-mias |  |  | SessionsListNuevo · l.357 |
+| `TabPanel` |  |  |  | SessionsListNuevo · l.366 |
+| `Agenda` | empty: No hay otras sesiones en sus colegios asignados · idPrefix: grupo-otras |  |  | SessionsListNuevo · l.367 |
+
+**Texts kept in lists and helpers in the code (labels, options, status names)** (1)
+
+| Name | Texts | Where |
+|---|---|---|
+| `opening` | «otras / mias» | useOpeningTab · l.65 |
+
+**Other texts written in the code (safety net: not tied to an element by the script)** (2)
+
+| Text | Where |
+|---|---|
+| «Penalizada» | AgendaRow · l.174 |
+| «Devuelta» | AgendaRow · l.174 |
+
+**Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (2)
+
+| Kind | What | Where |
+|---|---|---|
+| timer | `setTimeout(…, OPENING_WAIT_MS)` | useOpeningTab · l.75 |
+| mark | `testid=sessions-list-nuevo` | SessionsListNuevo · l.259 |
+
+**Values shown from data** (4)
+
+- `{empty}` — Agenda · l.208, when `rows.length === 0`
+- `{totalSessions}` — SessionsListNuevo · l.282
+- `{pendingReportsCount}` — SessionsListNuevo · l.288
+- `{nextSessionCountdown}` — SessionsListNuevo · l.296
+
+**Other texts on screen** (5)
+
+- «Total Sesiones» — SessionsListNuevo · l.281
+- «Informes Pendientes» — SessionsListNuevo · l.287
+- «Próxima Sesión» — SessionsListNuevo · l.295
+- «Mis Sesiones» — SessionsListNuevo · l.350
+- «Otras Sesiones en Mis Colegios» — SessionsListNuevo · l.353
+
+### components/sessions/create-nuevo/ConsultantsNuevo.tsx
+
+Used by: `/admin/sessions/create`
+
+**Buttons** (3)
+
+| Text | Does | Shown when | Disabled when | Hook | Where |
+|---|---|---|---|---|---|
+| «Reintentar» | `{retryConsultants}` | `showConsultantsError()` |  |  | ConsultantsNuevo · l.83 |
+| «{option}» | `{() => { if (!chosen) handleToggleRole(facilitator.user_id); }}` | `showFacilitators() && each facilitators && each (['Externo', 'Interno'] as const)` |  |  | ConsultantsNuevo · l.125 |
+| «Quitar» · aria «{`Quitar consultor ${consultant.first_name} ${consultant.last_name}`}» | `{() => handleRemoveFacilitator(facilitator.user_id)}` | `showFacilitators() && each facilitators` |  |  | ConsultantsNuevo · l.154 |
+
+**Fields** (2)
+
+| Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
+|---|---|---|---|---|---|---|
+| «Consultor principal» | radio | `create-session-lead` |  | `showFacilitators() && each facilitators` |  | ConsultantsNuevo · l.144 |
+|  | select | disabled: `{consultantSelectorDisabled()}` |  | `showConsultantSelector()` |  | ConsultantsNuevo · l.170 |
+
+**Draws nothing when** (1)
+
+| Condition | Where |
+|---|---|
+| `!consultant` | ConsultantsNuevo · l.100 |
+
+**Pieces placed here, with the texts and settings handed to them** (4)
+
+| Piece | Texts and settings | Shown when | Hook | Where |
+|---|---|---|---|---|
+| `Spinner` | label: Cargando consultores... | `showConsultantsLoading()` |  | ConsultantsNuevo · l.72 |
+| `Notice` | tone: error | `showConsultantsError()` |  | ConsultantsNuevo · l.76 |
+| `Notice` | tone: warning | `showConsultantsEmpty()` |  | ConsultantsNuevo · l.91 |
+| `FieldMessage` |  | `messages.length > 0 && each messages` |  | ConsultantsNuevo · l.188 |
+
+**Other texts written in the code (safety net: not tied to an element by the script)** (2)
+
+| Text | Where |
+|---|---|
+| «Externo» | ConsultantsNuevo · l.122 |
+| «Interno» | ConsultantsNuevo · l.122 |
+
+**Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (4)
+
+| Kind | What | Where |
+|---|---|---|
+| role | `role=group` | ConsultantsNuevo · l.55 |
+| mark | `id={CREATE_FIELD_IDS.consultants}-label` | ConsultantsNuevo · l.63 |
+| role | `role=group` | ConsultantsNuevo · l.117 |
+| mark | `id={CREATE_FIELD_IDS.consultants}-error` | ConsultantsNuevo · l.186 |
+
+**Values shown from data** (3)
+
+- `{consultant.first_name} {consultant.last_name}` — ConsultantsNuevo · l.110, when `showFacilitators() && each facilitators`
+- `{consultant.email}` — ConsultantsNuevo · l.113, when `showFacilitators() && each facilitators`
+- `{message}` — ConsultantsNuevo · l.188, when `messages.length > 0 && each messages`
+
+**Other texts on screen** (5)
+
+- «Consultor(es) asignados» — ConsultantsNuevo · l.64
+- «Debe asignar al menos un consultor antes de crear la sesión.» — ConsultantsNuevo · l.69
+- «Error al cargar consultores» — ConsultantsNuevo · l.79, when `showConsultantsError()`
+- «No hay consultores disponibles para este colegio. Verifique que existan usuarios con rol activo de consultor.» — ConsultantsNuevo · l.92, when `showConsultantsEmpty()`
+- «Consultor principal» (label) — ConsultantsNuevo · l.143, when `showFacilitators() && each facilitators`
+
+### components/sessions/create-nuevo/HoursNuevo.tsx
+
+Used by: `/admin/sessions/create`
+
+**Fields** (2)
+
+| Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
+|---|---|---|---|---|---|---|
+|  | select |  |  | `showHourTypeSelects` | `id=hour-type-select` | HoursNuevo · l.61 |
+|  | select | disabled: `{contratoSelectDisabled()}` |  | `showHourTypeSelects` | `id=contrato-select` | HoursNuevo · l.76 |
+
+**Pieces placed here, with the texts and settings handed to them** (11)
+
+| Piece | Texts and settings | Shown when | Hook | Where |
+|---|---|---|---|---|
+| `Spinner` | label: Cargando tipos de hora... | `showHourTypesLoading` |  | HoursNuevo · l.50 |
+| `Notice` | tone: warning | `showHourTypesError` |  | HoursNuevo · l.52 |
+| `Field` | label: Tipo de Hora | `showHourTypeSelects` |  | HoursNuevo · l.60 |
+| `Field` | label: Contrato · help: No hay contratos activos para este colegio. | `showHourTypeSelects` |  | HoursNuevo · l.71 |
+| `AlertCircle` | aria-hidden: true | `showHourTypeSelects && pairRefusal` |  | HoursNuevo · l.98 |
+| `Notice` | tone: neutral | `showHoursChip && availableHoursLoading` |  | HoursNuevo · l.108 |
+| `Spinner` |  | `showHoursChip && availableHoursLoading` |  | HoursNuevo · l.108 |
+| `Notice` | tone: error | `showHoursChip && !(availableHoursLoading) && hasHoursBucket() && isExhausted` |  | HoursNuevo · l.116 |
+| `Notice` | tone: warning | `showHoursChip && !(availableHoursLoading) && hasHoursBucket() && isWarning` |  | HoursNuevo · l.120 |
+| `Notice` | tone: success | `showHoursChip && !(availableHoursLoading) && hasHoursBucket()` |  | HoursNuevo · l.126 |
+| `Notice` | tone: warning | `showHoursChip && !(availableHoursLoading) && !(hasHoursBucket())` |  | HoursNuevo · l.132 |
+
+**Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (2)
+
+| Kind | What | Where |
+|---|---|---|
+| mark | `testid=session-create-nuevo-pair-refusal id=hour-pair-refusal` | HoursNuevo · l.93 |
+| mark | `testid=session-create-nuevo-hours` | HoursNuevo · l.106 |
+
+**Values shown from data** (2)
+
+- `{decimalComma(hours)}` — HoursNuevo · l.121, when `showHoursChip && !(availableHoursLoading) && hasHoursBucket() && isWarning`
+- `{decimalComma(hours)}` — HoursNuevo · l.127, when `showHoursChip && !(availableHoursLoading) && hasHoursBucket()`
+
+**Other texts on screen** (7)
+
+- «No se pudieron cargar los tipos de hora. La sesión puede crearse sin seguimiento de horas.» — HoursNuevo · l.53, when `showHourTypesError`
+- «Elija ambos para registrar las horas, o deje los dos vacíos.» — HoursNuevo · l.58, when `showHourTypeSelects`
+- «Cargando horas disponibles...» — HoursNuevo · l.109, when `showHoursChip && availableHoursLoading`
+- «Sin horas disponibles en este tipo (se registrará como sobrepresupuesto)» — HoursNuevo · l.116, when `showHoursChip && !(availableHoursLoading) && hasHoursBucket() && isExhausted`
+- «horas disponibles en este tipo — ¡Quedan menos del 25%!» — HoursNuevo · l.121, when `showHoursChip && !(availableHoursLoading) && hasHoursBucket() && isWarning`
+- «horas disponibles en este tipo» — HoursNuevo · l.127, when `showHoursChip && !(availableHoursLoading) && hasHoursBucket()`
+- «No hay asignación de horas para este tipo en el contrato seleccionado» — HoursNuevo · l.132, when `showHoursChip && !(availableHoursLoading) && !(hasHoursBucket())`
+
+### components/sessions/create-nuevo/RecurrenceNuevo.tsx
+
+Used by: `/admin/sessions/create`
+
+**Titles** (2)
+
+| Text | Level | Shown when | Where |
+|---|---|---|---|
+| «Configuración de recurrencia» | h3 |  | RecurrenceNuevo · l.48 |
+| «Vista previa ( {previewDates.length} sesiones)» | h4 | `showPreview()` | RecurrenceNuevo · l.120 |
+
+**Buttons** (2)
+
+| Text | Does | Shown when | Disabled when | Hook | Where |
+|---|---|---|---|---|---|
+| «[icon X]» · aria «Eliminar fecha» | `{() => handleRemoveCustomDate(index)}` | `showCustomDates() && each customDates && canRemoveCustomDate()` |  |  | RecurrenceNuevo · l.95 |
+| «Agregar fecha» | `{handleAddCustomDate}` | `showCustomDates()` |  |  | RecurrenceNuevo · l.109 |
+
+**Fields** (3)
+
+| Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
+|---|---|---|---|---|---|---|
+|  | select |  |  |  |  | RecurrenceNuevo · l.52 |
+|  | number | `min={2} max={52}` |  | `showRecurrenceCount()` |  | RecurrenceNuevo · l.62 |
+| «{`Fecha ${index + 1}`}» | date | `min={customDateEarliest[index]}` |  | `showCustomDates() && each customDates` |  | RecurrenceNuevo · l.83 |
+
+**Pieces placed here, with the texts and settings handed to them** (6)
+
+| Piece | Texts and settings | Shown when | Hook | Where |
+|---|---|---|---|---|
+| `Field` | label: Frecuencia · controlId: create-session-frequency |  |  | RecurrenceNuevo · l.51 |
+| `Field` | label: Número de sesiones (2-52) | `showRecurrenceCount()` |  | RecurrenceNuevo · l.61 |
+| `X` | aria-hidden: true | `showCustomDates() && each customDates && canRemoveCustomDate()` |  | RecurrenceNuevo · l.102 |
+| `Plus` | aria-hidden: true | `showCustomDates()` |  | RecurrenceNuevo · l.110 |
+| `FieldMessage` |  | `showCustomDates() && customDatesMessage` | `id=create-session-custom-dates-error` | RecurrenceNuevo · l.114 |
+| `AlertTriangle` | aria-hidden: true | `showPreview() && each previewDates && isWeekend` |  | RecurrenceNuevo · l.140 |
+
+**Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (3)
+
+| Kind | What | Where |
+|---|---|---|
+| mark | `testid=session-create-nuevo-recurrence` | RecurrenceNuevo · l.44 |
+| role | `role=group` | RecurrenceNuevo · l.76 |
+| mark | `id=create-session-custom-dates-label` | RecurrenceNuevo · l.77 |
+
+**Values shown from data** (2)
+
+- `{customDatesMessage}` — RecurrenceNuevo · l.114, when `showCustomDates() && customDatesMessage`
+- `{format(parsedDate, 'EEEE, dd MMMM y…}` — RecurrenceNuevo · l.137, when `showPreview() && each previewDates`
+
+**Other texts on screen** (3)
+
+- «Fechas personalizadas» — RecurrenceNuevo · l.78, when `showCustomDates()`
+- «Sesión {index + 1}» — RecurrenceNuevo · l.136, when `showPreview() && each previewDates`
+- «Fin de semana» — RecurrenceNuevo · l.141, when `showPreview() && each previewDates && isWeekend`
+
+### components/sessions/create-nuevo/SectionNuevo.tsx
+
+Used by: `/admin/sessions/create`
+
+**Titles** (1)
+
+| Text | Level | Shown when | Where |
+|---|---|---|---|
+| «{n} {title}» | h2 |  | SectionNuevo · l.29 |
+
+**Pieces placed here, with the texts and settings handed to them** (2)
+
+| Piece | Texts and settings | Shown when | Hook | Where |
+|---|---|---|---|---|
+| `Card` |  |  | `testid={testId}` | SectionNuevo · l.27 |
+| `AlertCircle` | aria-hidden: true |  |  | FieldMessage · l.48 |
+
+**Values shown from data** (1)
+
+- `{children}` — FieldMessage · l.49
+
+### components/sessions/create-nuevo/SessionCreateStates.tsx
+
+Used by: `/admin/sessions/create`
+
+**Pieces placed here, with the texts and settings handed to them** (11)
+
+| Piece | Texts and settings | Shown when | Hook | Where |
+|---|---|---|---|---|
+| `Skeleton` |  |  |  | SessionCreateSkeleton · l.15 |
+| `Card` |  | `each [1, 2, 3]` |  | SessionCreateSkeleton · l.17 |
+| `Skeleton` |  | `each [1, 2, 3]` |  | SessionCreateSkeleton · l.18 |
+| `Skeleton` |  | `each [1, 2, 3]` |  | SessionCreateSkeleton · l.19 |
+| `Skeleton` |  | `each [1, 2, 3]` |  | SessionCreateSkeleton · l.20 |
+| `Card` |  |  |  | SessionCreateSkeleton · l.24 |
+| `Skeleton` |  |  |  | SessionCreateSkeleton · l.25 |
+| `Skeleton` |  |  |  | SessionCreateSkeleton · l.26 |
+| `Skeleton` |  |  |  | SessionCreateSkeleton · l.27 |
+| `Card` |  |  |  | SessionCreateDenied · l.41 |
+| `EmptyState` | title: Acceso Denegado · description: No tiene permisos para acceder a esta página. |  |  | SessionCreateDenied · l.42 |
+
+**Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (3)
+
+| Kind | What | Where |
+|---|---|---|
+| role | `role=status` | SessionCreateSkeleton · l.11 |
+| mark | `testid=session-create-nuevo-loading` | SessionCreateSkeleton · l.11 |
+| mark | `testid=session-create-nuevo-denied` | SessionCreateDenied · l.40 |
+
+**Other texts on screen** (1)
+
+- «Cargando...» — SessionCreateSkeleton · l.12, hidden by its class (`sr-only`); another control opens it or it is for screen readers
+
+### components/sessions/create-nuevo/SummaryNuevo.tsx
+
+Used by: `/admin/sessions/create`
+
+**Titles** (1)
+
+| Text | Level | Shown when | Where |
+|---|---|---|---|
+| «Resumen» | h2 |  | SummaryNuevo · l.66 |
+
+**Draws nothing when** (1)
+
+| Condition | Where |
+|---|---|
+| `!person` | SummaryNuevo · l.87 |
+
+**Pieces placed here, with the texts and settings handed to them** (3)
+
+| Piece | Texts and settings | Shown when | Hook | Where |
+|---|---|---|---|---|
+| `Card` |  |  | `testid=session-create-nuevo-summary` | SummaryNuevo · l.60 |
+| `Badge` | tone: neutral | `showSeriesCountInButtons()` |  | SummaryNuevo · l.70 |
+| `AlertTriangle` | aria-hidden: true | `weekends > 0` |  | SummaryNuevo · l.101 |
+
+**Other texts written in the code (safety net: not tied to an element by the script)** (2)
+
+| Text | Where |
+|---|---|
+| «Fechas» | summaryFacts · l.22 |
+| «Fecha» | summaryFacts · l.22 |
+
+**Values shown from data** (6)
+
+- `{facts.schoolName} / —` — SummaryNuevo · l.78
+- `{facts.communityName} / —` — SummaryNuevo · l.80
+- `{facts.dateTerm}` — SummaryNuevo · l.96
+- `{facts.sessions}` — SummaryNuevo · l.107
+- `{spainTimePreview}` — SummaryNuevo · l.117, when `spainTimePreview`
+- `{children}` — SummaryNuevo · l.145
+
+**Other texts on screen** (17)
+
+- «Serie recurrente» — SummaryNuevo · l.71, when `showSeriesCountInButtons()`
+- «Colegio» — SummaryNuevo · l.77
+- «Comunidad» — SummaryNuevo · l.79
+- «Consultores» — SummaryNuevo · l.81
+- «· principal» — SummaryNuevo · l.91, when `!(facilitators.length === 0) && each facilitators && f.is_lead`
+- «en fin de semana» — SummaryNuevo · l.102, when `weekends > 0`
+- «Sesiones» — SummaryNuevo · l.106
+- «Horario» — SummaryNuevo · l.108
+- «a» — SummaryNuevo · l.112, when `facts.hasTimes`
+- «(hora Chile)» — SummaryNuevo · l.112, when `facts.hasTimes`
+- «Modalidad» — SummaryNuevo · l.119
+- «· Zoom» — SummaryNuevo · l.123, when `showMeetingFields && zoomManagedAvailable && formData.is_zoom_managed`
+- «Horas» — SummaryNuevo · l.126
+- «Sin seguimiento de horas» — SummaryNuevo · l.128
+- «h por sesión ·» — SummaryNuevo · l.130, when `withHours && perSession > 0`
+- «h en total» — SummaryNuevo · l.130, when `withHours && perSession > 0`
+- «Más de lo disponible en este tipo ( {decimalComma(Math.max(availableHour…} h)» — SummaryNuevo · l.138, when `overBudget`
+
+### components/sessions/create-nuevo/createNuevoText.ts
+
+Used by: `/admin/sessions/create`
+
+**Texts kept in lists and helpers in the code (labels, options, status names)** (4)
+
+| Name | Texts | Where |
+|---|---|---|
+| `MODALITY_LABELS` | «Presencial», «Online», «Híbrida» | l.11 |
+| `DRAFTS_LEFT_TEXT` | «La sesión quedó guardada como borrador. Revise la lista de sesiones antes de volver a programar, para no crearla dos veces.», «Las sesiones quedaron guardadas como borrador. Revise la lista de sesiones antes de volver a programar, para no crearlas dos veces.» | l.18 |
+| `HOUR_PAIR_REFUSAL` | «El contrato y el tipo de hora deben configurarse juntos.» | l.31 |
+| `CHECKS_TITLE` | «Revise lo siguiente antes de continuar:» | l.34 |
+
+### components/sessions/create-nuevo/fieldRow.ts
+
+Used by: `/admin/sessions/create`
+
+**Texts kept in lists and helpers in the code (labels, options, status names)** (2)
+
+| Name | Texts | Where |
+|---|---|---|
+| `ROW_FIELD` | «row-span-3 {SUBGRID}» | l.16 |
+| `ROW_FIELD_WITH_HELP` | «row-span-4 {SUBGRID}» | l.19 |
+
+### components/sessions/detail-nuevo/ActivityNuevo.tsx
+
+Used by: `/consultor/sessions/[id]`
+
+**Titles** (2)
+
+| Text | Level | Shown when | Where |
+|---|---|---|---|
+| «Historial de Solicitudes de Cambio» | h3 | `showEditRequests` | ActivityNuevo · l.28 |
+| «Actividad» | h3 | `showEditRequests` | ActivityNuevo · l.69 |
+
+**Pieces placed here, with the texts and settings handed to them** (4)
+
+| Piece | Texts and settings | Shown when | Hook | Where |
+|---|---|---|---|---|
+| `Card` |  | `showEditRequests` |  | ActivityNuevo · l.31 |
+| `Badge` |  | `showEditRequests && each (session.edit_requests as SessionEditRequest[])` |  | ActivityNuevo · l.35 |
+| `Card` |  | `hasActivity()` |  | ActivityNuevo · l.71 |
+| `Activity` | aria-hidden: true | `hasActivity() && each (session.activity_log ?? [])` |  | ActivityNuevo · l.74 |
+
+**Values shown from data** (8)
+
+- `{editRequestStatusLabel(request)}` — ActivityNuevo · l.35, when `showEditRequests && each (session.edit_requests as SessionEditRequest[])`
+- `{format(parseISO(request.created_at)…}` — ActivityNuevo · l.36, when `showEditRequests && each (session.edit_requests as SessionEditRequest[])`
+- `{editRequestFieldLabel(field)} :` — ActivityNuevo · l.45, when `showEditRequests && each (session.edit_requests as SessionEditRequest[]) && each Object.keys(request.changes)`
+- `{requestValueText(field, change.old)}` — ActivityNuevo · l.46, when `showEditRequests && each (session.edit_requests as SessionEditRequest[]) && each Object.keys(request.changes)`
+- `{requestValueText(field, change.new)}` — ActivityNuevo · l.47, when `showEditRequests && each (session.edit_requests as SessionEditRequest[]) && each Object.keys(request.changes)`
+- `{log.profiles?.first_name} {log.profiles?.last_name}` — ActivityNuevo · l.77, when `hasActivity() && each (session.activity_log ?? [])`
+- `{activityText(log.action)}` — ActivityNuevo · l.80, when `hasActivity() && each (session.activity_log ?? [])`
+- `{format(parseISO(log.created_at), 'd…}` — ActivityNuevo · l.82, when `hasActivity() && each (session.activity_log ?? [])`
+
+**Other texts on screen** (3)
+
+- «Razón:» — ActivityNuevo · l.54, when `showEditRequests && each (session.edit_requests as SessionEditRequest[]) && request.reason`
+- «Nota del revisor:» — ActivityNuevo · l.59, when `showEditRequests && each (session.edit_requests as SessionEditRequest[]) && showReviewNotes(request)`
+- «No hay actividad registrada» — ActivityNuevo · l.88, when `!(hasActivity())`
+
+### components/sessions/detail-nuevo/AttendanceNuevo.tsx
+
+Used by: `/consultor/sessions/[id]`
+
+**Titles** (2)
+
+| Text | Level | Shown when | Where |
+|---|---|---|---|
+| «Asistencia ( {attendeeCount()} )» | h3 |  | AttendanceNuevo · l.53 |
+| «{fullName}» | h4 | `each session.attendees` · screen size: `md:hidden` | AttendanceNuevo · l.175 |
+
+**Buttons** (2)
+
+| Text | Does | Shown when | Disabled when | Hook | Where |
+|---|---|---|---|---|---|
+| «Marcar todos presentes» | `{handleMarkAllPresent}` | `canChange()` |  |  | AttendanceNuevo · l.58 |
+| «Guardando... / Guardar asistencia» | `{handleSaveAttendance}` | `canChange()` | `{savingAttendance}` |  | AttendanceNuevo · l.61 |
+
+**Fields** (6)
+
+| Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
+|---|---|---|---|---|---|---|
+| «{`Asistió: ${fullName}`}» | checkbox |  |  | `each session.attendees && !(readMode())` · screen size: `hidden md:block` |  | AttendanceNuevo · l.117 |
+| «{`Estado de llegada: ${fullName}`}» | select |  | «—», «A tiempo», «Tarde», «Salió temprano» | `each session.attendees && !(readMode())` · screen size: `hidden md:block` |  | AttendanceNuevo · l.130 |
+| «{`Notas: ${fullName}`}» | text | «Notas opcionales» |  | `each session.attendees && !(readMode())` · screen size: `hidden md:block` |  | AttendanceNuevo · l.147 |
+| «Asistió» | checkbox |  |  | `each session.attendees && !(readMode())` · screen size: `md:hidden` |  | AttendanceNuevo · l.185 |
+| «Asistió» | select |  | «—», «A tiempo», «Tarde», «Salió temprano» | `each session.attendees && !(readMode())` · screen size: `md:hidden` |  | AttendanceNuevo · l.200 |
+| «Asistió» | text | «Notas opcionales» |  | `each session.attendees && !(readMode())` · screen size: `md:hidden` |  | AttendanceNuevo · l.219 |
+
+**Table columns** (5)
+
+| Text | Shown when | Where |
+|---|---|---|
+| «Nombre» | screen size: `hidden md:block` | AttendanceNuevo · l.86 |
+| «Esperado» | screen size: `hidden md:block` | AttendanceNuevo · l.87 |
+| «Asistió» | screen size: `hidden md:block` | AttendanceNuevo · l.88 |
+| «Estado de llegada» | screen size: `hidden md:block` | AttendanceNuevo · l.89 |
+| «Notas» | screen size: `hidden md:block` | AttendanceNuevo · l.90 |
+
+**Pieces placed here, with the texts and settings handed to them** (8)
+
+| Piece | Texts and settings | Shown when | Hook | Where |
+|---|---|---|---|---|
+| `Check` | aria-hidden: true | `attended === true` |  | AttendedMark · l.17 |
+| `X` | aria-hidden: true | `attended === false` |  | AttendedMark · l.25 |
+| `Save` | aria-hidden: true | `canChange()` |  | AttendanceNuevo · l.62 |
+| `CheckCircle2` | aria-hidden: true |  |  | AttendanceNuevo · l.71 |
+| `X` | aria-hidden: true |  |  | AttendanceNuevo · l.75 |
+| `Check` | aria-hidden: true | `each session.attendees && attendee.expected` · screen size: `hidden md:block` |  | AttendanceNuevo · l.103 |
+| `X` | aria-hidden: true | `each session.attendees && !(attendee.expected)` · screen size: `hidden md:block` |  | AttendanceNuevo · l.108 |
+| `Badge` |  | `each session.attendees` · screen size: `md:hidden` |  | AttendanceNuevo · l.176 |
+
+**Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (1)
+
+| Kind | What | Where |
+|---|---|---|
+| role | `role=list` | AttendanceNuevo · l.165 |
+
+**Values shown from data** (5)
+
+- `{fullName}` — AttendanceNuevo · l.99, when `each session.attendees`, screen size: `hidden md:block`
+- `{arrivalText(attendee.arrival_status)}` — AttendanceNuevo · l.128, when `each session.attendees && readMode()`, screen size: `hidden md:block`
+- `{attendee.notes} / —` — AttendanceNuevo · l.145, when `each session.attendees && readMode()`, screen size: `hidden md:block`
+- `{arrivalText(attendee.arrival_status)}` — AttendanceNuevo · l.198, when `each session.attendees && readMode()`, screen size: `md:hidden`
+- `{attendee.notes} / —` — AttendanceNuevo · l.217, when `each session.attendees && readMode()`, screen size: `md:hidden`
+
+**Other texts on screen** (12)
+
+- «Sí» — AttendedMark · l.18, when `attended === true`, hidden by its class (`sr-only`); another control opens it or it is for screen readers
+- «No» — AttendedMark · l.26, when `attended === false`, hidden by its class (`sr-only`); another control opens it or it is for screen readers
+- «Presentes:» — AttendanceNuevo · l.72
+- «Ausentes:» — AttendanceNuevo · l.76
+- «Sin marcar: {unmarkedCount()}» — AttendanceNuevo · l.78
+- «Esperado» — AttendanceNuevo · l.104, when `each session.attendees && attendee.expected`, screen size: `hidden md:block sr-only`
+- «No esperado» — AttendanceNuevo · l.109, when `each session.attendees && !(attendee.expected)`, screen size: `hidden md:block sr-only`
+- «Lista de asistencia» (aria-label) — AttendanceNuevo · l.165, screen size: `md:hidden`
+- «Esperado / No esperado» — AttendanceNuevo · l.176, when `each session.attendees`, screen size: `md:hidden`
+- «Asistió» (label) — AttendanceNuevo · l.181, when `each session.attendees`, screen size: `md:hidden`
+- «Estado de llegada» — AttendanceNuevo · l.196, when `each session.attendees`, screen size: `md:hidden`
+- «Notas» — AttendanceNuevo · l.215, when `each session.attendees`, screen size: `md:hidden`
+
+### components/sessions/detail-nuevo/HeaderNuevo.tsx
+
+Used by: `/consultor/sessions/[id]`
+
+**Titles** (2)
+
+| Text | Level | Shown when | Where |
+|---|---|---|---|
+| «{session.title}» | h1 |  | HeaderNuevo · l.59 |
+| «Para finalizar la sesión» | h2 | `showFinalizeCard` | HeaderNuevo · l.141 |
+
+**Buttons** (2)
+
+| Text | Does | Shown when | Disabled when | Hook | Where |
+|---|---|---|---|---|---|
+| «Solicitar Cambios» | `{openEditRequest}` | `((showCalendarLink \|\| showEditRequestButton)) && showEditRequestButton` | `{hasPendingEditRequest()}` |  | HeaderNuevo · l.122 |
+| «Finalizar Sesión» | `{openFinalize}` | `showFinalizeCard` | `{!finalizeCheck.can}` |  | HeaderNuevo · l.159 |
+
+**Links** (2)
+
+| Text | Goes to | Shown when | Hook | Where |
+|---|---|---|---|---|
+| «Enlace» | `{session.join_path as string}` | `showJoinLink` | `testid=session-join-link` | HeaderNuevo · l.81 |
+| «Agregar al Calendario» | `/api/sessions/[*]/ical` | `((showCalendarLink \|\| showEditRequestButton)) && showCalendarLink` |  | HeaderNuevo · l.116 |
+
+**Downloads and printing** (1)
+
+| How | When | Where |
+|---|---|---|
+| `<a download> Agregar al Calendario` | `((showCalendarLink \|\| showEditRequestButton)) && showCalendarLink` | HeaderNuevo · l.116 |
+
+**Pieces placed here, with the texts and settings handed to them** (14)
+
+| Piece | Texts and settings | Shown when | Hook | Where |
+|---|---|---|---|---|
+| `Card` |  |  |  | HeaderNuevo · l.47 |
+| `Badge` |  |  |  | HeaderNuevo · l.51 |
+| `Link2` | aria-hidden: true | `seriesNumberShown` |  | HeaderNuevo · l.54 |
+| `Calendar` | aria-hidden: true |  |  | HeaderNuevo · l.63 |
+| `Clock` | aria-hidden: true |  |  | HeaderNuevo · l.67 |
+| `ExternalLink` | aria-hidden: true | `showJoinLink` |  | HeaderNuevo · l.86 |
+| `MapPin` | aria-hidden: true | `session.schools` |  | HeaderNuevo · l.94 |
+| `Users` | aria-hidden: true | `session.growth_communities` |  | HeaderNuevo · l.100 |
+| `Notice` |  | `helperText` |  | HeaderNuevo · l.107 |
+| `CalendarPlus` | aria-hidden: true | `((showCalendarLink \|\| showEditRequestButton)) && showCalendarLink` |  | HeaderNuevo · l.117 |
+| `Edit` | aria-hidden: true | `((showCalendarLink \|\| showEditRequestButton)) && showEditRequestButton` |  | HeaderNuevo · l.123 |
+| `CheckCircle2` | aria-hidden: true | `showFinalizeCard && each finalizeChecklist(finalizeCheck.reasons) && item.met` |  | HeaderNuevo · l.151 |
+| `Circle` | aria-hidden: true | `showFinalizeCard && each finalizeChecklist(finalizeCheck.reasons) && !(item.met)` |  | HeaderNuevo · l.153 |
+| `CheckCircle2` | aria-hidden: true | `showFinalizeCard` |  | HeaderNuevo · l.160 |
+
+**Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (1)
+
+| Kind | What | Where |
+|---|---|---|
+| mark | `testid=session-finalize-card` | HeaderNuevo · l.136 |
+
+**Values shown from data** (8)
+
+- `{badge.label}` — HeaderNuevo · l.51
+- `{format(parseISO(session.session_dat…}` — HeaderNuevo · l.64
+- `{getModalityIcon(session.modality)}` — HeaderNuevo · l.77
+- `{modalityText(session.modality)}` — HeaderNuevo · l.79
+- `{session.schools.name}` — HeaderNuevo · l.95, when `session.schools`
+- `{session.growth_communities.name}` — HeaderNuevo · l.101, when `session.growth_communities`
+- `{helperText}` — HeaderNuevo · l.107, when `helperText`
+- `{item.text}` — HeaderNuevo · l.155, when `showFinalizeCard && each finalizeChecklist(finalizeCheck.reasons)`
+
+**Other texts on screen** (5)
+
+- «Sesión {session.session_number}» — HeaderNuevo · l.55, when `seriesNumberShown`
+- «(hora Chile)» — HeaderNuevo · l.71
+- «En España: {spain}» — HeaderNuevo · l.73, when `spain`
+- «Ya existe una solicitud de cambio pendiente para esta sesión.» — HeaderNuevo · l.129, when `((showCalendarLink \|\| showEditRequestButton)) && pending`
+- «Condiciones faltantes: {finalizeCheck.reasons.length}» — HeaderNuevo · l.145, when `showFinalizeCard && finalizeCheck.reasons.length > 0`
+
+### components/sessions/detail-nuevo/MaterialsNuevo.tsx
+
+Used by: `/consultor/sessions/[id]`
+
+**Buttons** (2)
+
+| Text | Does | Shown when | Disabled when | Hook | Where |
+|---|---|---|---|---|---|
+| «[icon ExternalLink]» · aria «{`Abrir ${material.file_name}`}» |  | `!(materials.length === 0) && each materials && material.download_url` |  |  | MaterialsNuevo · l.71 |
+| «[icon Trash2]» · aria «{`Eliminar ${material.file_name}`}» | `{() => setToDelete({ id: material.id, name: material.file_name })}` | `!(materials.length === 0) && each materials && canDeleteMaterial(material)` |  |  | MaterialsNuevo · l.83 |
+
+**Fields** (1)
+
+| Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
+|---|---|---|---|---|---|---|
+| «Subiendo... / Subir material» | file | disabled: `{uploadingMaterial}` |  | `canChange()` · hidden by its class (`sr-only`); another control opens it or it is for screen readers |  | MaterialsNuevo · l.32 |
+
+**Pop-ups** (1)
+
+| Name or title | How | Opens when | Texts passed to it | Where |
+|---|---|---|---|---|
+| `ConfirmDialog` | component | `{toDelete !== null}` | title: ¿Está seguro que desea eliminar "{toDelete.name}"? · confirmLabel: Eliminar · tone: danger | MaterialsNuevo · l.101 |
+
+**Pieces placed here, with the texts and settings handed to them** (21)
+
+| Piece | Texts and settings | Shown when | Hook | Where |
+|---|---|---|---|---|
+| `Upload` | aria-hidden: true | `canChange()` |  | MaterialsNuevo · l.30 |
+| `Paperclip` | aria-hidden: true | `materials.length === 0` |  | MaterialsNuevo · l.39 |
+| `Table` |  | `!(materials.length === 0)` |  | MaterialsNuevo · l.43 |
+| `TableHead` |  | `!(materials.length === 0)` |  | MaterialsNuevo · l.44 |
+| `TableRow` |  | `!(materials.length === 0)` |  | MaterialsNuevo · l.45 |
+| `TableHeaderCell` |  | `!(materials.length === 0)` |  | MaterialsNuevo · l.46 |
+| `TableHeaderCell` |  | `!(materials.length === 0)` |  | MaterialsNuevo · l.47 |
+| `TableHeaderCell` |  | `!(materials.length === 0)` |  | MaterialsNuevo · l.48 |
+| `TableHeaderCell` |  | `!(materials.length === 0)` |  | MaterialsNuevo · l.49 |
+| `TableHeaderCell` |  | `!(materials.length === 0)` |  | MaterialsNuevo · l.50 |
+| `TableHeaderCell` |  | `!(materials.length === 0)` |  | MaterialsNuevo · l.51 |
+| `TableBody` |  | `!(materials.length === 0)` |  | MaterialsNuevo · l.54 |
+| `TableRow` |  | `!(materials.length === 0) && each materials` |  | MaterialsNuevo · l.58 |
+| `TableCell` |  | `!(materials.length === 0) && each materials` |  | MaterialsNuevo · l.59 |
+| `TableCell` | label: Tipo | `!(materials.length === 0) && each materials` |  | MaterialsNuevo · l.62 |
+| `TableCell` | label: Tamaño | `!(materials.length === 0) && each materials` |  | MaterialsNuevo · l.65 |
+| `TableCell` | label: Subido por | `!(materials.length === 0) && each materials` |  | MaterialsNuevo · l.66 |
+| `TableCell` | label: Fecha | `!(materials.length === 0) && each materials` |  | MaterialsNuevo · l.67 |
+| `TableCell` | label: Acciones | `!(materials.length === 0) && each materials` |  | MaterialsNuevo · l.68 |
+| `ExternalLink` | aria-hidden: true | `!(materials.length === 0) && each materials && material.download_url` |  | MaterialsNuevo · l.79 |
+| `Trash2` | aria-hidden: true | `!(materials.length === 0) && each materials && canDeleteMaterial(material)` |  | MaterialsNuevo · l.89 |
+
+**Values shown from data** (5)
+
+- `{material.file_name}` — MaterialsNuevo · l.60, when `!(materials.length === 0) && each materials`
+- `{material.file_type}` — MaterialsNuevo · l.63, when `!(materials.length === 0) && each materials`
+- `{formatFileSize(material.file_size)}` — MaterialsNuevo · l.65, when `!(materials.length === 0) && each materials`
+- `{uploaderNameText}` — MaterialsNuevo · l.66, when `!(materials.length === 0) && each materials`
+- `{format(parseISO(material.created_at…}` — MaterialsNuevo · l.67, when `!(materials.length === 0) && each materials`
+
+**Other texts on screen** (8)
+
+- «Subiendo... / Subir material» (label) — MaterialsNuevo · l.27, when `canChange()`
+- «No hay materiales subidos» — MaterialsNuevo · l.40, when `materials.length === 0`
+- «Archivo» — MaterialsNuevo · l.46, when `!(materials.length === 0)`
+- «Tipo» — MaterialsNuevo · l.47, when `!(materials.length === 0)`
+- «Tamaño» — MaterialsNuevo · l.48, when `!(materials.length === 0)`
+- «Subido por» — MaterialsNuevo · l.49, when `!(materials.length === 0)`
+- «Fecha» — MaterialsNuevo · l.50, when `!(materials.length === 0)`
+- «Acciones» — MaterialsNuevo · l.51, when `!(materials.length === 0)`
+
+### components/sessions/detail-nuevo/ReportNuevo.tsx
+
+Used by: `/consultor/sessions/[id]`
+
+**Buttons** (4)
+
+| Text | Does | Shown when | Disabled when | Hook | Where |
+|---|---|---|---|---|---|
+| «Crear Informe» | `{startEditingReport}` | `showCreateReportButton()` |  |  | ReportNuevo · l.67 |
+| «Editar Informe» | `{startEditingReport}` | `showEditReportButton()` |  |  | ReportNuevo · l.74 |
+| «Guardando... / Actualizar / Crear» | `{handleSaveReport}` | `showReportEditor()` | `{savingReport \|\| !reportContent.trim()}` |  | ReportNuevo · l.98 |
+| «Cancelar» | `{cancelEditingReport}` | `showReportEditor() && editingReport` |  |  | ReportNuevo · l.103 |
+
+**Fields** (2)
+
+| Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
+|---|---|---|---|---|---|---|
+| «Escriba el informe de la sesión...» | textarea | «Escriba el informe de la sesión...» |  | `showReportEditor()` |  | ReportNuevo · l.84 |
+|  | select |  |  | `showReportEditor()` |  | ReportNuevo · l.92 |
+
+**Pieces placed here, with the texts and settings handed to them** (15)
+
+| Piece | Texts and settings | Shown when | Hook | Where |
+|---|---|---|---|---|
+| `FileText` | aria-hidden: true | `onlyFacilitatorsReport()` |  | ReportNuevo · l.54 |
+| `AudioReportUploader` |  | `showAudioUploader()` |  | ReportNuevo · l.63 |
+| `FileText` | aria-hidden: true | `showCreateReportButton()` |  | ReportNuevo · l.68 |
+| `Edit` | aria-hidden: true | `showEditReportButton()` |  | ReportNuevo · l.75 |
+| `Card` |  | `showReportEditor()` |  | ReportNuevo · l.81 |
+| `CardBody` |  | `showReportEditor()` |  | ReportNuevo · l.82 |
+| `Field` | label: Contenido del informe | `showReportEditor()` |  | ReportNuevo · l.83 |
+| `Field` | label: Visibilidad | `showReportEditor()` |  | ReportNuevo · l.91 |
+| `Save` | aria-hidden: true | `showReportEditor()` |  | ReportNuevo · l.99 |
+| `AudioPlayer` |  | `!(showReportEditor()) && existingReport && signedAudioUrl` |  | ReportNuevo · l.112 |
+| `Card` |  | `!(showReportEditor()) && existingReport` |  | ReportNuevo · l.113 |
+| `CardHeader` |  | `!(showReportEditor()) && existingReport` |  | ReportNuevo · l.114 |
+| `Badge` |  | `!(showReportEditor()) && existingReport` |  | ReportNuevo · l.119 |
+| `CardBody` |  | `!(showReportEditor()) && existingReport` |  | ReportNuevo · l.124 |
+| `FileText` | aria-hidden: true | `!(showReportEditor()) && !(existingReport)` |  | ReportNuevo · l.129 |
+
+**Values shown from data** (2)
+
+- `{format(parseISO(existingReport.crea…}` — ReportNuevo · l.116, when `!(showReportEditor()) && existingReport`
+- `{existingReport.content}` — ReportNuevo · l.124, when `!(showReportEditor()) && existingReport`
+
+**Other texts on screen** (3)
+
+- «Solo los facilitadores pueden crear informes» — ReportNuevo · l.55, when `onlyFacilitatorsReport()`
+- «Todos los participantes / Solo facilitadores» — ReportNuevo · l.119, when `!(showReportEditor()) && existingReport`
+- «No hay informe creado» — ReportNuevo · l.130, when `!(showReportEditor()) && !(existingReport)`
+
+### components/sessions/sessionCreateChecks.ts
+
+Used by: `/admin/sessions/create`
+
+**Other texts written in the code (safety net: not tied to an element by the script)** (12)
+
+| Text | Where |
+|---|---|
+| «Debe seleccionar un colegio» | formChecks · l.86 |
+| «Debe seleccionar una comunidad de crecimiento» | formChecks · l.88 |
+| «Debe ingresar un título» | formChecks · l.90 |
+| «Debe seleccionar una fecha» | formChecks · l.91 |
+| «Debe ingresar hora de inicio y término» | formChecks · l.97 |
+| «La hora de término debe ser posterior a la hora de inicio» | formChecks · l.104 |
+| «Debe ingresar un enlace de reunión para modalidad online o híbrida» | formChecks · l.114 |
+| «Debe ingresar una ubicación para modalidad presencial o híbrida» | formChecks · l.119 |
+| «Debe asignar al menos un facilitador a la sesión» | formChecks · l.127 |
+| «Debe haber exactamente un facilitador principal» | formChecks · l.134 |
+| «Debe ingresar al menos 2 fechas personalizadas» | formChecks · l.143 |
+| «El número de sesiones debe estar entre 2 y 52» | formChecks · l.146 |
+
+### components/sessions/sessionTextNuevo.ts
+
+Used by: `/consultor/sessions/[id]`, `/consultor/sessions`
+
+**Texts kept in lists and helpers in the code (labels, options, status names)** (9)
+
+| Name | Texts | Where |
+|---|---|---|
+| `ARRIVAL_NUEVO` | «A tiempo», «Tarde», «Salió temprano» | l.14 |
+| `ACTIVITY_NUEVO` | «Sesión creada», «Sesión vista», «Sesión editada», «Cambio de estado», «Material subido», «Material eliminado», «Informe registrado», «Informe actualizado», «Asistencia registrada», «Asistencia actualizada», «Comunicación agregada», «Cambio solicitado», «Cambio aprobado», «Cambio rechazado», «Aprobación de cambio bloqueada», «Facilitadores actualizados», «Sesión cancelada», «Sesión finalizada» | l.27 |
+| `MODALITY_NUEVO` | «Presencial», «Online», «Híbrida» | l.54 |
+| `ROW_HELPER_TEXT` | «Sesión en curso.», «Sesión finalizada. Debe completar el informe y la asistencia.» | l.69 |
+| `REQUEST_MODALITY` | «Presencial», «En línea», «Híbrida» | l.97 |
+| `FINALIZE_STATUS_UNMET` | «La sesión debe estar en estado "Pendiente de Informe"» | l.123 |
+| `FINALIZE_REPORT_UNMET` | «Falta informe de sesión» | l.124 |
+| `FINALIZE_MET` | «Informe de sesión creado», «Asistencia marcada para todos» | l.125 |
+| `AGENDA_GROUP_TITLE` | «Esta semana», «Próximas», «Pasadas» | l.159 |
+
 ### components/tutorials/HelpButton.tsx
 
 Used by: `/consultor/sessions`, `/consultor/sessions/reports`
@@ -3170,6 +4238,321 @@ Used by: `/consultor/sessions`, `/consultor/sessions/reports`
 
 - «Close» — l.47, hidden by its class (`sr-only`); another control opens it or it is for screen readers
 
+### components/ui/kit/Badge.tsx
+
+Used by: `/consultor/sessions`
+
+**Values shown from data** (2)
+
+- `{value}` — l.68, when `label`
+- `{label}` — l.69, when `label`, hidden by its class (`sr-only`); another control opens it or it is for screen readers
+
+### components/ui/kit/Button.tsx
+
+Used by: `/admin/sessions/create`, `/consultor/sessions/[id]`, `/consultor/sessions`
+
+**Buttons** (1)
+
+| Text | Does | Shown when | Disabled when | Hook | Where |
+|---|---|---|---|---|---|
+| «{content}» | `{(event) => { if (loading) { // Not clickable while it works; also keeps a submi…}` |  |  |  | l.159 |
+
+**Links** (3)
+
+| Text | Goes to | Shown when | Hook | Where |
+|---|---|---|---|---|
+| «{content}» |  | `typeof rest.href === 'string' && inert` |  | l.131 |
+| «{content}» | `{href}` | `typeof rest.href === 'string' && href.startsWith('/')` |  | l.145 |
+| «{content}» | `{href}` | `typeof rest.href === 'string'` |  | l.151 |
+
+**Pieces placed here, with the texts and settings handed to them** (1)
+
+| Piece | Texts and settings | Shown when | Hook | Where |
+|---|---|---|---|---|
+| `SpinnerMark` |  | `loading` |  | l.120 |
+
+### components/ui/kit/Card.tsx
+
+Used by: `/admin/sessions/create`, `/consultor/sessions/[id]`, `/consultor/sessions`
+
+**Buttons** (1)
+
+| Text | Does | Shown when | Disabled when | Hook | Where |
+|---|---|---|---|---|---|
+| «{children}» |  |  |  |  | l.68 |
+
+**Links** (1)
+
+| Text | Goes to | Shown when | Hook | Where |
+|---|---|---|---|---|
+| «{children}» | `{href}` | `typeof rest.href === 'string'` |  | l.60 |
+
+**Values shown from data** (1)
+
+- `{children}` — l.50, when `!rest.interactive`
+
+### components/ui/kit/ConfirmDialog.tsx
+
+Used by: `/admin/sessions/create`, `/consultor/sessions/[id]`
+
+**Buttons** (2)
+
+| Text | Does | Shown when | Disabled when | Hook | Where |
+|---|---|---|---|---|---|
+| «{cancelLabel}» | `{onCancel}` |  | `{loading}` | `testid={testId ? '${testId}-cancel' : undefined}` | ConfirmDialog · l.80 |
+| «{confirmLabel}» | `{onConfirm}` |  |  | `testid={testId ? '${testId}-confirm' : undefined}` | ConfirmDialog · l.89 |
+
+**Pop-ups** (1)
+
+| Name or title | How | Opens when | Texts passed to it | Where |
+|---|---|---|---|---|
+| `Dialog` | component | `{open}` |  | ConfirmDialog · l.68 |
+
+**Other texts written in the code (safety net: not tied to an element by the script)** (1)
+
+| Text | Where |
+|---|---|
+| «Cancelar» | ConfirmDialog · l.49 |
+
+**Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (1)
+
+| Kind | What | Where |
+|---|---|---|
+| focus | `cancelRef.current.focus()` | ConfirmDialog · l.65 |
+
+**Values shown from data** (1)
+
+- `{message}` — ConfirmDialog · l.100, when `message && typeof message === 'string'`
+
+### components/ui/kit/Dialog.tsx
+
+Used by: `/admin/sessions/create`, `/consultor/sessions/[id]`
+
+**Pieces placed here, with the texts and settings handed to them** (2)
+
+| Piece | Texts and settings | Shown when | Hook | Where |
+|---|---|---|---|---|
+| `RadixDialog.Close` | aria-label: Cerrar | `dismissable` | `testid={testId ? '${testId}-close' : undefined}` | Dialog · l.193 |
+| `X` | aria-hidden: true | `dismissable` |  | Dialog · l.204 |
+
+**Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (5)
+
+| Kind | What | Where |
+|---|---|---|
+| lookup | `querySelectorAll({FOCUSABLE})` | firstFocusable · l.75 |
+| mark | `testid={testId}` | Dialog · l.130 |
+| focus | `candidate.focus()` | Dialog · l.151 |
+| focus | `box.focus()` | Dialog · l.154 |
+| focus | `target.focus()` | Dialog · l.160 |
+
+**Values shown from data** (5)
+
+- `{eyebrow}` — Dialog · l.179, when `eyebrow`
+- `{title}` — Dialog · l.180
+- `{description}` — Dialog · l.189, when `description`
+- `{children}` — Dialog · l.208
+- `{footer}` — Dialog · l.218, when `footer`
+
+### components/ui/kit/EmptyState.tsx
+
+Used by: `/admin/sessions/create`
+
+**Values shown from data** (3)
+
+- `{title}` — l.43
+- `{description}` — l.52, when `description`
+- `{action}` — l.54, when `action`
+
+### components/ui/kit/Field.tsx
+
+Used by: `/admin/sessions/create`, `/consultor/sessions/[id]`, `/consultor/sessions`
+
+**Fields** (5)
+
+| Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
+|---|---|---|---|---|---|---|
+|  | {type} |  |  |  |  | l.229 |
+|  | textarea |  |  |  |  | l.237 |
+|  | select |  |  |  |  | l.248 |
+|  | {type} |  |  |  |  | l.268 |
+| «{label}» | {kind} | required |  |  |  | Choice · l.304 |
+
+**Pieces placed here, with the texts and settings handed to them** (4)
+
+| Piece | Texts and settings | Shown when | Hook | Where |
+|---|---|---|---|---|
+| `AlertCircle` | aria-hidden: true | `error` |  | Field · l.133 |
+| `ChevronDown` | aria-hidden: true | hidden by its class (`hidden`); another control opens it or it is for screen readers |  | l.251 |
+| `Search` | aria-hidden: true |  |  | l.264 |
+| `Check` | aria-hidden: true | `kind === 'checkbox'` · hidden by its class (`hidden`); another control opens it or it is for screen readers |  | Choice · l.314 |
+
+**Texts kept in lists and helpers in the code (labels, options, status names)** (1)
+
+| Name | Texts | Where |
+|---|---|---|
+| `AT_LEAST_ONE` | «Marca al menos una opción.» | l.181 |
+
+**Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (3)
+
+| Kind | What | Where |
+|---|---|---|
+| lookup | `querySelectorAll(input[type="checkbox"])` | boxes · l.194 |
+| listener | `group.addEventListener('change')` | useAtLeastOneTicked · l.203 |
+| listener | `form.addEventListener('reset')` | useAtLeastOneTicked · l.204 |
+
+**Values shown from data** (4)
+
+- `{help}` — Field · l.127, when `help`
+- `{children}` — Field · l.157, when `group`
+- `{children}` — Field · l.170
+- `{help}` — Choice · l.330, when `help`
+
+**Other texts on screen** (3)
+
+- «{label} {mark}» (label) — Field · l.152, when `group`
+- «{label} {mark}» (label) — Field · l.166
+- «{label}» (label) — Choice · l.302
+
+### components/ui/kit/Loading.tsx
+
+Used by: `/admin/sessions/create`
+
+**Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (1)
+
+| Kind | What | Where |
+|---|---|---|
+| role | `role=status` | l.46 |
+
+**Values shown from data** (1)
+
+- `{label}` — l.53, when `label`
+
+**Other texts on screen** (1)
+
+- «Cargando…» — l.53, when `!(label)`, hidden by its class (`sr-only`); another control opens it or it is for screen readers
+
+### components/ui/kit/Notice.tsx
+
+Used by: `/admin/sessions/create`, `/consultor/sessions/[id]`
+
+**Values shown from data** (1)
+
+- `{title}` — l.68, when `title`
+
+### components/ui/kit/PageHeader.tsx
+
+Used by: `/admin/sessions/create`, `/consultor/sessions`
+
+**Titles** (1)
+
+| Text | Level | Shown when | Where |
+|---|---|---|---|
+| «{title}» | h1 |  | l.93 |
+
+**Buttons** (2)
+
+| Text | Does | Shown when | Disabled when | Hook | Where |
+|---|---|---|---|---|---|
+| «{secondaryAction.icon} {secondaryAction.label}» | `{secondaryAction.onClick}` | `hasActions && secondaryAction` |  | `testid={secondaryAction['data-testid']}` | l.110 |
+| «{primaryAction.icon} {primaryAction.label}» | `{primaryAction.onClick}` | `hasActions && primaryAction` |  | `testid={primaryAction['data-testid']}` | l.116 |
+
+**Pieces placed here, with the texts and settings handed to them** (1)
+
+| Piece | Texts and settings | Shown when | Hook | Where |
+|---|---|---|---|---|
+| `SearchInput` |  | `hasActions && onSearchChange` |  | l.100 |
+
+**Other texts written in the code (safety net: not tied to an element by the script)** (2)
+
+| Text | Where |
+|---|---|
+| «Buscar...» | PageHeader · l.59 |
+| «Buscar» | PageHeader · l.60 |
+
+**Values shown from data** (4)
+
+- `{eyebrow}` — l.78, when `eyebrow`
+- `{icon}` — l.88, when `icon`
+- `{description}` — l.94, when `description`
+- `{children}` — l.124, when `children`
+
+### components/ui/kit/Table.tsx
+
+Used by: `/consultor/sessions/[id]`
+
+**Buttons** (1)
+
+| Text | Does | Shown when | Disabled when | Hook | Where |
+|---|---|---|---|---|---|
+| «{children}» | `{onSort}` | `sortable` |  |  | l.148 |
+
+**Table columns** (1)
+
+| Text | Shown when | Where |
+|---|---|---|
+| «{children} / {children}» |  | l.139 |
+
+**Pieces placed here, with the texts and settings handed to them** (1)
+
+| Piece | Texts and settings | Shown when | Hook | Where |
+|---|---|---|---|---|
+| `Icon` | aria-hidden: true | `sortable` |  | l.158 |
+
+**Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (5)
+
+| Kind | What | Where |
+|---|---|---|
+| role | `role=table` | l.47 |
+| role | `role=rowgroup` | l.72 |
+| role | `role=rowgroup` | l.81 |
+| role | `role=row` | l.98 |
+| role | `role=cell` | l.189 |
+
+**Values shown from data** (2)
+
+- `{children}` — l.47
+- `{label}` — l.213, when `named`
+
+### components/ui/kit/Tabs.tsx
+
+Used by: `/consultor/sessions/[id]`, `/consultor/sessions`
+
+**Tabs** (1)
+
+| Text | Does | Shown when | Where |
+|---|---|---|---|
+|  | `{(event) => { onClick?.(event); if (!event.defaultPrevented) select(value); }}` |  | l.150 |
+
+**Draws nothing when** (4)
+
+| Condition | Where |
+|---|---|
+| `event.defaultPrevented` | TabList · l.112 |
+| `at < 0 \|\| tabs.length === 0` | TabList · l.115 |
+| `to < 0` | TabList · l.126 |
+| `current !== value` | TabPanel · l.175 |
+
+**Other texts written in the code (safety net: not tied to an element by the script)** (1)
+
+| Text | Where |
+|---|---|
+| «Tab» | Tab · l.144 |
+
+**Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (5)
+
+| Kind | What | Where |
+|---|---|---|
+| lookup | `querySelectorAll([role="tab"])` | TabList · l.96 |
+| role | `role=tablist` | TabList · l.104 |
+| lookup | `querySelectorAll([role="tab"]:not([disabled]))` | TabList · l.113 |
+| focus | `tabs[to].focus()` | TabList · l.128 |
+| role | `role=tabpanel` | TabPanel · l.177 |
+
+**Values shown from data** (2)
+
+- `{children}` — Tabs · l.60
+- `{children}` — TabList · l.104
+
 ### hooks/useSessionCreate.ts
 
 Used by: `/admin/sessions/create`
@@ -3178,7 +4561,7 @@ Used by: `/admin/sessions/create`
 
 | Question | When | Where |
 |---|---|---|
-| «{scheduleConfirmText(sessionCount)}» |  | handleScheduleSession · l.605 |
+| «{scheduleConfirmText(sessionCount)}» |  | handleScheduleSession · l.735 |
 
 **Toasts** (26)
 
@@ -3206,19 +4589,19 @@ Used by: `/admin/sessions/create`
 | error | «Error de autenticación» | `!session?.access_token` | handleSaveDraft · l.527 |
 | success | «{sessionCount} sesiones guardadas como borrador / Sesión guardada como borrador» |  | handleSaveDraft · l.575 |
 | error | «Error al guardar borrador» |  | handleSaveDraft · l.589 |
-| error | «Error de autenticación» | `!session?.access_token` | handleScheduleSession · l.617 |
-| success | «{sessionCount} sesiones programadas exitosamente» | `isRecurring && createResult.data.recurrence_group_id` | handleScheduleSession · l.682 |
-| success | «Sesión programada exitosamente» | `!(isRecurring && createResult.data.recurrence_group_id)` | handleScheduleSession · l.702 |
-| error | «Error al programar sesión» |  | handleScheduleSession · l.707 |
+| error | «Error de autenticación» | `!session?.access_token` | scheduleConfirmedSession · l.627 |
+| success | «{sessionCount} sesiones programadas exitosamente» | `isRecurring && createResult.data.recurrence_group_id` | scheduleConfirmedSession · l.695 |
+| success | «Sesión programada exitosamente» | `!(isRecurring && createResult.data.recurrence_group_id)` | scheduleConfirmedSession · l.717 |
+| error | «Error al programar sesión» |  | scheduleConfirmedSession · l.722 |
 
 **Messages set on the page** (4)
 
 | Text | Set by | When | Where |
 |---|---|---|---|
 | «Error al crear sesión» | `throw (shown by whoever catches it)` | `!response.ok` | handleSaveDraft · l.570 |
-| «Error al crear sesión» | `throw (shown by whoever catches it)` | `!createResponse.ok` | handleScheduleSession · l.661 |
-| «Error al aprobar sesiones» | `throw (shown by whoever catches it)` | `isRecurring && createResult.data.recurrence_group_id && !approveResponse.ok` | handleScheduleSession · l.679 |
-| «Error al aprobar sesión» | `throw (shown by whoever catches it)` | `!(isRecurring && createResult.data.recurrence_group_id) && !approveResponse.ok` | handleScheduleSession · l.699 |
+| «Error al crear sesión» | `throw (shown by whoever catches it)` | `!createResponse.ok` | scheduleConfirmedSession · l.672 |
+| «Error al aprobar sesiones» | `throw (shown by whoever catches it)` | `isRecurring && createResult.data.recurrence_group_id && !approveResponse.ok` | scheduleConfirmedSession · l.691 |
+| «Error al aprobar sesión» | `throw (shown by whoever catches it)` | `!(isRecurring && createResult.data.recurrence_group_id) && !approveResponse.ok` | scheduleConfirmedSession · l.713 |
 
 **Moves to another page from code** (8)
 
@@ -3229,9 +4612,9 @@ Used by: `/admin/sessions/create`
 | `/login` | `router.push` |  | initializeAuth · l.174 |
 | `/admin/sessions` | `router.push` | `isRecurring` | handleSaveDraft · l.582 |
 | `/admin/sessions/[*]` | `router.push` | `!(isRecurring)` | handleSaveDraft · l.585 |
-| `/admin/sessions` | `router.push` | `isRecurring && createResult.data.recurrence_group_id` | handleScheduleSession · l.683 |
-| `/admin/sessions/[*]` | `router.push` | `!(isRecurring && createResult.data.recurrence_group_id)` | handleScheduleSession · l.703 |
-| `/login` | `router.push` |  | handleLogout · l.715 |
+| `/admin/sessions` | `router.push` | `isRecurring && createResult.data.recurrence_group_id` | scheduleConfirmedSession · l.696 |
+| `/admin/sessions/[*]` | `router.push` | `!(isRecurring && createResult.data.recurrence_group_id)` | scheduleConfirmedSession · l.718 |
+| `/login` | `router.push` |  | handleLogout · l.746 |
 
 **Access checks in the code** (1)
 
@@ -3253,8 +4636,8 @@ Used by: `/admin/sessions/create`
 | «Bearer {session.access_token}» | useSessionCreate · l.228 |
 | «¿Está seguro de que desea programar estas {sessionCount} sesiones? Se notificará a los participantes.» | useSessionCreate · l.598 |
 | «¿Está seguro de que desea programar esta sesión? Se notificará a los participantes.» | useSessionCreate · l.599 |
-| «Externo» | useSessionCreate · l.804 |
-| «Interno» | useSessionCreate · l.805 |
+| «Externo» | useSessionCreate · l.835 |
+| «Interno» | useSessionCreate · l.836 |
 
 **Reads and writes the database directly:** `rpc:get_bucket_summary`, `table:contratos` (select), `table:growth_communities` (select), `table:schools` (select)
 
@@ -3266,7 +4649,7 @@ Used by: `/consultor/sessions/[id]`
 
 | Question | When | Where |
 |---|---|---|
-| «¿Está seguro que desea eliminar "{fileName}"?» |  | handleDeleteMaterial · l.449 |
+| «¿Está seguro que desea eliminar "{fileName}"?» |  | handleDeleteMaterial · l.452 |
 
 **Toasts** (23)
 
@@ -3286,15 +4669,15 @@ Used by: `/consultor/sessions/[id]`
 | error | «Error de autenticación» | `!authSession?.access_token` | handleUploadMaterial · l.414 |
 | success | «Material subido correctamente» |  | handleUploadMaterial · l.435 |
 | error | «Error al subir material» |  | handleUploadMaterial · l.439 |
-| error | «Error de autenticación» | `!authSession?.access_token` | handleDeleteMaterial · l.458 |
-| success | «Material eliminado correctamente» |  | handleDeleteMaterial · l.474 |
-| error | «Error al eliminar material» |  | handleDeleteMaterial · l.478 |
-| error | «Error de autenticación» | `!authSession?.access_token` | handleFinalize · l.491 |
-| success | «Sesión finalizada correctamente» |  | handleFinalize · l.508 |
-| error | «Error al finalizar sesión» |  | handleFinalize · l.513 |
-| error | «Error de autenticación» | `!authSession?.access_token` | handleSubmitEditRequest · l.556 |
-| success | «Solicitud de cambio enviada correctamente» |  | handleSubmitEditRequest · l.574 |
-| error | «Error al crear solicitud de cambio» |  | handleSubmitEditRequest · l.579 |
+| error | «Error de autenticación» | `!authSession?.access_token` | deleteMaterialConfirmed · l.466 |
+| success | «Material eliminado correctamente» |  | deleteMaterialConfirmed · l.482 |
+| error | «Error al eliminar material» |  | deleteMaterialConfirmed · l.486 |
+| error | «Error de autenticación» | `!authSession?.access_token` | handleFinalize · l.499 |
+| success | «Sesión finalizada correctamente» |  | handleFinalize · l.516 |
+| error | «Error al finalizar sesión» |  | handleFinalize · l.521 |
+| error | «Error de autenticación» | `!authSession?.access_token` | handleSubmitEditRequest · l.564 |
+| success | «Solicitud de cambio enviada correctamente» |  | handleSubmitEditRequest · l.582 |
+| error | «Error al crear solicitud de cambio» |  | handleSubmitEditRequest · l.587 |
 
 **Messages set on the page** (10)
 
@@ -3304,12 +4687,12 @@ Used by: `/consultor/sessions/[id]`
 | «Error al guardar asistencia» | `throw (shown by whoever catches it)` | `!response.ok` | handleSaveAttendance · l.324 |
 | «Error al guardar informe» | `throw (shown by whoever catches it)` | `!response.ok` | handleSaveReport · l.381 |
 | «Error al subir material» | `throw (shown by whoever catches it)` | `!response.ok` | handleUploadMaterial · l.432 |
-| «Error al eliminar material» | `throw (shown by whoever catches it)` | `!response.ok` | handleDeleteMaterial · l.471 |
-| «Error al finalizar sesión» | `throw (shown by whoever catches it)` | `!response.ok` | handleFinalize · l.505 |
-| «La sesión debe estar en estado "Pendiente de Informe"» | `reasons.push` | `session.status !== 'pendiente_informe'` | canFinalizeSession · l.525 |
-| «Falta informe de sesión» | `reasons.push` | `sessionReports.length === 0` | canFinalizeSession · l.532 |
-| «Hay {unmarkedCount} asistente(s) sin marcar» | `reasons.push` | `unmarkedCount > 0` | canFinalizeSession · l.538 |
-| «Error al crear solicitud de cambio» | `throw (shown by whoever catches it)` | `!response.ok` | handleSubmitEditRequest · l.571 |
+| «Error al eliminar material» | `throw (shown by whoever catches it)` | `!response.ok` | deleteMaterialConfirmed · l.479 |
+| «Error al finalizar sesión» | `throw (shown by whoever catches it)` | `!response.ok` | handleFinalize · l.513 |
+| «La sesión debe estar en estado "Pendiente de Informe"» | `reasons.push` | `session.status !== 'pendiente_informe'` | canFinalizeSession · l.533 |
+| «Falta informe de sesión» | `reasons.push` | `sessionReports.length === 0` | canFinalizeSession · l.540 |
+| «Hay {unmarkedCount} asistente(s) sin marcar» | `reasons.push` | `unmarkedCount > 0` | canFinalizeSession · l.546 |
+| «Error al crear solicitud de cambio» | `throw (shown by whoever catches it)` | `!response.ok` | handleSubmitEditRequest · l.579 |
 
 **Moves to another page from code** (6)
 
@@ -3327,8 +4710,8 @@ Used by: `/consultor/sessions/[id]`
 | Line of code | Where |
 |---|---|
 | `role = await getUserPrimaryRole(authSession.user.id)` | loadSessionPage · l.94 |
-| `canEdit = isFacilitator \|\| userRole === 'admin'` | useSessionDetail · l.599 |
-| `isReadOnly = session!.status === 'completada' \|\| session!.status === 'cancelada'` | decide · l.645 |
+| `canEdit = isFacilitator \|\| userRole === 'admin'` | useSessionDetail · l.607 |
+| `isReadOnly = session!.status === 'completada' \|\| session!.status === 'cancelada'` | decide · l.653 |
 
 **Texts kept in lists and helpers in the code (labels, options, status names)** (5)
 
@@ -3336,9 +4719,9 @@ Used by: `/consultor/sessions/[id]`
 |---|---|---|
 | `texts` | «Esta sesión está en borrador. El administrador debe aprobarla.», «Esta sesión está pendiente de aprobación por el administrador.», «Sesión programada para {format(parseISO(session.ses…}. [if session]», «Sesión programada. [if not session]», «Sesión en curso.», «Sesión finalizada. Debe completar el informe y la asistencia.», «Sesión completada.», «Esta sesión fue cancelada. Razón: {session.cancellation_reason} [if session?.cancellation_reason]», «Esta sesión fue cancelada. [if not session?.cancellation_reason]» | getStatusHelperText · l.265 |
 | `method` | «PUT / POST» | handleSaveReport · l.357 |
-| `tabs` | «Detalles», «Planificación [if canEdit]», «Materiales», «Informe», «Comunicaciones», «Actividad» | decide · l.632 |
-| `attendeeName()` | «Usuario desconocido» | attendeeName · l.687 |
-| `uploaderName()` | «Usuario desconocido» | uploaderName · l.696 |
+| `tabs` | «Detalles», «Planificación [if canEdit]», «Materiales», «Informe», «Comunicaciones», «Actividad» | decide · l.640 |
+| `attendeeName()` | «Usuario desconocido» | attendeeName · l.695 |
+| `uploaderName()` | «Usuario desconocido» | uploaderName · l.704 |
 
 **Other texts written in the code (safety net: not tied to an element by the script)** (10)
 
@@ -3346,14 +4729,14 @@ Used by: `/consultor/sessions/[id]`
 |---|---|
 | «Bearer {accessToken}» | useSessionDetail · l.129 |
 | «Bearer {authSession.access_token}» | useSessionDetail · l.224 |
-| «Sesión no cargada» | useSessionDetail · l.520 |
-| «Aprobada» | useSessionDetail · l.665 |
-| «Rechazada» | useSessionDetail · l.666 |
-| «Fecha» | useSessionDetail · l.669 |
-| «Hora inicio» | useSessionDetail · l.671 |
-| «Hora término» | useSessionDetail · l.673 |
-| «Modalidad» | useSessionDetail · l.675 |
-| «Usuario desconocido» | useSessionDetail · l.689 |
+| «Sesión no cargada» | useSessionDetail · l.528 |
+| «Aprobada» | useSessionDetail · l.673 |
+| «Rechazada» | useSessionDetail · l.674 |
+| «Fecha» | useSessionDetail · l.677 |
+| «Hora inicio» | useSessionDetail · l.679 |
+| «Hora término» | useSessionDetail · l.681 |
+| «Modalidad» | useSessionDetail · l.683 |
+| «Usuario desconocido» | useSessionDetail · l.697 |
 
 **Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (1)
 
@@ -3738,31 +5121,31 @@ Used by: `/admin/bulk-tag-sessions`, `/admin/consultant-assignments`, `/admin/se
 | `/api/admin/bulk-tag-sessions` | `pages/api/admin/bulk-tag-sessions.ts` | GET, PATCH | `/admin/bulk-tag-sessions` | `__tests__/api/hour-tracking/bulk-tag.test.ts`, `pages/admin/bulk-tag-sessions.tsx` |
 | `/api/admin/consultant-assignment-users` | `pages/api/admin/consultant-assignment-users.ts` | GET | `/admin/consultant-assignments`, `/admin/consultant-earnings`, `/admin/consultant-rates`, `/admin/user-management` | `components/ConsultantAssignmentModal.tsx`, `components/admin/ConsultantRateManager.tsx`, `pages/admin/consultant-earnings.tsx` |
 | `/api/admin/consultant-assignments` | `pages/api/admin/consultant-assignments.ts` | DELETE, GET, POST, PUT | `/admin/consultant-assignments`, `/admin/user-management` | `__tests__/api/admin/consultant-assignments.test.ts`, `components/ConsultantAssignmentModal.tsx`, `pages/admin/consultant-assignments.tsx` |
-| `/api/admin/consultants` | `pages/api/admin/consultants.ts` | GET | `/admin/sessions`, `/admin/sessions/[id]`, `/admin/sessions/create` | `__tests__/api/admin/consultants.test.ts`, `__tests__/pages/admin/sessions/create-timezone.test.tsx`, `__tests__/pages/admin/sessions/create-zoom-managed.test.tsx`, `__tests__/pages/admin/sessions/create.clasico.test.tsx`, `hooks/useSessionCreate.ts` +2 |
+| `/api/admin/consultants` | `pages/api/admin/consultants.ts` | GET | `/admin/sessions`, `/admin/sessions/[id]`, `/admin/sessions/create` | `__tests__/api/admin/consultants.test.ts`, `__tests__/pages/admin/sessions/create-timezone.test.tsx`, `__tests__/pages/admin/sessions/create-zoom-managed.test.tsx`, `__tests__/pages/admin/sessions/create.clasico.test.tsx`, `__tests__/pages/admin/sessions/create.nuevo.test.tsx` +5 |
 | `/api/admin/sessions/[id]/hour-override` | `pages/api/admin/sessions/[id]/hour-override.ts` | POST | `/admin/sessions/[id]` | `__tests__/api/admin/hour-override.test.ts`, `__tests__/lib/services/comparison-billing-isolation.test.ts`, `components/sessions/HoursComparisonPanel.tsx`, `scripts/redesign/harness/seed/30-sesiones-horas.mjs` |
 | `/api/admin/sessions/[id]/hours-comparison` | `pages/api/admin/sessions/[id]/hours-comparison.ts` | GET | `/admin/sessions/[id]` | `__tests__/api/admin/hours-comparison.test.ts`, `__tests__/components/sessions/HoursComparisonPanel.test.tsx`, `__tests__/lib/services/comparison-billing-isolation.test.ts`, `components/sessions/HoursComparisonPanel.tsx` |
 | `/api/meet/diag-signature` | `pages/api/meet/diag-signature.ts` | POST | `/meet/diag` | `__tests__/api/forged-session-sweep.test.ts`, `__tests__/api/meet/diag-signature.test.ts`, `__tests__/pages/meet-diag-join-section.test.ts`, `__tests__/pages/meet/diag-ssr.test.ts`, `pages/meet/diag.tsx` |
 | `/api/meet/session/[id]/join` | `pages/api/meet/session/[id]/join.ts` | POST | `/meet/session/[id]` | `__tests__/api/meet/session-join-sdk.test.ts`, `__tests__/api/meet/session-join-zak.test.ts`, `__tests__/api/meet/session-join.test.ts`, `__tests__/components/sessions/JoinMeetingButton.clientview.test.tsx`, `__tests__/components/sessions/JoinMeetingButton.prejoin-screen.test.tsx` +8 |
-| `/api/sessions/[id]/approve` | `pages/api/sessions/[id]/approve.ts` | POST | `/admin/sessions`, `/admin/sessions/[id]`, `/admin/sessions/create` | `__tests__/api/sessions/session-approval-hours-fail-closed.test.ts`, `__tests__/api/sessions/session-approve-facilitators.test.ts`, `__tests__/api/sessions/session-approve-zoom-provision.test.ts`, `__tests__/api/sessions/session-lifecycle-notifications.test.ts`, `__tests__/pages/admin/sessions/create.clasico.test.tsx` +3 |
-| `/api/sessions/[id]/attendance-suggestions` | `pages/api/sessions/[id]/attendance-suggestions.ts` | GET | `/consultor/sessions/[id]` | `__tests__/api/sessions/attendance-suggestions.test.ts`, `components/sessions/AttendanceSuggestionsPanel.tsx` |
-| `/api/sessions/[id]/attendees` | `pages/api/sessions/[id]/attendees.ts` | GET, PUT | `/consultor/sessions/[id]` | `__tests__/api/sessions/attendees.test.ts`, `__tests__/pages/consultor/sessions/detail.clasico.test.tsx`, `__tests__/pages/consultor/sessions/detail.test.tsx`, `components/sessions/AttendanceSuggestionsPanel.tsx`, `hooks/useSessionDetail.ts` +1 |
+| `/api/sessions/[id]/approve` | `pages/api/sessions/[id]/approve.ts` | POST | `/admin/sessions`, `/admin/sessions/[id]`, `/admin/sessions/create` | `__tests__/api/sessions/session-approval-hours-fail-closed.test.ts`, `__tests__/api/sessions/session-approve-facilitators.test.ts`, `__tests__/api/sessions/session-approve-zoom-provision.test.ts`, `__tests__/api/sessions/session-lifecycle-notifications.test.ts`, `__tests__/pages/admin/sessions/create.clasico.test.tsx` +5 |
+| `/api/sessions/[id]/attendance-suggestions` | `pages/api/sessions/[id]/attendance-suggestions.ts` | GET | `/consultor/sessions/[id]` | `__tests__/api/sessions/attendance-suggestions.test.ts`, `components/sessions/AttendanceSuggestionsPanel.tsx`, `tests/e2e/look-sessions.spec.ts` |
+| `/api/sessions/[id]/attendees` | `pages/api/sessions/[id]/attendees.ts` | GET, PUT | `/consultor/sessions/[id]` | `__tests__/api/sessions/attendees.test.ts`, `__tests__/pages/consultor/sessions/detail.clasico.test.tsx`, `__tests__/pages/consultor/sessions/detail.nuevo.test.tsx`, `__tests__/pages/consultor/sessions/detail.sameSession.test.tsx`, `__tests__/pages/consultor/sessions/detail.test.tsx` +3 |
 | `/api/sessions/[id]/audio-report` | `pages/api/sessions/[id]/audio-report.ts` | POST | `/consultor/sessions/[id]` | `__tests__/api/sessions/session-audio-report.test.ts`, `components/sessions/AudioReportUploader.tsx` |
 | `/api/sessions/[id]/cancel` | `pages/api/sessions/[id]/cancel.ts` | POST | `/admin/sessions`, `/admin/sessions/[id]` | `__tests__/api/hour-tracking/cancellation.test.ts`, `__tests__/api/sessions/session-cancel-zoom-delete.test.ts`, `__tests__/api/sessions/session-lifecycle-notifications.test.ts`, `__tests__/api/sessions/session-notification-recipients.test.ts`, `pages/admin/sessions/[id].tsx` +1 |
-| `/api/sessions/[id]/edit-requests` | `pages/api/sessions/[id]/edit-requests.ts` | GET, POST | `/consultor/sessions/[id]` | `__tests__/api/sessions/edit-requests.test.ts`, `__tests__/api/sessions/session-notification-recipients.test.ts`, `__tests__/api/sessions/session-notifications.test.ts`, `__tests__/pages/consultor/sessions/detail.clasico.test.tsx`, `hooks/useSessionDetail.ts` |
+| `/api/sessions/[id]/edit-requests` | `pages/api/sessions/[id]/edit-requests.ts` | GET, POST | `/consultor/sessions/[id]` | `__tests__/api/sessions/edit-requests.test.ts`, `__tests__/api/sessions/session-notification-recipients.test.ts`, `__tests__/api/sessions/session-notifications.test.ts`, `__tests__/pages/consultor/sessions/detail.clasico.test.tsx`, `__tests__/pages/consultor/sessions/detail.sameSession.test.tsx` +1 |
 | `/api/sessions/[id]/facilitators` | `pages/api/sessions/[id]/facilitators.ts` | PUT | `/admin/sessions/[id]` | `__tests__/api/sessions/facilitators.test.ts`, `pages/admin/sessions/[id].tsx` |
-| `/api/sessions/[id]/finalize` | `pages/api/sessions/[id]/finalize.ts` | POST | `/consultor/sessions/[id]` | `__tests__/api/sessions/finalize.test.ts`, `__tests__/api/sessions/session-notification-recipients.test.ts`, `__tests__/pages/consultor/sessions/detail.clasico.test.tsx`, `hooks/useSessionDetail.ts` |
-| `/api/sessions/[id]/ical` | `pages/api/sessions/[id]/ical.ts` | GET | `/admin/sessions/[id]`, `/consultor/sessions/[id]` | `__tests__/api/sessions/cached-roles-never-authorize.test.ts`, `__tests__/api/sessions/ical-attendee-disclosure.test.ts`, `__tests__/api/sessions/ical-sequence.test.ts`, `__tests__/api/sessions/session-ical-export.test.ts`, `components/sessions/SessionDetailClasico.tsx` +3 |
-| `/api/sessions/[id]` | `pages/api/sessions/[id]/index.ts` | GET, PUT | `/admin/sessions/[id]`, `/consultor/sessions/[id]` | `__tests__/api/reports/qa-tenant-exclusion-contract.test.ts`, `__tests__/api/sessions/cached-roles-never-authorize.test.ts`, `__tests__/api/sessions/ical-scope-union.test.ts`, `__tests__/api/sessions/reschedule-hours-sync.test.ts`, `__tests__/api/sessions/role-revocation-fail-closed.test.ts` +27 |
-| `/api/sessions/[id]/materials` | `pages/api/sessions/[id]/materials.ts` | GET, POST | `/consultor/sessions/[id]` | `__tests__/api/sessions/materials.test.ts`, `__tests__/pages/consultor/sessions/detail.clasico.test.tsx`, `hooks/useSessionDetail.ts`, `tests/e2e/session-disclosure.spec.ts` |
-| `/api/sessions/[id]/materials/[mid]` | `pages/api/sessions/[id]/materials/[mid].ts` | DELETE | `/consultor/sessions/[id]` | `__tests__/api/sessions/materials-detail.test.ts`, `__tests__/pages/consultor/sessions/detail.clasico.test.tsx`, `hooks/useSessionDetail.ts` |
-| `/api/sessions/[id]/reports` | `pages/api/sessions/[id]/reports.ts` | GET, POST | `/consultor/sessions/[id]` | `__tests__/api/sessions/reports.test.ts`, `__tests__/pages/consultor/sessions/detail.clasico.test.tsx`, `hooks/useSessionDetail.ts`, `tests/e2e/session-disclosure.spec.ts` |
-| `/api/sessions/[id]/reports/[rid]` | `pages/api/sessions/[id]/reports/[rid].ts` | GET, PUT | `/consultor/sessions/[id]` | `__tests__/api/sessions/cached-roles-never-authorize.test.ts`, `__tests__/api/sessions/report-detail-disclosure.test.ts`, `__tests__/api/sessions/reports-detail.test.ts`, `__tests__/pages/consultor/sessions/detail.clasico.test.tsx`, `hooks/useSessionDetail.ts` +1 |
-| `/api/sessions/bulk-approve` | `pages/api/sessions/bulk-approve.ts` | POST | `/admin/sessions/create` | `__tests__/api/sessions/session-approval-hours-fail-closed.test.ts`, `__tests__/api/sessions/session-bulk-approve-facilitators.test.ts`, `__tests__/api/sessions/session-bulk-approve-zoom-provision.test.ts`, `__tests__/api/sessions/session-lifecycle-notifications.test.ts`, `__tests__/pages/admin/sessions/create.clasico.test.tsx` +1 |
+| `/api/sessions/[id]/finalize` | `pages/api/sessions/[id]/finalize.ts` | POST | `/consultor/sessions/[id]` | `__tests__/api/sessions/finalize.test.ts`, `__tests__/api/sessions/session-notification-recipients.test.ts`, `__tests__/pages/consultor/sessions/detail.clasico.test.tsx`, `__tests__/pages/consultor/sessions/detail.nuevo.test.tsx`, `__tests__/pages/consultor/sessions/detail.sameSession.test.tsx` +1 |
+| `/api/sessions/[id]/ical` | `pages/api/sessions/[id]/ical.ts` | GET | `/admin/sessions/[id]`, `/consultor/sessions/[id]` | `__tests__/api/sessions/cached-roles-never-authorize.test.ts`, `__tests__/api/sessions/ical-attendee-disclosure.test.ts`, `__tests__/api/sessions/ical-sequence.test.ts`, `__tests__/api/sessions/session-ical-export.test.ts`, `__tests__/pages/consultor/sessions/detail.nuevo.test.tsx` +5 |
+| `/api/sessions/[id]` | `pages/api/sessions/[id]/index.ts` | GET, PUT | `/admin/sessions/[id]`, `/consultor/sessions/[id]` | `__tests__/api/reports/qa-tenant-exclusion-contract.test.ts`, `__tests__/api/sessions/cached-roles-never-authorize.test.ts`, `__tests__/api/sessions/ical-scope-union.test.ts`, `__tests__/api/sessions/reschedule-hours-sync.test.ts`, `__tests__/api/sessions/role-revocation-fail-closed.test.ts` +31 |
+| `/api/sessions/[id]/materials` | `pages/api/sessions/[id]/materials.ts` | GET, POST | `/consultor/sessions/[id]` | `__tests__/api/sessions/materials.test.ts`, `__tests__/pages/consultor/sessions/detail.clasico.test.tsx`, `__tests__/pages/consultor/sessions/detail.sameSession.test.tsx`, `hooks/useSessionDetail.ts`, `tests/e2e/look-sessions.spec.ts` +1 |
+| `/api/sessions/[id]/materials/[mid]` | `pages/api/sessions/[id]/materials/[mid].ts` | DELETE | `/consultor/sessions/[id]` | `__tests__/api/sessions/materials-detail.test.ts`, `__tests__/pages/consultor/sessions/detail.clasico.test.tsx`, `__tests__/pages/consultor/sessions/detail.nuevo.test.tsx`, `__tests__/pages/consultor/sessions/detail.sameSession.test.tsx`, `hooks/useSessionDetail.ts` |
+| `/api/sessions/[id]/reports` | `pages/api/sessions/[id]/reports.ts` | GET, POST | `/consultor/sessions/[id]` | `__tests__/api/sessions/reports.test.ts`, `__tests__/pages/consultor/sessions/detail.clasico.test.tsx`, `__tests__/pages/consultor/sessions/detail.sameSession.test.tsx`, `hooks/useSessionDetail.ts`, `tests/e2e/session-disclosure.spec.ts` |
+| `/api/sessions/[id]/reports/[rid]` | `pages/api/sessions/[id]/reports/[rid].ts` | GET, PUT | `/consultor/sessions/[id]` | `__tests__/api/sessions/cached-roles-never-authorize.test.ts`, `__tests__/api/sessions/report-detail-disclosure.test.ts`, `__tests__/api/sessions/reports-detail.test.ts`, `__tests__/pages/consultor/sessions/detail.clasico.test.tsx`, `__tests__/pages/consultor/sessions/detail.sameSession.test.tsx` +2 |
+| `/api/sessions/bulk-approve` | `pages/api/sessions/bulk-approve.ts` | POST | `/admin/sessions/create` | `__tests__/api/sessions/session-approval-hours-fail-closed.test.ts`, `__tests__/api/sessions/session-bulk-approve-facilitators.test.ts`, `__tests__/api/sessions/session-bulk-approve-zoom-provision.test.ts`, `__tests__/api/sessions/session-lifecycle-notifications.test.ts`, `__tests__/pages/admin/sessions/create.clasico.test.tsx` +4 |
 | `/api/sessions/capabilities` | `pages/api/sessions/capabilities.ts` | GET | **no screen** | `__tests__/api/sessions/session-zoom-capabilities.test.ts` |
 | `/api/sessions/edit-requests/[eid]` | `pages/api/sessions/edit-requests/[eid].ts` | GET, PUT | `/admin/sessions/approvals` | `__tests__/api/sessions/edit-requests-detail.test.ts`, `__tests__/api/sessions/reschedule-hours-sync.test.ts`, `__tests__/api/sessions/session-lifecycle-notifications.test.ts`, `__tests__/api/sessions/session-notifications.test.ts`, `__tests__/api/sessions/session-reschedule-zoom-sync.test.ts` +3 |
 | `/api/sessions/edit-requests` | `pages/api/sessions/edit-requests/index.ts` | GET | `/admin/sessions/approvals` | `pages/admin/sessions/approvals.tsx` |
-| `/api/sessions/ical` | `pages/api/sessions/ical.ts` | GET | `/admin/sessions`, `/consultor/sessions` | `__tests__/api/sessions/cached-roles-never-authorize.test.ts`, `__tests__/api/sessions/ical-attendee-disclosure.test.ts`, `__tests__/api/sessions/ical-scope-union.test.ts`, `__tests__/api/sessions/ical-sequence.test.ts`, `__tests__/api/sessions/session-ical-export.test.ts` +4 |
-| `/api/sessions` | `pages/api/sessions/index.ts` | GET, POST | `/admin/sessions`, `/admin/sessions/create`, `/community/workspace`, `/consultor/sessions` | `__tests__/api/sessions/role-revocation-fail-closed.test.ts`, `__tests__/api/sessions/session-create-facilitators.test.ts`, `__tests__/api/sessions/session-custom-dates-chile.test.ts`, `__tests__/api/sessions/session-detail-disclosure.test.ts`, `__tests__/api/sessions/session-managed-intent-create.test.ts` +18 |
+| `/api/sessions/ical` | `pages/api/sessions/ical.ts` | GET | `/admin/sessions`, `/consultor/sessions` | `__tests__/api/sessions/cached-roles-never-authorize.test.ts`, `__tests__/api/sessions/ical-attendee-disclosure.test.ts`, `__tests__/api/sessions/ical-scope-union.test.ts`, `__tests__/api/sessions/ical-sequence.test.ts`, `__tests__/api/sessions/session-ical-export.test.ts` +5 |
+| `/api/sessions` | `pages/api/sessions/index.ts` | GET, POST | `/admin/sessions`, `/admin/sessions/create`, `/community/workspace`, `/consultor/sessions` | `__tests__/api/sessions/role-revocation-fail-closed.test.ts`, `__tests__/api/sessions/session-create-facilitators.test.ts`, `__tests__/api/sessions/session-custom-dates-chile.test.ts`, `__tests__/api/sessions/session-detail-disclosure.test.ts`, `__tests__/api/sessions/session-managed-intent-create.test.ts` +25 |
 | `/api/sessions/reports/analytics` | `pages/api/sessions/reports/analytics.ts` | GET | `/consultor/sessions/reports` | `__tests__/api/sessions/session-reports-analytics.test.ts`, `pages/consultor/sessions/reports.tsx` |
 | `/api/sessions/series/[groupId]` | `pages/api/sessions/series/[groupId].ts` | GET | `/admin/sessions/[id]` | `__tests__/api/sessions/session-series.test.ts`, `pages/admin/sessions/[id].tsx` |
 | `/api/sessions/series/[groupId]/cancel` | `pages/api/sessions/series/[groupId]/cancel.ts` | POST | `/admin/sessions/[id]` | `__tests__/api/sessions/session-cancel-zoom-delete.test.ts`, `__tests__/api/sessions/session-lifecycle-notifications.test.ts`, `__tests__/api/sessions/session-series.test.ts`, `pages/admin/sessions/[id].tsx` |

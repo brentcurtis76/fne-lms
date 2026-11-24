@@ -445,11 +445,19 @@ export function useSessionDetail() {
     }
   };
 
+  // Today's view asks with the browser's own question, then deletes. Redesign 6S, release SB: split in
+  // two so the new view can ask in its own pop-up and then call the same deletion (a pure split: the
+  // same question, the same calls in the same order).
   const handleDeleteMaterial = async (materialId: string, fileName: string) => {
     if (!confirm(`¿Está seguro que desea eliminar "${fileName}"?`)) {
       return;
     }
 
+    await deleteMaterialConfirmed(materialId);
+  };
+
+  /** The deletion itself, once the person has said yes. */
+  const deleteMaterialConfirmed = async (materialId: string) => {
     try {
       const {
         data: { session: authSession },
@@ -791,6 +799,7 @@ export function useSessionDetail() {
     handleSaveReport,
     handleUploadMaterial,
     handleDeleteMaterial,
+    deleteMaterialConfirmed,
     handleFinalize,
     canFinalizeSession,
     handleSubmitEditRequest,

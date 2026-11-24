@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "c7e27398ca230dbbc3e581dcde19f92480491fcd",
-  "date": "2026-11-22T23:11:25-03:00"
+  "commit": "6a336e70e3a2a2175b39e2ebade821061497232c",
+  "date": "2026-11-24T17:54:00-03:00"
  },
  "screens": [
   {
@@ -634,6 +634,7 @@
      "pages/admin/context-questions/overview.tsx:156",
      "pages/admin/context-questions/overview.tsx:196",
      "pages/admin/context-questions/overview.tsx:206",
+     "pages/admin/correos/vista-previa.tsx:21",
      "pages/admin/course-builder/[courseId]/[moduleId]/[lessonId].tsx:86",
      "pages/admin/course-builder/[courseId]/[moduleId]/index.tsx:112",
      "pages/admin/course-builder/[courseId]/[moduleId]/index.tsx:70",
@@ -754,8 +755,8 @@
      "pages/community/workspace/assignments/[id]/groups.tsx:28",
      "pages/configuracion/apariencia.tsx:25",
      "pages/configuracion/apariencia.tsx:41",
-     "pages/configuracion/notificaciones.tsx:121",
-     "pages/configuracion/notificaciones.tsx:148",
+     "pages/configuracion/notificaciones.tsx:123",
+     "pages/configuracion/notificaciones.tsx:150",
      "pages/configuracion/piezas.tsx:61",
      "pages/consultor/sessions/reports.tsx:273",
      "pages/contracts.tsx:160",

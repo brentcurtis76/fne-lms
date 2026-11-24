@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "c7e27398ca230dbbc3e581dcde19f92480491fcd",
-  "date": "2026-11-22T23:11:25-03:00"
+  "commit": "6a336e70e3a2a2175b39e2ebade821061497232c",
+  "date": "2026-11-24T17:54:00-03:00"
  },
  "screens": [
   {
@@ -674,7 +674,7 @@
      "components/notifications/NotificationDropdown.tsx:136",
      "components/notifications/NotificationDropdown.tsx:154",
      "lib/notificationEvents.ts:397",
-     "lib/notifications/catalog.ts:377",
+     "lib/notifications/catalog.ts:379",
      "pages/notifications.tsx:268",
      "pages/notifications.tsx:286",
      "utils/notificationPermissions.ts:121",
@@ -1283,7 +1283,9 @@
     ],
     "linkedFrom": [
      "components/feedback/FeedbackModal.tsx:338",
-     "components/feedback/FeedbackModal.tsx:339"
+     "components/feedback/FeedbackModal.tsx:339",
+     "lib/notificationEvents.ts:405",
+     "lib/notifications/catalog.ts:381"
     ],
     "qaScenarios": {},
     "tests": {

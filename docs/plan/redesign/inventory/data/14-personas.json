@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "c7e27398ca230dbbc3e581dcde19f92480491fcd",
-  "date": "2026-11-22T23:11:25-03:00"
+  "commit": "6a336e70e3a2a2175b39e2ebade821061497232c",
+  "date": "2026-11-24T17:54:00-03:00"
  },
  "screens": [
   {
@@ -2512,7 +2512,7 @@
   {
    "file": "pages/admin/schools.tsx",
    "route": "/admin/schools",
-   "lines": 1544,
+   "lines": 1550,
    "marks": {},
    "frame": "MainLayout",
    "server": "none",
@@ -2629,7 +2629,9 @@
      "e2e": [
       "tests/qa/auth-redirects.spec.ts"
      ],
-     "unit": []
+     "unit": [
+      "__tests__/pages/admin/schools.filler-rut.test.tsx"
+     ]
     }
    },
    "rows": [
@@ -2975,7 +2977,15 @@
     },
     {
      "kind": "toast",
-     "line": 731,
+     "line": 732,
+     "in": "handleSaveCliente",
+     "when": "isFillerRut(clienteForm.rut_representante) && !(editingCliente && isFillerRut(editingCliente.rut_representante))",
+     "text": "Ingresa el RUT real del representante legal; 11.111.111-1 no es válido.",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 737,
      "in": "handleSaveCliente",
      "when": "!editingCliente",
      "text": "No hay cliente seleccionado para editar",
@@ -2983,7 +2993,7 @@
     },
     {
      "kind": "toast",
-     "line": 748,
+     "line": 754,
      "in": "handleSaveCliente",
      "when": "clienteForm.rut !== editingCliente.rut && existingCliente",
      "text": "Ya existe otro cliente con este RUT",
@@ -2991,28 +3001,28 @@
     },
     {
      "kind": "confirm",
-     "line": 762,
+     "line": 768,
      "in": "handleSaveCliente",
      "when": "contracts && contracts.length > 0",
      "text": "Este cliente tiene {contracts.length} contrato(s) asociado(s). / Los cambios al nombre y RUT del representante legal solo afectarán contratos y licitaciones futuros. / Los demás campos del cliente sí afectarán los contratos existentes que se regeneren. / ¿Desea continuar?"
     },
     {
      "kind": "toast",
-     "line": 798,
+     "line": 804,
      "in": "handleSaveCliente",
      "text": "Cliente actualizado exitosamente",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 805,
+     "line": 811,
      "in": "handleSaveCliente",
      "text": "Error al actualizar cliente:",
      "variant": "error"
     },
     {
      "kind": "piece",
-     "line": 811,
+     "line": 817,
      "in": "SchoolsManagement",
      "when": "!isAdmin",
      "text": "pageTitle: Escuelas · userRole: admin",
@@ -3020,34 +3030,34 @@
     },
     {
      "kind": "piece",
-     "line": 826,
+     "line": 832,
      "in": "SchoolsManagement",
      "text": "pageTitle: Gestión de Escuelas · userRole: admin",
      "tag": "MainLayout"
     },
     {
      "kind": "heading",
-     "line": 836,
+     "line": 842,
      "in": "SchoolsManagement",
      "text": "Gestión de Escuelas",
      "level": 1
     },
     {
      "kind": "text",
-     "line": 837,
+     "line": 843,
      "in": "SchoolsManagement",
      "text": "Administra las escuelas y sus generaciones"
     },
     {
      "kind": "button",
-     "line": 839,
+     "line": 845,
      "in": "SchoolsManagement",
      "text": "Nueva Escuela",
      "action": "{handleAddSchool}"
     },
     {
      "kind": "heading",
-     "line": 855,
+     "line": 861,
      "in": "SchoolsManagement",
      "when": "!(loading) && schools.length === 0",
      "text": "No hay escuelas registradas",
@@ -3055,14 +3065,14 @@
     },
     {
      "kind": "text",
-     "line": 856,
+     "line": 862,
      "in": "SchoolsManagement",
      "when": "!(loading) && schools.length === 0",
      "text": "Comienza creando la primera escuela"
     },
     {
      "kind": "button",
-     "line": 865,
+     "line": 871,
      "in": "SchoolsManagement",
      "when": "!(loading) && !(schools.length === 0) && each schools",
      "text": "[icon ChevronDown]",
@@ -3070,7 +3080,7 @@
     },
     {
      "kind": "heading",
-     "line": 875,
+     "line": 881,
      "in": "SchoolsManagement",
      "when": "!(loading) && !(schools.length === 0) && each schools",
      "text": "{school.name}",
@@ -3078,35 +3088,35 @@
     },
     {
      "kind": "text",
-     "line": 879,
+     "line": 885,
      "in": "SchoolsManagement",
      "when": "!(loading) && !(schools.length === 0) && each schools",
      "text": "usuarios"
     },
     {
      "kind": "text",
-     "line": 882,
+     "line": 888,
      "in": "SchoolsManagement",
      "when": "!(loading) && !(schools.length === 0) && each schools && school.has_generations === true",
      "text": "{school._count?.generations} generaciones"
     },
     {
      "kind": "text",
-     "line": 887,
+     "line": 893,
      "in": "SchoolsManagement",
      "when": "!(loading) && !(schools.length === 0) && each schools && school.has_generations === false",
      "text": "Sin generaciones"
     },
     {
      "kind": "text",
-     "line": 894,
+     "line": 900,
      "in": "SchoolsManagement",
      "when": "!(loading) && !(schools.length === 0) && each schools && school.cliente_id",
      "text": "Cliente vinculado"
     },
     {
      "kind": "button",
-     "line": 896,
+     "line": 902,
      "in": "SchoolsManagement",
      "when": "!(loading) && !(schools.length === 0) && each schools && school.cliente_id",
      "text": "[icon Edit2]",
@@ -3115,7 +3125,7 @@
     },
     {
      "kind": "button",
-     "line": 909,
+     "line": 915,
      "in": "SchoolsManagement",
      "when": "!(loading) && !(schools.length === 0) && each schools && school.has_generations === true",
      "text": "Generación",
@@ -3123,7 +3133,7 @@
     },
     {
      "kind": "button",
-     "line": 917,
+     "line": 923,
      "in": "SchoolsManagement",
      "when": "!(loading) && !(schools.length === 0) && each schools",
      "text": "[icon Edit2]",
@@ -3131,7 +3141,7 @@
     },
     {
      "kind": "button",
-     "line": 923,
+     "line": 929,
      "in": "SchoolsManagement",
      "when": "!(loading) && !(schools.length === 0) && each schools",
      "text": "[icon Trash2]",
@@ -3139,7 +3149,7 @@
     },
     {
      "kind": "button",
-     "line": 930,
+     "line": 936,
      "in": "SchoolsManagement",
      "when": "!(loading) && !(schools.length === 0) && each schools && school.cliente_id",
      "text": "[icon FileText]",
@@ -3148,7 +3158,7 @@
     },
     {
      "kind": "button",
-     "line": 938,
+     "line": 944,
      "in": "SchoolsManagement",
      "when": "!(loading) && !(schools.length === 0) && each schools && !(school.cliente_id)",
      "text": "[icon Plus]",
@@ -3157,7 +3167,7 @@
     },
     {
      "kind": "heading",
-     "line": 955,
+     "line": 961,
      "in": "SchoolsManagement",
      "when": "!(schools.length === 0) && each schools && expandedSchools.has(school.id) && school.has_generations === true && school.generations && school.generations.length > 0 && each school.generations",
      "text": "{generation.name}",
@@ -3165,35 +3175,35 @@
     },
     {
      "kind": "value",
-     "line": 957,
+     "line": 963,
      "in": "SchoolsManagement",
      "when": "each schools && expandedSchools.has(school.id) && school.has_generations === true && school.generations && school.generations.length > 0 && each school.generations && generation.grade_range",
      "text": "{generation.grade_range}"
     },
     {
      "kind": "text",
-     "line": 960,
+     "line": 966,
      "in": "SchoolsManagement",
      "when": "!(schools.length === 0) && each schools && expandedSchools.has(school.id) && school.has_generations === true && school.generations && school.generations.length > 0 && each school.generations",
      "text": "usuarios"
     },
     {
      "kind": "text",
-     "line": 962,
+     "line": 968,
      "in": "SchoolsManagement",
      "when": "!(schools.length === 0) && each schools && expandedSchools.has(school.id) && school.has_generations === true && school.generations && school.generations.length > 0 && each school.generations",
      "text": "{generation._count?.communities} comunidades"
     },
     {
      "kind": "value",
-     "line": 967,
+     "line": 973,
      "in": "SchoolsManagement",
      "when": "each schools && expandedSchools.has(school.id) && school.has_generations === true && school.generations && school.generations.length > 0 && each school.generations && generation.description",
      "text": "{generation.description}"
     },
     {
      "kind": "button",
-     "line": 971,
+     "line": 977,
      "in": "SchoolsManagement",
      "when": "!(schools.length === 0) && each schools && expandedSchools.has(school.id) && school.has_generations === true && school.generations && school.generations.length > 0 && each school.generations",
      "text": "[icon Edit2]",
@@ -3201,7 +3211,7 @@
     },
     {
      "kind": "button",
-     "line": 977,
+     "line": 983,
      "in": "SchoolsManagement",
      "when": "!(schools.length === 0) && each schools && expandedSchools.has(school.id) && school.has_generations === true && school.generations && school.generations.length > 0 && each school.generations",
      "text": "[icon Trash2]",
@@ -3209,7 +3219,7 @@
     },
     {
      "kind": "popup",
-     "line": 998,
+     "line": 1004,
      "in": "SchoolsManagement",
      "when": "showSchoolModal",
      "text": "Editar Escuela / Nueva Escuela",
@@ -3217,7 +3227,7 @@
     },
     {
      "kind": "heading",
-     "line": 1000,
+     "line": 1006,
      "in": "SchoolsManagement",
      "when": "showSchoolModal",
      "text": "Editar Escuela / Nueva Escuela",
@@ -3225,14 +3235,14 @@
     },
     {
      "kind": "label",
-     "line": 1006,
+     "line": 1012,
      "in": "SchoolsManagement",
      "when": "showSchoolModal",
      "text": "Nombre *"
     },
     {
      "kind": "field",
-     "line": 1009,
+     "line": 1015,
      "in": "SchoolsManagement",
      "when": "showSchoolModal",
      "text": "Nombre *",
@@ -3242,14 +3252,14 @@
     },
     {
      "kind": "label",
-     "line": 1019,
+     "line": 1025,
      "in": "SchoolsManagement",
      "when": "showSchoolModal",
      "text": "Habilitar generaciones para esta escuela"
     },
     {
      "kind": "field",
-     "line": 1020,
+     "line": 1026,
      "in": "SchoolsManagement",
      "when": "showSchoolModal",
      "text": "Habilitar generaciones para esta escuela",
@@ -3258,14 +3268,14 @@
     },
     {
      "kind": "text",
-     "line": 1029,
+     "line": 1035,
      "in": "SchoolsManagement",
      "when": "showSchoolModal",
      "text": "Marcar solo si la escuela organiza estudiantes por generaciones (ej: Tractor, Innova)"
     },
     {
      "kind": "button",
-     "line": 1035,
+     "line": 1041,
      "in": "SchoolsManagement",
      "when": "showSchoolModal",
      "text": "Cancelar",
@@ -3273,7 +3283,7 @@
     },
     {
      "kind": "button",
-     "line": 1041,
+     "line": 1047,
      "in": "SchoolsManagement",
      "when": "showSchoolModal",
      "text": "Actualizar / Crear Escuela",
@@ -3281,7 +3291,7 @@
     },
     {
      "kind": "popup",
-     "line": 1054,
+     "line": 1060,
      "in": "SchoolsManagement",
      "when": "showGenerationModal",
      "text": "Editar Generación / Nueva Generación",
@@ -3289,7 +3299,7 @@
     },
     {
      "kind": "heading",
-     "line": 1056,
+     "line": 1062,
      "in": "SchoolsManagement",
      "when": "showGenerationModal",
      "text": "Editar Generación / Nueva Generación",
@@ -3297,21 +3307,21 @@
     },
     {
      "kind": "text",
-     "line": 1060,
+     "line": 1066,
      "in": "SchoolsManagement",
      "when": "showGenerationModal && selectedSchool",
      "text": "Escuela: {selectedSchool.name}"
     },
     {
      "kind": "label",
-     "line": 1065,
+     "line": 1071,
      "in": "SchoolsManagement",
      "when": "showGenerationModal",
      "text": "Nombre *"
     },
     {
      "kind": "field",
-     "line": 1068,
+     "line": 1074,
      "in": "SchoolsManagement",
      "when": "showGenerationModal",
      "text": "Nombre *",
@@ -3321,14 +3331,14 @@
     },
     {
      "kind": "label",
-     "line": 1078,
+     "line": 1084,
      "in": "SchoolsManagement",
      "when": "showGenerationModal",
      "text": "Rango de Grados"
     },
     {
      "kind": "field",
-     "line": 1081,
+     "line": 1087,
      "in": "SchoolsManagement",
      "when": "showGenerationModal",
      "text": "Rango de Grados",
@@ -3394,14 +3404,14 @@
     },
     {
      "kind": "label",
-     "line": 1159,
+     "line": 1165,
      "in": "SchoolsManagement",
      "when": "showGenerationModal",
      "text": "Descripción"
     },
     {
      "kind": "field",
-     "line": 1162,
+     "line": 1168,
      "in": "SchoolsManagement",
      "when": "showGenerationModal",
      "text": "Descripción",
@@ -3412,7 +3422,7 @@
     },
     {
      "kind": "button",
-     "line": 1173,
+     "line": 1179,
      "in": "SchoolsManagement",
      "when": "showGenerationModal",
      "text": "Cancelar",
@@ -3420,7 +3430,7 @@
     },
     {
      "kind": "button",
-     "line": 1179,
+     "line": 1185,
      "in": "SchoolsManagement",
      "when": "showGenerationModal",
      "text": "Actualizar / Crear Generación",
@@ -3428,7 +3438,7 @@
     },
     {
      "kind": "popup",
-     "line": 1192,
+     "line": 1198,
      "in": "SchoolsManagement",
      "when": "confirmationModal.show",
      "text": "{confirmationModal.title}",
@@ -3436,7 +3446,7 @@
     },
     {
      "kind": "heading",
-     "line": 1194,
+     "line": 1200,
      "in": "SchoolsManagement",
      "when": "confirmationModal.show",
      "text": "{confirmationModal.title}",
@@ -3444,28 +3454,28 @@
     },
     {
      "kind": "value",
-     "line": 1199,
+     "line": 1205,
      "in": "SchoolsManagement",
      "when": "confirmationModal.show && confirmationModal.message",
      "text": "{confirmationModal.message}"
     },
     {
      "kind": "value",
-     "line": 1205,
+     "line": 1211,
      "in": "SchoolsManagement",
      "when": "confirmationModal.show && confirmationModal.details && confirmationModal.details.length > 0 && each confirmationModal.details",
      "text": "{detail}"
     },
     {
      "kind": "value",
-     "line": 1211,
+     "line": 1217,
      "in": "SchoolsManagement",
      "when": "confirmationModal.show && confirmationModal.note",
      "text": "{confirmationModal.note}"
     },
     {
      "kind": "button",
-     "line": 1215,
+     "line": 1221,
      "in": "SchoolsManagement",
      "when": "confirmationModal.show",
      "text": "Cancelar",
@@ -3473,7 +3483,7 @@
     },
     {
      "kind": "button",
-     "line": 1221,
+     "line": 1227,
      "in": "SchoolsManagement",
      "when": "confirmationModal.show",
      "text": "OK",
@@ -3481,7 +3491,7 @@
     },
     {
      "kind": "popup",
-     "line": 1234,
+     "line": 1240,
      "in": "SchoolsManagement",
      "when": "showClientModal",
      "text": "Vincular Cliente a {linkingSchool?.name}",
@@ -3489,7 +3499,7 @@
     },
     {
      "kind": "heading",
-     "line": 1236,
+     "line": 1242,
      "in": "SchoolsManagement",
      "when": "showClientModal",
      "text": "Vincular Cliente a {linkingSchool?.name}",
@@ -3497,14 +3507,14 @@
     },
     {
      "kind": "label",
-     "line": 1241,
+     "line": 1247,
      "in": "SchoolsManagement",
      "when": "showClientModal",
      "text": "Seleccionar Cliente"
     },
     {
      "kind": "field",
-     "line": 1244,
+     "line": 1250,
      "in": "SchoolsManagement",
      "when": "showClientModal",
      "text": "Seleccionar Cliente",
@@ -3517,7 +3527,7 @@
     },
     {
      "kind": "button",
-     "line": 1258,
+     "line": 1264,
      "in": "SchoolsManagement",
      "when": "showClientModal",
      "text": "Cancelar",
@@ -3525,7 +3535,7 @@
     },
     {
      "kind": "popup",
-     "line": 1274,
+     "line": 1280,
      "in": "SchoolsManagement",
      "when": "showClientEditModal && editingCliente",
      "text": "Editar Cliente: {editingCliente.nombre_fantasia}",
@@ -3533,7 +3543,7 @@
     },
     {
      "kind": "heading",
-     "line": 1276,
+     "line": 1282,
      "in": "SchoolsManagement",
      "when": "showClientEditModal && editingCliente",
      "text": "Editar Cliente: {editingCliente.nombre_fantasia}",
@@ -3541,7 +3551,7 @@
     },
     {
      "kind": "heading",
-     "line": 1283,
+     "line": 1289,
      "in": "SchoolsManagement",
      "when": "showClientEditModal && editingCliente",
      "text": "Información Legal",
@@ -3549,14 +3559,14 @@
     },
     {
      "kind": "label",
-     "line": 1287,
+     "line": 1293,
      "in": "SchoolsManagement",
      "when": "showClientEditModal && editingCliente",
      "text": "Nombre Legal *"
     },
     {
      "kind": "field",
-     "line": 1290,
+     "line": 1296,
      "in": "SchoolsManagement",
      "when": "showClientEditModal && editingCliente",
      "text": "Nombre Legal *",
@@ -3566,14 +3576,14 @@
     },
     {
      "kind": "label",
-     "line": 1300,
+     "line": 1306,
      "in": "SchoolsManagement",
      "when": "showClientEditModal && editingCliente",
      "text": "Nombre de Fantasía *"
     },
     {
      "kind": "field",
-     "line": 1303,
+     "line": 1309,
      "in": "SchoolsManagement",
      "when": "showClientEditModal && editingCliente",
      "text": "Nombre de Fantasía *",
@@ -3583,14 +3593,14 @@
     },
     {
      "kind": "label",
-     "line": 1313,
+     "line": 1319,
      "in": "SchoolsManagement",
      "when": "showClientEditModal && editingCliente",
      "text": "RUT *"
     },
     {
      "kind": "field",
-     "line": 1316,
+     "line": 1322,
      "in": "SchoolsManagement",
      "when": "showClientEditModal && editingCliente",
      "text": "RUT *",
@@ -3600,14 +3610,14 @@
     },
     {
      "kind": "label",
-     "line": 1326,
+     "line": 1332,
      "in": "SchoolsManagement",
      "when": "showClientEditModal && editingCliente",
      "text": "Dirección *"
     },
     {
      "kind": "field",
-     "line": 1329,
+     "line": 1335,
      "in": "SchoolsManagement",
      "when": "showClientEditModal && editingCliente",
      "text": "Dirección *",
@@ -3617,14 +3627,14 @@
     },
     {
      "kind": "label",
-     "line": 1339,
+     "line": 1345,
      "in": "SchoolsManagement",
      "when": "showClientEditModal && editingCliente",
      "text": "Comuna"
     },
     {
      "kind": "field",
-     "line": 1342,
+     "line": 1348,
      "in": "SchoolsManagement",
      "when": "showClientEditModal && editingCliente",
      "text": "Comuna",
@@ -3634,14 +3644,14 @@
     },
     {
      "kind": "label",
-     "line": 1352,
+     "line": 1358,
      "in": "SchoolsManagement",
      "when": "showClientEditModal && editingCliente",
      "text": "Ciudad"
     },
     {
      "kind": "field",
-     "line": 1355,
+     "line": 1361,
      "in": "SchoolsManagement",
      "when": "showClientEditModal && editingCliente",
      "text": "Ciudad",
@@ -3651,7 +3661,7 @@
     },
     {
      "kind": "heading",
-     "line": 1366,
+     "line": 1372,
      "in": "SchoolsManagement",
      "when": "showClientEditModal && editingCliente",
      "text": "Representante Legal",
@@ -3659,14 +3669,14 @@
     },
     {
      "kind": "label",
-     "line": 1370,
+     "line": 1376,
      "in": "SchoolsManagement",
      "when": "showClientEditModal && editingCliente",
      "text": "Nombre Representante Legal *"
     },
     {
      "kind": "field",
-     "line": 1373,
+     "line": 1379,
      "in": "SchoolsManagement",
      "when": "showClientEditModal && editingCliente",
      "text": "Nombre Representante Legal *",
@@ -3676,14 +3686,14 @@
     },
     {
      "kind": "label",
-     "line": 1383,
+     "line": 1389,
      "in": "SchoolsManagement",
      "when": "showClientEditModal && editingCliente",
      "text": "RUT Representante Legal *"
     },
     {
      "kind": "field",
-     "line": 1386,
+     "line": 1392,
      "in": "SchoolsManagement",
      "when": "showClientEditModal && editingCliente",
      "text": "RUT Representante Legal *",
@@ -3693,14 +3703,14 @@
     },
     {
      "kind": "label",
-     "line": 1396,
+     "line": 1402,
      "in": "SchoolsManagement",
      "when": "showClientEditModal && editingCliente",
      "text": "Fecha Escritura"
     },
     {
      "kind": "field",
-     "line": 1399,
+     "line": 1405,
      "in": "SchoolsManagement",
      "when": "showClientEditModal && editingCliente",
      "text": "Fecha Escritura",
@@ -3709,14 +3719,14 @@
     },
     {
      "kind": "label",
-     "line": 1408,
+     "line": 1414,
      "in": "SchoolsManagement",
      "when": "showClientEditModal && editingCliente",
      "text": "Nombre Notario"
     },
     {
      "kind": "field",
-     "line": 1411,
+     "line": 1417,
      "in": "SchoolsManagement",
      "when": "showClientEditModal && editingCliente",
      "text": "Nombre Notario",
@@ -3726,14 +3736,14 @@
     },
     {
      "kind": "label",
-     "line": 1421,
+     "line": 1427,
      "in": "SchoolsManagement",
      "when": "showClientEditModal && editingCliente",
      "text": "Comuna Notaría"
     },
     {
      "kind": "field",
-     "line": 1424,
+     "line": 1430,
      "in": "SchoolsManagement",
      "when": "showClientEditModal && editingCliente",
      "text": "Comuna Notaría",
@@ -3743,7 +3753,7 @@
     },
     {
      "kind": "heading",
-     "line": 1435,
+     "line": 1441,
      "in": "SchoolsManagement",
      "when": "showClientEditModal && editingCliente",
      "text": "Encargado de Proyecto",
@@ -3751,14 +3761,14 @@
     },
     {
      "kind": "label",
-     "line": 1439,
+     "line": 1445,
      "in": "SchoolsManagement",
      "when": "showClientEditModal && editingCliente",
      "text": "Nombre Encargado"
     },
     {
      "kind": "field",
-     "line": 1442,
+     "line": 1448,
      "in": "SchoolsManagement",
      "when": "showClientEditModal && editingCliente",
      "text": "Nombre Encargado",
@@ -3768,14 +3778,14 @@
     },
     {
      "kind": "label",
-     "line": 1452,
+     "line": 1458,
      "in": "SchoolsManagement",
      "when": "showClientEditModal && editingCliente",
      "text": "Teléfono Encargado"
     },
     {
      "kind": "field",
-     "line": 1455,
+     "line": 1461,
      "in": "SchoolsManagement",
      "when": "showClientEditModal && editingCliente",
      "text": "Teléfono Encargado",
@@ -3785,14 +3795,14 @@
     },
     {
      "kind": "label",
-     "line": 1465,
+     "line": 1471,
      "in": "SchoolsManagement",
      "when": "showClientEditModal && editingCliente",
      "text": "Email Encargado"
     },
     {
      "kind": "field",
-     "line": 1468,
+     "line": 1474,
      "in": "SchoolsManagement",
      "when": "showClientEditModal && editingCliente",
      "text": "Email Encargado",
@@ -3802,7 +3812,7 @@
     },
     {
      "kind": "heading",
-     "line": 1479,
+     "line": 1485,
      "in": "SchoolsManagement",
      "when": "showClientEditModal && editingCliente",
      "text": "Contacto Administrativo",
@@ -3810,14 +3820,14 @@
     },
     {
      "kind": "label",
-     "line": 1483,
+     "line": 1489,
      "in": "SchoolsManagement",
      "when": "showClientEditModal && editingCliente",
      "text": "Nombre Contacto"
     },
     {
      "kind": "field",
-     "line": 1486,
+     "line": 1492,
      "in": "SchoolsManagement",
      "when": "showClientEditModal && editingCliente",
      "text": "Nombre Contacto",
@@ -3827,14 +3837,14 @@
     },
     {
      "kind": "label",
-     "line": 1496,
+     "line": 1502,
      "in": "SchoolsManagement",
      "when": "showClientEditModal && editingCliente",
      "text": "Teléfono Contacto"
     },
     {
      "kind": "field",
-     "line": 1499,
+     "line": 1505,
      "in": "SchoolsManagement",
      "when": "showClientEditModal && editingCliente",
      "text": "Teléfono Contacto",
@@ -3844,14 +3854,14 @@
     },
     {
      "kind": "label",
-     "line": 1509,
+     "line": 1515,
      "in": "SchoolsManagement",
      "when": "showClientEditModal && editingCliente",
      "text": "Email Contacto"
     },
     {
      "kind": "field",
-     "line": 1512,
+     "line": 1518,
      "in": "SchoolsManagement",
      "when": "showClientEditModal && editingCliente",
      "text": "Email Contacto",
@@ -3861,7 +3871,7 @@
     },
     {
      "kind": "button",
-     "line": 1523,
+     "line": 1529,
      "in": "SchoolsManagement",
      "when": "showClientEditModal && editingCliente",
      "text": "Cancelar",
@@ -3869,7 +3879,7 @@
     },
     {
      "kind": "button",
-     "line": 1532,
+     "line": 1538,
      "in": "SchoolsManagement",
      "when": "showClientEditModal && editingCliente",
      "text": "Guardar Cambios",
@@ -3931,43 +3941,43 @@
     },
     {
      "kind": "string",
-     "line": 1087,
+     "line": 1093,
      "in": "SchoolsManagement",
      "text": "Educación Parvularia"
     },
     {
      "kind": "string",
-     "line": 1099,
+     "line": 1105,
      "in": "SchoolsManagement",
      "text": "Desde P1"
     },
     {
      "kind": "string",
-     "line": 1108,
+     "line": 1114,
      "in": "SchoolsManagement",
      "text": "Desde PreKinder"
     },
     {
      "kind": "string",
-     "line": 1117,
+     "line": 1123,
      "in": "SchoolsManagement",
      "text": "Desde Kinder"
     },
     {
      "kind": "string",
-     "line": 1126,
+     "line": 1132,
      "in": "SchoolsManagement",
      "text": "Educación Básica"
     },
     {
      "kind": "string",
-     "line": 1143,
+     "line": 1149,
      "in": "SchoolsManagement",
      "text": "Educación Media"
     },
     {
      "kind": "string",
-     "line": 1148,
+     "line": 1154,
      "in": "SchoolsManagement",
      "text": "Grupos Especiales"
     }
@@ -6058,7 +6068,7 @@
      "hooks/usePanel.ts:248",
      "lib/auth/forced-password-change.ts:156",
      "lib/frontend-auth-utils.ts:143",
-     "lib/notifications/catalog.ts:359",
+     "lib/notifications/catalog.ts:361",
      "middleware.ts:357",
      "pages/login.tsx:137",
      "pages/profile/reportes.tsx:232"

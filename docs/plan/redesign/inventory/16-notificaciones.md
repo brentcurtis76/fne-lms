@@ -1,7 +1,7 @@
 # Notificaciones
 
 Area `16-notificaciones`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `c7e27398c` (2026-11-22).
+Read from commit `6a336e70e` (2026-11-24).
 
 6 screen files, 10 API files, 20 pieces.
 
@@ -11,7 +11,7 @@ Read from commit `c7e27398c` (2026-11-22).
 |---|---|---|---|---|
 | `/configuracion/apariencia` | `pages/configuracion/apariencia.tsx` | 196 | — |  |
 | `/configuracion` | `pages/configuracion/index.tsx` | 14 | — |  |
-| `/configuracion/notificaciones` | `pages/configuracion/notificaciones.tsx` | 451 | — |  |
+| `/configuracion/notificaciones` | `pages/configuracion/notificaciones.tsx` | 453 | — |  |
 | `/configuracion/piezas` | `pages/configuracion/piezas.tsx` | 555 | — |  |
 | `/notificaciones/baja` | `pages/notificaciones/baja.tsx` | 192 | — |  |
 | `/notifications` | `pages/notifications.tsx` | 656 | — |  |
@@ -26,7 +26,7 @@ File `pages/configuracion/apariencia.tsx` · 196 lines · frame: MainLayout · g
 - Middleware: no role rule. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: yes.
 - In the page:
   - l.41 `server redirect → /login?next=[*]  (when !viewer)`
-- Linked from: `pages/configuracion/notificaciones.tsx:442`, `pages/configuracion/piezas.tsx:225`, `pages/configuracion/piezas.tsx:398`
+- Linked from: `pages/configuracion/notificaciones.tsx:444`, `pages/configuracion/piezas.tsx:225`, `pages/configuracion/piezas.tsx:398`
 - Tests: browser tests that CI runs: `tests/e2e/look-frame.spec.ts`, `tests/e2e/look-kit.spec.ts`, `tests/e2e/look-panel.spec.ts`, `tests/e2e/look-sessions.spec.ts`, `tests/e2e/look-switch.spec.ts`; unit tests of the page: `__tests__/pages/apariencia.test.tsx`.
 
 | Role | Sees it in the menu | Middleware |
@@ -174,14 +174,14 @@ File `pages/configuracion/index.tsx` · 14 lines · frame: none · getServerSide
 
 ## /configuracion/notificaciones
 
-File `pages/configuracion/notificaciones.tsx` · 451 lines · frame: MainLayout · getServerSideProps
+File `pages/configuracion/notificaciones.tsx` · 453 lines · frame: MainLayout · getServerSideProps
 
 ### Who reaches it
 
 - Menu: no entry.
 - Middleware: no role rule. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: yes.
 - In the page:
-  - l.121 `server redirect → /login?next=[*]  (when !viewer)`
+  - l.123 `server redirect → /login?next=[*]  (when !viewer)`
 - Linked from: `components/notifications/ModernNotificationCenter.tsx:475`, `components/notifications/ModernNotificationCenter.tsx:476`, `components/notifications/NotificationDropdown.tsx:187`, `components/notifications/NotificationDropdown.tsx:188`, `lib/email/notifications.ts:30`, `pages/admin/configuration.tsx:396`, `pages/admin/configuration.tsx:397`, `pages/configuracion/apariencia.tsx:24`, `pages/configuracion/index.tsx:8`, `pages/configuracion/piezas.tsx:397`, `pages/configuracion/piezas.tsx:55`, `pages/notifications.tsx:384` and 2 more
 - Tests: browser tests that CI runs: `tests/e2e/look-kit.spec.ts`, `tests/e2e/look-switch.spec.ts`, `tests/e2e/notification-settings.spec.ts`; unit tests of the page: `__tests__/pages/notification-settings.test.tsx`.
 
@@ -203,116 +203,116 @@ File `pages/configuracion/notificaciones.tsx` · 451 lines · frame: MainLayout 
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «Recargar» | `{() => window.location.reload()}` | `status === 'session_changed'` |  | `testid=ns-reload` | NotificationSettingsPage · l.277 |
-| «Reintentar» | `{() => (categories ? void load() : window.location.reload())}` | `!(status === 'session_changed') && !(status === 'expired') && status === 'error'` |  | `testid=ns-retry` | NotificationSettingsPage · l.295 |
-| «Guardando… / Guardar cambios» (submits the form) |  | `!(status === 'expired') && !(status === 'error') && (!(status === 'loading' \|\| !view)) && !(shown.length === 0)` | `{saving \|\| changes.length === 0}` | `testid=ns-save` | NotificationSettingsPage · l.414 |
+| «Recargar» | `{() => window.location.reload()}` | `status === 'session_changed'` |  | `testid=ns-reload` | NotificationSettingsPage · l.279 |
+| «Reintentar» | `{() => (categories ? void load() : window.location.reload())}` | `!(status === 'session_changed') && !(status === 'expired') && status === 'error'` |  | `testid=ns-retry` | NotificationSettingsPage · l.297 |
+| «Guardando… / Guardar cambios» (submits the form) |  | `!(status === 'expired') && !(status === 'error') && (!(status === 'loading' \|\| !view)) && !(shown.length === 0)` | `{saving \|\| changes.length === 0}` | `testid=ns-save` | NotificationSettingsPage · l.416 |
 
 **Links** (2)
 
 | Text | Goes to | Shown when | Hook | Where |
 |---|---|---|---|---|
-| «Inicia sesión nuevamente» | `{LOGIN_AGAIN}` | `!(status === 'session_changed') && status === 'expired'` |  | NotificationSettingsPage · l.286 |
-| «Apariencia» | `/configuracion/apariencia` | `canChooseLook` | `testid=ns-to-look` | NotificationSettingsPage · l.442 |
+| «Inicia sesión nuevamente» | `{LOGIN_AGAIN}` | `!(status === 'session_changed') && status === 'expired'` |  | NotificationSettingsPage · l.288 |
+| «Apariencia» | `/configuracion/apariencia` | `canChooseLook` | `testid=ns-to-look` | NotificationSettingsPage · l.444 |
 
 **Fields** (1)
 
 | Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
 |---|---|---|---|---|---|---|
-| «{saved.label}» | select | disabled: `{saving}` | «{MODE_LABELS.default}», «{MODE_LABELS.immediate}», «{MODE_LABELS.digest}», «{STORED_UNAVAILABLE}», «{MODE_LABELS.off}» | `!(status === 'error') && (!(status === 'loading' \|\| !view)) && !(shown.length === 0) && each shown` | `testid=ns-mode-{section.category} id=ns-mode-{section.category}` | NotificationSettingsPage · l.360 |
+| «{saved.label}» | select | disabled: `{saving}` | «{MODE_LABELS.default}», «{MODE_LABELS.immediate}», «{MODE_LABELS.digest}», «{STORED_UNAVAILABLE}», «{MODE_LABELS.off}» | `!(status === 'error') && (!(status === 'loading' \|\| !view)) && !(shown.length === 0) && each shown` | `testid=ns-mode-{section.category} id=ns-mode-{section.category}` | NotificationSettingsPage · l.362 |
 
 **Forms** (1)
 
 | On submit | Shown when | Where |
 |---|---|---|
-| `{(event) => { event.preventDefault(); void save(); }}` | `!(status === 'expired') && !(status === 'error') && (!(status === 'loading' \|\| !view)) && !(shown.length === 0)` | NotificationSettingsPage · l.325 |
+| `{(event) => { event.preventDefault(); void save(); }}` | `!(status === 'expired') && !(status === 'error') && (!(status === 'loading' \|\| !view)) && !(shown.length === 0)` | NotificationSettingsPage · l.327 |
 
 **Messages set on the page** (1)
 
 | Text | Set by | When | Where |
 |---|---|---|---|
-| «saved / Tus preferencias se guardaron.» | `setNotice` |  | save · l.264 |
+| «saved / Tus preferencias se guardaron.» | `setNotice` |  | save · l.266 |
 
 **Moves to another page from code** (2)
 
 | Goes to | How | When | Where |
 |---|---|---|---|
-| `/login?next=[*]` | `server redirect` | `!viewer` | getServerSideProps · l.121 |
-| `{forcedChangeRedirectPath(verdict)}` | `server redirect` | `verdict !== 'allowed'` | getServerSideProps · l.127 |
+| `/login?next=[*]` | `server redirect` | `!viewer` | getServerSideProps · l.123 |
+| `{forcedChangeRedirectPath(verdict)}` | `server redirect` | `verdict !== 'allowed'` | getServerSideProps · l.129 |
 
 **Draws nothing when** (3)
 
 | Condition | Where |
 |---|---|
-| `id !== request.current` | NotificationSettingsPage · l.212 |
-| `sessionLoading \|\| sessionError \|\| sessionUserId === ownerId` | NotificationSettingsPage · l.229 |
-| `!event` | NotificationSettingsPage · l.395 |
+| `id !== request.current` | NotificationSettingsPage · l.214 |
+| `sessionLoading \|\| sessionError \|\| sessionUserId === ownerId` | NotificationSettingsPage · l.231 |
+| `!event` | NotificationSettingsPage · l.397 |
 
 **Pieces placed here, with the texts and settings handed to them** (1)
 
 | Piece | Texts and settings | Shown when | Hook | Where |
 |---|---|---|---|---|
-| `MainLayout` | pageTitle: Notificaciones por correo · breadcrumbs: Configuración / Notificaciones |  |  | NotificationSettingsPage · l.434 |
+| `MainLayout` | pageTitle: Notificaciones por correo · breadcrumbs: Configuración / Notificaciones |  |  | NotificationSettingsPage · l.436 |
 
 **Texts kept in lists and helpers in the code (labels, options, status names)** (7)
 
 | Name | Texts | Where |
 |---|---|---|
-| `PRODUCER_EVENT_LABELS` | «Invitación a un grupo», «Entrega de tarea grupal», «Quiz pendiente de revisión», «Quiz revisado», «Alerta de calidad de datos» | l.89 |
-| `READ_ERROR` | «No pudimos cargar tus preferencias.» | l.149 |
-| `SAVE_ERROR` | «No pudimos guardar tus preferencias. Intenta nuevamente.» | l.150 |
-| `MODE_LABELS` | «Predeterminado», «Inmediato», «Resumen diario», «Desactivado» | l.152 |
-| `STORED_UNAVAILABLE` | «Opción anterior (se envía de inmediato)» | l.160 |
-| `DELIVERY_LABELS` | «Se envía de inmediato», «Va en el resumen diario», «No se envía» | l.162 |
-| `ADDRESS_NOTICES` | «No podemos enviarte correos: tu dirección rechazó mensajes anteriores. Escribe a soporte para revisarla; mientras tanto no recibirás avisos por correo.», «Tu dirección de correo recibe nuestros avisos con normalidad.», «No pudimos comprobar si tu dirección de correo recibe nuestros avisos.» | l.168 |
+| `PRODUCER_EVENT_LABELS` | «Invitación a un grupo», «Entrega de tarea grupal», «Quiz pendiente de revisión», «Quiz revisado», «Alerta de calidad de datos» | l.91 |
+| `READ_ERROR` | «No pudimos cargar tus preferencias.» | l.151 |
+| `SAVE_ERROR` | «No pudimos guardar tus preferencias. Intenta nuevamente.» | l.152 |
+| `MODE_LABELS` | «Predeterminado», «Inmediato», «Resumen diario», «Desactivado» | l.154 |
+| `STORED_UNAVAILABLE` | «Opción anterior (se envía de inmediato)» | l.162 |
+| `DELIVERY_LABELS` | «Se envía de inmediato», «Va en el resumen diario», «No se envía» | l.164 |
+| `ADDRESS_NOTICES` | «No podemos enviarte correos: tu dirección rechazó mensajes anteriores. Escribe a soporte para revisarla; mientras tanto no recibirás avisos por correo.», «Tu dirección de correo recibe nuestros avisos con normalidad.», «No pudimos comprobar si tu dirección de correo recibe nuestros avisos.» | l.170 |
 
 **Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (20)
 
 | Kind | What | Where |
 |---|---|---|
-| role | `role=alert` | NotificationSettingsPage · l.275 |
-| mark | `testid=ns-session-changed` | NotificationSettingsPage · l.275 |
-| role | `role=alert` | NotificationSettingsPage · l.284 |
-| mark | `testid=ns-expired` | NotificationSettingsPage · l.284 |
-| role | `role=alert` | NotificationSettingsPage · l.293 |
-| mark | `testid=ns-error` | NotificationSettingsPage · l.293 |
-| role | `role=status` | NotificationSettingsPage · l.307 |
-| mark | `testid=ns-loading` | NotificationSettingsPage · l.307 |
-| mark | `testid=ns-empty` | NotificationSettingsPage · l.313 |
-| mark | `testid=ns-address-{view.address_suppression}` | NotificationSettingsPage · l.331 |
-| mark | `testid=ns-digest-note` | NotificationSettingsPage · l.334 |
-| mark | `testid=ns-mandatory` | NotificationSettingsPage · l.340 |
-| mark | `testid=ns-category-{section.category}` | NotificationSettingsPage · l.355 |
-| mark | `testid=ns-stored-digest-{section.category}` | NotificationSettingsPage · l.383 |
-| mark | `testid=ns-event-{event.event_type}` | NotificationSettingsPage · l.397 |
-| mark | `testid=ns-legacy-{event.event_type}` | NotificationSettingsPage · l.402 |
-| role | `role=status aria-live=polite` | NotificationSettingsPage · l.417 |
-| mark | `testid={notice.kind === 'saved' ? 'ns-saved' : 'ns-save-error'}` | NotificationSettingsPage · l.419 |
-| mark | `testid=ns-unsaved` | NotificationSettingsPage · l.423 |
-| mark | `testid=notification-settings` | NotificationSettingsPage · l.435 |
+| role | `role=alert` | NotificationSettingsPage · l.277 |
+| mark | `testid=ns-session-changed` | NotificationSettingsPage · l.277 |
+| role | `role=alert` | NotificationSettingsPage · l.286 |
+| mark | `testid=ns-expired` | NotificationSettingsPage · l.286 |
+| role | `role=alert` | NotificationSettingsPage · l.295 |
+| mark | `testid=ns-error` | NotificationSettingsPage · l.295 |
+| role | `role=status` | NotificationSettingsPage · l.309 |
+| mark | `testid=ns-loading` | NotificationSettingsPage · l.309 |
+| mark | `testid=ns-empty` | NotificationSettingsPage · l.315 |
+| mark | `testid=ns-address-{view.address_suppression}` | NotificationSettingsPage · l.333 |
+| mark | `testid=ns-digest-note` | NotificationSettingsPage · l.336 |
+| mark | `testid=ns-mandatory` | NotificationSettingsPage · l.342 |
+| mark | `testid=ns-category-{section.category}` | NotificationSettingsPage · l.357 |
+| mark | `testid=ns-stored-digest-{section.category}` | NotificationSettingsPage · l.385 |
+| mark | `testid=ns-event-{event.event_type}` | NotificationSettingsPage · l.399 |
+| mark | `testid=ns-legacy-{event.event_type}` | NotificationSettingsPage · l.404 |
+| role | `role=status aria-live=polite` | NotificationSettingsPage · l.419 |
+| mark | `testid={notice.kind === 'saved' ? 'ns-saved' : 'ns-save-error'}` | NotificationSettingsPage · l.421 |
+| mark | `testid=ns-unsaved` | NotificationSettingsPage · l.425 |
+| mark | `testid=notification-settings` | NotificationSettingsPage · l.437 |
 
 **Values shown from data** (5)
 
-- `{READ_ERROR}` — NotificationSettingsPage · l.294, when `!(status === 'session_changed') && !(status === 'expired') && status === 'error'`
-- `{ADDRESS_NOTICES[view.address_suppre…}` — NotificationSettingsPage · l.331, when `!(status === 'expired') && !(status === 'error') && (!(status === 'loading' \|\| !view)) && !(shown.length === 0)`
-- `{labelOf(e.event_type)}` — NotificationSettingsPage · l.344, when `(!(status === 'loading' \|\| !view)) && !(shown.length === 0) && mandatory.length > 0 && each mandatory`
-- `{applicable.label}` — NotificationSettingsPage · l.398, when `(!(status === 'loading' \|\| !view)) && !(shown.length === 0) && each shown && each section.events`
-- `{notice.text}` — NotificationSettingsPage · l.419, when `!(status === 'error') && (!(status === 'loading' \|\| !view)) && !(shown.length === 0) && notice`
+- `{READ_ERROR}` — NotificationSettingsPage · l.296, when `!(status === 'session_changed') && !(status === 'expired') && status === 'error'`
+- `{ADDRESS_NOTICES[view.address_suppre…}` — NotificationSettingsPage · l.333, when `!(status === 'expired') && !(status === 'error') && (!(status === 'loading' \|\| !view)) && !(shown.length === 0)`
+- `{labelOf(e.event_type)}` — NotificationSettingsPage · l.346, when `(!(status === 'loading' \|\| !view)) && !(shown.length === 0) && mandatory.length > 0 && each mandatory`
+- `{applicable.label}` — NotificationSettingsPage · l.400, when `(!(status === 'loading' \|\| !view)) && !(shown.length === 0) && each shown && each section.events`
+- `{notice.text}` — NotificationSettingsPage · l.421, when `!(status === 'error') && (!(status === 'loading' \|\| !view)) && !(shown.length === 0) && notice`
 
 **Other texts on screen** (13)
 
-- «Tu sesión cambió en otra pestaña. Recarga la página para ver tus preferencias.» — NotificationSettingsPage · l.276, when `status === 'session_changed'`
-- «Tu sesión terminó.» — NotificationSettingsPage · l.285, when `!(status === 'session_changed') && status === 'expired'`
-- «Cargando tus preferencias…» — NotificationSettingsPage · l.308, when `!(status === 'session_changed') && !(status === 'expired') && !(status === 'error') && (status === 'loading' \|\| !view)`
-- «Tu cuenta no tiene avisos por correo que configurar.» — NotificationSettingsPage · l.314, when `!(status === 'expired') && !(status === 'error') && (!(status === 'loading' \|\| !view)) && shown.length === 0`
-- «Resumen diario: los avisos se agrupan en un correo al día. Por ahora no puedes elegir la hora de envío. / El resumen diario todavía no está disponible: los avisos que irían en un resumen se envían de inmediato.» — NotificationSettingsPage · l.334, when `!(status === 'expired') && !(status === 'error') && (!(status === 'loading' \|\| !view)) && !(shown.length === 0)`
-- «Estos avisos se envían siempre, aunque desactives su categoría:» — NotificationSettingsPage · l.341, when `!(status === 'error') && (!(status === 'loading' \|\| !view)) && !(shown.length === 0) && mandatory.length > 0`
-- «{saved.label}» (label) — NotificationSettingsPage · l.357, when `!(status === 'error') && (!(status === 'loading' \|\| !view)) && !(shown.length === 0) && each shown`
-- «Elegiste Resumen diario antes. Mientras no esté disponible, estos avisos se envían de inmediato.» — NotificationSettingsPage · l.384, when `(!(status === 'loading' \|\| !view)) && !(shown.length === 0) && each shown && !digest && saved.email_mode === 'digest'`
-- «Con Predeterminado se mantienen apagados los avisos que desactivaste antes.» — NotificationSettingsPage · l.389, when `(!(status === 'loading' \|\| !view)) && !(shown.length === 0) && each shown && legacy`
-- «Se envía siempre» — NotificationSettingsPage · l.400, when `(!(status === 'loading' \|\| !view)) && !(shown.length === 0) && each shown && each section.events`
-- «· desactivado por una preferencia anterior» — NotificationSettingsPage · l.402, when `!(shown.length === 0) && each shown && each section.events && event.reason === 'legacy_suppressed'`
-- «Tienes cambios sin guardar.» — NotificationSettingsPage · l.424, when `(!(status === 'loading' \|\| !view)) && !(shown.length === 0) && !(notice) && changes.length > 0`
-- «Elige cómo recibir por correo los avisos de cada tema. Los avisos dentro de la plataforma no cambian.» — NotificationSettingsPage · l.437
+- «Tu sesión cambió en otra pestaña. Recarga la página para ver tus preferencias.» — NotificationSettingsPage · l.278, when `status === 'session_changed'`
+- «Tu sesión terminó.» — NotificationSettingsPage · l.287, when `!(status === 'session_changed') && status === 'expired'`
+- «Cargando tus preferencias…» — NotificationSettingsPage · l.310, when `!(status === 'session_changed') && !(status === 'expired') && !(status === 'error') && (status === 'loading' \|\| !view)`
+- «Tu cuenta no tiene avisos por correo que configurar.» — NotificationSettingsPage · l.316, when `!(status === 'expired') && !(status === 'error') && (!(status === 'loading' \|\| !view)) && shown.length === 0`
+- «Resumen diario: los avisos se agrupan en un correo al día. Por ahora no puedes elegir la hora de envío. / El resumen diario todavía no está disponible: los avisos que irían en un resumen se envían de inmediato.» — NotificationSettingsPage · l.336, when `!(status === 'expired') && !(status === 'error') && (!(status === 'loading' \|\| !view)) && !(shown.length === 0)`
+- «Estos avisos se envían siempre, aunque desactives su categoría:» — NotificationSettingsPage · l.343, when `!(status === 'error') && (!(status === 'loading' \|\| !view)) && !(shown.length === 0) && mandatory.length > 0`
+- «{saved.label}» (label) — NotificationSettingsPage · l.359, when `!(status === 'error') && (!(status === 'loading' \|\| !view)) && !(shown.length === 0) && each shown`
+- «Elegiste Resumen diario antes. Mientras no esté disponible, estos avisos se envían de inmediato.» — NotificationSettingsPage · l.386, when `(!(status === 'loading' \|\| !view)) && !(shown.length === 0) && each shown && !digest && saved.email_mode === 'digest'`
+- «Con Predeterminado se mantienen apagados los avisos que desactivaste antes.» — NotificationSettingsPage · l.391, when `(!(status === 'loading' \|\| !view)) && !(shown.length === 0) && each shown && legacy`
+- «Se envía siempre» — NotificationSettingsPage · l.402, when `(!(status === 'loading' \|\| !view)) && !(shown.length === 0) && each shown && each section.events`
+- «· desactivado por una preferencia anterior» — NotificationSettingsPage · l.404, when `!(shown.length === 0) && each shown && each section.events && event.reason === 'legacy_suppressed'`
+- «Tienes cambios sin guardar.» — NotificationSettingsPage · l.426, when `(!(status === 'loading' \|\| !view)) && !(shown.length === 0) && !(notice) && changes.length > 0`
+- «Elige cómo recibir por correo los avisos de cada tema. Los avisos dentro de la plataforma no cambian.» — NotificationSettingsPage · l.439
 
 **Reads and writes the database directly:** `table:profiles` (select), `table:user_roles` (select)
 
@@ -327,7 +327,7 @@ File `pages/configuracion/notificaciones.tsx` · 451 lines · frame: MainLayout 
 
 | Address | Method | Called from |
 |---|---|---|
-| `/api/user/notification-preferences` | ? | `pages/configuracion/notificaciones.tsx:147` |
+| `/api/user/notification-preferences` | ? | `pages/configuracion/notificaciones.tsx:149` |
 
 ## /configuracion/piezas
 
@@ -1295,21 +1295,21 @@ Used by: `/configuracion/notificaciones`
 |---|---|---|
 | `courseName` | «del curso "{d.course.name}"» | l.272 |
 | `dueDate` | «Fecha límite: {new Date(d.assignment.due_d…}.» | l.309 |
-| `step` | «Paso {d.step_index} / Un paso» | l.426 |
-| `tester` | «(probado por {d.tester_email})» | l.427 |
-| `dueDate` | «Fecha límite: {new Date(d.due_date as stri…}.» | l.445 |
-| `when` | «el {date}{time ? ` a las ${time}` : ''} / en una fecha por confirmar» | l.475 |
-| `when` | «del {date}{time ? ` a las ${time}` : ''}» | l.532 |
-| `fieldList` | «los campos solicitados» | l.564 |
-| `notes` | «Nota: {d.review_notes}» | l.565 |
-| `notes` | «Motivo: {d.review_notes}» | l.579 |
-| `link` | «El enlace de reunión está disponible en la sesión.» | l.608 |
-| `winner` | «ATE ganadora: {d.ganador_nombre}.» | l.758 |
-| `winner` | «ATE seleccionada: {d.ganador_nombre}.» | l.772 |
-| `who` | «por {finalizer}» | l.803 |
-| `audience` | «Enviada a quienes asistieron. / Enviada a la Comunidad de Crecimiento.» | l.804 |
+| `step` | «Paso {d.step_index} / Un paso» | l.434 |
+| `tester` | «(probado por {d.tester_email})» | l.435 |
+| `dueDate` | «Fecha límite: {new Date(d.due_date as stri…}.» | l.453 |
+| `when` | «el {date}{time ? ` a las ${time}` : ''} / en una fecha por confirmar» | l.483 |
+| `when` | «del {date}{time ? ` a las ${time}` : ''}» | l.540 |
+| `fieldList` | «los campos solicitados» | l.572 |
+| `notes` | «Nota: {d.review_notes}» | l.573 |
+| `notes` | «Motivo: {d.review_notes}» | l.587 |
+| `link` | «El enlace de reunión está disponible en la sesión.» | l.616 |
+| `winner` | «ATE ganadora: {d.ganador_nombre}.» | l.766 |
+| `winner` | «ATE seleccionada: {d.ganador_nombre}.» | l.780 |
+| `who` | «por {finalizer}» | l.811 |
+| `audience` | «Enviada a quienes asistieron. / Enviada a la Comunidad de Crecimiento.» | l.812 |
 
-**Other texts written in the code (safety net: not tied to an element by the script)** (89)
+**Other texts written in the code (safety net: not tied to an element by the script)** (91)
 
 | Text | Where |
 |---|---|
@@ -1340,68 +1340,70 @@ Used by: `/configuracion/notificaciones`
 | «Has sido mencionado en una conversación{workspace ? ` en "${workspa…}.» | NOTIFICATION_EVENTS · l.377 |
 | «Nuevo feedback: {school}» | NOTIFICATION_EVENTS · l.391 |
 | «Nuevo feedback recibido» | NOTIFICATION_EVENTS · l.391 |
-| «Nuevo consultor asignado: {d.consultant.name}» | NOTIFICATION_EVENTS · l.405 |
-| «Consultor asignado» | NOTIFICATION_EVENTS · l.406 |
-| «QA Fallo: {d.scenario_name}» | NOTIFICATION_EVENTS · l.423 |
-| «Fallo en prueba QA» | NOTIFICATION_EVENTS · l.424 |
-| «{step} falló: "{d.step_instruction \|\| 'Sin …}"{tester}» | NOTIFICATION_EVENTS · l.428 |
-| «Sin descripción» | NOTIFICATION_EVENTS · l.428 |
-| «Nuevo escenario QA asignado» | NOTIFICATION_EVENTS · l.440 |
-| «Sesión agendada: {d.session.title}» | NOTIFICATION_EVENTS · l.470 |
-| «Nueva sesión agendada» | NOTIFICATION_EVENTS · l.471 |
-| «Su sesión quedó agendada para {when}.» | NOTIFICATION_EVENTS · l.478 |
-| «Sesión reprogramada: {d.session.title}» | NOTIFICATION_EVENTS · l.490 |
-| «Sesión reprogramada» | NOTIFICATION_EVENTS · l.491 |
-| «Su sesión cambió. Antes: {before}. Ahora: {after}. Actualice su calendario.» | NOTIFICATION_EVENTS · l.515 |
-| «Sesión cancelada: {d.session.title}» | NOTIFICATION_EVENTS · l.527 |
-| «Sesión cancelada» | NOTIFICATION_EVENTS · l.528 |
-| «Su sesión{when} fue cancelada. No necesita conectarse.» | NOTIFICATION_EVENTS · l.533 |
-| «Solicitud de cambio: {d.session.title}» | NOTIFICATION_EVENTS · l.545 |
-| «Nueva solicitud de cambio en sesión» | NOTIFICATION_EVENTS · l.546 |
-| «Cambios aprobados: {d.session.title}» | NOTIFICATION_EVENTS · l.560 |
-| «Solicitud de cambio aprobada» | NOTIFICATION_EVENTS · l.561 |
-| «Los cambios en {fieldList} han sido aprobados.{notes}» | NOTIFICATION_EVENTS · l.566 |
-| «Cambios rechazados: {d.session.title}» | NOTIFICATION_EVENTS · l.576 |
-| «Solicitud de cambio rechazada» | NOTIFICATION_EVENTS · l.577 |
-| «Recordatorio: {d.session.title} mañana» | NOTIFICATION_EVENTS · l.590 |
-| «Sesión programada para mañana» | NOTIFICATION_EVENTS · l.591 |
-| «Tiene una sesión programada para {date}{time ? ' a las ' + time : ''}.» | NOTIFICATION_EVENTS · l.595 |
-| «Sesión comienza en 1 hora» | NOTIFICATION_EVENTS · l.606 |
-| «Su sesión está por comenzar.{link}» | NOTIFICATION_EVENTS · l.609 |
-| «Nueva licitacion: {d.numero_licitacion}» | NOTIFICATION_EVENTS · l.623 |
-| «Nueva licitacion creada» | NOTIFICATION_EVENTS · l.624 |
-| «Publicacion registrada: {d.numero_licitacion}» | NOTIFICATION_EVENTS · l.635 |
-| «Publicacion registrada» | NOTIFICATION_EVENTS · l.636 |
-| «Manana vence plazo de bases: {d.numero_licitacion}» | NOTIFICATION_EVENTS · l.647 |
-| «Manana vence plazo de solicitud de bases» | NOTIFICATION_EVENTS · l.648 |
-| «Hoy vence plazo de bases: {d.numero_licitacion}» | NOTIFICATION_EVENTS · l.659 |
-| «Hoy vence plazo de solicitud de bases» | NOTIFICATION_EVENTS · l.660 |
-| «Manana vence plazo de consultas: {d.numero_licitacion}» | NOTIFICATION_EVENTS · l.671 |
-| «Manana vence plazo de consultas» | NOTIFICATION_EVENTS · l.672 |
-| «Hoy vence plazo de consultas: {d.numero_licitacion}» | NOTIFICATION_EVENTS · l.683 |
-| «Hoy vence plazo de consultas» | NOTIFICATION_EVENTS · l.684 |
-| «Ventana de propuestas abierta: {d.numero_licitacion}» | NOTIFICATION_EVENTS · l.695 |
-| «Ventana de propuestas abierta» | NOTIFICATION_EVENTS · l.696 |
-| «Manana vence plazo de propuestas: {d.numero_licitacion}» | NOTIFICATION_EVENTS · l.707 |
-| «Manana vence plazo de propuestas» | NOTIFICATION_EVENTS · l.708 |
-| «Hoy vence plazo de propuestas: {d.numero_licitacion}» | NOTIFICATION_EVENTS · l.719 |
-| «Hoy vence plazo de propuestas» | NOTIFICATION_EVENTS · l.720 |
-| «Evaluacion iniciada: {d.numero_licitacion}» | NOTIFICATION_EVENTS · l.731 |
-| «Periodo de evaluacion iniciado» | NOTIFICATION_EVENTS · l.732 |
-| «Manana vence plazo de evaluacion: {d.numero_licitacion}» | NOTIFICATION_EVENTS · l.743 |
-| «Manana vence plazo de evaluacion» | NOTIFICATION_EVENTS · l.744 |
-| «Evaluacion completada: {d.numero_licitacion}» | NOTIFICATION_EVENTS · l.755 |
-| «Evaluacion completada» | NOTIFICATION_EVENTS · l.756 |
-| «Licitacion adjudicada: {d.numero_licitacion}» | NOTIFICATION_EVENTS · l.769 |
-| «Licitacion adjudicada» | NOTIFICATION_EVENTS · l.770 |
-| «Contrato generado: {d.numero_licitacion}» | NOTIFICATION_EVENTS · l.783 |
-| «Contrato generado» | NOTIFICATION_EVENTS · l.784 |
-| «Reunión finalizada: {title}» | NOTIFICATION_EVENTS · l.799 |
-| «Reunión finalizada» | NOTIFICATION_EVENTS · l.799 |
-| «La reunión "{bounded(d.title, PREVIEW_MA…}" fue finalizada{who}.{audience}» | NOTIFICATION_EVENTS · l.808 |
-| «sin título» | NOTIFICATION_EVENTS · l.808 |
-| «Actualización del sistema» | NOTIFICATION_EVENTS · l.820 |
-| «Hay una nueva actualización disponible en la plataforma.» | NOTIFICATION_EVENTS · l.822 |
+| «Tu reporte tiene una respuesta de Soporte» | NOTIFICATION_EVENTS · l.403 |
+| «Soporte respondió a un problema que reportaste. Ábrelo en «Mis reportes».» | NOTIFICATION_EVENTS · l.404 |
+| «Nuevo consultor asignado: {d.consultant.name}» | NOTIFICATION_EVENTS · l.413 |
+| «Consultor asignado» | NOTIFICATION_EVENTS · l.414 |
+| «QA Fallo: {d.scenario_name}» | NOTIFICATION_EVENTS · l.431 |
+| «Fallo en prueba QA» | NOTIFICATION_EVENTS · l.432 |
+| «{step} falló: "{d.step_instruction \|\| 'Sin …}"{tester}» | NOTIFICATION_EVENTS · l.436 |
+| «Sin descripción» | NOTIFICATION_EVENTS · l.436 |
+| «Nuevo escenario QA asignado» | NOTIFICATION_EVENTS · l.448 |
+| «Sesión agendada: {d.session.title}» | NOTIFICATION_EVENTS · l.478 |
+| «Nueva sesión agendada» | NOTIFICATION_EVENTS · l.479 |
+| «Su sesión quedó agendada para {when}.» | NOTIFICATION_EVENTS · l.486 |
+| «Sesión reprogramada: {d.session.title}» | NOTIFICATION_EVENTS · l.498 |
+| «Sesión reprogramada» | NOTIFICATION_EVENTS · l.499 |
+| «Su sesión cambió. Antes: {before}. Ahora: {after}. Actualice su calendario.» | NOTIFICATION_EVENTS · l.523 |
+| «Sesión cancelada: {d.session.title}» | NOTIFICATION_EVENTS · l.535 |
+| «Sesión cancelada» | NOTIFICATION_EVENTS · l.536 |
+| «Su sesión{when} fue cancelada. No necesita conectarse.» | NOTIFICATION_EVENTS · l.541 |
+| «Solicitud de cambio: {d.session.title}» | NOTIFICATION_EVENTS · l.553 |
+| «Nueva solicitud de cambio en sesión» | NOTIFICATION_EVENTS · l.554 |
+| «Cambios aprobados: {d.session.title}» | NOTIFICATION_EVENTS · l.568 |
+| «Solicitud de cambio aprobada» | NOTIFICATION_EVENTS · l.569 |
+| «Los cambios en {fieldList} han sido aprobados.{notes}» | NOTIFICATION_EVENTS · l.574 |
+| «Cambios rechazados: {d.session.title}» | NOTIFICATION_EVENTS · l.584 |
+| «Solicitud de cambio rechazada» | NOTIFICATION_EVENTS · l.585 |
+| «Recordatorio: {d.session.title} mañana» | NOTIFICATION_EVENTS · l.598 |
+| «Sesión programada para mañana» | NOTIFICATION_EVENTS · l.599 |
+| «Tiene una sesión programada para {date}{time ? ' a las ' + time : ''}.» | NOTIFICATION_EVENTS · l.603 |
+| «Sesión comienza en 1 hora» | NOTIFICATION_EVENTS · l.614 |
+| «Su sesión está por comenzar.{link}» | NOTIFICATION_EVENTS · l.617 |
+| «Nueva licitacion: {d.numero_licitacion}» | NOTIFICATION_EVENTS · l.631 |
+| «Nueva licitacion creada» | NOTIFICATION_EVENTS · l.632 |
+| «Publicacion registrada: {d.numero_licitacion}» | NOTIFICATION_EVENTS · l.643 |
+| «Publicacion registrada» | NOTIFICATION_EVENTS · l.644 |
+| «Manana vence plazo de bases: {d.numero_licitacion}» | NOTIFICATION_EVENTS · l.655 |
+| «Manana vence plazo de solicitud de bases» | NOTIFICATION_EVENTS · l.656 |
+| «Hoy vence plazo de bases: {d.numero_licitacion}» | NOTIFICATION_EVENTS · l.667 |
+| «Hoy vence plazo de solicitud de bases» | NOTIFICATION_EVENTS · l.668 |
+| «Manana vence plazo de consultas: {d.numero_licitacion}» | NOTIFICATION_EVENTS · l.679 |
+| «Manana vence plazo de consultas» | NOTIFICATION_EVENTS · l.680 |
+| «Hoy vence plazo de consultas: {d.numero_licitacion}» | NOTIFICATION_EVENTS · l.691 |
+| «Hoy vence plazo de consultas» | NOTIFICATION_EVENTS · l.692 |
+| «Ventana de propuestas abierta: {d.numero_licitacion}» | NOTIFICATION_EVENTS · l.703 |
+| «Ventana de propuestas abierta» | NOTIFICATION_EVENTS · l.704 |
+| «Manana vence plazo de propuestas: {d.numero_licitacion}» | NOTIFICATION_EVENTS · l.715 |
+| «Manana vence plazo de propuestas» | NOTIFICATION_EVENTS · l.716 |
+| «Hoy vence plazo de propuestas: {d.numero_licitacion}» | NOTIFICATION_EVENTS · l.727 |
+| «Hoy vence plazo de propuestas» | NOTIFICATION_EVENTS · l.728 |
+| «Evaluacion iniciada: {d.numero_licitacion}» | NOTIFICATION_EVENTS · l.739 |
+| «Periodo de evaluacion iniciado» | NOTIFICATION_EVENTS · l.740 |
+| «Manana vence plazo de evaluacion: {d.numero_licitacion}» | NOTIFICATION_EVENTS · l.751 |
+| «Manana vence plazo de evaluacion» | NOTIFICATION_EVENTS · l.752 |
+| «Evaluacion completada: {d.numero_licitacion}» | NOTIFICATION_EVENTS · l.763 |
+| «Evaluacion completada» | NOTIFICATION_EVENTS · l.764 |
+| «Licitacion adjudicada: {d.numero_licitacion}» | NOTIFICATION_EVENTS · l.777 |
+| «Licitacion adjudicada» | NOTIFICATION_EVENTS · l.778 |
+| «Contrato generado: {d.numero_licitacion}» | NOTIFICATION_EVENTS · l.791 |
+| «Contrato generado» | NOTIFICATION_EVENTS · l.792 |
+| «Reunión finalizada: {title}» | NOTIFICATION_EVENTS · l.807 |
+| «Reunión finalizada» | NOTIFICATION_EVENTS · l.807 |
+| «La reunión "{bounded(d.title, PREVIEW_MA…}" fue finalizada{who}.{audience}» | NOTIFICATION_EVENTS · l.816 |
+| «sin título» | NOTIFICATION_EVENTS · l.816 |
+| «Actualización del sistema» | NOTIFICATION_EVENTS · l.828 |
+| «Hay una nueva actualización disponible en la plataforma.» | NOTIFICATION_EVENTS · l.830 |
 
 ### lib/notifications/catalog.ts
 

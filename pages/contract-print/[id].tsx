@@ -26,6 +26,9 @@ interface Contrato {
   nombre_ciclo?: 'Primer Ciclo' | 'Segundo Ciclo' | 'Tercer Ciclo' | 'Equipo Directivo';
   snapshot_nombre_representante?: string;
   snapshot_rut_representante?: string;
+  firmado?: boolean | null;
+  // Which contract text this contract prints: empty = the old text, 2 = the corrected text (F22).
+  plantilla_version?: number | null;
   clientes: {
     nombre_legal: string;
     nombre_fantasia: string;
@@ -59,6 +62,8 @@ export default function ContractPrintPage() {
   const { id } = router.query;
   const [contrato, setContrato] = useState<Contrato | null>(null);
   const [loading, setLoading] = useState(true);
+  const [upgradeStep, setUpgradeStep] = useState<'idle' | 'confirming' | 'saving'>('idle');
+  const [upgradeError, setUpgradeError] = useState<string | null>(null);
 
   useEffect(() => {
     if (id) {
@@ -106,6 +111,26 @@ export default function ContractPrintPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // F22: move ONE unsigned programme contract from the old text to the corrected text.
+  // The database allows only this one-way move; an error or 0 rows is a refusal.
+  const upgradeContractText = async () => {
+    if (!contrato) return;
+    setUpgradeStep('saving');
+    setUpgradeError(null);
+    const { data, error } = await supabase
+      .from('contratos')
+      .update({ plantilla_version: 2 })
+      .eq('id', contrato.id)
+      .select('id, plantilla_version');
+    if (error || !data || data.length === 0) {
+      setUpgradeError('No se pudo cambiar el texto del contrato.');
+      setUpgradeStep('idle');
+      return;
+    }
+    setUpgradeStep('idle');
+    await loadContrato();
   };
 
   if (loading) {
@@ -170,6 +195,9 @@ export default function ContractPrintPage() {
     );
   }
 
+  const isCorrectedText = contrato.plantilla_version === 2;
+  const canUpgradeText = !contrato.is_anexo && !contrato.es_manual && !contrato.firmado && contrato.plantilla_version == null;
+
   return (
     <>
       <Head>
@@ -180,6 +208,40 @@ export default function ContractPrintPage() {
       {/* Print Controls Bar */}
       <div className="print-controls">
         <h2>Vista previa del contrato</h2>
+        {!contrato.is_anexo && (
+          <div className="print-controls-text-version flex flex-col gap-2 text-sm">
+            <p data-testid="contract-text-version">
+              {isCorrectedText ? 'Texto del contrato: versión actualizada' : 'Texto del contrato: versión anterior'}
+            </p>
+            {canUpgradeText && upgradeStep === 'idle' && (
+              <button type="button" data-testid="contract-text-upgrade" onClick={() => setUpgradeStep('confirming')}>
+                Usar el texto actualizado
+              </button>
+            )}
+            {canUpgradeText && upgradeStep !== 'idle' && (
+              <div role="alertdialog" aria-label="Usar el texto actualizado" className="flex flex-wrap items-center gap-2">
+                <p>Este contrato pasará a imprimirse con el texto actualizado. No se puede volver al texto anterior.</p>
+                <button
+                  type="button"
+                  data-testid="contract-text-upgrade-confirm"
+                  disabled={upgradeStep === 'saving'}
+                  onClick={upgradeContractText}
+                >
+                  Confirmar
+                </button>
+                <button
+                  type="button"
+                  data-testid="contract-text-upgrade-cancel"
+                  disabled={upgradeStep === 'saving'}
+                  onClick={() => setUpgradeStep('idle')}
+                >
+                  Cancelar
+                </button>
+              </div>
+            )}
+            {upgradeError && <p role="alert">{upgradeError}</p>}
+          </div>
+        )}
         <div className="print-controls-buttons">
           <button
             onClick={() => router.back()}
@@ -247,6 +309,7 @@ export default function ContractPrintPage() {
                   fecha_fin: contrato.fecha_fin,
                   precio_total_uf: contrato.precio_total_uf,
                   tipo_moneda: contrato.tipo_moneda,
+                  plantilla_version: contrato.plantilla_version ?? null,
                   cliente: {
                     nombre_legal: contrato.clientes.nombre_legal,
                     nombre_fantasia: contrato.clientes.nombre_fantasia,

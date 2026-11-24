@@ -1365,6 +1365,8 @@ export default function ContractForm({ programas, clientes, editingContract, pre
       precio_total_uf: contractForm.precio_total_uf,
       precio_total_clp: contractForm.tipo_moneda === 'CLP' ? contractForm.precio_total_uf : 0,
       tipo_moneda: contractForm.tipo_moneda,
+      // F22: a new contract gets the corrected text (2); an edited one previews its own text.
+      plantilla_version: editingContract ? (editingContract.plantilla_version ?? null) : 2,
       cliente: {
         nombre_legal: clienteForm.nombre_legal,
         nombre_fantasia: clienteForm.nombre_fantasia,

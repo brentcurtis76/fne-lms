@@ -227,6 +227,8 @@ export function fillNewClientStep() {
   typeInto(screen.getByPlaceholderText('Comuna'), 'Comuna Inventada');
   typeInto(screen.getByPlaceholderText('Ciudad'), 'Ciudad Inventada');
   typeInto(screen.getByPlaceholderText('Nombre del representante'), 'Persona Inventada');
+  // The representative's RUT is required and must be real for a new client (F22e): an invented valid one.
+  typeInto(screen.getAllByPlaceholderText('12.345.678-9')[1], '12.345.678-5');
 }
 
 export const clickButton = (name: string | RegExp) => {

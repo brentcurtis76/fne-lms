@@ -59,8 +59,9 @@ describe('ContractForm — new contract with a brand-new client', () => {
     const row = clientInsert.payload[0];
     expect(row).not.toHaveProperty('telefono');
     expect(Object.keys(row).sort()).toEqual(CLIENT_COLUMNS_SORTED);
-    // The placeholders for missing legal fields stay as today (a later phase removes them).
-    expect(row.rut_representante).toBe('11.111.111-1');
+    // The placeholders for missing legal fields stay as today (a later phase removes them);
+    // the representative's RUT is no longer one of them: it is the one typed (F22e).
+    expect(row.rut_representante).toBe('12.345.678-5');
     expect(row.nombre_notario).toBe('Notario Público');
     expect(row.fecha_escritura).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(row.nombre_legal).toBe('Colegio Inventado SpA');

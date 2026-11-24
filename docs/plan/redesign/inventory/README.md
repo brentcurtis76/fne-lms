@@ -2,7 +2,7 @@
 
 What every screen of the platform offers today, so the redesign can prove that nothing is lost (PLAN.md, "The no-loss rules": the inventory is the contract).
 
-Read from commit `c7e27398ca230dbbc3e581dcde19f92480491fcd` (2026-11-22).
+Read from commit `6a336e70e3a2a2175b39e2ebade821061497232c` (2026-11-24).
 
 ## How to use it
 
@@ -39,18 +39,18 @@ What reading the code cannot see is added by the walk by sight and kept in `anno
 | [Espacio Colaborativo y comunidades](07-espacio-colaborativo.md) | 4 | 19 | 73 | 1723 |
 | [Gestor de Cambio (registros, context, migration plan, results)](08-gestor-de-cambio.md) | 16 | 41 | 31 | 1682 |
 | [Vías de Transformación (to be deleted)](09-vias-transformacion.md) | 10 | 17 | 0 | 0 |
-| [Licitaciones (processes, templates, proposals)](10-licitaciones.md) | 11 | 42 | 32 | 1619 |
-| [Gestión (clients, contracts, quotes)](11-gestion.md) | 7 | 15 | 22 | 1265 |
+| [Licitaciones (processes, templates, proposals)](10-licitaciones.md) | 11 | 42 | 32 | 1621 |
+| [Gestión (clients, contracts, quotes)](11-gestion.md) | 7 | 15 | 22 | 1299 |
 | [Pasantías (leads, travellers, panel, my trip)](12-pasantias.md) | 5 | 21 | 25 | 889 |
 | [Reportes](13-reportes.md) | 3 | 10 | 21 | 739 |
-| [Personas (users, schools, networks, roles, profile)](14-personas.md) | 7 | 33 | 24 | 1238 |
-| [Comunicación (news and events)](15-comunicacion.md) | 2 | 4 | 6 | 174 |
-| [Notificaciones](16-notificaciones.md) | 6 | 10 | 20 | 567 |
+| [Personas (users, schools, networks, roles, profile)](14-personas.md) | 7 | 33 | 24 | 1239 |
+| [Comunicación (news and events)](15-comunicacion.md) | 3 | 5 | 13 | 227 |
+| [Notificaciones](16-notificaciones.md) | 6 | 10 | 20 | 569 |
 | [Horas, tarifas y gastos](17-horas-gastos.md) | 4 | 10 | 16 | 474 |
 | [QA (the platform's own test tool)](18-qa.md) | 16 | 21 | 13 | 1237 |
 | [Sistema (configuration, support, roadmap, test and debug pages, scheduled jobs)](19-sistema.md) | 4 | 27 | 8 | 308 |
 | [Sitio público (nuevaeducacion.org pages; not part of the platform redesign)](20-sitio-publico.md) | 8 | 1 | 29 | 832 |
-| **Total** | **155** | **371** | | **19151** |
+| **Total** | **156** | **372** | | **19243** |
 
 The menu has 18 entries at the top level and 61 children (`NAVIGATION_ITEMS` in `components/layout/Sidebar.tsx`).
 

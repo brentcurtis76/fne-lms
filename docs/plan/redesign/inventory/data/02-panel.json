@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "c7e27398ca230dbbc3e581dcde19f92480491fcd",
-  "date": "2026-11-22T23:11:25-03:00"
+  "commit": "6a336e70e3a2a2175b39e2ebade821061497232c",
+  "date": "2026-11-24T17:54:00-03:00"
  },
  "screens": [
   {
@@ -88,9 +88,9 @@
      "hooks/useSessionsList.ts:134",
      "lib/auth/forced-password-change.ts:142",
      "lib/frontend-auth-utils.ts:155",
-     "lib/notificationEvents.ts:823",
-     "lib/notificationEvents.ts:840",
-     "lib/notifications/catalog.ts:111",
+     "lib/notificationEvents.ts:831",
+     "lib/notificationEvents.ts:848",
+     "lib/notifications/catalog.ts:113",
      "middleware.ts:244",
      "middleware.ts:269",
      "middleware.ts:305",
@@ -111,6 +111,7 @@
      "pages/admin/consultant-rates.tsx:52",
      "pages/admin/context-questions/index.tsx:114",
      "pages/admin/context-questions/overview.tsx:189",
+     "pages/admin/correos/vista-previa.tsx:29",
      "pages/admin/course-builder/[courseId]/[moduleId]/index.tsx:107",
      "pages/admin/course-builder/[courseId]/edit.tsx:94",
      "pages/admin/course-builder/index.tsx:453",

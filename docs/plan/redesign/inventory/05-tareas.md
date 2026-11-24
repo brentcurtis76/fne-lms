@@ -1,7 +1,7 @@
 # Tareas y quizzes (assignments, group work, quiz review)
 
 Area `05-tareas`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `c7e27398c` (2026-11-22).
+Read from commit `6a336e70e` (2026-11-24).
 
 9 screen files, 14 API files, 19 pieces.
 
@@ -33,7 +33,7 @@ File `pages/admin/assignment-overview.tsx` · 619 lines · frame: MainLayout
   - l.132 `router.push → /dashboard  (when role !== 'admin' && role !== 'consultor')`
   - l.148 `router.push → /login`
   - l.283 `router.push → /login`
-- Linked from: `components/layout/Sidebar.tsx:487`, `lib/notifications/catalog.ts:304`, `middleware.ts:224`, `pages/admin/assignment-review/[id].tsx:348`
+- Linked from: `components/layout/Sidebar.tsx:487`, `lib/notifications/catalog.ts:306`, `middleware.ts:224`, `pages/admin/assignment-review/[id].tsx:348`
 - Tests: no browser test that CI runs.
 - QA scenarios that name this address: admin 3, consultor 1.
 
@@ -346,7 +346,7 @@ File `pages/assignments.tsx` · 360 lines · frame: MainLayout
   - l.97 `role = await getUserPrimaryRole(session.user.id)`
   - l.115 `router.push → /login  (when !(session) && session === null)`
   - l.138 `router.push → /login`
-- Linked from: `components/DynamicFavicon.tsx:35`, `components/notifications/ModernNotificationCenter.tsx:311`, `components/notifications/ModernNotificationCenter.tsx:322`, `components/notifications/NotificationDropdown.tsx:140`, `components/notifications/NotificationDropdown.tsx:151`, `lib/auth/forced-password-change.ts:133`, `lib/notificationEvents.ts:314`, `lib/notificationEvents.ts:328`, `lib/notificationEvents.ts:345`, `lib/notifications/catalog.ts:279`, `lib/notifications/catalog.ts:288`, `lib/notifications/catalog.ts:290` and 15 more
+- Linked from: `components/DynamicFavicon.tsx:35`, `components/notifications/ModernNotificationCenter.tsx:311`, `components/notifications/ModernNotificationCenter.tsx:322`, `components/notifications/NotificationDropdown.tsx:140`, `components/notifications/NotificationDropdown.tsx:151`, `lib/auth/forced-password-change.ts:133`, `lib/notificationEvents.ts:314`, `lib/notificationEvents.ts:328`, `lib/notificationEvents.ts:345`, `lib/notifications/catalog.ts:281`, `lib/notifications/catalog.ts:290`, `lib/notifications/catalog.ts:292` and 15 more
 - Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/notification-catalog-links.spec.ts`.
 
 | Role | Sees it in the menu | Middleware |
@@ -1034,7 +1034,7 @@ File `pages/quiz-reviews.tsx` · 239 lines · frame: MainLayout
   - l.28 `if (!hasRole('admin') && !hasRole('consultor') && !hasRole('equipo_directivo')) { toast.error('No tienes permisos para acceder a esta página'); route…`
   - l.30 `router.push → /dashboard  (when !hasRole('admin') && !hasRole('consultor') && !hasRole('equipo_directivo'))`
   - l.111 `getHighestRole(userRoles) \|\| ''`
-- Linked from: `components/DynamicFavicon.tsx:34`, `components/layout/Sidebar.tsx:204`, `lib/auth/forced-password-change.ts:158`, `lib/auth/forced-password-change.ts:183`, `lib/notifications/catalog.ts:310`, `middleware.ts:359`, `pages/quiz-reviews/[id].tsx:59`, `pages/quiz-reviews/[id].tsx:73`, `pages/quiz-reviews/[id].tsx:81`, `pages/quiz-reviews/[id].tsx:97`
+- Linked from: `components/DynamicFavicon.tsx:34`, `components/layout/Sidebar.tsx:204`, `lib/auth/forced-password-change.ts:158`, `lib/auth/forced-password-change.ts:183`, `lib/notifications/catalog.ts:312`, `middleware.ts:359`, `pages/quiz-reviews/[id].tsx:59`, `pages/quiz-reviews/[id].tsx:73`, `pages/quiz-reviews/[id].tsx:81`, `pages/quiz-reviews/[id].tsx:97`
 - Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/urgent-anonymous-boundaries.spec.ts`, `tests/e2e/urgent-anonymous-current.spec.ts`.
 - QA scenarios that name this address: admin 3, community_manager 1, consultor 2, equipo_directivo 4, lider_comunidad 1, lider_generacion 1, supervisor_de_red 1.
 

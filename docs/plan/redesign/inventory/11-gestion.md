@@ -1,7 +1,7 @@
 # Gestión (clients, contracts, quotes)
 
 Area `11-gestion`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `c7e27398c` (2026-11-22).
+Read from commit `6a336e70e` (2026-11-24).
 
 7 screen files, 15 API files, 22 pieces.
 
@@ -9,17 +9,17 @@ Read from commit `c7e27398c` (2026-11-22).
 
 | Address | File | Lines | Menu | Marks |
 |---|---|---|---|---|
-| `/admin/clients` | `pages/admin/clients.tsx` | 846 | Gestión › Clientes |  |
+| `/admin/clients` | `pages/admin/clients.tsx` | 852 | Gestión › Clientes |  |
 | `/admin/quotes/[id]/edit` | `pages/admin/quotes/[id]/edit.tsx` | 197 | — |  |
 | `/admin/quotes` | `pages/admin/quotes/index.tsx` | 438 | Gestión › Propuestas Pasantías |  |
 | `/admin/quotes/new` | `pages/admin/quotes/new.tsx` | 117 | — |  |
-| `/contract-print/[id]` | `pages/contract-print/[id].tsx` | 277 | — |  |
+| `/contract-print/[id]` | `pages/contract-print/[id].tsx` | 340 | — |  |
 | `/contracts` | `pages/contracts.tsx` | 1140 | Gestión › Contratos |  |
 | `/quote/[id]` | `pages/quote/[id].tsx` | 129 | — |  |
 
 ## /admin/clients
 
-File `pages/admin/clients.tsx` · 846 lines · frame: MainLayout
+File `pages/admin/clients.tsx` · 852 lines · frame: MainLayout
 
 ### Who reaches it
 
@@ -32,7 +32,7 @@ File `pages/admin/clients.tsx` · 846 lines · frame: MainLayout
   - l.118 `router.push → /dashboard  (when userRole !== 'admin')`
   - l.126 `router.push → /login`
 - Linked from: `components/layout/Sidebar.tsx:551`
-- Tests: no browser test that CI runs.
+- Tests: no browser test that CI runs; unit tests of the page: `__tests__/pages/admin/clients.filler-rut.test.tsx`.
 - QA scenarios that name this address: admin 1.
 
 | Role | Sees it in the menu | Middleware |
@@ -53,62 +53,62 @@ File `pages/admin/clients.tsx` · 846 lines · frame: MainLayout
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «Gestión de Clientes» | h1 |  | ClientsManagement · l.459 |
-| «No se encontraron clientes / No hay clientes registrados» | h3 | `!(loading) && filteredClientes.length === 0` | ClientsManagement · l.492 |
-| «Editar Cliente: {editingCliente.nombre_fanta…} / Nuevo Cliente» | h2 | `showClientModal` | ClientsManagement · l.577 |
-| «Información Legal» | h3 | `showClientModal` | ClientsManagement · l.584 |
-| «Representante Legal» | h3 | `showClientModal` | ClientsManagement · l.667 |
-| «Encargado de Proyecto» | h3 | `showClientModal` | ClientsManagement · l.736 |
-| «Contacto Administrativo» | h3 | `showClientModal` | ClientsManagement · l.780 |
+| «Gestión de Clientes» | h1 |  | ClientsManagement · l.465 |
+| «No se encontraron clientes / No hay clientes registrados» | h3 | `!(loading) && filteredClientes.length === 0` | ClientsManagement · l.498 |
+| «Editar Cliente: {editingCliente.nombre_fanta…} / Nuevo Cliente» | h2 | `showClientModal` | ClientsManagement · l.583 |
+| «Información Legal» | h3 | `showClientModal` | ClientsManagement · l.590 |
+| «Representante Legal» | h3 | `showClientModal` | ClientsManagement · l.673 |
+| «Encargado de Proyecto» | h3 | `showClientModal` | ClientsManagement · l.742 |
+| «Contacto Administrativo» | h3 | `showClientModal` | ClientsManagement · l.786 |
 
 **Buttons** (5)
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «Nuevo Cliente» | `{handleAddCliente}` |  |  |  | ClientsManagement · l.462 |
-| «Editar» | `{() => handleEditCliente(cliente.id)}` | `!(loading) && !(filteredClientes.length === 0) && each filteredClientes` |  |  | ClientsManagement · l.548 |
-| «Eliminar» | `{() => handleDeleteCliente(cliente)}` | `!(loading) && !(filteredClientes.length === 0) && each filteredClientes` |  |  | ClientsManagement · l.556 |
-| «Cancelar» | `{() => { setShowClientModal(false); setEditingCliente(null); }}` | `showClientModal` |  |  | ClientsManagement · l.824 |
-| «Guardar Cambios / Crear Cliente» | `{handleSaveCliente}` | `showClientModal` |  |  | ClientsManagement · l.833 |
+| «Nuevo Cliente» | `{handleAddCliente}` |  |  |  | ClientsManagement · l.468 |
+| «Editar» | `{() => handleEditCliente(cliente.id)}` | `!(loading) && !(filteredClientes.length === 0) && each filteredClientes` |  |  | ClientsManagement · l.554 |
+| «Eliminar» | `{() => handleDeleteCliente(cliente)}` | `!(loading) && !(filteredClientes.length === 0) && each filteredClientes` |  |  | ClientsManagement · l.562 |
+| «Cancelar» | `{() => { setShowClientModal(false); setEditingCliente(null); }}` | `showClientModal` |  |  | ClientsManagement · l.830 |
+| «Guardar Cambios / Crear Cliente» | `{handleSaveCliente}` | `showClientModal` |  |  | ClientsManagement · l.839 |
 
 **Fields** (18)
 
 | Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
 |---|---|---|---|---|---|---|
-| «Buscar por nombre, RUT o escuela...» | text | «Buscar por nombre, RUT o escuela...» |  |  |  | ClientsManagement · l.475 |
-| «Nombre Legal *» | text | «Nombre legal de la organización» |  | `showClientModal` |  | ClientsManagement · l.591 |
-| «Nombre de Fantasía *» | text | «Nombre comercial» |  | `showClientModal` |  | ClientsManagement · l.604 |
-| «RUT *» | text | «XX.XXX.XXX-X» |  | `showClientModal` |  | ClientsManagement · l.617 |
-| «Dirección *» | text | «Dirección completa» |  | `showClientModal` |  | ClientsManagement · l.630 |
-| «Comuna» | text | «Comuna» |  | `showClientModal` |  | ClientsManagement · l.643 |
-| «Ciudad» | text | «Ciudad» |  | `showClientModal` |  | ClientsManagement · l.656 |
-| «Nombre Representante Legal *» | text | «Nombre completo» |  | `showClientModal` |  | ClientsManagement · l.674 |
-| «RUT Representante Legal *» | text | «XX.XXX.XXX-X» |  | `showClientModal` |  | ClientsManagement · l.687 |
-| «Fecha Escritura» | date |  |  | `showClientModal` |  | ClientsManagement · l.700 |
-| «Nombre Notario» | text | «Nombre del notario» |  | `showClientModal` |  | ClientsManagement · l.712 |
-| «Comuna Notaría» | text | «Comuna de la notaría» |  | `showClientModal` |  | ClientsManagement · l.725 |
-| «Nombre Encargado» | text | «Nombre completo» |  | `showClientModal` |  | ClientsManagement · l.743 |
-| «Teléfono Encargado» | tel | «+56 9 XXXX XXXX» |  | `showClientModal` |  | ClientsManagement · l.756 |
-| «Email Encargado» | email | «email@ejemplo.com» |  | `showClientModal` |  | ClientsManagement · l.769 |
-| «Nombre Contacto» | text | «Nombre completo» |  | `showClientModal` |  | ClientsManagement · l.787 |
-| «Teléfono Contacto» | tel | «+56 9 XXXX XXXX» |  | `showClientModal` |  | ClientsManagement · l.800 |
-| «Email Contacto» | email | «email@ejemplo.com» |  | `showClientModal` |  | ClientsManagement · l.813 |
+| «Buscar por nombre, RUT o escuela...» | text | «Buscar por nombre, RUT o escuela...» |  |  |  | ClientsManagement · l.481 |
+| «Nombre Legal *» | text | «Nombre legal de la organización» |  | `showClientModal` |  | ClientsManagement · l.597 |
+| «Nombre de Fantasía *» | text | «Nombre comercial» |  | `showClientModal` |  | ClientsManagement · l.610 |
+| «RUT *» | text | «XX.XXX.XXX-X» |  | `showClientModal` |  | ClientsManagement · l.623 |
+| «Dirección *» | text | «Dirección completa» |  | `showClientModal` |  | ClientsManagement · l.636 |
+| «Comuna» | text | «Comuna» |  | `showClientModal` |  | ClientsManagement · l.649 |
+| «Ciudad» | text | «Ciudad» |  | `showClientModal` |  | ClientsManagement · l.662 |
+| «Nombre Representante Legal *» | text | «Nombre completo» |  | `showClientModal` |  | ClientsManagement · l.680 |
+| «RUT Representante Legal *» | text | «XX.XXX.XXX-X» |  | `showClientModal` |  | ClientsManagement · l.693 |
+| «Fecha Escritura» | date |  |  | `showClientModal` |  | ClientsManagement · l.706 |
+| «Nombre Notario» | text | «Nombre del notario» |  | `showClientModal` |  | ClientsManagement · l.718 |
+| «Comuna Notaría» | text | «Comuna de la notaría» |  | `showClientModal` |  | ClientsManagement · l.731 |
+| «Nombre Encargado» | text | «Nombre completo» |  | `showClientModal` |  | ClientsManagement · l.749 |
+| «Teléfono Encargado» | tel | «+56 9 XXXX XXXX» |  | `showClientModal` |  | ClientsManagement · l.762 |
+| «Email Encargado» | email | «email@ejemplo.com» |  | `showClientModal` |  | ClientsManagement · l.775 |
+| «Nombre Contacto» | text | «Nombre completo» |  | `showClientModal` |  | ClientsManagement · l.793 |
+| «Teléfono Contacto» | tel | «+56 9 XXXX XXXX» |  | `showClientModal` |  | ClientsManagement · l.806 |
+| «Email Contacto» | email | «email@ejemplo.com» |  | `showClientModal` |  | ClientsManagement · l.819 |
 
 **Table columns** (5)
 
 | Text | Shown when | Where |
 |---|---|---|
-| «Cliente» | `!(loading) && !(filteredClientes.length === 0)` | ClientsManagement · l.504 |
-| «RUT» | `!(loading) && !(filteredClientes.length === 0)` | ClientsManagement · l.507 |
-| «Representante» | `!(loading) && !(filteredClientes.length === 0)` | ClientsManagement · l.510 |
-| «Escuela» | `!(loading) && !(filteredClientes.length === 0)` | ClientsManagement · l.513 |
-| «Acciones» | `!(loading) && !(filteredClientes.length === 0)` | ClientsManagement · l.516 |
+| «Cliente» | `!(loading) && !(filteredClientes.length === 0)` | ClientsManagement · l.510 |
+| «RUT» | `!(loading) && !(filteredClientes.length === 0)` | ClientsManagement · l.513 |
+| «Representante» | `!(loading) && !(filteredClientes.length === 0)` | ClientsManagement · l.516 |
+| «Escuela» | `!(loading) && !(filteredClientes.length === 0)` | ClientsManagement · l.519 |
+| «Acciones» | `!(loading) && !(filteredClientes.length === 0)` | ClientsManagement · l.522 |
 
 **Pop-ups** (1)
 
 | Name or title | How | Opens when | Texts passed to it | Where |
 |---|---|---|---|---|
-| «Editar Cliente: {editingCliente.nombre_fanta…} / Nuevo Cliente» | written in this file | `showClientModal` |  | ClientsManagement · l.575 |
+| «Editar Cliente: {editingCliente.nombre_fanta…} / Nuevo Cliente» | written in this file | `showClientModal` |  | ClientsManagement · l.581 |
 
 **Browser confirm()** (3)
 
@@ -116,9 +116,9 @@ File `pages/admin/clients.tsx` · 846 lines · frame: MainLayout
 |---|---|---|
 | «El cliente "{cliente.nombre_fantasia}" está vinculado a una escuela. / ¿Está seguro de eliminarlo? Esto también desvinculará la escuela.» | `cliente.school_id` | handleDeleteCliente · l.237 |
 | «¿Está seguro de eliminar el cliente "{cliente.nombre_fantasia}"? / Esta acción no se puede deshacer.» | `!(cliente.school_id)` | handleDeleteCliente · l.244 |
-| «Este cliente tiene {contracts.length} contrato(s) asociado(s). / Los cambios al nombre y RUT del representante legal solo afectarán contratos y licitaciones futuros. / Los demás campos del cliente sí afectarán los contratos existentes que se regeneren. / ¿Desea continuar?» | `editingCliente && contracts && contracts.length > 0` | handleSaveCliente · l.342 |
+| «Este cliente tiene {contracts.length} contrato(s) asociado(s). / Los cambios al nombre y RUT del representante legal solo afectarán contratos y licitaciones futuros. / Los demás campos del cliente sí afectarán los contratos existentes que se regeneren. / ¿Desea continuar?» | `editingCliente && contracts && contracts.length > 0` | handleSaveCliente · l.348 |
 
-**Toasts** (21)
+**Toasts** (22)
 
 | Kind | Text | When | Where |
 |---|---|---|---|
@@ -138,11 +138,12 @@ File `pages/admin/clients.tsx` · 846 lines · frame: MainLayout
 | error | «El nombre del representante legal es requerido» | `!clienteForm.nombre_representante.trim()` | handleSaveCliente · l.301 |
 | error | «El RUT del representante legal es requerido» | `!clienteForm.rut_representante.trim()` | handleSaveCliente · l.305 |
 | error | «El RUT del representante legal no es válido» | `!validateRut(clienteForm.rut_representante)` | handleSaveCliente · l.309 |
-| error | «Ya existe otro cliente con este RUT» | `editingCliente && clienteForm.rut !== editingCliente.rut && existingCliente` | handleSaveCliente · l.328 |
-| success | «Cliente actualizado exitosamente» | `editingCliente` | handleSaveCliente · l.378 |
-| error | «Ya existe un cliente con este RUT» | `!(editingCliente) && existingCliente` | handleSaveCliente · l.391 |
-| success | «Cliente creado exitosamente» | `!(editingCliente)` | handleSaveCliente · l.420 |
-| error | «Error al guardar cliente:» |  | handleSaveCliente · l.428 |
+| error | «Ingresa el RUT real del representante legal; 11.111.111-1 no es válido.» | `isFillerRut(clienteForm.rut_representante) && !(editingCliente && isFillerRut(editingCliente.rut_representante))` | handleSaveCliente · l.315 |
+| error | «Ya existe otro cliente con este RUT» | `editingCliente && clienteForm.rut !== editingCliente.rut && existingCliente` | handleSaveCliente · l.334 |
+| success | «Cliente actualizado exitosamente» | `editingCliente` | handleSaveCliente · l.384 |
+| error | «Ya existe un cliente con este RUT» | `!(editingCliente) && existingCliente` | handleSaveCliente · l.397 |
+| success | «Cliente creado exitosamente» | `!(editingCliente)` | handleSaveCliente · l.426 |
+| error | «Error al guardar cliente:» |  | handleSaveCliente · l.434 |
 
 **Moves to another page from code** (4)
 
@@ -163,39 +164,39 @@ File `pages/admin/clients.tsx` · 846 lines · frame: MainLayout
 
 | Piece | Texts and settings | Shown when | Hook | Where |
 |---|---|---|---|---|
-| `MainLayout` | pageTitle: Clientes · userRole: admin | `!isAdmin` |  | ClientsManagement · l.434 |
-| `MainLayout` | pageTitle: Gestión de Clientes · userRole: admin |  |  | ClientsManagement · l.449 |
+| `MainLayout` | pageTitle: Clientes · userRole: admin | `!isAdmin` |  | ClientsManagement · l.440 |
+| `MainLayout` | pageTitle: Gestión de Clientes · userRole: admin |  |  | ClientsManagement · l.455 |
 
 **Values shown from data** (5)
 
-- `{cliente.nombre_fantasia}` — ClientsManagement · l.526, when `!(loading) && !(filteredClientes.length === 0) && each filteredClientes`
-- `{cliente.nombre_legal}` — ClientsManagement · l.527, when `!(loading) && !(filteredClientes.length === 0) && each filteredClientes`
-- `{cliente.rut}` — ClientsManagement · l.531, when `!(loading) && !(filteredClientes.length === 0) && each filteredClientes`
-- `{cliente.nombre_representante}` — ClientsManagement · l.534, when `!(loading) && !(filteredClientes.length === 0) && each filteredClientes`
-- `{cliente.rut_representante}` — ClientsManagement · l.535, when `!(loading) && !(filteredClientes.length === 0) && each filteredClientes`
+- `{cliente.nombre_fantasia}` — ClientsManagement · l.532, when `!(loading) && !(filteredClientes.length === 0) && each filteredClientes`
+- `{cliente.nombre_legal}` — ClientsManagement · l.533, when `!(loading) && !(filteredClientes.length === 0) && each filteredClientes`
+- `{cliente.rut}` — ClientsManagement · l.537, when `!(loading) && !(filteredClientes.length === 0) && each filteredClientes`
+- `{cliente.nombre_representante}` — ClientsManagement · l.540, when `!(loading) && !(filteredClientes.length === 0) && each filteredClientes`
+- `{cliente.rut_representante}` — ClientsManagement · l.541, when `!(loading) && !(filteredClientes.length === 0) && each filteredClientes`
 
 **Other texts on screen** (20)
 
-- «Administra todos los clientes y sus datos» — ClientsManagement · l.460
-- «Intenta con otro término de búsqueda / Comienza creando el primer cliente» — ClientsManagement · l.495, when `!(loading) && filteredClientes.length === 0`
-- «Sin vincular» — ClientsManagement · l.544, when `!(loading) && !(filteredClientes.length === 0) && each filteredClientes && !(cliente.schools)`
-- «Nombre Legal *» (label) — ClientsManagement · l.588, when `showClientModal`
-- «Nombre de Fantasía *» (label) — ClientsManagement · l.601, when `showClientModal`
-- «RUT *» (label) — ClientsManagement · l.614, when `showClientModal`
-- «Dirección *» (label) — ClientsManagement · l.627, when `showClientModal`
-- «Comuna» (label) — ClientsManagement · l.640, when `showClientModal`
-- «Ciudad» (label) — ClientsManagement · l.653, when `showClientModal`
-- «Nombre Representante Legal *» (label) — ClientsManagement · l.671, when `showClientModal`
-- «RUT Representante Legal *» (label) — ClientsManagement · l.684, when `showClientModal`
-- «Fecha Escritura» (label) — ClientsManagement · l.697, when `showClientModal`
-- «Nombre Notario» (label) — ClientsManagement · l.709, when `showClientModal`
-- «Comuna Notaría» (label) — ClientsManagement · l.722, when `showClientModal`
-- «Nombre Encargado» (label) — ClientsManagement · l.740, when `showClientModal`
-- «Teléfono Encargado» (label) — ClientsManagement · l.753, when `showClientModal`
-- «Email Encargado» (label) — ClientsManagement · l.766, when `showClientModal`
-- «Nombre Contacto» (label) — ClientsManagement · l.784, when `showClientModal`
-- «Teléfono Contacto» (label) — ClientsManagement · l.797, when `showClientModal`
-- «Email Contacto» (label) — ClientsManagement · l.810, when `showClientModal`
+- «Administra todos los clientes y sus datos» — ClientsManagement · l.466
+- «Intenta con otro término de búsqueda / Comienza creando el primer cliente» — ClientsManagement · l.501, when `!(loading) && filteredClientes.length === 0`
+- «Sin vincular» — ClientsManagement · l.550, when `!(loading) && !(filteredClientes.length === 0) && each filteredClientes && !(cliente.schools)`
+- «Nombre Legal *» (label) — ClientsManagement · l.594, when `showClientModal`
+- «Nombre de Fantasía *» (label) — ClientsManagement · l.607, when `showClientModal`
+- «RUT *» (label) — ClientsManagement · l.620, when `showClientModal`
+- «Dirección *» (label) — ClientsManagement · l.633, when `showClientModal`
+- «Comuna» (label) — ClientsManagement · l.646, when `showClientModal`
+- «Ciudad» (label) — ClientsManagement · l.659, when `showClientModal`
+- «Nombre Representante Legal *» (label) — ClientsManagement · l.677, when `showClientModal`
+- «RUT Representante Legal *» (label) — ClientsManagement · l.690, when `showClientModal`
+- «Fecha Escritura» (label) — ClientsManagement · l.703, when `showClientModal`
+- «Nombre Notario» (label) — ClientsManagement · l.715, when `showClientModal`
+- «Comuna Notaría» (label) — ClientsManagement · l.728, when `showClientModal`
+- «Nombre Encargado» (label) — ClientsManagement · l.746, when `showClientModal`
+- «Teléfono Encargado» (label) — ClientsManagement · l.759, when `showClientModal`
+- «Email Encargado» (label) — ClientsManagement · l.772, when `showClientModal`
+- «Nombre Contacto» (label) — ClientsManagement · l.790, when `showClientModal`
+- «Teléfono Contacto» (label) — ClientsManagement · l.803, when `showClientModal`
+- «Email Contacto» (label) — ClientsManagement · l.816, when `showClientModal`
 
 **Reads and writes the database directly:** `table:clientes` (delete, insert, select, update), `table:contratos` (select), `table:profiles` (select), `table:schools` (update)
 
@@ -581,7 +582,7 @@ File `pages/admin/quotes/new.tsx` · 117 lines · frame: MainLayout
 
 ## /contract-print/[id]
 
-File `pages/contract-print/[id].tsx` · 277 lines · frame: none
+File `pages/contract-print/[id].tsx` · 340 lines · frame: none
 
 ### Who reaches it
 
@@ -589,7 +590,7 @@ File `pages/contract-print/[id].tsx` · 277 lines · frame: none
 - Middleware: no role rule. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: yes.
 - In the page: no access check found by the script.
 - Linked from: `lib/look.ts:114`, `middleware.ts:338`, `pages/contracts.tsx:1094`
-- Tests: no browser test that CI runs; unit tests of the page: `__tests__/pages/contract-print-annex.test.tsx`.
+- Tests: no browser test that CI runs; unit tests of the page: `__tests__/pages/contract-print-annex.test.tsx`, `__tests__/pages/contract-print-version.test.tsx`.
 
 | Role | Sees it in the menu | Middleware |
 |---|---|---|
@@ -609,50 +610,70 @@ File `pages/contract-print/[id].tsx` · 277 lines · frame: none
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «Vista previa del contrato» | h2 |  | ContractPrintPage · l.182 |
+| «Vista previa del contrato» | h2 |  | ContractPrintPage · l.210 |
 
-**Buttons** (4)
+**Buttons** (7)
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «Volver» | `{() => router.back()}` | `!contrato` |  |  | ContractPrintPage · l.127 |
-| «Volver» | `{() => router.back()}` | `isImportedSource` |  |  | ContractPrintPage · l.164 |
-| «← Volver» | `{() => router.back()}` |  |  |  | ContractPrintPage · l.184 |
-| «Imprimir / Guardar PDF» | `{() => window.print()}` |  |  |  | ContractPrintPage · l.190 |
+| «Volver» | `{() => router.back()}` | `!contrato` |  |  | ContractPrintPage · l.152 |
+| «Volver» | `{() => router.back()}` | `isImportedSource` |  |  | ContractPrintPage · l.189 |
+| «Usar el texto actualizado» | `{() => setUpgradeStep('confirming')}` | `!contrato.is_anexo && canUpgradeText && upgradeStep === 'idle'` |  | `testid=contract-text-upgrade` | ContractPrintPage · l.217 |
+| «Confirmar» | `{upgradeContractText}` | `!contrato.is_anexo && canUpgradeText && upgradeStep !== 'idle'` | `{upgradeStep === 'saving'}` | `testid=contract-text-upgrade-confirm` | ContractPrintPage · l.224 |
+| «Cancelar» | `{() => setUpgradeStep('idle')}` | `!contrato.is_anexo && canUpgradeText && upgradeStep !== 'idle'` | `{upgradeStep === 'saving'}` | `testid=contract-text-upgrade-cancel` | ContractPrintPage · l.232 |
+| «← Volver» | `{() => router.back()}` |  |  |  | ContractPrintPage · l.246 |
+| «Imprimir / Guardar PDF» | `{() => window.print()}` |  |  |  | ContractPrintPage · l.252 |
 
 **Links** (1)
 
 | Text | Goes to | Shown when | Hook | Where |
 |---|---|---|---|---|
-| «Descargar documento original» | `{contrato.contrato_url}` (new tab) | `isImportedSource && contrato.contrato_url` |  | ContractPrintPage · l.150 |
+| «Descargar documento original» | `{contrato.contrato_url}` (new tab) | `isImportedSource && contrato.contrato_url` |  | ContractPrintPage · l.175 |
+
+**Pop-ups** (1)
+
+| Name or title | How | Opens when | Texts passed to it | Where |
+|---|---|---|---|---|
+| «Usar el texto actualizado» | written in this file | `!contrato.is_anexo && canUpgradeText && upgradeStep !== 'idle'` |  | ContractPrintPage · l.222 |
+
+**Messages set on the page** (1)
+
+| Text | Set by | When | Where |
+|---|---|---|---|
+| «No se pudo cambiar el texto del contrato.» | `setUpgradeError` | `error \|\| !data \|\| data.length === 0` | upgradeContractText · l.128 |
 
 **Downloads and printing** (1)
 
 | How | When | Where |
 |---|---|---|
-| `window.print()` |  | ContractPrintPage · l.191 |
+| `window.print()` |  | ContractPrintPage · l.253 |
 
-**Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (1)
+**Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (3)
 
 | Kind | What | Where |
 |---|---|---|
+| mark | `testid=contract-text-version` | ContractPrintPage · l.213 |
+| role | `role=alert` | ContractPrintPage · l.242 |
 | address value | `[id] (part of the address)` | l.1 |
 
-**Values shown from data** (2)
+**Values shown from data** (3)
 
-- `{CONTRACT_DOCUMENT_CSS}` — ContractPrintPage · l.177
-- `{CONTRACT_PRINT_GUIDANCE}` — ContractPrintPage · l.204
+- `{CONTRACT_DOCUMENT_CSS}` — ContractPrintPage · l.205
+- `{upgradeError}` — ContractPrintPage · l.242, when `!contrato.is_anexo && upgradeError`
+- `{CONTRACT_PRINT_GUIDANCE}` — ContractPrintPage · l.266
 
-**Other texts on screen** (6)
+**Other texts on screen** (8)
 
-- «Cargando contrato...» — ContractPrintPage · l.116, when `loading`
-- «Contrato no encontrado» — ContractPrintPage · l.126, when `!contrato`
-- «Contrato importado» — ContractPrintPage · l.145, when `isImportedSource`
-- «Este contrato fue importado desde un documento externo, por lo que no se genera una versión desde plantilla.» — ContractPrintPage · l.147, when `isImportedSource`
-- «No hay un documento original cargado. Use &quot;Subir contrato&quot; para adjuntarlo.» — ContractPrintPage · l.160, when `isImportedSource && !(contrato.contrato_url)`
-- «Contrato {contrato.numero_contrato} - Fundación Nueva Educación» — ContractPrintPage · l.176
+- «Cargando contrato...» — ContractPrintPage · l.141, when `loading`
+- «Contrato no encontrado» — ContractPrintPage · l.151, when `!contrato`
+- «Contrato importado» — ContractPrintPage · l.170, when `isImportedSource`
+- «Este contrato fue importado desde un documento externo, por lo que no se genera una versión desde plantilla.» — ContractPrintPage · l.172, when `isImportedSource`
+- «No hay un documento original cargado. Use &quot;Subir contrato&quot; para adjuntarlo.» — ContractPrintPage · l.185, when `isImportedSource && !(contrato.contrato_url)`
+- «Contrato {contrato.numero_contrato} - Fundación Nueva Educación» — ContractPrintPage · l.204
+- «Texto del contrato: versión actualizada / Texto del contrato: versión anterior» — ContractPrintPage · l.213, when `!contrato.is_anexo`
+- «Este contrato pasará a imprimirse con el texto actualizado. No se puede volver al texto anterior.» — ContractPrintPage · l.223, when `!contrato.is_anexo && canUpgradeText && upgradeStep !== 'idle'`
 
-**Reads and writes the database directly:** `table:contratos` (select)
+**Reads and writes the database directly:** `table:contratos` (select, update)
 
 ### Pieces it uses (each is listed once, under "Pieces" below)
 
@@ -882,7 +903,7 @@ File `pages/contracts.tsx` · 1140 lines · frame: MainLayout
 
 | Address | Method | Called from |
 |---|---|---|
-| `/api/admin/schools` | POST | `components/contracts/ContractForm.tsx:750` |
+| `/api/admin/schools` | POST | `components/contracts/ContractForm.tsx:853` |
 | `/api/contracts/[id]/hours` | GET | `components/contracts/HourAllocationPanel.tsx:80` |
 | `/api/contracts/[id]/hours/allocate` | DELETE, POST | `components/contracts/HourAllocationPanel.tsx:139`, `components/contracts/HourAllocationPanel.tsx:164` |
 | `/api/contracts/[id]/hours/ledger/csv` | ? | `components/contracts/HourAllocationPanel.tsx:430` |
@@ -1000,100 +1021,102 @@ Used by: `/contracts`
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «Editar Anexo / Crear Nuevo Anexo» | h2 |  | AnnexForm · l.462 |
-| «Seleccionar Cliente» | h3 | `step === 'cliente' && !loadingParent` | AnnexForm · l.520 |
-| «Seleccionar Contrato de {clientes.find(c => c.id === selecte…}» | h3 | `step === 'contrato' && !loadingParent` | AnnexForm · l.544 |
-| «Detalles del Anexo para {selectedContrato.numero_contrato}» | h3 | `step === 'anexo' && selectedContrato && !loadingParent` | AnnexForm · l.584 |
-| «Configurar Cuotas» | h3 | `step === 'cuotas' && !loadingParent` | AnnexForm · l.664 |
-| «Cuota {cuota.numero_cuota}» | h4 | `step === 'cuotas' && !loadingParent && each cuotas` | AnnexForm · l.679 |
+| «Editar Anexo / Crear Nuevo Anexo» | h2 |  | AnnexForm · l.484 |
+| «Seleccionar Cliente» | h3 | `step === 'cliente' && !loadingParent` | AnnexForm · l.542 |
+| «Seleccionar Contrato de {clientes.find(c => c.id === selecte…}» | h3 | `step === 'contrato' && !loadingParent` | AnnexForm · l.566 |
+| «Detalles del Anexo para {selectedContrato.numero_contrato}» | h3 | `step === 'anexo' && selectedContrato && !loadingParent` | AnnexForm · l.606 |
+| «Configurar Cuotas» | h3 | `step === 'cuotas' && !loadingParent` | AnnexForm · l.686 |
+| «Cuota {cuota.numero_cuota}» | h4 | `step === 'cuotas' && !loadingParent && each cuotas` | AnnexForm · l.701 |
 
 **Buttons** (7)
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «Agregar Cuota» | `{addCuota}` | `step === 'cuotas' && !loadingParent` |  |  | AnnexForm · l.665 |
-| «[icon Trash2]» · tooltip «Eliminar cuota» | `{() => removeCuota(index)}` | `step === 'cuotas' && !loadingParent && each cuotas && cuotas.length > 1` |  |  | AnnexForm · l.681 |
-| «Cancelar» | `{onCancel}` | `!loadingParent` |  |  | AnnexForm · l.738 |
-| «Anterior» | `{prevStep}` | `!loadingParent && step !== 'cliente' && !(editingAnnex && step === 'anexo')` |  |  | AnnexForm · l.746 |
-| «Vista Previa» | `{generatePreviewPDF}` | `!loadingParent && step === 'cuotas'` |  |  | AnnexForm · l.758 |
-| «Guardando... / Actualizar Anexo / Crear Anexo» | `{handleSaveAnnex}` | `!loadingParent && step === 'cuotas'` | `{loading}` |  | AnnexForm · l.769 |
-| «Siguiente» | `{nextStep}` | `!loadingParent && !(step === 'cuotas')` |  |  | AnnexForm · l.788 |
+| «Agregar Cuota» | `{addCuota}` | `step === 'cuotas' && !loadingParent` |  |  | AnnexForm · l.687 |
+| «[icon Trash2]» · tooltip «Eliminar cuota» | `{() => removeCuota(index)}` | `step === 'cuotas' && !loadingParent && each cuotas && cuotas.length > 1` |  |  | AnnexForm · l.703 |
+| «Cancelar» | `{onCancel}` | `!loadingParent` |  |  | AnnexForm · l.760 |
+| «Anterior» | `{prevStep}` | `!loadingParent && step !== 'cliente' && !(editingAnnex && step === 'anexo')` |  |  | AnnexForm · l.768 |
+| «Vista Previa» | `{generatePreviewPDF}` | `!loadingParent && step === 'cuotas'` |  |  | AnnexForm · l.780 |
+| «Guardando... / Actualizar Anexo / Crear Anexo» | `{handleSaveAnnex}` | `!loadingParent && step === 'cuotas'` | `{loading}` |  | AnnexForm · l.791 |
+| «Siguiente» | `{nextStep}` | `!loadingParent && !(step === 'cuotas')` |  |  | AnnexForm · l.810 |
 
 **Other things that react to a click** (2)
 
 | Element | Text | Does | Shown when | Where |
 |---|---|---|---|---|
-| `div` | «{cliente.nombre_legal} {cliente.nombre_fantasia} RUT: {cliente.rut}» | `{() => handleClienteSelect(cliente.id)}` | `step === 'cliente' && !loadingParent && each clientes` | AnnexForm · l.523 |
-| `div` | «{contrato.numero_contrato} {contrato.programas?.nombre} / {contrato.descripcion_manual} / Contrato manual Fecha: {(() =…» | `{() => handleContratoSelect(contrato.id)}` | `step === 'contrato' && !loadingParent && each clienteContratos` | AnnexForm · l.549 |
+| `div` | «{cliente.nombre_legal} {cliente.nombre_fantasia} RUT: {cliente.rut}» | `{() => handleClienteSelect(cliente.id)}` | `step === 'cliente' && !loadingParent && each clientes` | AnnexForm · l.545 |
+| `div` | «{contrato.numero_contrato} {contrato.programas?.nombre} / {contrato.descripcion_manual} / Contrato manual Fecha: {(() =…» | `{() => handleContratoSelect(contrato.id)}` | `step === 'contrato' && !loadingParent && each clienteContratos` | AnnexForm · l.571 |
 
 **Fields** (7)
 
 | Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
 |---|---|---|---|---|---|---|
-| «Fecha del Anexo *» | date |  |  | `step === 'anexo' && selectedContrato && !loadingParent` |  | AnnexForm · l.593 |
-| «Número de Participantes *» | number | `min=1` |  | `step === 'anexo' && selectedContrato && !loadingParent` |  | AnnexForm · l.605 |
-| «Nombre del Ciclo *» | select |  | «(lista) {cycle}» | `step === 'anexo' && selectedContrato && !loadingParent` |  | AnnexForm · l.618 |
-| «Tipo de Moneda *» | select |  | «UF (Unidad de Fomento)», «CLP (Pesos Chilenos)» | `step === 'anexo' && selectedContrato && !loadingParent` |  | AnnexForm · l.633 |
-| «Precio Total ( {annexForm.tipo_moneda} ) *» | number | `min=0 step={annexForm.tipo_moneda === 'UF' ? '0.01' : '1'}` |  | `step === 'anexo' && selectedContrato && !loadingParent` |  | AnnexForm · l.647 |
-| «Fecha de Vencimiento *» | date |  |  | `step === 'cuotas' && !loadingParent && each cuotas` |  | AnnexForm · l.697 |
-| «Monto ( {annexForm.tipo_moneda} ) *» | number | `min=0 step={annexForm.tipo_moneda === 'UF' ? '0.01' : '1'}` |  | `step === 'cuotas' && !loadingParent && each cuotas` |  | AnnexForm · l.709 |
+| «Fecha del Anexo *» | date |  |  | `step === 'anexo' && selectedContrato && !loadingParent` |  | AnnexForm · l.615 |
+| «Número de Participantes *» | number | `min=1` |  | `step === 'anexo' && selectedContrato && !loadingParent` |  | AnnexForm · l.627 |
+| «Nombre del Ciclo *» | select |  | «(lista) {cycle}» | `step === 'anexo' && selectedContrato && !loadingParent` |  | AnnexForm · l.640 |
+| «Tipo de Moneda *» | select |  | «UF (Unidad de Fomento)», «CLP (Pesos Chilenos)» | `step === 'anexo' && selectedContrato && !loadingParent` |  | AnnexForm · l.655 |
+| «Precio Total ( {annexForm.tipo_moneda} ) *» | number | `min=0 step={annexForm.tipo_moneda === 'UF' ? '0.01' : '1'}` |  | `step === 'anexo' && selectedContrato && !loadingParent` |  | AnnexForm · l.669 |
+| «Fecha de Vencimiento *» | date |  |  | `step === 'cuotas' && !loadingParent && each cuotas` |  | AnnexForm · l.719 |
+| «Monto ( {annexForm.tipo_moneda} ) *» | number | `min=0 step={annexForm.tipo_moneda === 'UF' ? '0.01' : '1'}` |  | `step === 'cuotas' && !loadingParent && each cuotas` |  | AnnexForm · l.731 |
 
-**Toasts** (14)
+**Toasts** (15)
 
 | Kind | Text | When | Where |
 |---|---|---|---|
-| error | «Error al cargar el contrato padre» |  | loadParentContract · l.151 |
-| error | «Error al cargar contratos del cliente» |  | loadClienteContratos · l.181 |
-| error | «La fecha del anexo es obligatoria» | `!annexForm.anexo_fecha` | handleSaveAnnex · l.264 |
-| error | «Debe haber al menos 1 participante» | `annexForm.numero_participantes < 1` | handleSaveAnnex · l.269 |
-| error | «El precio total debe ser mayor a 0» | `annexForm.precio_total_uf <= 0` | handleSaveAnnex · l.274 |
-| error | «La cuota {incompleteCuota.numero_cuota} necesita fecha y un monto mayor que cero.» | `incompleteCuota` | handleSaveAnnex · l.284 |
-| error | «Debe agregar al menos una cuota válida» | `validCuotas.length === 0` | handleSaveAnnex · l.291 |
-| error | «La suma de las cuotas debe ser igual al precio total» | `Math.abs(totalCuotas - annexForm.precio_total_uf) > 0.01` | handleSaveAnnex · l.297 |
-| success | «Anexo actualizado exitosamente» | `editingAnnex` | handleSaveAnnex · l.329 |
-| success | «Anexo creado exitosamente» | `!(editingAnnex)` | handleSaveAnnex · l.382 |
-| error | «Error al guardar el anexo:» |  | handleSaveAnnex · l.389 |
-| error | «Error al generar la vista previa» |  | generatePreviewPDF · l.422 |
-| error | «Seleccione un cliente» | `step === 'cliente' && !selectedClienteId` | nextStep · l.428 |
-| error | «Seleccione un contrato» | `step === 'contrato' && !selectedContratoId` | nextStep · l.432 |
+| error | «Error al cargar el contrato padre» |  | loadParentContract · l.155 |
+| error | «Error al cargar contratos del cliente» |  | loadClienteContratos · l.185 |
+| error | «La fecha del anexo es obligatoria» | `!annexForm.anexo_fecha` | handleSaveAnnex · l.268 |
+| error | «Debe haber al menos 1 participante» | `annexForm.numero_participantes < 1` | handleSaveAnnex · l.273 |
+| error | «El precio total debe ser mayor a 0» | `annexForm.precio_total_uf <= 0` | handleSaveAnnex · l.278 |
+| error | «La cuota {incompleteCuota.numero_cuota} necesita fecha y un monto mayor que cero.» | `incompleteCuota` | handleSaveAnnex · l.288 |
+| error | «Debe agregar al menos una cuota válida» | `validCuotas.length === 0` | handleSaveAnnex · l.295 |
+| error | «La suma de las cuotas debe ser igual al precio total» | `Math.abs(totalCuotas - annexForm.precio_total_uf) > 0.01` | handleSaveAnnex · l.301 |
+| success | «Anexo actualizado exitosamente» | `editingAnnex` | handleSaveAnnex · l.333 |
+| error | «{FILLER_CLIENT_ANNEX_MESSAGE}» | `!(editingAnnex) && isFillerRut(storedRepresentanteRut)` | handleSaveAnnex · l.352 |
+| success | «Anexo creado exitosamente» | `!(editingAnnex)` | handleSaveAnnex · l.404 |
+| error | «Error al guardar el anexo:» |  | handleSaveAnnex · l.411 |
+| error | «Error al generar la vista previa» |  | generatePreviewPDF · l.444 |
+| error | «Seleccione un cliente» | `step === 'cliente' && !selectedClienteId` | nextStep · l.450 |
+| error | «Seleccione un contrato» | `step === 'contrato' && !selectedContratoId` | nextStep · l.454 |
 
 **Messages set on the page** (1)
 
 | Text | Set by | When | Where |
 |---|---|---|---|
-| «No se ha seleccionado un contrato padre» | `throw (shown by whoever catches it)` | `!editingAnnex && !selectedContrato` | handleSaveAnnex · l.259 |
+| «No se ha seleccionado un contrato padre» | `throw (shown by whoever catches it)` | `!editingAnnex && !selectedContrato` | handleSaveAnnex · l.263 |
 
-**Texts kept in lists and helpers in the code (labels, options, status names)** (1)
+**Texts kept in lists and helpers in the code (labels, options, status names)** (2)
 
 | Name | Texts | Where |
 |---|---|---|
-| `cycleOptions` | «Primer Ciclo», «Segundo Ciclo», «Tercer Ciclo», «Equipo Directivo» | AnnexForm · l.451 |
+| `FILLER_CLIENT_ANNEX_MESSAGE` | «Este cliente aún no tiene el RUT de su representante legal. Complétalo en Clientes antes de crear el anexo.» | l.11 |
+| `cycleOptions` | «Primer Ciclo», «Segundo Ciclo», «Tercer Ciclo», «Equipo Directivo» | AnnexForm · l.473 |
 
 **Values shown from data** (4)
 
-- `{label}` — AnnexForm · l.491, when `each [ { key: 'cliente', label: 'Cliente', icon: Users…`
-- `{cliente.nombre_legal}` — AnnexForm · l.532, when `step === 'cliente' && !loadingParent && each clientes`
-- `{cliente.nombre_fantasia}` — AnnexForm · l.533, when `step === 'cliente' && !loadingParent && each clientes`
-- `{contrato.numero_contrato}` — AnnexForm · l.558, when `step === 'contrato' && !loadingParent && each clienteContratos`
+- `{label}` — AnnexForm · l.513, when `each [ { key: 'cliente', label: 'Cliente', icon: Users…`
+- `{cliente.nombre_legal}` — AnnexForm · l.554, when `step === 'cliente' && !loadingParent && each clientes`
+- `{cliente.nombre_fantasia}` — AnnexForm · l.555, when `step === 'cliente' && !loadingParent && each clientes`
+- `{contrato.numero_contrato}` — AnnexForm · l.580, when `step === 'contrato' && !loadingParent && each clienteContratos`
 
 **Other texts on screen** (14)
 
-- «Cargando datos del anexo...» — AnnexForm · l.512, when `editingAnnex && loadingParent`
-- «RUT: {cliente.rut}» — AnnexForm · l.534, when `step === 'cliente' && !loadingParent && each clientes`
-- «{contrato.programas?.nombre} / {contrato.descripcion_manual} / Contrato manual» — AnnexForm · l.559, when `step === 'contrato' && !loadingParent && each clienteContratos`
-- «Fecha: {(() => { const parts = contrato.fec…}» — AnnexForm · l.560, when `step === 'contrato' && !loadingParent && each clienteContratos`
-- «Valor: $ / UF {contrato.precio_total_uf.toLocaleSt…}» — AnnexForm · l.572, when `step === 'contrato' && !loadingParent && each clienteContratos`
-- «Fecha del Anexo *» (label) — AnnexForm · l.590, when `step === 'anexo' && selectedContrato && !loadingParent`
-- «Número de Participantes *» (label) — AnnexForm · l.602, when `step === 'anexo' && selectedContrato && !loadingParent`
-- «Nombre del Ciclo *» (label) — AnnexForm · l.615, when `step === 'anexo' && selectedContrato && !loadingParent`
-- «Tipo de Moneda *» (label) — AnnexForm · l.630, when `step === 'anexo' && selectedContrato && !loadingParent`
-- «Precio Total ( {annexForm.tipo_moneda} ) *» (label) — AnnexForm · l.644, when `step === 'anexo' && selectedContrato && !loadingParent`
-- «Fecha de Vencimiento *» (label) — AnnexForm · l.694, when `step === 'cuotas' && !loadingParent && each cuotas`
-- «Monto ( {annexForm.tipo_moneda} ) *» (label) — AnnexForm · l.706, when `step === 'cuotas' && !loadingParent && each cuotas`
-- «Total del Anexo:» — AnnexForm · l.725, when `step === 'cuotas' && !loadingParent`
-- «Suma de Cuotas:» — AnnexForm · l.728, when `step === 'cuotas' && !loadingParent`
+- «Cargando datos del anexo...» — AnnexForm · l.534, when `editingAnnex && loadingParent`
+- «RUT: {cliente.rut}» — AnnexForm · l.556, when `step === 'cliente' && !loadingParent && each clientes`
+- «{contrato.programas?.nombre} / {contrato.descripcion_manual} / Contrato manual» — AnnexForm · l.581, when `step === 'contrato' && !loadingParent && each clienteContratos`
+- «Fecha: {(() => { const parts = contrato.fec…}» — AnnexForm · l.582, when `step === 'contrato' && !loadingParent && each clienteContratos`
+- «Valor: $ / UF {contrato.precio_total_uf.toLocaleSt…}» — AnnexForm · l.594, when `step === 'contrato' && !loadingParent && each clienteContratos`
+- «Fecha del Anexo *» (label) — AnnexForm · l.612, when `step === 'anexo' && selectedContrato && !loadingParent`
+- «Número de Participantes *» (label) — AnnexForm · l.624, when `step === 'anexo' && selectedContrato && !loadingParent`
+- «Nombre del Ciclo *» (label) — AnnexForm · l.637, when `step === 'anexo' && selectedContrato && !loadingParent`
+- «Tipo de Moneda *» (label) — AnnexForm · l.652, when `step === 'anexo' && selectedContrato && !loadingParent`
+- «Precio Total ( {annexForm.tipo_moneda} ) *» (label) — AnnexForm · l.666, when `step === 'anexo' && selectedContrato && !loadingParent`
+- «Fecha de Vencimiento *» (label) — AnnexForm · l.716, when `step === 'cuotas' && !loadingParent && each cuotas`
+- «Monto ( {annexForm.tipo_moneda} ) *» (label) — AnnexForm · l.728, when `step === 'cuotas' && !loadingParent && each cuotas`
+- «Total del Anexo:» — AnnexForm · l.747, when `step === 'cuotas' && !loadingParent`
+- «Suma de Cuotas:» — AnnexForm · l.750, when `step === 'cuotas' && !loadingParent`
 
-**Reads and writes the database directly:** `table:contratos` (insert, select, update), `table:cuotas` (insert)
+**Reads and writes the database directly:** `table:clientes` (select), `table:contratos` (insert, select, update), `table:cuotas` (insert)
 
 ### components/contracts/CashFlowView.tsx
 
@@ -1440,237 +1463,253 @@ Used by: `/contracts`
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «Información del Cliente» | h3 | `step === 'cliente'` | ContractForm · l.1536 |
-| «Información Legal Adicional» | h4 | `step === 'cliente' && !esManual` | ContractForm · l.1871 |
-| «Encargado del Proyecto» | h4 | `step === 'cliente' && !esManual` | ContractForm · l.1923 |
-| «Contacto Administrativo [(Requerido para facturación)]» | h4 | `step === 'cliente'` | ContractForm · l.1977 |
-| «Información del Contrato» | h3 | `step === 'contrato'` | ContractForm · l.2047 |
-| «Plan de Pagos» | h3 | `step === 'cuotas'` | ContractForm · l.2260 |
-| «Condiciones de Pago (Licitacion)» | h4 | `showCondicionesPago` | ContractForm · l.2468 |
+| «Información del Cliente» | h3 | `step === 'cliente'` | ContractForm · l.1727 |
+| «Información Legal Adicional» | h4 | `step === 'cliente' && !esManual` | ContractForm · l.2065 |
+| «Encargado del Proyecto» | h4 | `step === 'cliente' && !esManual` | ContractForm · l.2117 |
+| «Contacto Administrativo [(Requerido para facturación)]» | h4 | `step === 'cliente'` | ContractForm · l.2171 |
+| «Información del Contrato» | h3 | `step === 'contrato'` | ContractForm · l.2241 |
+| «Plan de Pagos» | h3 | `step === 'cuotas'` | ContractForm · l.2454 |
+| «Condiciones de Pago (Licitacion)» | h4 | `showCondicionesPago` | ContractForm · l.2662 |
 
 **Buttons** (12)
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «Importar con AI» | `{() => { // Trigger PDF import modal from parent window.dispatchEvent(new Custom…}` | `step === 'cliente'` |  |  | ContractForm · l.1569 |
-| «Cancelar / + Nueva Escuela» | `{() => setShowNewSchoolForm(!showNewSchoolForm)}` | `step === 'cliente'` |  |  | ContractForm · l.1626 |
-| «Creando... / Crear Escuela» | `{handleCreateSchool}` | `step === 'cliente' && !(!showNewSchoolForm)` | `{loading \|\| !newSchoolForm.name.trim()}` |  | ContractForm · l.1713 |
-| «Calcular Automático» | `{calculateCuotas}` | `step === 'cuotas'` |  |  | ContractForm · l.2263 |
-| «Agregar Cuota» | `{addCuota}` | `step === 'cuotas'` | `{cuotas.length >= 12}` |  | ContractForm · l.2270 |
-| «[icon Trash2]» · tooltip «Eliminar cuota» | `{() => removeCuota(index)}` | `step === 'cuotas' && each cuotas` | `{cuotas.length <= 1}` |  | ContractForm · l.2325 |
-| «Cancelar» | `{onCancel}` |  |  |  | ContractForm · l.2367 |
-| «Anterior» | `{() => { if (step === 'contrato') setStep('cliente'); if (step === 'cuotas') set…}` | `step !== 'cliente'` |  |  | ContractForm · l.2376 |
-| «Siguiente» | `{() => { if (step === 'cliente') setStep('contrato'); if (step === 'contrato') s…}` | `step !== 'cuotas'` | `{!isStepValid()}` |  | ContractForm · l.2391 |
-| «Guardando borrador... / Guardar Borrador» · tooltip «Guardar progreso sin finalizar el contrato» | `{handleSaveAsDraft}` | `!(step !== 'cuotas') && canSaveAsDraft` | `{savingAsDraft}` |  | ContractForm · l.2406 |
-| «Vista previa / PDF» | `{() => { void generateContractPDF().catch(() => toast.error('Error al abrir la v…}` | `!(step !== 'cuotas') && !esManual` | `{!isStepValid()}` |  | ContractForm · l.2428 |
-| «Guardando... / Actualizar Contrato / Guardar Contrato» | `{handleSaveContract}` | `!(step !== 'cuotas')` | `{!isStepValid() \|\| loading}` |  | ContractForm · l.2440 |
+| «Importar con AI» | `{() => { // Trigger PDF import modal from parent window.dispatchEvent(new Custom…}` | `step === 'cliente'` |  |  | ContractForm · l.1760 |
+| «Cancelar / + Nueva Escuela» | `{() => setShowNewSchoolForm(!showNewSchoolForm)}` | `step === 'cliente'` |  |  | ContractForm · l.1817 |
+| «Creando... / Crear Escuela» | `{handleCreateSchool}` | `step === 'cliente' && !(!showNewSchoolForm)` | `{loading \|\| !newSchoolForm.name.trim()}` |  | ContractForm · l.1904 |
+| «Calcular Automático» | `{calculateCuotas}` | `step === 'cuotas'` |  |  | ContractForm · l.2457 |
+| «Agregar Cuota» | `{addCuota}` | `step === 'cuotas'` | `{cuotas.length >= 12}` |  | ContractForm · l.2464 |
+| «[icon Trash2]» · tooltip «Eliminar cuota» | `{() => removeCuota(index)}` | `step === 'cuotas' && each cuotas` | `{cuotas.length <= 1}` |  | ContractForm · l.2519 |
+| «Cancelar» | `{onCancel}` |  |  |  | ContractForm · l.2561 |
+| «Anterior» | `{() => { if (step === 'contrato') setStep('cliente'); if (step === 'cuotas') set…}` | `step !== 'cliente'` |  |  | ContractForm · l.2570 |
+| «Siguiente» | `{() => { if (step === 'cliente') setStep('contrato'); if (step === 'contrato') s…}` | `step !== 'cuotas'` | `{!isStepValid()}` |  | ContractForm · l.2585 |
+| «Guardando borrador... / Guardar Borrador» · tooltip «Guardar progreso sin finalizar el contrato» | `{handleSaveAsDraft}` | `!(step !== 'cuotas') && canSaveAsDraft` | `{savingAsDraft}` |  | ContractForm · l.2600 |
+| «Vista previa / PDF» | `{() => { void generateContractPDF().catch(() => toast.error('Error al abrir la v…}` | `!(step !== 'cuotas') && !esManual` | `{!isStepValid()}` |  | ContractForm · l.2622 |
+| «Guardando... / Actualizar Contrato / Guardar Contrato» | `{handleSaveContract}` | `!(step !== 'cuotas')` | `{!isStepValid() \|\| loading}` |  | ContractForm · l.2634 |
 
 **Fields** (37)
 
 | Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
 |---|---|---|---|---|---|---|
-| «Contrato Manual (Subir PDF existente) Marque esta opción para contratos creados fuera del sistema. Solo se solicitará información operativa.» | checkbox | disabled: `{!!editingContract}` |  | `step === 'cliente'` |  | ContractForm · l.1543 |
-| «Seleccionar Cliente Existente (Pre-seleccionado desde licitacion) / (Opcional)» | select | disabled: `{!!licitacionId}` | «-- Crear nuevo cliente --», «(lista) {cliente.nombre_legal} ( {cliente.rut} )» | `step === 'cliente'` |  | ContractForm · l.1589 |
-|  | select |  | «-- Sin escuela asociada --», «(lista) {school.name} ({school.code}) (Vinculada a otro cliente)» | `step === 'cliente' && !showNewSchoolForm` |  | ContractForm · l.1636 |
-| «Nombre de la escuela *» | text | «Nombre de la escuela *» |  | `step === 'cliente' && !(!showNewSchoolForm)` |  | ContractForm · l.1668 |
-| «Código» | text | «Código» |  | `step === 'cliente' && !(!showNewSchoolForm)` |  | ContractForm · l.1677 |
-| «Región» | text | «Región» |  | `step === 'cliente' && !(!showNewSchoolForm)` |  | ContractForm · l.1684 |
-| «Dirección» | text | «Dirección» |  | `step === 'cliente' && !(!showNewSchoolForm)` |  | ContractForm · l.1693 |
-| «Esta escuela maneja generaciones» | checkbox |  |  | `step === 'cliente' && !(!showNewSchoolForm)` | `id=has_generations (id used by code)` | ContractForm · l.1702 |
-| «Nombre Legal *» | text | «Nombre legal de la empresa» · `readOnly={clientFieldReadOnly('nombre_legal')}` |  | `step === 'cliente'` |  | ContractForm · l.1737 |
-| «Nombre de Fantasía *» | text | «Nombre comercial» · `readOnly={clientFieldReadOnly('nombre_fantasia')}` |  | `step === 'cliente'` |  | ContractForm · l.1751 |
-| «RUT *» | text | «12.345.678-9» · `readOnly={clientFieldReadOnly('rut')}` |  | `step === 'cliente'` |  | ContractForm · l.1765 |
-| «Dirección *» | text | «Calle y número» · `readOnly={clientFieldReadOnly('direccion')}` |  | `step === 'cliente'` |  | ContractForm · l.1782 |
-| «Comuna *» | text | «Comuna» · `readOnly={clientFieldReadOnly('comuna')}` |  | `step === 'cliente'` |  | ContractForm · l.1796 |
-| «Ciudad *» | text | «Ciudad» · `readOnly={clientFieldReadOnly('ciudad')}` |  | `step === 'cliente'` |  | ContractForm · l.1810 |
-| «Representante Legal *» | text | «Nombre del representante» · `readOnly={clientFieldReadOnly('nombre_representante')}` |  | `step === 'cliente'` |  | ContractForm · l.1824 |
-| «RUT Representante» | text | «12.345.678-9» · `readOnly={clientFieldReadOnly('rut_representante')}` |  | `step === 'cliente'` |  | ContractForm · l.1838 |
-| «Fecha Escritura Pública *» | date |  |  | `step === 'cliente' && esManual && importedNewClient` | `testid=client-fecha-escritura-input` | ContractForm · l.1855 |
-| «Fecha Escritura Pública» | date | `readOnly={clientFieldReadOnly('fecha_escritura')}` |  | `step === 'cliente' && !esManual` |  | ContractForm · l.1877 |
-| «Notario Público» | text | «Nombre del notario» · `readOnly={clientFieldReadOnly('nombre_notario')}` |  | `step === 'cliente' && !esManual` |  | ContractForm · l.1893 |
-| «Comuna Notaría» | text | «Santiago, Providencia, etc.» · `readOnly={clientFieldReadOnly('comuna_notaria')}` |  | `step === 'cliente' && !esManual` |  | ContractForm · l.1907 |
-| «Nombre del Encargado» | text | «Nombre completo» · `readOnly={clientFieldReadOnly('nombre_encargado_proyecto')}` |  | `step === 'cliente' && !esManual` |  | ContractForm · l.1929 |
-| «Teléfono» | tel | «+56 9 1234 5678» · `readOnly={clientFieldReadOnly('telefono_encargado_proyecto')}` |  | `step === 'cliente' && !esManual` |  | ContractForm · l.1943 |
-| «Email» | email | «encargado@colegio.cl» · `readOnly={clientFieldReadOnly('email_encargado_proyecto')}` |  | `step === 'cliente' && !esManual` |  | ContractForm · l.1957 |
-| «Nombre del Contacto Administrativo» | text | «Nombre completo» · `readOnly={clientFieldReadOnly('nombre_contacto_administrativo')}` |  | `step === 'cliente'` |  | ContractForm · l.1995 |
-| «Teléfono de Facturación» | tel | «+56 2 2345 6789» · `readOnly={clientFieldReadOnly('telefono_contacto_administrativo')}` |  | `step === 'cliente'` |  | ContractForm · l.2009 |
-| «Email de Facturación» | email | «administracion@colegio.cl» · `readOnly={clientFieldReadOnly('email_contacto_administrativo')}` |  | `step === 'cliente'` |  | ContractForm · l.2023 |
-| «Número de Contrato *» | text | «FNE-2025-01-001» |  | `step === 'contrato'` |  | ContractForm · l.2064 |
-| «Fecha del Contrato *» | date |  |  | `step === 'contrato'` |  | ContractForm · l.2077 |
-| «Fecha de Finalización *» | date | `min={contractForm.fecha_contrato}` |  | `step === 'contrato'` |  | ContractForm · l.2089 |
-| «Descripción del Contrato *» | textarea | «Ej: Asesoría personalizada Q1 2025, Programa piloto región sur, Capacitación especial...» |  | `step === 'contrato' && esManual` |  | ContractForm · l.2104 |
-| «Programa Contratado *» | select | disabled: `{!!licitacionId}` | «-- Seleccionar programa --», «(lista) {programa.nombre} ( {programa.horas_totales} h - {programa.modalidad} )» | `step === 'contrato' && !(esManual)` |  | ContractForm · l.2120 |
-| «Horas contratadas» | number | `min=0 max=999999.99 step=0.01 readOnly={horasReadOnly}` |  | `step === 'contrato'` | `testid=contract-hours-input` | ContractForm · l.2155 |
-| «UF (Unidades de Fomento)» | radio | `tipo_moneda` |  | `step === 'contrato'` |  | ContractForm · l.2195 |
-| «Pesos Chilenos (CLP)» | radio | `tipo_moneda` |  | `step === 'contrato'` |  | ContractForm · l.2206 |
-| «Precio Total ( {contractForm.tipo_moneda} ) *» | text | «0.00» |  | `step === 'contrato'` | `testid=contract-total-input` | ContractForm · l.2224 |
-| «Fecha Vencimiento» | date |  |  | `step === 'cuotas' && each cuotas` |  | ContractForm · l.2302 |
-| «Monto ( {contractForm.tipo_moneda} )» | text |  |  | `step === 'cuotas' && each cuotas` | `testid=cuota-amount-input` | ContractForm · l.2314 |
+| «Contrato Manual (Subir PDF existente) Marque esta opción para contratos creados fuera del sistema. Solo se solicitará información operativa.» | checkbox | disabled: `{!!editingContract}` |  | `step === 'cliente'` |  | ContractForm · l.1734 |
+| «Seleccionar Cliente Existente (Pre-seleccionado desde licitacion) / (Opcional)» | select | disabled: `{!!licitacionId}` | «-- Crear nuevo cliente --», «(lista) {cliente.nombre_legal} ( {cliente.rut} )» | `step === 'cliente'` |  | ContractForm · l.1780 |
+|  | select |  | «-- Sin escuela asociada --», «(lista) {school.name} ({school.code}) (Vinculada a otro cliente)» | `step === 'cliente' && !showNewSchoolForm` |  | ContractForm · l.1827 |
+| «Nombre de la escuela *» | text | «Nombre de la escuela *» |  | `step === 'cliente' && !(!showNewSchoolForm)` |  | ContractForm · l.1859 |
+| «Código» | text | «Código» |  | `step === 'cliente' && !(!showNewSchoolForm)` |  | ContractForm · l.1868 |
+| «Región» | text | «Región» |  | `step === 'cliente' && !(!showNewSchoolForm)` |  | ContractForm · l.1875 |
+| «Dirección» | text | «Dirección» |  | `step === 'cliente' && !(!showNewSchoolForm)` |  | ContractForm · l.1884 |
+| «Esta escuela maneja generaciones» | checkbox |  |  | `step === 'cliente' && !(!showNewSchoolForm)` | `id=has_generations (id used by code)` | ContractForm · l.1893 |
+| «Nombre Legal *» | text | «Nombre legal de la empresa» · `readOnly={clientFieldReadOnly('nombre_legal')}` |  | `step === 'cliente'` |  | ContractForm · l.1928 |
+| «Nombre de Fantasía *» | text | «Nombre comercial» · `readOnly={clientFieldReadOnly('nombre_fantasia')}` |  | `step === 'cliente'` |  | ContractForm · l.1942 |
+| «RUT *» | text | «12.345.678-9» · `readOnly={clientFieldReadOnly('rut')}` |  | `step === 'cliente'` |  | ContractForm · l.1956 |
+| «Dirección *» | text | «Calle y número» · `readOnly={clientFieldReadOnly('direccion')}` |  | `step === 'cliente'` |  | ContractForm · l.1973 |
+| «Comuna *» | text | «Comuna» · `readOnly={clientFieldReadOnly('comuna')}` |  | `step === 'cliente'` |  | ContractForm · l.1987 |
+| «Ciudad *» | text | «Ciudad» · `readOnly={clientFieldReadOnly('ciudad')}` |  | `step === 'cliente'` |  | ContractForm · l.2001 |
+| «Representante Legal *» | text | «Nombre del representante» · `readOnly={clientFieldReadOnly('nombre_representante')}` |  | `step === 'cliente'` |  | ContractForm · l.2015 |
+| «RUT Representante *» | text | «12.345.678-9» · `readOnly={clientFieldReadOnly('rut_representante')}` |  | `step === 'cliente'` |  | ContractForm · l.2029 |
+| «Fecha Escritura Pública *» | date |  |  | `step === 'cliente' && esManual && importedNewClient` | `testid=client-fecha-escritura-input` | ContractForm · l.2049 |
+| «Fecha Escritura Pública» | date | `readOnly={clientFieldReadOnly('fecha_escritura')}` |  | `step === 'cliente' && !esManual` |  | ContractForm · l.2071 |
+| «Notario Público» | text | «Nombre del notario» · `readOnly={clientFieldReadOnly('nombre_notario')}` |  | `step === 'cliente' && !esManual` |  | ContractForm · l.2087 |
+| «Comuna Notaría» | text | «Santiago, Providencia, etc.» · `readOnly={clientFieldReadOnly('comuna_notaria')}` |  | `step === 'cliente' && !esManual` |  | ContractForm · l.2101 |
+| «Nombre del Encargado» | text | «Nombre completo» · `readOnly={clientFieldReadOnly('nombre_encargado_proyecto')}` |  | `step === 'cliente' && !esManual` |  | ContractForm · l.2123 |
+| «Teléfono» | tel | «+56 9 1234 5678» · `readOnly={clientFieldReadOnly('telefono_encargado_proyecto')}` |  | `step === 'cliente' && !esManual` |  | ContractForm · l.2137 |
+| «Email» | email | «encargado@colegio.cl» · `readOnly={clientFieldReadOnly('email_encargado_proyecto')}` |  | `step === 'cliente' && !esManual` |  | ContractForm · l.2151 |
+| «Nombre del Contacto Administrativo» | text | «Nombre completo» · `readOnly={clientFieldReadOnly('nombre_contacto_administrativo')}` |  | `step === 'cliente'` |  | ContractForm · l.2189 |
+| «Teléfono de Facturación» | tel | «+56 2 2345 6789» · `readOnly={clientFieldReadOnly('telefono_contacto_administrativo')}` |  | `step === 'cliente'` |  | ContractForm · l.2203 |
+| «Email de Facturación» | email | «administracion@colegio.cl» · `readOnly={clientFieldReadOnly('email_contacto_administrativo')}` |  | `step === 'cliente'` |  | ContractForm · l.2217 |
+| «Número de Contrato *» | text | «FNE-2025-01-001» |  | `step === 'contrato'` |  | ContractForm · l.2258 |
+| «Fecha del Contrato *» | date |  |  | `step === 'contrato'` |  | ContractForm · l.2271 |
+| «Fecha de Finalización *» | date | `min={contractForm.fecha_contrato}` |  | `step === 'contrato'` |  | ContractForm · l.2283 |
+| «Descripción del Contrato *» | textarea | «Ej: Asesoría personalizada Q1 2025, Programa piloto región sur, Capacitación especial...» |  | `step === 'contrato' && esManual` |  | ContractForm · l.2298 |
+| «Programa Contratado *» | select | disabled: `{!!licitacionId}` | «-- Seleccionar programa --», «(lista) {programa.nombre} ( {programa.horas_totales} h - {programa.modalidad} )» | `step === 'contrato' && !(esManual)` |  | ContractForm · l.2314 |
+| «Horas contratadas» | number | `min=0 max=999999.99 step=0.01 readOnly={horasReadOnly}` |  | `step === 'contrato'` | `testid=contract-hours-input` | ContractForm · l.2349 |
+| «UF (Unidades de Fomento)» | radio | `tipo_moneda` |  | `step === 'contrato'` |  | ContractForm · l.2389 |
+| «Pesos Chilenos (CLP)» | radio | `tipo_moneda` |  | `step === 'contrato'` |  | ContractForm · l.2400 |
+| «Precio Total ( {contractForm.tipo_moneda} ) *» | text | «0.00» |  | `step === 'contrato'` | `testid=contract-total-input` | ContractForm · l.2418 |
+| «Fecha Vencimiento» | date |  |  | `step === 'cuotas' && each cuotas` |  | ContractForm · l.2496 |
+| «Monto ( {contractForm.tipo_moneda} )» | text |  |  | `step === 'cuotas' && each cuotas` | `testid=cuota-amount-input` | ContractForm · l.2508 |
 
 **Browser confirm()** (1)
 
 | Question | When | Where |
 |---|---|---|
-| «{confirmMessage}» | `!(editingContract) && !selectedClienteId && existingCliente` | handleSaveContract · l.1205 |
+| «{confirmMessage}» | `!(editingContract) && !selectedClienteId && existingCliente` | handleSaveContract · l.1366 |
 
-**Toasts** (17)
+**Toasts** (25)
 
 | Kind | Text | When | Where |
 |---|---|---|---|
-| plain | «Advertencia: el precio adjudicado ({precio} {licitacionData.tipo_moneda …}) esta fuera del rango de la licitacion ({min}–{max} {licitacionData.tipo_moneda …})» | `licitacionData.precio_total_uf != null && licitacionData.monto_minimo != null && licitacionData.monto_maximo != null && (precio < min \|\| precio > max)` | ContractForm · l.503 |
-| error | «El contrato se guardó, pero no se pudo completar {list} en la ficha del cliente. Corríjalo en Clientes.» |  | tellFieldsNotWritten · l.631 |
-| error | «El nombre de la escuela es requerido» | `!newSchoolForm.name.trim()` | handleCreateSchool · l.737 |
-| success | «Escuela creada exitosamente» |  | handleCreateSchool · l.791 |
-| error | «Error al crear la escuela:» |  | handleCreateSchool · l.794 |
-| error | «{RUT_INVALID_MESSAGE}» | `rutInvalid` | handleSaveAsDraft · l.854 |
-| error | «{ASK_ESCRITURA_DATE_MESSAGE}» | `escrituraDateMissing` | handleSaveAsDraft · l.858 |
-| error | «Por favor ingrese un número de contrato antes de guardar como borrador.» | `!contractForm.numero_contrato` | handleSaveAsDraft · l.864 |
-| error | «La cuota {cuota.numero_cuota} necesita una fecha de vencimiento para guardar el borrador.» | `!cuota.fecha_vencimiento` | handleSaveAsDraft · l.872 |
-| error | «La cuota {cuota.numero_cuota} necesita un monto mayor que cero para guardar el borrador.» | `!(cuota.monto > 0) && !cuotaProblem(cuota)` | handleSaveAsDraft · l.876 |
-| error | «{amountPrecisionError}» | `amountPrecisionError` | handleSaveAsDraft · l.881 |
-| error | «No se pudo guardar el cliente del borrador. Revise sus datos e inténtelo de nuevo.» | `(!clienteId && (clienteForm.rut \|\| clienteForm.nombre_legal)) && !clienteId && clienteError` | handleSaveAsDraft · l.916 |
-| success | «✅ Contrato guardado como borrador. Puede continuar editándolo más tarde desde la lista de contratos.» |  | handleSaveAsDraft · l.1042 |
-| error | «No se pudo guardar el borrador. Inténtelo de nuevo.» |  | handleSaveAsDraft · l.1047 |
-| error | «Creación de contrato cancelada. Por favor verifica el RUT del cliente.» | `!(editingContract) && !selectedClienteId && existingCliente && !(confirm(confirmMessage))` | handleSaveContract · l.1210 |
-| error | «Error al guardar el contrato:» |  | handleSaveContract · l.1330 |
-| error | «Error al abrir la vista previa del contrato» | `!(step !== 'cuotas') && !esManual` | ContractForm · l.2431 |
+| plain | «Advertencia: el precio adjudicado ({precio} {licitacionData.tipo_moneda …}) esta fuera del rango de la licitacion ({min}–{max} {licitacionData.tipo_moneda …})» | `licitacionData.precio_total_uf != null && licitacionData.monto_minimo != null && licitacionData.monto_maximo != null && (precio < min \|\| precio > max)` | ContractForm · l.512 |
+| error | «El contrato se guardó, pero no se pudo completar {list} en la ficha del cliente. Corríjalo en Clientes.» |  | tellFieldsNotWritten · l.640 |
+| error | «El nombre de la escuela es requerido» | `!newSchoolForm.name.trim()` | handleCreateSchool · l.840 |
+| success | «Escuela creada exitosamente» |  | handleCreateSchool · l.894 |
+| error | «Error al crear la escuela:» |  | handleCreateSchool · l.897 |
+| error | «{RUT_INVALID_MESSAGE}» | `rutInvalid` | handleSaveAsDraft · l.957 |
+| error | «{ASK_ESCRITURA_DATE_MESSAGE}» | `escrituraDateMissing` | handleSaveAsDraft · l.961 |
+| error | «{repRutMessage()}» | `!editingContract && (isNewClient && (clienteForm.rut \|\| clienteForm.nombre_legal) && repRutProblem)` | handleSaveAsDraft · l.969 |
+| error | «{repRutMessageFor(chosenRepRut)}» | `!editingContract && chosenRepRut && !chosenRepRut.allow` | handleSaveAsDraft · l.974 |
+| error | «Por favor ingrese un número de contrato antes de guardar como borrador.» | `!contractForm.numero_contrato` | handleSaveAsDraft · l.981 |
+| error | «La cuota {cuota.numero_cuota} necesita una fecha de vencimiento para guardar el borrador.» | `!cuota.fecha_vencimiento` | handleSaveAsDraft · l.989 |
+| error | «La cuota {cuota.numero_cuota} necesita un monto mayor que cero para guardar el borrador.» | `!(cuota.monto > 0) && !cuotaProblem(cuota)` | handleSaveAsDraft · l.993 |
+| error | «{amountPrecisionError}» | `amountPrecisionError` | handleSaveAsDraft · l.998 |
+| error | «{FILLER_CLIENT_CONTRACT_MESSAGE}» | `(!clienteId && (clienteForm.rut \|\| clienteForm.nombre_legal)) && clienteForm.rut && existingCliente && !foundClientRepRutDecision(existingCliente).allow` | handleSaveAsDraft · l.1020 |
+| error | «No se pudo guardar el cliente del borrador. Revise sus datos e inténtelo de nuevo.» | `(!clienteId && (clienteForm.rut \|\| clienteForm.nombre_legal)) && !clienteId && clienteError` | handleSaveAsDraft · l.1038 |
+| success | «✅ Contrato guardado como borrador. Puede continuar editándolo más tarde desde la lista de contratos.» |  | handleSaveAsDraft · l.1164 |
+| error | «No se pudo guardar el borrador. Inténtelo de nuevo.» |  | handleSaveAsDraft · l.1169 |
+| error | «{repRutMessage()}» | `editingContract && repRutProblem` | handleSaveContract · l.1191 |
+| error | «{repRutMessageFor(repRutSave)}» | `editingContract && !repRutSave.allow` | handleSaveContract · l.1206 |
+| error | «{repRutMessage()}» | `!(editingContract) && isNewClient && repRutProblem` | handleSaveContract · l.1326 |
+| error | «{repRutMessageFor(chosenRepRut)}» | `!(editingContract) && chosenRepRut && !chosenRepRut.allow` | handleSaveContract · l.1331 |
+| error | «{FILLER_CLIENT_CONTRACT_MESSAGE}» | `!selectedClienteId && existingCliente && confirm(confirmMessage) && !foundClientRepRutDecision(existingCliente).allow` | handleSaveContract · l.1369 |
+| error | «Creación de contrato cancelada. Por favor verifica el RUT del cliente.» | `!(editingContract) && !selectedClienteId && existingCliente && !(confirm(confirmMessage))` | handleSaveContract · l.1376 |
+| error | «Error al guardar el contrato:» |  | handleSaveContract · l.1496 |
+| error | «Error al abrir la vista previa del contrato» | `!(step !== 'cuotas') && !esManual` | ContractForm · l.2625 |
 
 **Messages set on the page** (5)
 
 | Text | Set by | When | Where |
 |---|---|---|---|
-| «No authenticated session» | `throw (shown by whoever catches it)` | `!session` | handleCreateSchool · l.747 |
-| «Error creating school» | `throw (shown by whoever catches it)` | `!response.ok` | handleCreateSchool · l.761 |
-| «El número de contrato "{contractForm.numero_contrato}" ya existe. Por favor, use un número diferente.» | `throw (shown by whoever catches it)` | `!(editingContract) && existingContract` | handleSaveContract · l.1248 |
-| «Error: No se pudo determinar el ID del cliente. Por favor, seleccione o cree un cliente válido.» | `throw (shown by whoever catches it)` | `!(editingContract) && !clienteId` | handleSaveContract · l.1253 |
-| «Error: El cliente seleccionado no existe en la base de datos. Por favor, cree un nuevo cliente o seleccione uno existente.» | `throw (shown by whoever catches it)` | `!(editingContract) && contratoError && contratoError.message.includes('contratos_cliente_id_fkey')` | handleSaveContract · l.1299 |
+| «No authenticated session» | `throw (shown by whoever catches it)` | `!session` | handleCreateSchool · l.850 |
+| «Error creating school» | `throw (shown by whoever catches it)` | `!response.ok` | handleCreateSchool · l.864 |
+| «El número de contrato "{contractForm.numero_contrato}" ya existe. Por favor, use un número diferente.» | `throw (shown by whoever catches it)` | `!(editingContract) && existingContract` | handleSaveContract · l.1414 |
+| «Error: No se pudo determinar el ID del cliente. Por favor, seleccione o cree un cliente válido.» | `throw (shown by whoever catches it)` | `!(editingContract) && !clienteId` | handleSaveContract · l.1419 |
+| «Error: El cliente seleccionado no existe en la base de datos. Por favor, cree un nuevo cliente o seleccione uno existente.» | `throw (shown by whoever catches it)` | `!(editingContract) && contratoError && contratoError.message.includes('contratos_cliente_id_fkey')` | handleSaveContract · l.1465 |
 
-**Draws nothing when** (5)
+**Draws nothing when** (7)
 
 | Condition | Where |
 |---|---|
-| `!licitacionData \|\| editingContract` | ContractForm · l.453 |
-| `!licitacionProgramaId \|\| editingContract` | ContractForm · l.518 |
-| `cancelled` | ContractForm · l.551 |
-| `licitacionId` | ContractForm · l.2123 |
-| `horasReadOnly` | ContractForm · l.2164 |
+| `!licitacionData \|\| editingContract` | ContractForm · l.462 |
+| `!licitacionProgramaId \|\| editingContract` | ContractForm · l.527 |
+| `cancelled` | ContractForm · l.560 |
+| `!clientReadOnly \|\| !selectedClienteId` | ContractForm · l.725 |
+| `!freshReadNeeded(listedRepRut)` | ContractForm · l.726 |
+| `licitacionId` | ContractForm · l.2317 |
+| `horasReadOnly` | ContractForm · l.2358 |
 
-**Texts kept in lists and helpers in the code (labels, options, status names)** (10)
+**Texts kept in lists and helpers in the code (labels, options, status names)** (15)
 
 | Name | Texts | Where |
 |---|---|---|
-| `subject` | «el precio total / el monto de la cuota {target.cuota}» | unreadableMessage · l.134 |
-| `RUT_INVALID_MESSAGE` | «El RUT del cliente no es válido. Revise los números y el dígito verificador.» | l.139 |
-| `ASK_ESCRITURA_DATE_MESSAGE` | «El PDF no indica la fecha de la escritura pública. Escríbala para crear el cliente.» | l.141 |
-| `CLIENT_FIELD_NAMES` | «el nombre legal», «el nombre de fantasía», «el RUT», «la dirección», «la comuna», «la ciudad», «el representante legal», «el nombre del contacto administrativo», «el email de facturación» | l.144 |
-| `DUPLICATE_DRAFT_NUMBER_MESSAGE` | «Ya existe un contrato con este número. Por favor use un número diferente.» | l.156 |
-| `readAmount()` | «precision / unreadable» | readAmount · l.116 |
-| `ambiguousMessage()` | «Monto ambiguo: escriba {typed.replace('.', ',')} si son decimales o {typed.replace('.', '')} si son miles.» | ambiguousMessage · l.122 |
-| `unreadableMessage()` | «No se entiende {subject}. Escríbalo con punto de miles y coma decimal, por ejemplo 1.200,50.» | unreadableMessage · l.135 |
-| `readHourAllocationState()` | «has / none» | readHourAllocationState · l.536 |
-| `formatCurrency()` | «UF {amount.toLocaleString('es-C…}» | formatCurrency · l.1338 |
+| `subject` | «el precio total / el monto de la cuota {target.cuota}» | unreadableMessage · l.135 |
+| `RUT_INVALID_MESSAGE` | «El RUT del cliente no es válido. Revise los números y el dígito verificador.» | l.140 |
+| `REP_RUT_MISSING_MESSAGE` | «Ingresa el RUT del representante legal.» | l.142 |
+| `REP_RUT_INVALID_MESSAGE` | «El RUT del representante legal no es válido.» | l.143 |
+| `REP_RUT_FILLER_MESSAGE` | «Ingresa el RUT real del representante legal; 11.111.111-1 no es válido.» | l.144 |
+| `FILLER_CLIENT_CONTRACT_MESSAGE` | «Este cliente aún no tiene el RUT de su representante legal. Complétalo en Clientes antes de crear el contrato.» | l.145 |
+| `ASK_ESCRITURA_DATE_MESSAGE` | «El PDF no indica la fecha de la escritura pública. Escríbala para crear el cliente.» | l.148 |
+| `CLIENT_FIELD_NAMES` | «el nombre legal», «el nombre de fantasía», «el RUT», «la dirección», «la comuna», «la ciudad», «el representante legal», «el nombre del contacto administrativo», «el email de facturación» | l.151 |
+| `DUPLICATE_DRAFT_NUMBER_MESSAGE` | «Ya existe un contrato con este número. Por favor use un número diferente.» | l.163 |
+| `stepFreshRead` | «answered / failed / pending / not-needed» | ContractForm · l.664 |
+| `readAmount()` | «precision / unreadable» | readAmount · l.117 |
+| `ambiguousMessage()` | «Monto ambiguo: escriba {typed.replace('.', ',')} si son decimales o {typed.replace('.', '')} si son miles.» | ambiguousMessage · l.123 |
+| `unreadableMessage()` | «No se entiende {subject}. Escríbalo con punto de miles y coma decimal, por ejemplo 1.200,50.» | unreadableMessage · l.136 |
+| `readHourAllocationState()` | «has / none» | readHourAllocationState · l.545 |
+| `formatCurrency()` | «UF {amount.toLocaleString('es-C…}» | formatCurrency · l.1504 |
 
 **Other texts written in the code (safety net: not tied to an element by the script)** (12)
 
 | Text | Where |
 |---|---|
-| «Monto ambiguo: escriba {typed.replace('.', ',')} si son decimales o {typed.replace('.', '')} si son miles.» | ambiguousMessage · l.122 |
-| «No se entiende {subject}. Escríbalo con punto de miles y coma decimal, por ejemplo 1.200,50.» | unreadableMessage · l.135 |
-| «Contrato importado desde PDF - {extractedData.contract?.num…}» | ContractForm · l.321 |
-| «Sin número» | ContractForm · l.321 |
-| «Bearer {session.access_token}» | ContractForm · l.754 |
-| «Nombre: {existingCliente.nombre_legal}» | ContractForm · l.1197 |
-| «Nombre Fantasía: {existingCliente.nombre_fant…}» | ContractForm · l.1198 |
-| «Ciudad: {existingCliente.ciudad}» | ContractForm · l.1199 |
-| «Representante: {existingCliente.nombre_repr…}» | ContractForm · l.1200 |
-| «¿Deseas usar este cliente existente para el contrato?» | ContractForm · l.1201 |
-| «• SÍ: Usará el cliente existente» | ContractForm · l.1202 |
-| «• NO: Verifica el RUT y corrige los datos» | ContractForm · l.1203 |
+| «Monto ambiguo: escriba {typed.replace('.', ',')} si son decimales o {typed.replace('.', '')} si son miles.» | ambiguousMessage · l.123 |
+| «No se entiende {subject}. Escríbalo con punto de miles y coma decimal, por ejemplo 1.200,50.» | unreadableMessage · l.136 |
+| «Contrato importado desde PDF - {extractedData.contract?.num…}» | ContractForm · l.330 |
+| «Sin número» | ContractForm · l.330 |
+| «Bearer {session.access_token}» | ContractForm · l.857 |
+| «Nombre: {existingCliente.nombre_legal}» | ContractForm · l.1358 |
+| «Nombre Fantasía: {existingCliente.nombre_fant…}» | ContractForm · l.1359 |
+| «Ciudad: {existingCliente.ciudad}» | ContractForm · l.1360 |
+| «Representante: {existingCliente.nombre_repr…}» | ContractForm · l.1361 |
+| «¿Deseas usar este cliente existente para el contrato?» | ContractForm · l.1362 |
+| «• SÍ: Usará el cliente existente» | ContractForm · l.1363 |
+| «• NO: Verifica el RUT y corrige los datos» | ContractForm · l.1364 |
 
 **Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (2)
 
 | Kind | What | Where |
 |---|---|---|
-| mark | `testid=client-readonly-note` | ContractForm · l.1608 |
-| mark | `testid=client-fill-note` | ContractForm · l.1613 |
+| mark | `testid=client-readonly-note` | ContractForm · l.1799 |
+| mark | `testid=client-fill-note` | ContractForm · l.1804 |
 
-**Values shown from data** (7)
+**Values shown from data** (8)
 
-- `{index + 1}` — ContractForm · l.1509, when `each ['cliente', 'contrato', 'cuotas']`
-- `{RUT_INVALID_MESSAGE}` — ContractForm · l.1774, when `step === 'cliente' && rutInvalid`
-- `{ASK_ESCRITURA_DATE_MESSAGE}` — ContractForm · l.1863, when `step === 'cliente' && esManual && importedNewClient && escrituraDateMissing`
-- `{ASK_ESCRITURA_DATE_MESSAGE}` — ContractForm · l.1885, when `step === 'cliente' && !esManual && escrituraDateMissing`
-- `{amountMessage(totalProblem, 'total'…}` — ContractForm · l.2238, when `step === 'contrato' && totalProblem`
-- `{amountPrecisionError}` — ContractForm · l.2350, when `step === 'cuotas' && amountPrecisionError`
-- `{licitacionData?.condiciones_pago}` — ContractForm · l.2471, when `showCondicionesPago`
+- `{index + 1}` — ContractForm · l.1700, when `each ['cliente', 'contrato', 'cuotas']`
+- `{RUT_INVALID_MESSAGE}` — ContractForm · l.1965, when `step === 'cliente' && rutInvalid`
+- `{repRutMessage()}` — ContractForm · l.2038, when `step === 'cliente' && repRutStep.refusal && repRutStep.refusal !== 'missing'`
+- `{ASK_ESCRITURA_DATE_MESSAGE}` — ContractForm · l.2057, when `step === 'cliente' && esManual && importedNewClient && escrituraDateMissing`
+- `{ASK_ESCRITURA_DATE_MESSAGE}` — ContractForm · l.2079, when `step === 'cliente' && !esManual && escrituraDateMissing`
+- `{amountMessage(totalProblem, 'total'…}` — ContractForm · l.2432, when `step === 'contrato' && totalProblem`
+- `{amountPrecisionError}` — ContractForm · l.2544, when `step === 'cuotas' && amountPrecisionError`
+- `{licitacionData?.condiciones_pago}` — ContractForm · l.2665, when `showCondicionesPago`
 
 **Other texts on screen** (65)
 
-- «Datos pre-cargados desde licitacion.» — ContractForm · l.1468, when `licitacionId && !extractedData`
-- «El cliente, programa y monto han sido completados automaticamente. Revise y complete los campos restantes.» — ContractForm · l.1468, when `licitacionId && !extractedData`
-- «Datos importados desde PDF» — ContractForm · l.1480, when `extractedData`
-- «Los campos han sido pre-llenados con la información extraída. Por favor, revise y complete los campos faltantes.» — ContractForm · l.1482, when `extractedData`
-- «Confianza: {Math.round(extractedData.overall_co…} %» — ContractForm · l.1487, when `extractedData && extractedData.overall_confidence`
-- «[Cliente] [Contrato] [Cuotas]» — ContractForm · l.1515, when `each ['cliente', 'contrato', 'cuotas']`
-- «Contrato Manual (Subir PDF existente) Marque esta opción para contratos creados fuera del sistema. Solo se solicitará información operativa.» (label) — ContractForm · l.1542, when `step === 'cliente'`
-- «¿Tiene un PDF de contrato?» — ContractForm · l.1564, when `step === 'cliente'`
-- «Use AI para extraer automáticamente la información del contrato» — ContractForm · l.1566, when `step === 'cliente'`
-- «Seleccionar Cliente Existente (Pre-seleccionado desde licitacion) / (Opcional)» (label) — ContractForm · l.1586, when `step === 'cliente'`
-- «Cliente fijado por la licitacion. No se puede cambiar.» — ContractForm · l.1604, when `step === 'cliente' && licitacionId`
-- «Para corregir los datos del cliente, use Clientes» — ContractForm · l.1609, when `step === 'cliente' && clientReadOnly`
-- «Los datos que faltan en la ficha del cliente se guardarán en ella.» — ContractForm · l.1614, when `step === 'cliente' && fillableClientFields.length > 0`
-- «Escuela Asociada» (label) — ContractForm · l.1622, when `step === 'cliente'`
-- «Esta escuela maneja generaciones» (label) — ContractForm · l.1709, when `step === 'cliente' && !(!showNewSchoolForm)`
-- «La escuela y el cliente quedarán vinculados automáticamente» — ContractForm · l.1726, when `step === 'cliente' && selectedSchoolId`
-- «Nombre Legal *» (label) — ContractForm · l.1734, when `step === 'cliente'`
-- «Nombre de Fantasía *» (label) — ContractForm · l.1748, when `step === 'cliente'`
-- «RUT *» (label) — ContractForm · l.1762, when `step === 'cliente'`
-- «Dirección *» (label) — ContractForm · l.1779, when `step === 'cliente'`
-- «Comuna *» (label) — ContractForm · l.1793, when `step === 'cliente'`
-- «Ciudad *» (label) — ContractForm · l.1807, when `step === 'cliente'`
-- «Representante Legal *» (label) — ContractForm · l.1821, when `step === 'cliente'`
-- «RUT Representante» (label) — ContractForm · l.1835, when `step === 'cliente'`
-- «Fecha Escritura Pública *» (label) — ContractForm · l.1852, when `step === 'cliente' && esManual && importedNewClient`
-- «Fecha Escritura Pública» (label) — ContractForm · l.1874, when `step === 'cliente' && !esManual`
-- «Notario Público» (label) — ContractForm · l.1890, when `step === 'cliente' && !esManual`
-- «Comuna Notaría» (label) — ContractForm · l.1904, when `step === 'cliente' && !esManual`
-- «Nombre del Encargado» (label) — ContractForm · l.1926, when `step === 'cliente' && !esManual`
-- «Teléfono» (label) — ContractForm · l.1940, when `step === 'cliente' && !esManual`
-- «Email» (label) — ContractForm · l.1954, when `step === 'cliente' && !esManual`
-- «Esta información es necesaria para la gestión de facturación y seguimiento del proyecto.» — ContractForm · l.1969, when `step === 'cliente' && !esManual`
-- «Importante:» — ContractForm · l.1985, when `step === 'cliente'`
-- «Esta es la persona que recibirá todas las facturas y documentos administrativos del contrato.» — ContractForm · l.1985, when `step === 'cliente'`
-- «Nombre del Contacto Administrativo» (label) — ContractForm · l.1992, when `step === 'cliente'`
-- «Teléfono de Facturación» (label) — ContractForm · l.2006, when `step === 'cliente'`
-- «Email de Facturación» (label) — ContractForm · l.2020, when `step === 'cliente'`
-- «Nota:» — ContractForm · l.2035, when `step === 'cliente'`
-- «Las facturas y documentos administrativos se enviarán a este contacto por email.» — ContractForm · l.2035, when `step === 'cliente'`
-- «Contrato Manual» — ContractForm · l.2054, when `step === 'contrato' && esManual`
-- «- Solo ingrese información necesaria para gestión operativa y pagos.» — ContractForm · l.2054, when `step === 'contrato' && esManual`
-- «Número de Contrato *» (label) — ContractForm · l.2061, when `step === 'contrato'`
-- «Fecha del Contrato *» (label) — ContractForm · l.2074, when `step === 'contrato'`
-- «Fecha de Finalización *» (label) — ContractForm · l.2086, when `step === 'contrato'`
-- «Descripción del Contrato *» (label) — ContractForm · l.2101, when `step === 'contrato' && esManual`
-- «Breve descripción del servicio o programa que cubre este contrato» — ContractForm · l.2112, when `step === 'contrato' && esManual`
-- «Programa Contratado *» (label) — ContractForm · l.2117, when `step === 'contrato' && !(esManual)`
-- «Programa fijado por la licitacion. No se puede cambiar.» — ContractForm · l.2144, when `step === 'contrato' && !(esManual) && licitacionId`
-- «Horas contratadas» (label) — ContractForm · l.2152, when `step === 'contrato'`
-- «Horas de la bolsa de este contrato (opcional). / Se completa con las horas del programa al elegirlo; puede cambiarlas después.» — ContractForm · l.2171, when `step === 'contrato' && hourAllocationState !== 'has'`
-- «No se puede cambiar: el contrato ya tiene una distribución de horas.» — ContractForm · l.2179, when `step === 'contrato' && hourAllocationState === 'has'`
-- «Las horas contratadas deben ser un número entre 0 y 999999,99 con hasta dos decimales.» — ContractForm · l.2184, when `step === 'contrato' && !horasValid`
-- «Tipo de Moneda» (label) — ContractForm · l.2190, when `step === 'contrato'`
-- «UF (Unidades de Fomento)» (label) — ContractForm · l.2194, when `step === 'contrato'`
-- «Pesos Chilenos (CLP)» (label) — ContractForm · l.2205, when `step === 'contrato'`
-- «Precio Total ( {contractForm.tipo_moneda} ) *» (label) — ContractForm · l.2220, when `step === 'contrato'`
-- «El PDF del contrato se subirá después de guardar» — ContractForm · l.2247, when `step === 'contrato' && esManual`
-- «Una vez guardada la información, podrá cargar el PDF desde el listado de contratos» — ContractForm · l.2248, when `step === 'contrato' && esManual`
-- «Total del Contrato:» — ContractForm · l.2284, when `step === 'cuotas'`
-- «Total de Cuotas:» — ContractForm · l.2287, when `step === 'cuotas'`
-- «Cuota {cuota.numero_cuota}» — ContractForm · l.2295, when `step === 'cuotas' && each cuotas`
-- «Fecha Vencimiento» (label) — ContractForm · l.2299, when `step === 'cuotas' && each cuotas`
-- «Monto ( {contractForm.tipo_moneda} )» (label) — ContractForm · l.2311, when `step === 'cuotas' && each cuotas`
-- «⚠️ La suma de las cuotas no coincide con el total del contrato. Diferencia: {contractForm.tipo_moneda} {difference(contractForm.precio_tota…}» — ContractForm · l.2341, when `step === 'cuotas' && !cuotasMatchTotal`
-- «La cuota {zeroAmountCuota.numero_cuota} necesita un monto mayor que cero.» — ContractForm · l.2356, when `step === 'cuotas' && zeroAmountCuota`
+- «Datos pre-cargados desde licitacion.» — ContractForm · l.1659, when `licitacionId && !extractedData`
+- «El cliente, programa y monto han sido completados automaticamente. Revise y complete los campos restantes.» — ContractForm · l.1659, when `licitacionId && !extractedData`
+- «Datos importados desde PDF» — ContractForm · l.1671, when `extractedData`
+- «Los campos han sido pre-llenados con la información extraída. Por favor, revise y complete los campos faltantes.» — ContractForm · l.1673, when `extractedData`
+- «Confianza: {Math.round(extractedData.overall_co…} %» — ContractForm · l.1678, when `extractedData && extractedData.overall_confidence`
+- «[Cliente] [Contrato] [Cuotas]» — ContractForm · l.1706, when `each ['cliente', 'contrato', 'cuotas']`
+- «Contrato Manual (Subir PDF existente) Marque esta opción para contratos creados fuera del sistema. Solo se solicitará información operativa.» (label) — ContractForm · l.1733, when `step === 'cliente'`
+- «¿Tiene un PDF de contrato?» — ContractForm · l.1755, when `step === 'cliente'`
+- «Use AI para extraer automáticamente la información del contrato» — ContractForm · l.1757, when `step === 'cliente'`
+- «Seleccionar Cliente Existente (Pre-seleccionado desde licitacion) / (Opcional)» (label) — ContractForm · l.1777, when `step === 'cliente'`
+- «Cliente fijado por la licitacion. No se puede cambiar.» — ContractForm · l.1795, when `step === 'cliente' && licitacionId`
+- «Para corregir los datos del cliente, use Clientes» — ContractForm · l.1800, when `step === 'cliente' && clientReadOnly`
+- «Los datos que faltan en la ficha del cliente se guardarán en ella.» — ContractForm · l.1805, when `step === 'cliente' && fillableClientFields.length > 0`
+- «Escuela Asociada» (label) — ContractForm · l.1813, when `step === 'cliente'`
+- «Esta escuela maneja generaciones» (label) — ContractForm · l.1900, when `step === 'cliente' && !(!showNewSchoolForm)`
+- «La escuela y el cliente quedarán vinculados automáticamente» — ContractForm · l.1917, when `step === 'cliente' && selectedSchoolId`
+- «Nombre Legal *» (label) — ContractForm · l.1925, when `step === 'cliente'`
+- «Nombre de Fantasía *» (label) — ContractForm · l.1939, when `step === 'cliente'`
+- «RUT *» (label) — ContractForm · l.1953, when `step === 'cliente'`
+- «Dirección *» (label) — ContractForm · l.1970, when `step === 'cliente'`
+- «Comuna *» (label) — ContractForm · l.1984, when `step === 'cliente'`
+- «Ciudad *» (label) — ContractForm · l.1998, when `step === 'cliente'`
+- «Representante Legal *» (label) — ContractForm · l.2012, when `step === 'cliente'`
+- «RUT Representante *» (label) — ContractForm · l.2026, when `step === 'cliente'`
+- «Fecha Escritura Pública *» (label) — ContractForm · l.2046, when `step === 'cliente' && esManual && importedNewClient`
+- «Fecha Escritura Pública» (label) — ContractForm · l.2068, when `step === 'cliente' && !esManual`
+- «Notario Público» (label) — ContractForm · l.2084, when `step === 'cliente' && !esManual`
+- «Comuna Notaría» (label) — ContractForm · l.2098, when `step === 'cliente' && !esManual`
+- «Nombre del Encargado» (label) — ContractForm · l.2120, when `step === 'cliente' && !esManual`
+- «Teléfono» (label) — ContractForm · l.2134, when `step === 'cliente' && !esManual`
+- «Email» (label) — ContractForm · l.2148, when `step === 'cliente' && !esManual`
+- «Esta información es necesaria para la gestión de facturación y seguimiento del proyecto.» — ContractForm · l.2163, when `step === 'cliente' && !esManual`
+- «Importante:» — ContractForm · l.2179, when `step === 'cliente'`
+- «Esta es la persona que recibirá todas las facturas y documentos administrativos del contrato.» — ContractForm · l.2179, when `step === 'cliente'`
+- «Nombre del Contacto Administrativo» (label) — ContractForm · l.2186, when `step === 'cliente'`
+- «Teléfono de Facturación» (label) — ContractForm · l.2200, when `step === 'cliente'`
+- «Email de Facturación» (label) — ContractForm · l.2214, when `step === 'cliente'`
+- «Nota:» — ContractForm · l.2229, when `step === 'cliente'`
+- «Las facturas y documentos administrativos se enviarán a este contacto por email.» — ContractForm · l.2229, when `step === 'cliente'`
+- «Contrato Manual» — ContractForm · l.2248, when `step === 'contrato' && esManual`
+- «- Solo ingrese información necesaria para gestión operativa y pagos.» — ContractForm · l.2248, when `step === 'contrato' && esManual`
+- «Número de Contrato *» (label) — ContractForm · l.2255, when `step === 'contrato'`
+- «Fecha del Contrato *» (label) — ContractForm · l.2268, when `step === 'contrato'`
+- «Fecha de Finalización *» (label) — ContractForm · l.2280, when `step === 'contrato'`
+- «Descripción del Contrato *» (label) — ContractForm · l.2295, when `step === 'contrato' && esManual`
+- «Breve descripción del servicio o programa que cubre este contrato» — ContractForm · l.2306, when `step === 'contrato' && esManual`
+- «Programa Contratado *» (label) — ContractForm · l.2311, when `step === 'contrato' && !(esManual)`
+- «Programa fijado por la licitacion. No se puede cambiar.» — ContractForm · l.2338, when `step === 'contrato' && !(esManual) && licitacionId`
+- «Horas contratadas» (label) — ContractForm · l.2346, when `step === 'contrato'`
+- «Horas de la bolsa de este contrato (opcional). / Se completa con las horas del programa al elegirlo; puede cambiarlas después.» — ContractForm · l.2365, when `step === 'contrato' && hourAllocationState !== 'has'`
+- «No se puede cambiar: el contrato ya tiene una distribución de horas.» — ContractForm · l.2373, when `step === 'contrato' && hourAllocationState === 'has'`
+- «Las horas contratadas deben ser un número entre 0 y 999999,99 con hasta dos decimales.» — ContractForm · l.2378, when `step === 'contrato' && !horasValid`
+- «Tipo de Moneda» (label) — ContractForm · l.2384, when `step === 'contrato'`
+- «UF (Unidades de Fomento)» (label) — ContractForm · l.2388, when `step === 'contrato'`
+- «Pesos Chilenos (CLP)» (label) — ContractForm · l.2399, when `step === 'contrato'`
+- «Precio Total ( {contractForm.tipo_moneda} ) *» (label) — ContractForm · l.2414, when `step === 'contrato'`
+- «El PDF del contrato se subirá después de guardar» — ContractForm · l.2441, when `step === 'contrato' && esManual`
+- «Una vez guardada la información, podrá cargar el PDF desde el listado de contratos» — ContractForm · l.2442, when `step === 'contrato' && esManual`
+- «Total del Contrato:» — ContractForm · l.2478, when `step === 'cuotas'`
+- «Total de Cuotas:» — ContractForm · l.2481, when `step === 'cuotas'`
+- «Cuota {cuota.numero_cuota}» — ContractForm · l.2489, when `step === 'cuotas' && each cuotas`
+- «Fecha Vencimiento» (label) — ContractForm · l.2493, when `step === 'cuotas' && each cuotas`
+- «Monto ( {contractForm.tipo_moneda} )» (label) — ContractForm · l.2505, when `step === 'cuotas' && each cuotas`
+- «⚠️ La suma de las cuotas no coincide con el total del contrato. Diferencia: {contractForm.tipo_moneda} {difference(contractForm.precio_tota…}» — ContractForm · l.2535, when `step === 'cuotas' && !cuotasMatchTotal`
+- «La cuota {zeroAmountCuota.numero_cuota} necesita un monto mayor que cero.» — ContractForm · l.2550, when `step === 'cuotas' && zeroAmountCuota`
 
 **Reads and writes the database directly:** `table:clientes` (insert, select, update), `table:contract_hour_allocations` (select), `table:contratos` (insert, select, update), `table:cuotas` (insert, select), `table:licitaciones` (select), `table:schools` (select, update)
 
@@ -1682,51 +1721,51 @@ Used by: `/contracts`
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «Importar Contrato desde PDF» | h2 |  | ContractPDFImporter · l.301 |
-| «Información del Contrato» | h3 | `!(!extractedData)` | ContractPDFImporter · l.478 |
-| «Información del Cliente» | h3 | `!(!extractedData)` | ContractPDFImporter · l.491 |
-| «Información Financiera» | h3 | `!(!extractedData)` | ContractPDFImporter · l.512 |
-| «Calendario de Pagos ( {extractedData.payment_schedule.leng…} cuotas)» | h3 | `!(!extractedData) && extractedData.payment_schedule && extractedData.payment_schedule.length > 0` | ContractPDFImporter · l.524 |
+| «Importar Contrato desde PDF» | h2 |  | ContractPDFImporter · l.302 |
+| «Información del Contrato» | h3 | `!(!extractedData)` | ContractPDFImporter · l.479 |
+| «Información del Cliente» | h3 | `!(!extractedData)` | ContractPDFImporter · l.492 |
+| «Información Financiera» | h3 | `!(!extractedData)` | ContractPDFImporter · l.513 |
+| «Calendario de Pagos ( {extractedData.payment_schedule.leng…} cuotas)» | h3 | `!(!extractedData) && extractedData.payment_schedule && extractedData.payment_schedule.length > 0` | ContractPDFImporter · l.525 |
 
 **Buttons** (7)
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «[icon Edit2]» · tooltip «Editar» | `{() => setEditingField(path)}` |  |  |  | renderField · l.263 |
-| «[icon X]» | `{onCancel}` |  |  |  | ContractPDFImporter · l.302 |
-| «Cambiar archivo» | `{() => { setPdfFile(null); setPdfPreviewUrl(null); setExtractedData(null); }}` | `!(!pdfFile)` |  |  | ContractPDFImporter · l.346 |
-| «[icon ChevronLeft]» | `{() => setPageNumber(Math.max(1, pageNumber - 1))}` | `!(!pdfFile) && numPages && numPages > 1` | `{pageNumber <= 1 \|\| extracting}` |  | ContractPDFImporter · l.377 |
-| «[icon ChevronRight]» | `{() => setPageNumber(Math.min(numPages, pageNumber + 1))}` | `!(!pdfFile) && numPages && numPages > 1` | `{pageNumber >= numPages \|\| extracting}` |  | ContractPDFImporter · l.387 |
-| «Cancelar» | `{onCancel}` |  |  |  | ContractPDFImporter · l.589 |
-| «Confirmar e Importar» | `{handleConfirm}` |  | `{!extractedData \|\| extracting}` |  | ContractPDFImporter · l.595 |
+| «[icon Edit2]» · tooltip «Editar» | `{() => setEditingField(path)}` |  |  |  | renderField · l.264 |
+| «[icon X]» | `{onCancel}` |  |  |  | ContractPDFImporter · l.303 |
+| «Cambiar archivo» | `{() => { setPdfFile(null); setPdfPreviewUrl(null); setExtractedData(null); }}` | `!(!pdfFile)` |  |  | ContractPDFImporter · l.347 |
+| «[icon ChevronLeft]» | `{() => setPageNumber(Math.max(1, pageNumber - 1))}` | `!(!pdfFile) && numPages && numPages > 1` | `{pageNumber <= 1 \|\| extracting}` |  | ContractPDFImporter · l.378 |
+| «[icon ChevronRight]» | `{() => setPageNumber(Math.min(numPages, pageNumber + 1))}` | `!(!pdfFile) && numPages && numPages > 1` | `{pageNumber >= numPages \|\| extracting}` |  | ContractPDFImporter · l.388 |
+| «Cancelar» | `{onCancel}` |  |  |  | ContractPDFImporter · l.590 |
+| «Confirmar e Importar» | `{handleConfirm}` |  | `{!extractedData \|\| extracting}` |  | ContractPDFImporter · l.596 |
 
 **Fields** (2)
 
 | Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
 |---|---|---|---|---|---|---|
-|  | text | also `onKeyPress={(e) => e.key === 'Enter' && setEditingField(null)} · onBlur={() => setEditingField(null)}` |  | `isEditing` |  | renderField · l.274 |
-| «Seleccionar archivo» | file | accepts `application/pdf` |  | `!pdfFile` · hidden by its class (`hidden`); another control opens it or it is for screen readers |  | ContractPDFImporter · l.328 |
+|  | text | also `onKeyPress={(e) => e.key === 'Enter' && setEditingField(null)} · onBlur={() => setEditingField(null)}` |  | `isEditing` |  | renderField · l.275 |
+| «Seleccionar archivo» | file | accepts `application/pdf` |  | `!pdfFile` · hidden by its class (`hidden`); another control opens it or it is for screen readers |  | ContractPDFImporter · l.329 |
 
 **Other gestures (keys, hover, drag, blur)** (1)
 
 | Element | Reacts to | Shown when | Where |
 |---|---|---|---|
-| `div` | `onDrop={handleDrop} · onDragOver={(e) => e.preventDefault()}` | `!pdfFile` | ContractPDFImporter · l.312 |
+| `div` | `onDrop={handleDrop} · onDragOver={(e) => e.preventDefault()}` | `!pdfFile` | ContractPDFImporter · l.313 |
 
 **Table columns** (4)
 
 | Text | Shown when | Where |
 |---|---|---|
-| «N°» | `!(!extractedData) && extractedData.payment_schedule && extractedData.payment_schedule.length > 0` | ContractPDFImporter · l.531 |
-| «Vencimiento» | `!(!extractedData) && extractedData.payment_schedule && extractedData.payment_schedule.length > 0` | ContractPDFImporter · l.532 |
-| «Monto» | `!(!extractedData) && extractedData.payment_schedule && extractedData.payment_schedule.length > 0` | ContractPDFImporter · l.533 |
-| «Confianza» | `!(!extractedData) && extractedData.payment_schedule && extractedData.payment_schedule.length > 0` | ContractPDFImporter · l.534 |
+| «N°» | `!(!extractedData) && extractedData.payment_schedule && extractedData.payment_schedule.length > 0` | ContractPDFImporter · l.532 |
+| «Vencimiento» | `!(!extractedData) && extractedData.payment_schedule && extractedData.payment_schedule.length > 0` | ContractPDFImporter · l.533 |
+| «Monto» | `!(!extractedData) && extractedData.payment_schedule && extractedData.payment_schedule.length > 0` | ContractPDFImporter · l.534 |
+| «Confianza» | `!(!extractedData) && extractedData.payment_schedule && extractedData.payment_schedule.length > 0` | ContractPDFImporter · l.535 |
 
 **Pop-ups** (1)
 
 | Name or title | How | Opens when | Texts passed to it | Where |
 |---|---|---|---|---|
-| «Importar Contrato desde PDF» | written in this file |  |  | ContractPDFImporter · l.297 |
+| «Importar Contrato desde PDF» | written in this file |  |  | ContractPDFImporter · l.298 |
 
 **Browser confirm()** (1)
 
@@ -1746,7 +1785,7 @@ Used by: `/contracts`
 | success | «Extracción completada - Revise los datos antes de confirmar» | `!(result.extracted.overall_confidence < 0.7) && !(result.extracted.overall_confidence > 0.9)` | handleFileUpload · l.170 |
 | error | «Error al procesar el PDF» |  | handleFileUpload · l.174 |
 | error | «Error al extraer datos del PDF» |  | handleFileUpload · l.182 |
-| success | «Datos importados exitosamente» |  | handleConfirm · l.244 |
+| success | «Datos importados exitosamente» |  | handleConfirm · l.245 |
 
 **Messages set on the page** (1)
 
@@ -1764,50 +1803,50 @@ Used by: `/contracts`
 
 | Text | Where |
 |---|---|
-| «RUT Representante» | ContractPDFImporter · l.505 |
+| «RUT Representante» | ContractPDFImporter · l.506 |
 
 **Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (1)
 
 | Kind | What | Where |
 |---|---|---|
-| mark | `testid=pdf-import-anthropic-notice` | ContractPDFImporter · l.324 |
+| mark | `testid=pdf-import-anthropic-notice` | ContractPDFImporter · l.325 |
 
 **Values shown from data** (12)
 
-- `{Math.round(confidence * 100)} %` — renderField · l.259
-- `{value} / -` — renderField · l.284, when `!(isEditing)`
-- `{validationErrors.find(e => e.field …}` — renderField · l.288, when `hasError`
-- `{pdfFile.name}` — ContractPDFImporter · l.344, when `!(!pdfFile)`
-- `{Math.round(extractedData.overall_co…} %` — ContractPDFImporter · l.454, when `!(!extractedData)`
-- `{renderField('Número de Contrato', e…} {renderField('Fecha del Contrato', e…} {renderField('Fecha de Término', ext…}` — ContractPDFImporter · l.479, when `!(!extractedData)`
-- `{renderField('Precio Total', extract…} {renderField('Moneda', extractedData…}` — ContractPDFImporter · l.513, when `!(!extractedData)`
-- `{payment.numero_cuota}` — ContractPDFImporter · l.540, when `!(!extractedData) && extractedData.payment_schedule && extractedData.payment_schedule.length > 0 && each extractedData.payment_schedule`
-- `{payment.fecha_vencimiento}` — ContractPDFImporter · l.541, when `!(!extractedData) && extractedData.payment_schedule && extractedData.payment_schedule.length > 0 && each extractedData.payment_schedule`
-- `{extractedData.financial.moneda} {payment.monto.toLocaleString('es-CL…}` — ContractPDFImporter · l.542, when `!(!extractedData) && extractedData.payment_schedule && extractedData.payment_schedule.length > 0 && each extractedData.payment_schedule`
-- `{Math.round(payment.confidence * 100)} %` — ContractPDFImporter · l.546, when `!(!extractedData) && extractedData.payment_schedule && extractedData.payment_schedule.length > 0 && each extractedData.payment_schedule`
-- `{error.message}` — ContractPDFImporter · l.567, when `!(!extractedData) && validationErrors.length > 0 && each validationErrors`
+- `{Math.round(confidence * 100)} %` — renderField · l.260
+- `{value} / -` — renderField · l.285, when `!(isEditing)`
+- `{validationErrors.find(e => e.field …}` — renderField · l.289, when `hasError`
+- `{pdfFile.name}` — ContractPDFImporter · l.345, when `!(!pdfFile)`
+- `{Math.round(extractedData.overall_co…} %` — ContractPDFImporter · l.455, when `!(!extractedData)`
+- `{renderField('Número de Contrato', e…} {renderField('Fecha del Contrato', e…} {renderField('Fecha de Término', ext…}` — ContractPDFImporter · l.480, when `!(!extractedData)`
+- `{renderField('Precio Total', extract…} {renderField('Moneda', extractedData…}` — ContractPDFImporter · l.514, when `!(!extractedData)`
+- `{payment.numero_cuota}` — ContractPDFImporter · l.541, when `!(!extractedData) && extractedData.payment_schedule && extractedData.payment_schedule.length > 0 && each extractedData.payment_schedule`
+- `{payment.fecha_vencimiento}` — ContractPDFImporter · l.542, when `!(!extractedData) && extractedData.payment_schedule && extractedData.payment_schedule.length > 0 && each extractedData.payment_schedule`
+- `{extractedData.financial.moneda} {payment.monto.toLocaleString('es-CL…}` — ContractPDFImporter · l.543, when `!(!extractedData) && extractedData.payment_schedule && extractedData.payment_schedule.length > 0 && each extractedData.payment_schedule`
+- `{Math.round(payment.confidence * 100)} %` — ContractPDFImporter · l.547, when `!(!extractedData) && extractedData.payment_schedule && extractedData.payment_schedule.length > 0 && each extractedData.payment_schedule`
+- `{error.message}` — ContractPDFImporter · l.568, when `!(!extractedData) && validationErrors.length > 0 && each validationErrors`
 
 **Other texts on screen** (19)
 
-- «{label} [*]» (label) — renderField · l.255
-- «Arrastra un PDF aquí o haz clic para seleccionar» — ContractPDFImporter · l.319, when `!pdfFile`
-- «Máximo {String(MAX_PDF_BYTES / (1024 * 1024…} MB • Solo archivos PDF» — ContractPDFImporter · l.321, when `!pdfFile`
-- «Al importar, el texto del documento se envía a Anthropic (Claude) para leerlo.» — ContractPDFImporter · l.325, when `!pdfFile`
-- «Seleccionar archivo» (label) — ContractPDFImporter · l.327, when `!pdfFile`
-- «Página {pageNumber} de {numPages}» — ContractPDFImporter · l.384, when `!(!pdfFile) && numPages && numPages > 1`
-- «Extrayendo información...» — ContractPDFImporter · l.414, when `!extractedData && extracting`
-- «PDF cargado correctamente» — ContractPDFImporter · l.418, when `!extractedData && extracting`
-- «Procesando texto del documento» — ContractPDFImporter · l.422, when `!extractedData && extracting`
-- «Identificando datos del contrato...» — ContractPDFImporter · l.426, when `!extractedData && extracting`
-- «Claude AI está analizando su documento» — ContractPDFImporter · l.431, when `!extractedData && extracting`
-- «Esto puede tomar entre 3-5 segundos» — ContractPDFImporter · l.435, when `!extractedData && extracting`
-- «Seleccione un PDF para extraer la información del contrato» — ContractPDFImporter · l.442, when `!extractedData && !(extracting)`
-- «Confianza general de extracción» — ContractPDFImporter · l.453, when `!(!extractedData)`
-- «Cliente existente encontrado» — ContractPDFImporter · l.466, when `!(!extractedData) && existingClient`
-- «Se encontró el cliente &quot; {existingClient.nombre_legal} &quot; con el mismo RUT. Los datos del cliente se usarán automáticamente.» — ContractPDFImporter · l.467, when `!(!extractedData) && existingClient`
-- «{renderField('Razón Social', extract…} {renderField('RUT', extractedData.cl…} {renderField('Dirección', extractedD…} {renderField('Comuna', extractedData…} {renderField('Ciudad', extractedData…} {renderField('Representante Legal', …} {rend…» — ContractPDFImporter · l.492, when `!(!extractedData)`
-- «Errores de validación» — ContractPDFImporter · l.564, when `!(!extractedData) && validationErrors.length > 0`
-- «⚠️ Se requiere revisión manual de los datos extraídos» — ContractPDFImporter · l.584, when `extractedData && requiresReview`
+- «{label} [*]» (label) — renderField · l.256
+- «Arrastra un PDF aquí o haz clic para seleccionar» — ContractPDFImporter · l.320, when `!pdfFile`
+- «Máximo {String(MAX_PDF_BYTES / (1024 * 1024…} MB • Solo archivos PDF» — ContractPDFImporter · l.322, when `!pdfFile`
+- «Al importar, el texto del documento se envía a Anthropic (Claude) para leerlo.» — ContractPDFImporter · l.326, when `!pdfFile`
+- «Seleccionar archivo» (label) — ContractPDFImporter · l.328, when `!pdfFile`
+- «Página {pageNumber} de {numPages}» — ContractPDFImporter · l.385, when `!(!pdfFile) && numPages && numPages > 1`
+- «Extrayendo información...» — ContractPDFImporter · l.415, when `!extractedData && extracting`
+- «PDF cargado correctamente» — ContractPDFImporter · l.419, when `!extractedData && extracting`
+- «Procesando texto del documento» — ContractPDFImporter · l.423, when `!extractedData && extracting`
+- «Identificando datos del contrato...» — ContractPDFImporter · l.427, when `!extractedData && extracting`
+- «Claude AI está analizando su documento» — ContractPDFImporter · l.432, when `!extractedData && extracting`
+- «Esto puede tomar entre 3-5 segundos» — ContractPDFImporter · l.436, when `!extractedData && extracting`
+- «Seleccione un PDF para extraer la información del contrato» — ContractPDFImporter · l.443, when `!extractedData && !(extracting)`
+- «Confianza general de extracción» — ContractPDFImporter · l.454, when `!(!extractedData)`
+- «Cliente existente encontrado» — ContractPDFImporter · l.467, when `!(!extractedData) && existingClient`
+- «Se encontró el cliente &quot; {existingClient.nombre_legal} &quot; con el mismo RUT. Los datos del cliente se usarán automáticamente.» — ContractPDFImporter · l.468, when `!(!extractedData) && existingClient`
+- «{renderField('Razón Social', extract…} {renderField('RUT', extractedData.cl…} {renderField('Dirección', extractedD…} {renderField('Comuna', extractedData…} {renderField('Ciudad', extractedData…} {renderField('Representante Legal', …} {rend…» — ContractPDFImporter · l.493, when `!(!extractedData)`
+- «Errores de validación» — ContractPDFImporter · l.565, when `!(!extractedData) && validationErrors.length > 0`
+- «⚠️ Se requiere revisión manual de los datos extraídos» — ContractPDFImporter · l.585, when `extractedData && requiresReview`
 
 ### components/contracts/HourAllocationPanel.tsx
 
@@ -2546,34 +2585,39 @@ Used by: `/contract-print/[id]`, `/contracts`
 
 Used by: `/contract-print/[id]`, `/contracts`
 
-**Messages set on the page** (3)
+**Messages set on the page** (6)
 
 | Text | Set by | When | Where |
 |---|---|---|---|
-| «{years} {years === 1 ? 'año' : 'años'}» | `parts.push` | `years > 0` | calculateDuration · l.222 |
-| «{months} {months === 1 ? 'mes' : 'mes…}» | `parts.push` | `months > 0` | calculateDuration · l.226 |
-| «{days} {days === 1 ? 'día' : 'días'}» | `parts.push` | `days > 0` | calculateDuration · l.230 |
+| «{years} {years === 1 ? 'año' : 'años'}» | `parts.push` | `years > 0` | calculateDuration · l.375 |
+| «{months} {months === 1 ? 'mes' : 'mes…}» | `parts.push` | `months > 0` | calculateDuration · l.379 |
+| «{days} {days === 1 ? 'día' : 'días'}» | `parts.push` | `days > 0` | calculateDuration · l.383 |
+| «{years} {years === 1 ? 'año' : 'años'}» | `parts.push` | `years > 0` | calculateCalendarDuration · l.508 |
+| «{months} {months === 1 ? 'mes' : 'mes…}» | `parts.push` | `months > 0` | calculateCalendarDuration · l.509 |
+| «{days} {days === 1 ? 'día' : 'días'}» | `parts.push` | `days > 0` | calculateCalendarDuration · l.510 |
 
-**Texts kept in lists and helpers in the code (labels, options, status names)** (7)
+**Texts kept in lists and helpers in the code (labels, options, status names)** (9)
 
 | Name | Texts | Where |
 |---|---|---|
 | `CONTRACT_TEMPLATE` | «<div style="text-align: center; font-weight: bold; margin-bottom: 20px;"> CONTRATO DE PRESTACIÓN DE SERVICIOS<br> FUNDACIÓN INSTITUTO RELACIONAL (NUEVA EDUCACIÓN)<br> Y<br> {{CLIENTE_NOMBRE_LEGAL}}<br> Contrato {{CONTRATO_NUMERO}} </div> En Santiago de Chile, a {{FECHA_CONTRATO}}, entre {{CLIENTE_N…» | l.6 |
-| `contract` | «<article class="fne-document">{documentHeader('Contrato de…}{body.split(/\n\s*\n/).map(p…}<div class="doc-closing">{documentSignatures('{{CLIEN…}{DOCUMENT_FOOTER}</div></article>» | generateContractFromTemplate · l.153 |
-| `replacements` | «UF [if isUF]», «Pesos Chilenos [if not isUF]» | generateContractFromTemplate · l.274 |
-| `generateContractFromTemplate()` | «<h2{heading.startsWith('DÉCIMO …}>{heading}</h2>{lines.length ? `<p>${lines.…}», «<p>{text.replace(/\n/g, '<br>')}</p>» | generateContractFromTemplate · l.157 |
-| `formatCurrencyUF()` | «UF {amount.toLocaleString('es-C…}» | formatCurrencyUF · l.183 |
-| `calculateDuration()` | «duración a determinar», «misma fecha» | calculateDuration · l.196 |
-| `generateCuotasDetalle()` | «Sin cuotas definidas», «<table><thead><tr><th>Cuota</th><th>Monto</th><th>Vencimiento</th></tr></thead><tbody>{cuotas.map(cuota => `<tr><t…}</tbody></table>» | generateCuotasDetalle · l.247 |
+| `CONTRACT_TEMPLATE_V2` | «<div style="text-align: center; font-weight: bold; margin-bottom: 20px;"> CONTRATO DE PRESTACIÓN DE SERVICIOS<br> FUNDACIÓN INSTITUTO RELACIONAL (NUEVA EDUCACIÓN)<br> Y<br> {{CLIENTE_NOMBRE_LEGAL}}<br> Contrato {{CONTRATO_NUMERO}} </div> En Santiago de Chile, a {{FECHA_CONTRATO}}, entre {{CLIENTE_N…» | l.157 |
+| `contract` | «<article class="fne-document">{documentHeader('Contrato de…}{body.split(/\n\s*\n/).map(p…}<div class="doc-closing">{documentSignatures('{{CLIEN…}{DOCUMENT_FOOTER}</div></article>» | generateContractFromTemplate · l.306 |
+| `replacements` | «UF [if isUF]», «Pesos Chilenos [if not isUF]» | generateContractFromTemplate · l.427 |
+| `generateContractFromTemplate()` | «<h2{heading.startsWith('DÉCIMO …}>{heading}</h2>{lines.length ? `<p>${lines.…}», «<p>{text.replace(/\n/g, '<br>')}</p>» | generateContractFromTemplate · l.310 |
+| `formatCurrencyUF()` | «UF {amount.toLocaleString('es-C…}» | formatCurrencyUF · l.336 |
+| `calculateDuration()` | «duración a determinar», «misma fecha» | calculateDuration · l.349 |
+| `generateCuotasDetalle()` | «Sin cuotas definidas», «<table><thead><tr><th>Cuota</th><th>Monto</th><th>Vencimiento</th></tr></thead><tbody>{cuotas.map(cuota => `<tr><t…}</tbody></table>» | generateCuotasDetalle · l.400 |
+| `calculateCalendarDuration()` | «duración a determinar», «misma fecha» | calculateCalendarDuration · l.483 |
 
 **Other texts written in the code (safety net: not tied to an element by the script)** (4)
 
 | Text | Where |
 |---|---|
-| «Contrato de prestación de servicios» | generateContractFromTemplate · l.153 |
-| «<h2{heading.startsWith('DÉCIMO …}>{heading}</h2>{lines.length ? `<p>${lines.…}» | generateContractFromTemplate · l.157 |
-| «duración a determinar» | generateContractFromTemplate · l.196 |
-| «Sin cuotas definidas» | generateContractFromTemplate · l.247 |
+| «Contrato de prestación de servicios» | generateContractFromTemplate · l.306 |
+| «<h2{heading.startsWith('DÉCIMO …}>{heading}</h2>{lines.length ? `<p>${lines.…}» | generateContractFromTemplate · l.310 |
+| «duración a determinar» | generateContractFromTemplate · l.349 |
+| «Sin cuotas definidas» | generateContractFromTemplate · l.400 |
 
 ### lib/contracts/cuotas-math.ts
 

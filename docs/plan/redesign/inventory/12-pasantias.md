@@ -1,7 +1,7 @@
 # Pasantías (leads, travellers, panel, my trip)
 
 Area `12-pasantias`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `c7e27398c` (2026-11-22).
+Read from commit `6a336e70e` (2026-11-24).
 
 5 screen files, 21 API files, 25 pieces.
 

@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "c7e27398ca230dbbc3e581dcde19f92480491fcd",
-  "date": "2026-11-22T23:11:25-03:00"
+  "commit": "6a336e70e3a2a2175b39e2ebade821061497232c",
+  "date": "2026-11-24T17:54:00-03:00"
  },
  "screens": [
   {
@@ -2231,10 +2231,10 @@
      "components/panel/PanelClasico.tsx:205",
      "components/panel/PanelClasico.tsx:206",
      "lib/auth/forced-password-change.ts:177",
-     "lib/notifications/catalog.ts:170",
-     "lib/notifications/catalog.ts:325",
-     "lib/notifications/catalog.ts:331",
-     "lib/notifications/catalog.ts:336",
+     "lib/notifications/catalog.ts:172",
+     "lib/notifications/catalog.ts:327",
+     "lib/notifications/catalog.ts:333",
+     "lib/notifications/catalog.ts:338",
      "middleware.ts:248",
      "pages/api/qa/seed-codebase-index.ts:431",
      "pages/community/transformation/assessment.tsx:366",

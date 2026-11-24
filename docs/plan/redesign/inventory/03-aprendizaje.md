@@ -1,7 +1,7 @@
 # Mi Aprendizaje (the learner's courses, lessons and routes)
 
 Area `03-aprendizaje`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `c7e27398c` (2026-11-22).
+Read from commit `6a336e70e` (2026-11-24).
 
 Course system: the Course Review session owns this area's structure and its own checklist (docs/planning/courses/inventory.md, not yet on main). This file is the redesign's list of what is on screen today.
 
@@ -344,7 +344,7 @@ File `pages/mi-aprendizaje/tareas.tsx` · 612 lines · frame: MainLayout
 - Menu: Mi Aprendizaje › «Mis Tareas» → `/mi-aprendizaje/tareas` — everyone signed in; the group: everyone signed in (`Sidebar.tsx` l.154)
 - Middleware: signed-in only. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page: no access check found by the script.
-- Linked from: `components/layout/Sidebar.tsx:156`, `lib/notifications/catalog.ts:296`, `pages/api/assignments/collaborative-submit.ts:126`, `pages/community/workspace.tsx:274`, `pages/community/workspace/assignments/[id]/discussion.tsx:150`, `pages/community/workspace/assignments/[id]/discussion.tsx:279`, `pages/community/workspace/assignments/[id]/discussion.tsx:289`, `pages/community/workspace/assignments/[id]/groups.tsx:154`, `pages/community/workspace/assignments/[id]/groups.tsx:164`
+- Linked from: `components/layout/Sidebar.tsx:156`, `lib/notifications/catalog.ts:298`, `pages/api/assignments/collaborative-submit.ts:126`, `pages/community/workspace.tsx:274`, `pages/community/workspace/assignments/[id]/discussion.tsx:150`, `pages/community/workspace/assignments/[id]/discussion.tsx:279`, `pages/community/workspace/assignments/[id]/discussion.tsx:289`, `pages/community/workspace/assignments/[id]/groups.tsx:154`, `pages/community/workspace/assignments/[id]/groups.tsx:164`
 - Tests: browser tests that CI runs: `tests/e2e/look-frame.spec.ts`.
 - QA scenarios that name this address: admin 1.
 

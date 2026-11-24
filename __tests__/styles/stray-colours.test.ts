@@ -212,6 +212,11 @@ const LEFT_ON_PURPOSE: ReadonlyArray<{ file: string; values: Readonly<Record<str
   { file: 'constants/toastStyles.ts', values: { f3f4f6: 1 }, reason: 'light grey, never read' },
   { file: 'pages/registro.tsx', values: { d1d5db: 1, '9ca3af': 1 }, reason: 'in a code comment, not drawn' },
   { file: 'pages/registro-tractor.tsx', values: { d1d5db: 1, '9ca3af': 1 }, reason: 'in a code comment, not drawn' },
+  {
+    file: 'lib/correos-host/brand.ts',
+    values: { f9fafb: 1, e5e7eb: 1 },
+    reason: 'email template colours cannot use CSS variables (page background gray-50 and rule gray-200 of the Correos brand)',
+  },
   // Not colours at all.
   { file: 'components/contracts/ContractForm.tsx', values: { '3b1191d3': 1 }, reason: 'an error report number in a comment' },
   { file: 'lib/utils/reconcileCuotas.ts', values: { '3b1191d3': 2 }, reason: 'an error report number in comments' },

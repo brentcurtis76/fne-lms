@@ -14,6 +14,11 @@ function leakValues(brand: Brand): string[] {
     brand.logo.url,
     brand.accentColor,
     brand.onAccentColor,
+    brand.textColor,
+    brand.mutedTextColor,
+    brand.pageBackgroundColor,
+    brand.sheetBackgroundColor,
+    brand.ruleColor,
   ];
 }
 
@@ -61,7 +66,7 @@ describe('L2: inline styles, no rem, nothing external', () => {
     expect(withoutStyleBlocks).toMatch(new RegExp(`<a[^>]*href="https://example.test/boton"[^>]*style="[^"]*color:${AURORA.onAccentColor}`));
     expect(withoutStyleBlocks).toMatch(/<a[^>]*href="https:\/\/example.test\/boton"[^>]*style="[^"]*padding/);
     const style = (tag: RegExp) => (withoutStyleBlocks.match(tag)?.[1] ?? '').split(';');
-    expect(style(/<h2[^>]*style="([^"]*)"/)).toEqual(expect.arrayContaining(['font-size:20px', 'color:#222222']));
+    expect(style(/<h2[^>]*style="([^"]*)"/)).toEqual(expect.arrayContaining(['font-size:20px', `color:${AURORA.textColor}`]));
     expect(style(/<h2[^>]*style="([^"]*)"/).join(';')).toContain('font-family:Georgia');
     expect(style(/<p[^>]*style="([^"]*)"/)).toEqual(expect.arrayContaining(['font-size:16px', 'line-height:24px']));
     expect(style(/<p[^>]*style="([^"]*)"/).join(';')).toContain('font-family:Georgia');
@@ -165,6 +170,11 @@ describe('L4: the brand drives everything visible, and only that', () => {
   const cases: Array<[string, Partial<Brand>, Array<[string, string]>]> = [
     ['accent colour', { accentColor: '#123456' }, [[AURORA.accentColor, '#123456']]],
     ['text on accent', { onAccentColor: '#abcdef' }, [[AURORA.onAccentColor, '#abcdef']]],
+    ['text colour', { textColor: '#010203' }, [[AURORA.textColor, '#010203']]],
+    ['muted text colour', { mutedTextColor: '#040506' }, [[AURORA.mutedTextColor, '#040506']]],
+    ['page background', { pageBackgroundColor: '#070809' }, [[AURORA.pageBackgroundColor, '#070809']]],
+    ['sheet background', { sheetBackgroundColor: '#0a0b0c' }, [[AURORA.sheetBackgroundColor, '#0a0b0c']]],
+    ['rule colour', { ruleColor: '#0d0e0f' }, [[AURORA.ruleColor, '#0d0e0f']]],
     [
       'logo',
       { logo: { ...AURORA.logo, url: 'https://otro.example.test/l.png' } },
@@ -200,6 +210,11 @@ describe('L4: the brand drives everything visible, and only that', () => {
   it('refuses a brand it cannot draw', async () => {
     expect(validateBrand(AURORA)).toEqual([]);
     expect(validateBrand({ ...AURORA, accentColor: 'red' }).length).toBeGreaterThan(0);
+    for (const field of ['textColor', 'mutedTextColor', 'pageBackgroundColor', 'sheetBackgroundColor', 'ruleColor'] as const) {
+      expect(validateBrand({ ...AURORA, [field]: 'gray' }), field).toHaveLength(1);
+      expect(validateBrand({ ...AURORA, [field]: undefined } as unknown as Brand), field).toHaveLength(1);
+      await expect(renderEmail({ ...AURORA, [field]: '#fff; background:url(x)' }, SAMPLE), field).rejects.toThrow();
+    }
     expect(validateBrand({ ...AURORA, logo: { ...AURORA.logo, url: 'javascript:alert(1)' } }).length).toBeGreaterThan(0);
     await expect(renderEmail({ ...AURORA, accentColor: 'red; background:url(x)' }, SAMPLE)).rejects.toThrow();
   });

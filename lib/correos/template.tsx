@@ -8,7 +8,8 @@
  * padded link, which carries Outlook's own padding hints.
  *
  * Everything a reader sees that belongs to a client comes from the brand: logo, accent colour and the text
- * colour on it, font stack, legal footer, language. The template's own colours are neutral greys.
+ * colour on it, the neutral colours (text, muted text, page and sheet backgrounds, the rule), font stack,
+ * legal footer, language. The template holds no colour of its own.
  */
 import * as React from 'react';
 import {
@@ -32,13 +33,6 @@ export const EMAIL_WIDTH = 600;
 const GUTTER = 24;
 export const CONTENT_WIDTH = EMAIL_WIDTH - GUTTER * 2;
 
-/** The template's own neutral colours (never a brand's). */
-const INK = '#222222';
-const MUTED = '#666666';
-const PAGE = '#f2f2f2';
-const PAPER = '#fefefe';
-const RULE = '#dddddd';
-
 /** The kit's only own words: the labels of the release-2 list links, by language. */
 const LIST_LINK_WORDS: Record<string, { unsubscribe: string; preferences: string }> = {
   es: { unsubscribe: 'Darse de baja', preferences: 'Preferencias de correo' },
@@ -57,6 +51,11 @@ export function validateBrand(brand: Brand): string[] {
   if (!(brand.logo?.width > 0) || !(brand.logo?.height > 0)) errors.push('El logo de la marca necesita ancho y alto.');
   if (!COLOR.test(brand.accentColor ?? '')) errors.push('El color de acento de la marca debe ser #rrggbb.');
   if (!COLOR.test(brand.onAccentColor ?? '')) errors.push('El color del texto sobre el acento debe ser #rrggbb.');
+  if (!COLOR.test(brand.textColor ?? '')) errors.push('El color del texto de la marca debe ser #rrggbb.');
+  if (!COLOR.test(brand.mutedTextColor ?? '')) errors.push('El color del texto secundario de la marca debe ser #rrggbb.');
+  if (!COLOR.test(brand.pageBackgroundColor ?? '')) errors.push('El color de fondo de la página debe ser #rrggbb.');
+  if (!COLOR.test(brand.sheetBackgroundColor ?? '')) errors.push('El color de fondo de la hoja debe ser #rrggbb.');
+  if (!COLOR.test(brand.ruleColor ?? '')) errors.push('El color de la línea divisoria debe ser #rrggbb.');
   if (!brand.fontStack?.trim()) errors.push('La marca no tiene tipografía.');
   if (!Array.isArray(brand.footerLines) || brand.footerLines.length === 0) errors.push('La marca no tiene pie legal.');
   if (!brand.language?.trim()) errors.push('La marca no tiene idioma.');
@@ -68,7 +67,7 @@ function listLinkWords(language: string) {
   return LIST_LINK_WORDS[base] ?? LIST_LINK_WORDS.en;
 }
 
-function InlineParts({ parts }: { parts: Inline[] }) {
+function InlineParts({ parts, linkColor }: { parts: Inline[]; linkColor: string }) {
   return (
     <>
       {parts.map((part, index) => {
@@ -76,13 +75,13 @@ function InlineParts({ parts }: { parts: Inline[] }) {
         if (part.type === 'bold') {
           return (
             <strong key={index} style={{ fontWeight: 700 }}>
-              <InlineParts parts={part.children} />
+              <InlineParts parts={part.children} linkColor={linkColor} />
             </strong>
           );
         }
         return (
-          <Link key={index} href={part.href} style={{ color: INK, textDecoration: 'underline' }}>
-            <InlineParts parts={part.children} />
+          <Link key={index} href={part.href} style={{ color: linkColor, textDecoration: 'underline' }}>
+            <InlineParts parts={part.children} linkColor={linkColor} />
           </Link>
         );
       })}
@@ -90,8 +89,8 @@ function InlineParts({ parts }: { parts: Inline[] }) {
   );
 }
 
-function TextBlockView({ title, body, font }: { title?: string; body: string; font: string }) {
-  const text = { fontFamily: font, fontSize: '16px', lineHeight: '24px', color: INK };
+function TextBlockView({ title, body, font, color }: { title?: string; body: string; font: string; color: string }) {
+  const text = { fontFamily: font, fontSize: '16px', lineHeight: '24px', color };
   return (
     <Section style={{ padding: '0 0 8px 0' }} data-block="text">
       {title?.trim() ? (
@@ -105,7 +104,7 @@ function TextBlockView({ title, body, font }: { title?: string; body: string; fo
             {node.lines.map((line, lineIndex) => (
               <React.Fragment key={lineIndex}>
                 {lineIndex > 0 ? <br /> : null}
-                <InlineParts parts={line} />
+                <InlineParts parts={line} linkColor={color} />
               </React.Fragment>
             ))}
           </Text>
@@ -113,7 +112,7 @@ function TextBlockView({ title, body, font }: { title?: string; body: string; fo
           <ul key={index} style={{ ...text, margin: '0 0 16px 0', padding: '0 0 0 24px' }}>
             {node.items.map((item, itemIndex) => (
               <li key={itemIndex} style={{ ...text, margin: '0 0 4px 0' }}>
-                <InlineParts parts={item} />
+                <InlineParts parts={item} linkColor={color} />
               </li>
             ))}
           </ul>
@@ -168,7 +167,7 @@ function ButtonBlockView({ label, link, brand }: { label: string; link: string; 
 }
 
 function BlockView({ block, brand }: { block: Block; brand: Brand }) {
-  if (block.kind === 'text') return <TextBlockView title={block.title} body={block.body} font={brand.fontStack} />;
+  if (block.kind === 'text') return <TextBlockView title={block.title} body={block.body} font={brand.fontStack} color={brand.textColor} />;
   if (block.kind === 'picture') return <PictureBlockView url={block.url} description={block.description} link={block.link} />;
   if (block.kind === 'button') return <ButtonBlockView label={block.label} link={block.link} brand={brand} />;
   return null;
@@ -176,7 +175,7 @@ function BlockView({ block, brand }: { block: Block; brand: Brand }) {
 
 export function EmailDocument({ brand, content, links = {} }: { brand: Brand; content: EmailContent; links?: ListLinks }) {
   const font = brand.fontStack;
-  const small = { fontFamily: font, fontSize: '13px', lineHeight: '20px', color: MUTED, margin: '0 0 4px 0' };
+  const small = { fontFamily: font, fontSize: '13px', lineHeight: '20px', color: brand.mutedTextColor, margin: '0 0 4px 0' };
   const unsubscribe = links.unsubscribeUrl ? safeUrl(links.unsubscribeUrl) : null;
   const preferences = links.preferencesUrl ? safeUrl(links.preferencesUrl) : null;
   const words = listLinkWords(brand.language);
@@ -187,13 +186,13 @@ export function EmailDocument({ brand, content, links = {} }: { brand: Brand; co
         <title>{content.subject}</title>
       </Head>
       {content.previewLine ? <Preview>{content.previewLine}</Preview> : null}
-      <Body style={{ margin: '0', padding: '24px 0', backgroundColor: PAGE, fontFamily: font, color: INK }}>
+      <Body style={{ margin: '0', padding: '24px 0', backgroundColor: brand.pageBackgroundColor, fontFamily: font, color: brand.textColor }}>
         <Container
           style={{
             width: '100%',
             maxWidth: `${EMAIL_WIDTH}px`,
             margin: '0 auto',
-            backgroundColor: PAPER,
+            backgroundColor: brand.sheetBackgroundColor,
             borderTop: `4px solid ${brand.accentColor}`,
           }}
         >
@@ -211,7 +210,7 @@ export function EmailDocument({ brand, content, links = {} }: { brand: Brand; co
               <BlockView key={index} block={block} brand={brand} />
             ))}
           </Section>
-          <Section style={{ padding: `16px ${GUTTER}px 24px ${GUTTER}px`, borderTop: `1px solid ${RULE}` }} data-part="footer">
+          <Section style={{ padding: `16px ${GUTTER}px 24px ${GUTTER}px`, borderTop: `1px solid ${brand.ruleColor}` }} data-part="footer">
             {brand.footerLines.map((line, index) => (
               <Text key={index} style={small}>
                 {line}
@@ -224,13 +223,13 @@ export function EmailDocument({ brand, content, links = {} }: { brand: Brand; co
             {unsubscribe || preferences ? (
               <Text style={{ ...small, margin: '12px 0 0 0' }} data-part="list-links">
                 {unsubscribe ? (
-                  <Link href={unsubscribe} style={{ color: MUTED, textDecoration: 'underline' }}>
+                  <Link href={unsubscribe} style={{ color: brand.mutedTextColor, textDecoration: 'underline' }}>
                     {words.unsubscribe}
                   </Link>
                 ) : null}
                 {unsubscribe && preferences ? ' · ' : null}
                 {preferences ? (
-                  <Link href={preferences} style={{ color: MUTED, textDecoration: 'underline' }}>
+                  <Link href={preferences} style={{ color: brand.mutedTextColor, textDecoration: 'underline' }}>
                     {words.preferences}
                   </Link>
                 ) : null}

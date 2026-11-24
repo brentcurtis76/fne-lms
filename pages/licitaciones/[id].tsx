@@ -14,6 +14,7 @@ import ProposalConfigPanel from '@/components/licitaciones/ProposalConfigPanel';
 import ArchiveView from '@/components/licitaciones/ArchiveView';
 import { buildPublicacionText, isPublicacionConfirmada } from '@/lib/licitaciones/publicacionText';
 import { formatMonto } from '@/lib/licitaciones/formato';
+import { puedeEliminarLicitacion } from '@/lib/licitaciones/estados';
 
 // ============================================================
 // STEPPER DEFINITION
@@ -514,7 +515,7 @@ export default function LicitacionDetailPage() {
           </div>
           <div className="flex items-center gap-3">
             <EstadoBadge estado={licitacion.estado} />
-            {isAdmin && (
+            {isAdmin && puedeEliminarLicitacion(licitacion.estado, historicalView === 'archive') && (
               <button
                 onClick={() => {
                   if (window.confirm(

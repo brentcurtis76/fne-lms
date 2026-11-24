@@ -24,6 +24,20 @@ export interface Brand {
   accentColor: string;
   /** The text colour that reads on the accent colour, as `#rrggbb`. */
   onAccentColor: string;
+  /**
+   * The neutral colours, each as `#rrggbb`. An email cannot read CSS variables, so the template draws these
+   * literal values; they belong to the brand so the kit itself holds no colour of its own.
+   */
+  /** Body text, headings and inline links. */
+  textColor: string;
+  /** Small text: the legal footer and the list links. */
+  mutedTextColor: string;
+  /** The background around the sheet (the whole window of the email). */
+  pageBackgroundColor: string;
+  /** The background of the 600 px sheet that holds the email. */
+  sheetBackgroundColor: string;
+  /** The thin rule above the footer. */
+  ruleColor: string;
   /** One CSS font stack. No web font is loaded: the stack must end in fonts every reader has. */
   fontStack: string;
   /** The legal footer, one line each (legal name first). */

@@ -14,6 +14,8 @@ import {
   resolveMeetSessionAccess,
 } from '../../../lib/utils/session-meet-access';
 import { MEETING_CLOSED_MESSAGE } from '../../../lib/utils/meeting-join-policy';
+import { useLook } from '../../../contexts/LookContext';
+import { MEET_NUEVO, MEET_SESSION_NUEVO } from '../../../components/meet/meetLookNuevo';
 
 /**
  * Meeting interstitial — the single platform surface that reveals a session's
@@ -73,6 +75,9 @@ const NOTICE_CLASSNAME =
   'mt-6 rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700';
 
 const MeetSessionPage: React.FC<MeetSessionPageProps> = ({ session }) => {
+  // Release SC: the new look chooses the classes of the same elements (no second tree); on the server and
+  // at the first paint the look is always today's.
+  const nuevo = useLook().look === 'nuevo';
   const dateLabel = format(parseISO(session.session_date), "EEEE d 'de' MMMM 'de' yyyy", {
     locale: es,
   });
@@ -84,39 +89,39 @@ const MeetSessionPage: React.FC<MeetSessionPageProps> = ({ session }) => {
         <meta name="robots" content="noindex" />
       </Head>
 
-      <main className="min-h-screen bg-gray-50 px-4 py-10">
-        <div className="mx-auto w-full max-w-lg rounded-xl border border-gray-200 bg-white p-6 shadow-sm sm:p-8">
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Reunión</p>
-          <h1 className="mt-1 text-xl font-semibold text-brand_primary sm:text-2xl">
+      <main className={nuevo ? MEET_NUEVO.main : 'min-h-screen bg-gray-50 px-4 py-10'}>
+        <div className={nuevo ? `mx-auto w-full max-w-lg ${MEET_NUEVO.card}` : 'mx-auto w-full max-w-lg rounded-xl border border-gray-200 bg-white p-6 shadow-sm sm:p-8'}>
+          <p className={nuevo ? MEET_NUEVO.eyebrow : 'text-xs font-medium uppercase tracking-wide text-gray-500'}>Reunión</p>
+          <h1 className={nuevo ? MEET_NUEVO.title : 'mt-1 text-xl font-semibold text-brand_primary sm:text-2xl'}>
             {session.title}
           </h1>
 
-          <dl className="mt-5 space-y-3 text-sm text-gray-700">
+          <dl className={nuevo ? MEET_SESSION_NUEVO.details : 'mt-5 space-y-3 text-sm text-gray-700'}>
             <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4 flex-shrink-0 text-gray-400" aria-hidden="true" />
+              <Calendar className={nuevo ? MEET_SESSION_NUEVO.icon : 'h-4 w-4 flex-shrink-0 text-gray-400'} aria-hidden="true" />
               <dt className="sr-only">Fecha</dt>
               <dd className="first-letter:uppercase">{dateLabel}</dd>
             </div>
             <div className="flex items-center gap-2">
-              <Clock className="h-4 w-4 flex-shrink-0 text-gray-400" aria-hidden="true" />
+              <Clock className={nuevo ? MEET_SESSION_NUEVO.icon : 'h-4 w-4 flex-shrink-0 text-gray-400'} aria-hidden="true" />
               <dt className="sr-only">Horario</dt>
               <dd>
                 {formatTime(session.start_time)} - {formatTime(session.end_time)}{' '}
-                <span className="text-gray-500">(hora Chile)</span>
+                <span className={nuevo ? MEET_SESSION_NUEVO.chile : 'text-gray-500'}>(hora Chile)</span>
               </dd>
             </div>
           </dl>
 
           {session.join_access === 'denied' ? (
-            <div data-testid="meet-join-denied" className={NOTICE_CLASSNAME}>
+            <div data-testid="meet-join-denied" className={nuevo ? MEET_SESSION_NUEVO.notice : NOTICE_CLASSNAME}>
               {session.join_denial_message ?? JOIN_NOT_AUTHORIZED_MESSAGE}
             </div>
           ) : session.join_access === 'closed' ? (
-            <div data-testid="meet-join-closed" className={NOTICE_CLASSNAME}>
+            <div data-testid="meet-join-closed" className={nuevo ? MEET_SESSION_NUEVO.notice : NOTICE_CLASSNAME}>
               {session.join_denial_message ?? MEETING_CLOSED_MESSAGE}
             </div>
           ) : session.join_access === 'disabled' ? (
-            <div data-testid="meet-join-disabled" className={NOTICE_CLASSNAME}>
+            <div data-testid="meet-join-disabled" className={nuevo ? MEET_SESSION_NUEVO.notice : NOTICE_CLASSNAME}>
               {JOIN_DISABLED_MESSAGE}
             </div>
           ) : session.is_zoom_managed ? (
@@ -128,26 +133,26 @@ const MeetSessionPage: React.FC<MeetSessionPageProps> = ({ session }) => {
                 target="_blank"
                 rel="noopener noreferrer"
                 data-testid="meet-join-link"
-                className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-brand_primary px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-brand_gray_dark focus:outline-none focus:ring-2 focus:ring-brand_accent focus:ring-offset-2"
+                className={nuevo ? MEET_SESSION_NUEVO.joinLink : 'inline-flex w-full items-center justify-center gap-2 rounded-lg bg-brand_primary px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-brand_gray_dark focus:outline-none focus:ring-2 focus:ring-brand_accent focus:ring-offset-2'}
               >
                 <ExternalLink className="h-4 w-4" aria-hidden="true" />
                 Abrir enlace de reunión
               </a>
-              <p className="mt-3 text-xs text-gray-500">
+              <p className={nuevo ? `mt-3 ${MEET_NUEVO.note}` : 'mt-3 text-xs text-gray-500'}>
                 El enlace abre un servicio de reuniones externo a GENERA, en una pestaña nueva.
               </p>
             </div>
           ) : (
-            <div data-testid="meet-no-link" className={NOTICE_CLASSNAME}>
+            <div data-testid="meet-no-link" className={nuevo ? MEET_SESSION_NUEVO.notice : NOTICE_CLASSNAME}>
               Esta sesión no tiene enlace de reunión.
             </div>
           )}
 
-          <div className="mt-6 border-t border-gray-100 pt-4">
+          <div className={nuevo ? MEET_SESSION_NUEVO.footer : 'mt-6 border-t border-gray-100 pt-4'}>
             <Link
               href="/dashboard"
               data-testid="meet-back-link"
-              className="text-sm font-medium text-gray-600 hover:text-brand_primary"
+              className={nuevo ? MEET_NUEVO.backLink : 'text-sm font-medium text-gray-600 hover:text-brand_primary'}
             >
               Volver al inicio
             </Link>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/router';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { User } from '@supabase/supabase-js';
@@ -24,6 +25,11 @@ import {
 } from '../../../lib/utils/managed-meeting-readiness';
 import { buildSessionJoinPath } from '../../../lib/utils/session-disclosure';
 import { startSessionWorkflow } from '../../../lib/utils/session-start-workflow';
+import { useLook } from '../../../contexts/LookContext';
+import { useViewLatch } from '../../../components/sessions/detail-nuevo/useViewLatch';
+import { useKeptNode, useSlotRef } from '../../../components/sessions/admin-nuevo/keptNode';
+import AdminSessionDetailNuevo from '../../../components/sessions/admin-nuevo/AdminSessionDetailNuevo';
+import { CRUMBS_DETAIL } from '../../../components/sessions/admin-nuevo/adminNuevoStyles';
 
 interface SeriesSessionItem {
   id: string;
@@ -70,6 +76,22 @@ const SessionDetailPage: React.FC = () => {
   const [availableConsultants, setAvailableConsultants] = useState<Array<{ id: string; first_name: string; last_name: string; email: string }>>([]);
   const [loadingConsultants, setLoadingConsultants] = useState(false);
   const [savingFacilitators, setSavingFacilitators] = useState(false);
+
+  // Redesign 6S, release SC: which view draws the session. The new look (an account that chose it)
+  // draws its own view of this page's state; while the look is unknown it counts as today's. The view
+  // follows the look by SB's rule (`useViewLatch`): today's look wins at once, a new look arriving
+  // within four seconds of the session's first drawing is followed once, otherwise the view is kept.
+  // While no session is drawn the live look decides (for the frame).
+  const liveLook = useLook().look;
+  const isNuevo =
+    useViewLatch({ look: liveLook, sessionId: session?.id ?? null, drawing: !loading && isAdmin && session !== null }) === 'nuevo';
+  // The hours panel reads its data when it mounts and holds what a person is typing, so a change of
+  // view must not mount it again: it is rendered once, at the same first place of both views' frame,
+  // into one element this page keeps, and each view only lends the place where that element sits
+  // (components/sessions/admin-nuevo/keptNode).
+  const hoursHost = useKeptNode();
+  const clasicoHoursPlace = useSlotRef(hoursHost);
+  const nuevoHoursPlace = useSlotRef(hoursHost);
 
   const refreshManagedMeetingStatus = useCallback(
     async (sessionId: string) => {
@@ -141,7 +163,8 @@ const SessionDetailPage: React.FC = () => {
 
   // Focus trap and escape key for cancel modal
   useEffect(() => {
-    if (!showCancelModal) return;
+    // The new look's pop-up is the kit's: it closes on Escape and keeps the focus itself.
+    if (!showCancelModal || isNuevo) return;
 
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -183,11 +206,11 @@ const SessionDetailPage: React.FC = () => {
       document.removeEventListener('keydown', handleEscape);
       document.removeEventListener('keydown', handleTab);
     };
-  }, [showCancelModal]);
+  }, [showCancelModal, isNuevo]);
 
   // Focus trap and escape key for series cancel modal
   useEffect(() => {
-    if (!showSeriesCancelModal) return;
+    if (!showSeriesCancelModal || isNuevo) return;
 
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -229,7 +252,7 @@ const SessionDetailPage: React.FC = () => {
       document.removeEventListener('keydown', handleEscape);
       document.removeEventListener('keydown', handleTab);
     };
-  }, [showSeriesCancelModal]);
+  }, [showSeriesCancelModal, isNuevo]);
 
   const initializeAuth = async () => {
     try {
@@ -300,6 +323,13 @@ const SessionDetailPage: React.FC = () => {
 
     if (!window.confirm('¿Está seguro que desea aprobar esta sesión?')) return;
 
+    await handleApproveConfirmed();
+  };
+
+  /** The approval itself, once the person has said yes (the new look asks in its own window). */
+  const handleApproveConfirmed = async () => {
+    if (!session) return;
+
     setActionInProgress(true);
     try {
       const {
@@ -337,6 +367,13 @@ const SessionDetailPage: React.FC = () => {
     if (!session) return;
 
     if (!window.confirm('¿Está seguro que desea iniciar esta sesión?')) return;
+
+    await handleStartSessionConfirmed();
+  };
+
+  /** The start itself, once the person has said yes (the new look asks in its own window). */
+  const handleStartSessionConfirmed = async () => {
+    if (!session) return;
 
     setActionInProgress(true);
     try {
@@ -676,7 +713,7 @@ const SessionDetailPage: React.FC = () => {
         user={user}
         currentPage="sessions"
         pageTitle=""
-        breadcrumbs={[]}
+        breadcrumbs={isNuevo ? CRUMBS_DETAIL : []}
         isAdmin={isAdmin}
         onLogout={handleLogout}
       >
@@ -685,6 +722,65 @@ const SessionDetailPage: React.FC = () => {
             <p className="text-center text-gray-600">Cargando sesión...</p>
           </div>
         </div>
+      </MainLayout>
+    );
+  }
+
+  // Z7-5: planned vs Zoom comparison + «Ajustar horas descontadas» (§11). One instance for both views.
+  const hoursPanel = hoursHost ? createPortal(<HoursComparisonPanel sessionId={session.id} />, hoursHost) : null;
+
+  if (isNuevo) {
+    return (
+      <MainLayout
+        user={user}
+        currentPage="sessions"
+        pageTitle=""
+        breadcrumbs={CRUMBS_DETAIL}
+        isAdmin={isAdmin}
+        onLogout={handleLogout}
+      >
+        {hoursPanel}
+        <AdminSessionDetailNuevo
+          hoursPanelPlace={nuevoHoursPlace}
+          session={session}
+          routeSessionId={typeof id === 'string' ? id : null}
+          managedMeetingStatus={managedMeetingStatus}
+          managedMeetingStatusLoading={managedMeetingStatusLoading}
+          managedMeetingStatusError={managedMeetingStatusError}
+          actionInProgress={actionInProgress}
+          showCancelModal={showCancelModal}
+          setShowCancelModal={setShowCancelModal}
+          cancellationReason={cancellationReason}
+          setCancellationReason={setCancellationReason}
+          seriesSessions={seriesSessions}
+          seriesStats={seriesStats}
+          seriesTotalSessions={seriesTotalSessions}
+          seriesLoading={seriesLoading}
+          showSeriesPanel={showSeriesPanel}
+          setShowSeriesPanel={setShowSeriesPanel}
+          showSeriesCancelModal={showSeriesCancelModal}
+          setShowSeriesCancelModal={setShowSeriesCancelModal}
+          seriesCancellationReason={seriesCancellationReason}
+          setSeriesCancellationReason={setSeriesCancellationReason}
+          editingFacilitators={editingFacilitators}
+          editFacilitators={editFacilitators}
+          availableConsultants={availableConsultants}
+          loadingConsultants={loadingConsultants}
+          savingFacilitators={savingFacilitators}
+          handleApproveConfirmed={handleApproveConfirmed}
+          handleStartSessionConfirmed={handleStartSessionConfirmed}
+          handleCancelSubmit={handleCancelSubmit}
+          handleSeriesCancelSubmit={handleSeriesCancelSubmit}
+          handleStartEditFacilitators={handleStartEditFacilitators}
+          handleCancelEditFacilitators={handleCancelEditFacilitators}
+          handleAddEditFacilitator={handleAddEditFacilitator}
+          handleRemoveEditFacilitator={handleRemoveEditFacilitator}
+          handleToggleEditFacilitatorLead={handleToggleEditFacilitatorLead}
+          handleSaveFacilitators={handleSaveFacilitators}
+          openSession={(sessionId) => router.push(`/admin/sessions/${sessionId}`)}
+          formatDate={formatDate}
+          formatTime={formatTime}
+        />
       </MainLayout>
     );
   }
@@ -698,6 +794,7 @@ const SessionDetailPage: React.FC = () => {
       isAdmin={isAdmin}
       onLogout={handleLogout}
     >
+      {hoursPanel}
       <ResponsiveFunctionalPageHeader
         icon={<Calendar />}
         title="Detalle de Sesión"
@@ -1128,8 +1225,9 @@ const SessionDetailPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Z7-5: planned vs Zoom comparison + «Ajustar horas descontadas» (§11). */}
-          <HoursComparisonPanel sessionId={session.id} />
+          {/* Z7-5: the hours panel (`hoursPanel` above) sits here, where it always stood: the last child
+              here, right after the session's box, in a place of its own that holds nothing else. */}
+          <div ref={clasicoHoursPlace} style={{ display: 'contents' }} />
         </div>
 
       {/* Cancel Modal */}

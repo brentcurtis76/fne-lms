@@ -1,4 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
+import notificationService from '../../../lib/notificationService';
 import { createServiceRoleClient, requireVerifiedRole } from '../../../lib/api-auth';
 
 /**
@@ -11,7 +12,8 @@ import { createServiceRoleClient, requireVerifiedRole } from '../../../lib/api-a
  * verified with the auth server, passes the forced-password gate and holds an
  * active `admin` user_roles row). The author is the verified caller, never a
  * body field; every other body key is ignored. One insert, with the service
- * client. No notification and no e-mail in this build.
+ * client. The reporter is then told through the bell only (no e-mail); an
+ * internal note never notifies.
  */
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -47,7 +49,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const { data: feedback, error: feedbackError } = await serviceClient
       .from('platform_feedback')
-      .select('id')
+      .select('id, created_by')
       .eq('id', feedbackId)
       .maybeSingle();
     if (feedbackError) {
@@ -72,6 +74,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (insertError || !activity) {
       console.error('[feedback-reply] insert failed');
       return res.status(500).json({ error: 'No se pudo guardar la respuesta' });
+    }
+
+    // The reporter comes from the persisted ticket, never from the body; an admin
+    // replying to their own ticket is not notified. A failure never costs the reply.
+    if (typeof feedback.created_by === 'string' && feedback.created_by !== adminId) {
+      try {
+        const result = await notificationService.triggerNotification('feedback_reply', {
+          feedback_id: feedbackId,
+          activity_id: activity.id,
+          reporter_id: feedback.created_by,
+        });
+        if (!result.success) {
+          console.error('[feedback-reply] notification not created');
+        }
+      } catch {
+        console.error('[feedback-reply] notification not created');
+      }
     }
 
     return res.status(200).json({ success: true, activity });

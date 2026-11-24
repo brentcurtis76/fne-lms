@@ -399,6 +399,14 @@ export const NOTIFICATION_EVENTS: Record<string, NotificationEventConfig> = {
     category: 'admin',
   },
 
+  feedback_reply: {
+    defaultTitle: () => 'Tu reporte tiene una respuesta de Soporte',
+    defaultDescription: () => 'Soporte respondió a un problema que reportaste. Ábrelo en «Mis reportes».',
+    defaultUrl: '/profile/reportes',
+    importance: 'normal',
+    category: 'system',
+  },
+
   consultant_assigned: {
     defaultTitle: (d) =>
       d.consultant?.name

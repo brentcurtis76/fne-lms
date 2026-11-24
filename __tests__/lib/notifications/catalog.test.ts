@@ -184,6 +184,19 @@ describe('D1 · catalog completeness and typed definitions', () => {
     expect(NOTIFICATION_CATALOG.user_mentioned.emailDefault).toBe('immediate');
   });
 
+  it('maps feedback_reply as bell only: qa_support, the reporter, e-mail off, no outbox source (F27)', () => {
+    expect(NOTIFICATION_CATALOG.feedback_reply).toMatchObject({
+      category: 'qa_support',
+      audience: 'feedback_reporter',
+      emailDefault: 'off',
+      mandatory: false,
+    });
+    expect('source' in NOTIFICATION_CATALOG.feedback_reply).toBe(false);
+    expect(buildNotificationUrl('feedback_reply', { feedback_id: 'ffffffff-ffff-4fff-8fff-ffffffffffff' }, 'docente')).toBe(
+      '/profile/reportes'
+    );
+  });
+
   it('derives occurrence ids from the persisted record and returns null without one', () => {
     expect(NOTIFICATION_CATALOG.message_sent.occurrenceId({ message_id: 'm-1' })).toBe('m-1');
     expect(

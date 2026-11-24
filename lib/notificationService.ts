@@ -813,6 +813,13 @@ class NotificationService {
           }
           break;
 
+        case 'feedback_reply':
+          // The one person who reported the ticket (platform_feedback.created_by), read by the reply route.
+          if (typeof eventData.reporter_id === 'string' && eventData.reporter_id.length > 0) {
+            recipients.push({ id: eventData.reporter_id });
+          }
+          break;
+
         case 'qa_test_failed':
           // Recipients are admin users (passed in admin_user_ids)
           if (eventData.admin_user_ids && Array.isArray(eventData.admin_user_ids)) {
@@ -956,13 +963,15 @@ class NotificationService {
     eventType: string
   ): Promise<NotificationContent> {
     const eventConfig = getEventConfig(eventType);
+    // fixed texts and address (F27): a stored template never overrides them
+    const storedTemplate = eventType === 'feedback_reply' ? null : template;
 
     try {
       // Try database template first (if exists and has valid templates)
-      if (template?.title_template) {
-        const substitutedTitle = this.substituteTemplate(template.title_template, eventData);
-        const substitutedDesc = this.substituteTemplate(template.description_template, eventData);
-        const substitutedUrl = this.substituteTemplate(template.url_template, eventData);
+      if (storedTemplate?.title_template) {
+        const substitutedTitle = this.substituteTemplate(storedTemplate.title_template, eventData);
+        const substitutedDesc = this.substituteTemplate(storedTemplate.description_template, eventData);
+        const substitutedUrl = this.substituteTemplate(storedTemplate.url_template, eventData);
 
         // Only use DB template if substitution succeeded (no remaining placeholders)
         if (substitutedTitle && !substitutedTitle.includes('{')) {
@@ -971,7 +980,7 @@ class NotificationService {
             title: substitutedTitle,
             description: substitutedDesc || eventConfig.defaultDescription(eventData),
             related_url: substitutedUrl || getFallbackUrl(eventType),
-            importance: template.importance || eventConfig.importance,
+            importance: storedTemplate.importance || eventConfig.importance,
           };
         }
 
@@ -1208,6 +1217,13 @@ class NotificationService {
     // Until N5-06 the finalize route's summary is a meeting's only email, so its
     // notification is in-app only whatever the category mode or kill switch.
     if (notificationData.event_type === MEETING_SUMMARY_EVENT) {
+      console.log('📭 Notification email NOT sent', { status: 'in_app_only' });
+      return false;
+    }
+
+    // A Soporte reply reaches its reporter by "The bell only" (Brent, 20 Nov 2026):
+    // never mailed, whatever the person's category setting (F27).
+    if (notificationData.event_type === 'feedback_reply') {
       console.log('📭 Notification email NOT sent', { status: 'in_app_only' });
       return false;
     }

@@ -60,6 +60,8 @@ export type Audience =
   | 'group_consultants'
   /** Reviewers the pending-review list shows the submission to: consultant assignments covering its student (notify-pending). */
   | 'quiz_reviewers'
+  /** The person who reported the Soporte ticket, named by the reply route as reporter_id. */
+  | 'feedback_reporter'
   /** No recipient rule exists yet (producer or recipient case still to be wired). */
   | 'unwired';
 
@@ -375,6 +377,8 @@ export const NOTIFICATION_CATALOG: Record<string, NotificationCatalogEntry> = {
 
   qa_scenario_assigned: { ...plain('qa_support', 'tester', 'immediate', [], ['scenario_count', 'due_date'], noRecord, '/qa'), source: null },
   new_feedback: { ...plain('qa_support', 'admins', 'digest', ['feedback_id'], ['feedback_type'], noRecord, '/admin/feedback'), source: null },
+  // bell only: never mailed, never queued (F27)
+  feedback_reply: plain('qa_support', 'feedback_reporter', 'off', ['activity_id'], [], noRecord, '/profile/reportes'),
   qa_test_failed: { ...plain('qa_support', 'admins', 'digest', ['test_run_id', 'step_index'], ['scenario_name', 'feature_area'], at('/admin/qa/runs', 'test_run_id'), '/admin/qa'), source: null },
   data_quality_alert: {
     ...plain('qa_support', 'admins', 'digest', [], [], noRecord, '/admin/course-builder'),

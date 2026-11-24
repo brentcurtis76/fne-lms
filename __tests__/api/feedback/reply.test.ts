@@ -121,6 +121,10 @@ vi.mock('@supabase/auth-helpers-nextjs', async (importOriginal) => {
   return { ...actual, createServerSupabaseClient: () => fakeClient, createPagesServerClient: () => fakeClient };
 });
 
+const { triggerNotification } = vi.hoisted(() => ({ triggerNotification: vi.fn() }));
+
+vi.mock('../../../lib/notificationService', () => ({ default: { triggerNotification } }));
+
 import handler from '../../../pages/api/feedback/reply';
 
 const ADMIN_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
@@ -158,10 +162,12 @@ beforeEach(() => {
   Object.assign(state, {
     tokens: { 'admin-token': ADMIN_ID, 'docente-token': DOCENTE_ID },
     admins: [ADMIN_ID],
-    feedbackRow: { id: FEEDBACK_ID },
+    feedbackRow: { id: FEEDBACK_ID, created_by: DOCENTE_ID },
     insertError: null,
     calls: [],
   });
+  triggerNotification.mockReset();
+  triggerNotification.mockResolvedValue({ success: true, notificationsCreated: 1 });
   logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
   errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 });
@@ -290,5 +296,74 @@ describe('/api/feedback/reply — what the admin sends', () => {
     expect(status).toBe(500);
     expect(json.error).toBe('No se pudo guardar la respuesta');
     expect(writes()).toHaveLength(1);
+  });
+});
+
+describe('/api/feedback/reply — the reporter is told through the bell only (F27)', () => {
+  const REPLY = 'Ya lo revisamos, gracias.';
+
+  it('(5b) a successful reply calls triggerNotification once, for the reporter, without the message', async () => {
+    const { status } = await asAdmin({ feedback_id: FEEDBACK_ID, message: REPLY });
+    expect(status).toBe(200);
+    expect(triggerNotification).toHaveBeenCalledTimes(1);
+    expect(triggerNotification).toHaveBeenCalledWith('feedback_reply', {
+      feedback_id: FEEDBACK_ID,
+      activity_id: 'activity-1',
+      reporter_id: DOCENTE_ID,
+    });
+    expect(JSON.stringify(triggerNotification.mock.calls)).not.toContain('revisamos');
+    expect(writes()).toHaveLength(1);
+  });
+
+  it('(5c) the replying admin is the reporter → no notification, 200', async () => {
+    state.feedbackRow = { id: FEEDBACK_ID, created_by: ADMIN_ID };
+    const { status, json } = await asAdmin({ feedback_id: FEEDBACK_ID, message: REPLY });
+    expect(status).toBe(200);
+    expect(json.success).toBe(true);
+    expect(triggerNotification).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['answers success: false', () => triggerNotification.mockResolvedValue({ success: false })],
+    ['rejects', () => triggerNotification.mockRejectedValue(new Error('boom for dddddddd-dddd-4ddd-8ddd-dddddddddddd'))],
+  ])('(5d) the notification %s → still 200 with the saved reply and one fixed error line', async (_label, arrange) => {
+    arrange();
+    const { status, json } = await asAdmin({ feedback_id: FEEDBACK_ID, message: REPLY });
+    expect(status).toBe(200);
+    expect(json).toEqual({
+      success: true,
+      activity: {
+        id: 'activity-1',
+        created_at: '2026-11-18T12:00:00Z',
+        feedback_id: FEEDBACK_ID,
+        message: REPLY,
+        created_by: ADMIN_ID,
+        is_system_message: false,
+        visible_to_reporter: true,
+      },
+    });
+    expect(triggerNotification).toHaveBeenCalledTimes(1);
+    expect(errorSpy.mock.calls).toEqual([['[feedback-reply] notification not created']]);
+  });
+
+  it('(5e) every refusal path calls no notification', async () => {
+    await call({ feedback_id: FEEDBACK_ID, message: 'Hola' }); // 401, no token
+    await call({ feedback_id: FEEDBACK_ID, message: 'Hola' }, { token: 'forged' }); // 401
+    await call({ feedback_id: FEEDBACK_ID, message: 'Hola' }, { token: 'docente-token' }); // 403
+    await call({ feedback_id: FEEDBACK_ID, message: 'Hola' }, { token: 'admin-token', method: 'GET' }); // 405
+    await asAdmin({ feedback_id: FEEDBACK_ID, message: '   ' }); // 400
+    await asAdmin({ feedback_id: 'not-a-uuid', message: 'Hola' }); // 400
+    await asAdmin({ feedback_id: MISSING_ID, message: 'Hola' }); // 404
+    state.insertError = { code: '42501', message: 'denied' };
+    const { status } = await asAdmin({ feedback_id: FEEDBACK_ID, message: 'Hola' }); // 500
+    expect(status).toBe(500);
+    expect(triggerNotification).not.toHaveBeenCalled();
+  });
+
+  it('(5f) a ticket whose created_by is null → no notification, 200', async () => {
+    state.feedbackRow = { id: FEEDBACK_ID, created_by: null };
+    const { status } = await asAdmin({ feedback_id: FEEDBACK_ID, message: REPLY });
+    expect(status).toBe(200);
+    expect(triggerNotification).not.toHaveBeenCalled();
   });
 });

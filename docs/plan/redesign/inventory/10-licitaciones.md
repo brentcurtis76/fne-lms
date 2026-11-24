@@ -1,7 +1,7 @@
 # Licitaciones (processes, templates, proposals)
 
 Area `10-licitaciones`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `c7e27398c` (2026-11-22).
+Read from commit `6a336e70e` (2026-11-24).
 
 11 screen files, 42 API files, 32 pieces.
 
@@ -33,7 +33,7 @@ File `pages/admin/licitaciones/consultores.tsx` · 854 lines · frame: MainLayou
   - l.132 `router.push → /login  (when !user)`
   - l.144 `router.push → /dashboard  (when !roles.includes('admin'))`
   - l.153 `router.push → /login`
-- Linked from: `components/licitaciones/ProposalConfigPanel.tsx:1110`, `components/licitaciones/ProposalConfigPanel.tsx:1111`
+- Linked from: `components/licitaciones/ProposalConfigPanel.tsx:1118`, `components/licitaciones/ProposalConfigPanel.tsx:1119`
 - Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/flows/proposal-consultant-crud.spec.ts`.
 
 | Role | Sees it in the menu | Middleware |
@@ -370,7 +370,7 @@ File `pages/admin/licitaciones/documentos-propuesta.tsx` · 625 lines · frame: 
   - l.146 `router.push → /login  (when !user)`
   - l.158 `router.push → /dashboard  (when !roles.includes('admin'))`
   - l.167 `router.push → /login`
-- Linked from: `components/licitaciones/ProposalConfigPanel.tsx:1500`, `components/licitaciones/ProposalConfigPanel.tsx:1501`, `components/licitaciones/ProposalConfigPanel.tsx:1572`, `components/licitaciones/ProposalConfigPanel.tsx:1573`
+- Linked from: `components/licitaciones/ProposalConfigPanel.tsx:1508`, `components/licitaciones/ProposalConfigPanel.tsx:1509`, `components/licitaciones/ProposalConfigPanel.tsx:1580`, `components/licitaciones/ProposalConfigPanel.tsx:1581`
 - Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/flows/proposal-document-library.spec.ts`.
 
 | Role | Sees it in the menu | Middleware |
@@ -1084,17 +1084,17 @@ File `pages/licitaciones/[id].tsx` · 966 lines · frame: MainLayout
 | `/api/licitaciones/[id]/evaluacion` | GET | `pages/licitaciones/[id].tsx:179` |
 | `/api/licitaciones/[id]/generate-bases` | GET | `components/licitaciones/Step3Bases.tsx:262` |
 | `/api/licitaciones/[id]/generate-carta` | GET | `components/licitaciones/Step6Adjudicacion.tsx:183`, `components/licitaciones/Step7Contrato.tsx:104` |
-| `/api/licitaciones/[id]/generate-propuesta` | POST | `components/licitaciones/ProposalConfigPanel.tsx:722` |
-| `/api/licitaciones/[id]/propuestas` | GET, POST | `components/licitaciones/ProposalConfigPanel.tsx:254`, `components/licitaciones/ProposalConfigPanel.tsx:611`, `components/licitaciones/ProposalConfigPanel.tsx:751` |
+| `/api/licitaciones/[id]/generate-propuesta` | POST | `components/licitaciones/ProposalConfigPanel.tsx:724` |
+| `/api/licitaciones/[id]/propuestas` | GET, POST | `components/licitaciones/ProposalConfigPanel.tsx:256`, `components/licitaciones/ProposalConfigPanel.tsx:613`, `components/licitaciones/ProposalConfigPanel.tsx:757` |
 | `/api/licitaciones/[id]/publicacion` | POST | `pages/licitaciones/[id].tsx:349` |
 | `/api/licitaciones/[id]/timeline` | GET | `pages/licitaciones/[id].tsx:290` |
 | `/api/licitaciones/[id]/upload` | POST | `components/licitaciones/ArchiveView.tsx:111`, `components/licitaciones/Step6Adjudicacion.tsx:219`, `components/licitaciones/Step7Contrato.tsx:69`, `pages/licitaciones/[id].tsx:315` |
 | `/api/licitaciones/check-deadlines` | POST | `pages/licitaciones/[id].tsx:164` |
-| `/api/propuestas/bloques` | GET | `components/licitaciones/ProposalConfigPanel.tsx:253` |
-| `/api/propuestas/consultores` | GET | `components/licitaciones/ProposalConfigPanel.tsx:251` |
-| `/api/propuestas/documentos` | GET | `components/licitaciones/ProposalConfigPanel.tsx:252` |
-| `/api/propuestas/fichas` | GET | `components/licitaciones/ProposalConfigPanel.tsx:250` |
-| `/api/propuestas/plantillas` | GET | `components/licitaciones/ProposalConfigPanel.tsx:249` |
+| `/api/propuestas/bloques` | GET | `components/licitaciones/ProposalConfigPanel.tsx:255` |
+| `/api/propuestas/consultores` | GET | `components/licitaciones/ProposalConfigPanel.tsx:253` |
+| `/api/propuestas/documentos` | GET | `components/licitaciones/ProposalConfigPanel.tsx:254` |
+| `/api/propuestas/fichas` | GET | `components/licitaciones/ProposalConfigPanel.tsx:252` |
+| `/api/propuestas/plantillas` | GET | `components/licitaciones/ProposalConfigPanel.tsx:251` |
 
 ## /licitaciones/[id]/evaluacion
 
@@ -1440,7 +1440,7 @@ File `pages/licitaciones/index.tsx` · 689 lines · frame: MainLayout
   - l.185 `router.push → /dashboard  (when !response.ok)`
   - l.198 `router.push → /dashboard  (when !adminAccess && !encargadoAccess)`
   - l.222 `router.push → /login`
-- Linked from: `components/layout/Sidebar.tsx:599`, `lib/auth/forced-password-change.ts:150`, `lib/notificationEvents.ts:627`, `lib/notificationEvents.ts:639`, `lib/notificationEvents.ts:651`, `lib/notificationEvents.ts:663`, `lib/notificationEvents.ts:675`, `lib/notificationEvents.ts:687`, `lib/notificationEvents.ts:699`, `lib/notificationEvents.ts:711`, `lib/notificationEvents.ts:723`, `lib/notificationEvents.ts:735` and 21 more
+- Linked from: `components/layout/Sidebar.tsx:599`, `lib/auth/forced-password-change.ts:150`, `lib/notificationEvents.ts:635`, `lib/notificationEvents.ts:647`, `lib/notificationEvents.ts:659`, `lib/notificationEvents.ts:671`, `lib/notificationEvents.ts:683`, `lib/notificationEvents.ts:695`, `lib/notificationEvents.ts:707`, `lib/notificationEvents.ts:719`, `lib/notificationEvents.ts:731`, `lib/notificationEvents.ts:743` and 21 more
 - Tests: no browser test that CI runs.
 - QA scenarios that name this address: admin 4, community_manager 2, consultor 3, equipo_directivo 2, docente 1, lider_comunidad 1.
 
@@ -1774,7 +1774,7 @@ File `pages/propuesta/[slug].tsx` · 220 lines · frame: none
 - Middleware: not covered. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: no.
 - In the page:
   - l.155 `router.push → /  (when error)`
-- Linked from: `components/licitaciones/ProposalConfigPanel.tsx:1678`, `components/licitaciones/ProposalConfigPanel.tsx:1698`, `components/licitaciones/ProposalConfigPanel.tsx:1699`, `lib/look.ts:113`
+- Linked from: `components/licitaciones/ProposalConfigPanel.tsx:1691`, `components/licitaciones/ProposalConfigPanel.tsx:1711`, `components/licitaciones/ProposalConfigPanel.tsx:1712`, `lib/look.ts:113`
 - Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/flows/proposal-buckets.spec.ts`, `tests/e2e/flows/proposal-web-view.spec.ts`.
 
 | Role | Sees it in the menu | Middleware |
@@ -2181,218 +2181,220 @@ Used by: `/licitaciones/[id]`
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «P Generar Propuesta FNE Solo Admin» | h2 |  | ProposalConfigPanel · l.777 |
-| «Propuesta Web Generada» | h3 | `panelOpen && !(!dataLoaded) && lastGenResult` | ProposalConfigPanel · l.1648 |
+| «P Generar Propuesta FNE Solo Admin» | h2 |  | ProposalConfigPanel · l.783 |
+| «Propuesta Web Generada» | h3 | `panelOpen && !(!dataLoaded) && lastGenResult` | ProposalConfigPanel · l.1661 |
 
 **Buttons** (21)
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «{title}» | `{onToggle}` |  |  |  | SectionHeader · l.151 |
-| «P Generar Propuesta FNE Solo Admin» | `{() => setPanelOpen(o => !o)}` |  |  |  | ProposalConfigPanel · l.772 |
-| «Objetivo General: revisar coherencia» | `{() => setObjetivoExpanded(o => !o)}` | `panelOpen && !(!dataLoaded) && selectedFicha && validationResult && validationResult.warnings.some(w => w.rule === 6)` |  |  | ProposalConfigPanel · l.850 |
-| «Por hora» | `{() => setPrecioModelo('per_hour')}` | `panelOpen && !(!dataLoaded) && secPrecio` |  |  | ProposalConfigPanel · l.1187 |
-| «Precio fijo» | `{() => setPrecioModelo('fixed')}` | `panelOpen && !(!dataLoaded) && secPrecio` |  |  | ProposalConfigPanel · l.1198 |
-| «Cargar desde plantilla» | `{loadFromPlantilla}` | `panelOpen && !(!dataLoaded) && secModulos` | `{!selectedPlantilla}` |  | ProposalConfigPanel · l.1315 |
-| «Agregar módulo» | `{addModule}` | `panelOpen && !(!dataLoaded) && secModulos` |  |  | ProposalConfigPanel · l.1323 |
-| «[icon ArrowUp]» | `{() => moveModule(i, 'up')}` | `!(!dataLoaded) && secModulos && !(modulos.length === 0) && each modulos` | `{i === 0}` |  | ProposalConfigPanel · l.1350 |
-| «[icon ArrowDown]» | `{() => moveModule(i, 'down')}` | `!(!dataLoaded) && secModulos && !(modulos.length === 0) && each modulos` | `{i === modulos.length - 1}` |  | ProposalConfigPanel · l.1358 |
-| «[icon Trash2]» | `{() => removeModule(i)}` | `!(!dataLoaded) && secModulos && !(modulos.length === 0) && each modulos` |  |  | ProposalConfigPanel · l.1376 |
-| «Generando... / Generar Propuesta Final» | `{handleGenerate}` | `panelOpen && !(!dataLoaded)` | `{generating \|\| !plantillaId \|\| !fichaId \|\| (validationResult !== null && !valida…}` |  | ProposalConfigPanel · l.1588 |
-| «Ocultar Vista Previa / Vista Previa» · tooltip «Muestra el PDF tal como se generará y descargará» | `{() => setShowPreview((v) => !v)}` | `panelOpen && !(!dataLoaded)` | `{!previewSnapshot}` |  | ProposalConfigPanel · l.1608 |
-| «[icon Copy]» · tooltip «Copiar código» | `{() => copyToClipboard(lastGenResult.access_code, 'Código')}` | `panelOpen && !(!dataLoaded) && lastGenResult` |  |  | ProposalConfigPanel · l.1660 |
-| «[icon Copy]» · tooltip «Copiar enlace» | `{() => copyToClipboard( '${window.location.origin}/propuesta/${lastGenResult.web…}` | `panelOpen && !(!dataLoaded) && lastGenResult` |  |  | ProposalConfigPanel · l.1680 |
-| «Copiar Link + Código» | `{() => { const url = '${window.location.origin}/propuesta/${lastGenResult.web_sl…}` | `panelOpen && !(!dataLoaded) && lastGenResult` |  |  | ProposalConfigPanel · l.1707 |
-| «Link» · tooltip «Copiar enlace web» | `{() => copyToClipboard( '${window.location.origin}/propuesta/${p.web_slug}', 'En…}` | `secHistorial && !(propuestas.length === 0) && each propuestas && p.estado === 'completada' && p.web_slug` |  |  | ProposalConfigPanel · l.1794 |
-| «Código {p.access_code_plain}» · tooltip «Copiar código de acceso» | `{() => copyToClipboard(p.access_code_plain as string, 'Código')}` | `secHistorial && !(propuestas.length === 0) && each propuestas && p.estado === 'completada' && p.access_code_plain` |  |  | ProposalConfigPanel · l.1810 |
-| «Regenerar Código» · tooltip «Próximamente» |  | `secHistorial && !(propuestas.length === 0) && each propuestas && p.estado === 'completada'` | `true` |  | ProposalConfigPanel · l.1821 |
-| «Retirar enlace» · tooltip «La escuela ya no podrá abrir esta versión» | `{() => setRetireConfirmId(p.id)}` | `secHistorial && !(propuestas.length === 0) && each propuestas && (p.estado === 'completada' && p.web_slug && (p.web_status === 'published' \|\| p.web_status === 'viewed'))` | `{retiringId === p.id}` | `testid=retirar-enlace-{p.id}` | ProposalConfigPanel · l.1833 |
-| «Sí, retirar enlace» | `{() => retireLink(p.id)}` | `secHistorial && !(propuestas.length === 0) && each propuestas && retireConfirmId === p.id` | `{retiringId === p.id}` | `testid=retirar-enlace-confirmar-{p.id}` | ProposalConfigPanel · l.1868 |
-| «Cancelar» | `{() => setRetireConfirmId(null)}` | `secHistorial && !(propuestas.length === 0) && each propuestas && retireConfirmId === p.id` | `{retiringId === p.id}` | `testid=retirar-enlace-cancelar-{p.id}` | ProposalConfigPanel · l.1878 |
+| «{title}» | `{onToggle}` |  |  |  | SectionHeader · l.153 |
+| «P Generar Propuesta FNE Solo Admin» | `{() => setPanelOpen(o => !o)}` |  |  |  | ProposalConfigPanel · l.778 |
+| «Objetivo General: revisar coherencia» | `{() => setObjetivoExpanded(o => !o)}` | `panelOpen && !(!dataLoaded) && selectedFicha && validationResult && validationResult.warnings.some(w => w.rule === 6)` |  |  | ProposalConfigPanel · l.856 |
+| «Por hora» | `{() => setPrecioModelo('per_hour')}` | `panelOpen && !(!dataLoaded) && secPrecio` |  |  | ProposalConfigPanel · l.1195 |
+| «Precio fijo» | `{() => setPrecioModelo('fixed')}` | `panelOpen && !(!dataLoaded) && secPrecio` |  |  | ProposalConfigPanel · l.1206 |
+| «Cargar desde plantilla» | `{loadFromPlantilla}` | `panelOpen && !(!dataLoaded) && secModulos` | `{!selectedPlantilla}` |  | ProposalConfigPanel · l.1323 |
+| «Agregar módulo» | `{addModule}` | `panelOpen && !(!dataLoaded) && secModulos` |  |  | ProposalConfigPanel · l.1331 |
+| «[icon ArrowUp]» | `{() => moveModule(i, 'up')}` | `!(!dataLoaded) && secModulos && !(modulos.length === 0) && each modulos` | `{i === 0}` |  | ProposalConfigPanel · l.1358 |
+| «[icon ArrowDown]» | `{() => moveModule(i, 'down')}` | `!(!dataLoaded) && secModulos && !(modulos.length === 0) && each modulos` | `{i === modulos.length - 1}` |  | ProposalConfigPanel · l.1366 |
+| «[icon Trash2]» | `{() => removeModule(i)}` | `!(!dataLoaded) && secModulos && !(modulos.length === 0) && each modulos` |  |  | ProposalConfigPanel · l.1384 |
+| «Generando... / Generar Propuesta Final» | `{handleGenerate}` | `panelOpen && !(!dataLoaded)` | `{generating \|\| !plantillaId \|\| !fichaId \|\| (validationResult !== null && !valida…}` |  | ProposalConfigPanel · l.1601 |
+| «Ocultar Vista Previa / Vista Previa» · tooltip «Muestra el PDF tal como se generará y descargará» | `{() => setShowPreview((v) => !v)}` | `panelOpen && !(!dataLoaded)` | `{!previewSnapshot}` |  | ProposalConfigPanel · l.1621 |
+| «[icon Copy]» · tooltip «Copiar código» | `{() => copyToClipboard(lastGenResult.access_code, 'Código')}` | `panelOpen && !(!dataLoaded) && lastGenResult` |  |  | ProposalConfigPanel · l.1673 |
+| «[icon Copy]» · tooltip «Copiar enlace» | `{() => copyToClipboard( '${window.location.origin}/propuesta/${lastGenResult.web…}` | `panelOpen && !(!dataLoaded) && lastGenResult` |  |  | ProposalConfigPanel · l.1693 |
+| «Copiar Link + Código» | `{() => { const url = '${window.location.origin}/propuesta/${lastGenResult.web_sl…}` | `panelOpen && !(!dataLoaded) && lastGenResult` |  |  | ProposalConfigPanel · l.1720 |
+| «Link» · tooltip «Copiar enlace web» | `{() => copyToClipboard( '${window.location.origin}/propuesta/${p.web_slug}', 'En…}` | `secHistorial && !(propuestas.length === 0) && each propuestas && p.estado === 'completada' && p.web_slug` |  |  | ProposalConfigPanel · l.1807 |
+| «Código {p.access_code_plain}» · tooltip «Copiar código de acceso» | `{() => copyToClipboard(p.access_code_plain as string, 'Código')}` | `secHistorial && !(propuestas.length === 0) && each propuestas && p.estado === 'completada' && p.access_code_plain` |  |  | ProposalConfigPanel · l.1823 |
+| «Regenerar Código» · tooltip «Próximamente» |  | `secHistorial && !(propuestas.length === 0) && each propuestas && p.estado === 'completada'` | `true` |  | ProposalConfigPanel · l.1834 |
+| «Retirar enlace» · tooltip «La escuela ya no podrá abrir esta versión» | `{() => setRetireConfirmId(p.id)}` | `secHistorial && !(propuestas.length === 0) && each propuestas && (p.estado === 'completada' && p.web_slug && (p.web_status === 'published' \|\| p.web_status === 'viewed'))` | `{retiringId === p.id}` | `testid=retirar-enlace-{p.id}` | ProposalConfigPanel · l.1846 |
+| «Sí, retirar enlace» | `{() => retireLink(p.id)}` | `secHistorial && !(propuestas.length === 0) && each propuestas && retireConfirmId === p.id` | `{retiringId === p.id}` | `testid=retirar-enlace-confirmar-{p.id}` | ProposalConfigPanel · l.1881 |
+| «Cancelar» | `{() => setRetireConfirmId(null)}` | `secHistorial && !(propuestas.length === 0) && each propuestas && retireConfirmId === p.id` | `{retiringId === p.id}` | `testid=retirar-enlace-cancelar-{p.id}` | ProposalConfigPanel · l.1891 |
 
 **Links** (5)
 
 | Text | Goes to | Shown when | Hook | Where |
 |---|---|---|---|---|
-| «Agregar consultores» | `/admin/licitaciones/consultores` (new tab) | `panelOpen && !(!dataLoaded) && secConsultores && consultores.length === 0` |  | ProposalConfigPanel · l.1110 |
-| «Subir documentos» | `/admin/licitaciones/documentos-propuesta` (new tab) | `panelOpen && !(!dataLoaded) && secDocumentos && documentos.length === 0` |  | ProposalConfigPanel · l.1500 |
-| «Gestionar biblioteca» | `/admin/licitaciones/documentos-propuesta` (new tab) | `panelOpen && !(!dataLoaded) && secDocumentos` |  | ProposalConfigPanel · l.1572 |
-| «Ver Propuesta Web» | `/propuesta/[*]` (new tab) | `panelOpen && !(!dataLoaded) && lastGenResult` |  | ProposalConfigPanel · l.1698 |
-| «PDF» | `{p.download_url}` (new tab) | `secHistorial && !(propuestas.length === 0) && each propuestas && p.estado === 'completada' && p.download_url` |  | ProposalConfigPanel · l.1850 |
+| «Agregar consultores» | `/admin/licitaciones/consultores` (new tab) | `panelOpen && !(!dataLoaded) && secConsultores && consultores.length === 0` |  | ProposalConfigPanel · l.1118 |
+| «Subir documentos» | `/admin/licitaciones/documentos-propuesta` (new tab) | `panelOpen && !(!dataLoaded) && secDocumentos && documentos.length === 0` |  | ProposalConfigPanel · l.1508 |
+| «Gestionar biblioteca» | `/admin/licitaciones/documentos-propuesta` (new tab) | `panelOpen && !(!dataLoaded) && secDocumentos` |  | ProposalConfigPanel · l.1580 |
+| «Ver Propuesta Web» | `/propuesta/[*]` (new tab) | `panelOpen && !(!dataLoaded) && lastGenResult` |  | ProposalConfigPanel · l.1711 |
+| «PDF» | `{p.download_url}` (new tab) | `secHistorial && !(propuestas.length === 0) && each propuestas && p.estado === 'completada' && p.download_url` |  | ProposalConfigPanel · l.1863 |
 
 **Fields** (19)
 
 | Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
 |---|---|---|---|---|---|---|
-| «Objetivo de la propuesta...» | textarea | «Objetivo de la propuesta...» |  | `!(!dataLoaded) && selectedFicha && validationResult && validationResult.warnings.some(w => w.rule === 6) && objetivoExpanded` |  | ProposalConfigPanel · l.872 |
-| «Plantilla» | select |  | «— Seleccionar —», «(lista) {p.nombre}» | `panelOpen && !(!dataLoaded)` |  | ProposalConfigPanel · l.922 |
-| «Ficha de Servicio» | select | disabled: `{!!plantillaId}` | «— Seleccionar —», «(lista) Folio {f.folio} — {f.nombre_servicio}» | `panelOpen && !(!dataLoaded)` |  | ProposalConfigPanel · l.939 |
-| «Presencial (hrs)» | number | `min=0` |  | `panelOpen && !(!dataLoaded) && secHoras` |  | ProposalConfigPanel · l.980 |
-| «Online Sincrónica (hrs)» | number | `min=0` |  | `panelOpen && !(!dataLoaded) && secHoras` |  | ProposalConfigPanel · l.994 |
-| «Online Asincrónica (hrs)» | number | `min=0` |  | `panelOpen && !(!dataLoaded) && secHoras` |  | ProposalConfigPanel · l.1008 |
-| «Incluir acceso a Plataforma de Crecimiento» | checkbox |  |  | `panelOpen && !(!dataLoaded) && secPlataforma` |  | ProposalConfigPanel · l.1070 |
-| «Beneficios de la plataforma» | textarea | «Ej: Contenidos audiovisuales, formación cruzada, gestión del conocimiento interno» |  | `panelOpen && !(!dataLoaded) && secPlataforma && plataforma` |  | ProposalConfigPanel · l.1085 |
-| «{c.nombre} [✓ en Ficha] {c.titulo} Comité Intl. / Equipo FNE / Asesor Intl.» | checkbox |  |  | `!(!dataLoaded) && secConsultores && !(consultores.length === 0) && each consultores` |  | ProposalConfigPanel · l.1136 |
-| «Valor UF por hora» | number | «Ej: 1.2» · `min=0 step=0.01` |  | `panelOpen && !(!dataLoaded) && secPrecio && precioModelo === 'per_hour'` |  | ProposalConfigPanel · l.1217 |
-| «Precio fijo (UF)» | number | «Ej: 888» · `min=0 step=0.01` |  | `panelOpen && !(!dataLoaded) && secPrecio && !(precioModelo === 'per_hour')` |  | ProposalConfigPanel · l.1248 |
-| «Forma de pago» | select |  | «— Seleccionar —», «3 cuotas iguales», «2 cuotas iguales», «Pago único», «Personalizado» | `panelOpen && !(!dataLoaded) && secPrecio` |  | ProposalConfigPanel · l.1277 |
-| «Detalle de pago» | text | «Ej: 33% inicio, 33% julio, 34% noviembre» |  | `panelOpen && !(!dataLoaded) && secPrecio` |  | ProposalConfigPanel · l.1293 |
-| «{`Módulo ${i + 1}`}» | text | «{`Módulo ${i + 1}`}» |  | `!(!dataLoaded) && secModulos && !(modulos.length === 0) && each modulos` |  | ProposalConfigPanel · l.1367 |
-| «Presencial» | number | `min=0` |  | `!(!dataLoaded) && secModulos && !(modulos.length === 0) && each modulos` |  | ProposalConfigPanel · l.1389 |
-| «Sincrónica» | number | `min=0` |  | `!(!dataLoaded) && secModulos && !(modulos.length === 0) && each modulos` |  | ProposalConfigPanel · l.1403 |
-| «Asincrónica» | number | `min=0` |  | `!(!dataLoaded) && secModulos && !(modulos.length === 0) && each modulos` |  | ProposalConfigPanel · l.1417 |
-| «Mes» | select |  | «—», «(lista) {mes}» | `!(!dataLoaded) && secModulos && !(modulos.length === 0) && each modulos` |  | ProposalConfigPanel · l.1431 |
-| «{doc.nombre} {TIPO_LABELS[doc.tipo]} [Vencido — bloquea generación] [Vence {formatDate(doc.fecha_vencimiento)}] [Vence: {formatDate(doc.fecha_vencimiento)}]» | checkbox | disabled: `{doc.expired}` |  | `!(!dataLoaded) && secDocumentos && !(documentos.length === 0) && each documentos` |  | ProposalConfigPanel · l.1526 |
+| «Objetivo de la propuesta...» | textarea | «Objetivo de la propuesta...» |  | `!(!dataLoaded) && selectedFicha && validationResult && validationResult.warnings.some(w => w.rule === 6) && objetivoExpanded` |  | ProposalConfigPanel · l.878 |
+| «Plantilla» | select |  | «— Seleccionar —», «(lista) {p.nombre}» | `panelOpen && !(!dataLoaded)` |  | ProposalConfigPanel · l.928 |
+| «Ficha de Servicio» | select | disabled: `{!!plantillaId}` | «— Seleccionar —», «(lista) Folio {f.folio} — {f.nombre_servicio}» | `panelOpen && !(!dataLoaded)` |  | ProposalConfigPanel · l.945 |
+| «Presencial (hrs)» | number | `min=0` |  | `panelOpen && !(!dataLoaded) && secHoras` |  | ProposalConfigPanel · l.986 |
+| «Online Sincrónica (hrs)» | number | `min=0` |  | `panelOpen && !(!dataLoaded) && secHoras` |  | ProposalConfigPanel · l.1000 |
+| «Online Asincrónica (hrs)» | number | `min=0` |  | `panelOpen && !(!dataLoaded) && secHoras` |  | ProposalConfigPanel · l.1014 |
+| «Incluir acceso a Plataforma de Crecimiento» | checkbox |  |  | `panelOpen && !(!dataLoaded) && PLATAFORMA_DISPONIBLE && secPlataforma` |  | ProposalConfigPanel · l.1077 |
+| «Beneficios de la plataforma» | textarea | «Ej: Contenidos audiovisuales, formación cruzada, gestión del conocimiento interno» |  | `!(!dataLoaded) && PLATAFORMA_DISPONIBLE && secPlataforma && plataforma` |  | ProposalConfigPanel · l.1092 |
+| «{c.nombre} [✓ en Ficha] {c.titulo} Comité Intl. / Equipo FNE / Asesor Intl.» | checkbox |  |  | `!(!dataLoaded) && secConsultores && !(consultores.length === 0) && each consultores` |  | ProposalConfigPanel · l.1144 |
+| «Valor UF por hora» | number | «Ej: 1.2» · `min=0 step=0.01` |  | `panelOpen && !(!dataLoaded) && secPrecio && precioModelo === 'per_hour'` |  | ProposalConfigPanel · l.1225 |
+| «Precio fijo (UF)» | number | «Ej: 888» · `min=0 step=0.01` |  | `panelOpen && !(!dataLoaded) && secPrecio && !(precioModelo === 'per_hour')` |  | ProposalConfigPanel · l.1256 |
+| «Forma de pago» | select |  | «— Seleccionar —», «3 cuotas iguales», «2 cuotas iguales», «Pago único», «Personalizado» | `panelOpen && !(!dataLoaded) && secPrecio` |  | ProposalConfigPanel · l.1285 |
+| «Detalle de pago» | text | «Ej: 33% inicio, 33% julio, 34% noviembre» |  | `panelOpen && !(!dataLoaded) && secPrecio` |  | ProposalConfigPanel · l.1301 |
+| «{`Módulo ${i + 1}`}» | text | «{`Módulo ${i + 1}`}» |  | `!(!dataLoaded) && secModulos && !(modulos.length === 0) && each modulos` |  | ProposalConfigPanel · l.1375 |
+| «Presencial» | number | `min=0` |  | `!(!dataLoaded) && secModulos && !(modulos.length === 0) && each modulos` |  | ProposalConfigPanel · l.1397 |
+| «Sincrónica» | number | `min=0` |  | `!(!dataLoaded) && secModulos && !(modulos.length === 0) && each modulos` |  | ProposalConfigPanel · l.1411 |
+| «Asincrónica» | number | `min=0` |  | `!(!dataLoaded) && secModulos && !(modulos.length === 0) && each modulos` |  | ProposalConfigPanel · l.1425 |
+| «Mes» | select |  | «—», «(lista) {mes}» | `!(!dataLoaded) && secModulos && !(modulos.length === 0) && each modulos` |  | ProposalConfigPanel · l.1439 |
+| «{doc.nombre} {TIPO_LABELS[doc.tipo]} [Vencido — bloquea generación] [Vence {formatDate(doc.fecha_vencimiento)}] [Vence: {formatDate(doc.fecha_vencimiento)}]» | checkbox | disabled: `{doc.expired}` |  | `!(!dataLoaded) && secDocumentos && !(documentos.length === 0) && each documentos` |  | ProposalConfigPanel · l.1534 |
 
-**Toasts** (17)
+**Toasts** (18)
 
 | Kind | Text | When | Where |
 |---|---|---|---|
-| error | «Error de red al cargar {label}» | `result.status === 'rejected'` | getJson · l.261 |
-| error | «Respuesta inválida al cargar {label}» |  | getJson · l.268 |
-| error | «Error inesperado al cargar datos de configuración» |  | ProposalConfigPanel · l.291 |
-| success | «Configuración cargada desde plantilla» |  | loadFromPlantilla · l.578 |
-| success | «{label} copiado al portapapeles» |  | copyToClipboard · l.598 |
-| error | «Error al copiar» |  | copyToClipboard · l.600 |
-| error | «Error al retirar el enlace» | `!res.ok` | retireLink · l.618 |
-| success | «Enlace retirado» |  | retireLink · l.625 |
-| error | «Sin conexión al servidor. Verifique su red e intente nuevamente.» |  | retireLink · l.627 |
-| error | «Seleccione una plantilla y ficha antes de generar» | `!plantillaId \|\| !fichaId` | handleGenerate · l.639 |
-| error | «Ficha de servicio no encontrada» | `!selectedFicha` | handleGenerate · l.643 |
-| error | «Hay {validationResult.errors.len…} error(es) de validación MINEDUC. Corrija antes de generar.» | `validationResult && !validationResult.valid` | handleGenerate · l.647 |
-| error | «Hay {expiredSelected.length} certificado(s) vencido(s) seleccionado(s). Actualícelos antes de generar.» | `expiredSelected.length > 0` | handleGenerate · l.657 |
-| error | «Sin conexión al servidor. Verifique su red e intente nuevamente.» |  | handleGenerate · l.728 |
-| error | «Error al generar propuesta» | `!res.ok` | handleGenerate · l.735 |
-| success | «Propuesta generada exitosamente» |  | handleGenerate · l.739 |
-| error | «Error inesperado al generar propuesta» |  | handleGenerate · l.759 |
+| error | «Error de red al cargar {label}» | `result.status === 'rejected'` | getJson · l.263 |
+| error | «Respuesta inválida al cargar {label}» |  | getJson · l.270 |
+| error | «Error inesperado al cargar datos de configuración» |  | ProposalConfigPanel · l.293 |
+| success | «Configuración cargada desde plantilla» |  | loadFromPlantilla · l.580 |
+| success | «{label} copiado al portapapeles» |  | copyToClipboard · l.600 |
+| error | «Error al copiar» |  | copyToClipboard · l.602 |
+| error | «Error al retirar el enlace» | `!res.ok` | retireLink · l.620 |
+| success | «Enlace retirado» |  | retireLink · l.627 |
+| error | «Sin conexión al servidor. Verifique su red e intente nuevamente.» |  | retireLink · l.629 |
+| error | «Seleccione una plantilla y ficha antes de generar» | `!plantillaId \|\| !fichaId` | handleGenerate · l.641 |
+| error | «Ficha de servicio no encontrada» | `!selectedFicha` | handleGenerate · l.645 |
+| error | «Hay {validationResult.errors.len…} error(es) de validación MINEDUC. Corrija antes de generar.» | `validationResult && !validationResult.valid` | handleGenerate · l.649 |
+| error | «Hay {expiredSelected.length} certificado(s) vencido(s) seleccionado(s). Actualícelos antes de generar.» | `expiredSelected.length > 0` | handleGenerate · l.659 |
+| error | «Sin conexión al servidor. Verifique su red e intente nuevamente.» |  | handleGenerate · l.730 |
+| error | «Error al generar propuesta» | `!res.ok` | handleGenerate · l.737 |
+| success | «Propuesta generada exitosamente» |  | handleGenerate · l.741 |
+| error | «No se pudieron retirar los enlaces anteriores: retírelos con «Retirar enlace».» | `json.data?.enlaces_anteriores_retirados === null` | handleGenerate · l.744 |
+| error | «Error inesperado al generar propuesta» |  | handleGenerate · l.765 |
 
 **Draws nothing when** (2)
 
 | Condition | Where |
 |---|---|
-| `!selectedPlantilla \|\| !selectedFicha` | ProposalConfigPanel · l.332 |
-| `!selectedFicha` | ProposalConfigPanel · l.461 |
+| `!selectedPlantilla \|\| !selectedFicha` | ProposalConfigPanel · l.334 |
+| `!selectedFicha` | ProposalConfigPanel · l.463 |
 
 **Pieces placed here, with the texts and settings handed to them** (15)
 
 | Piece | Texts and settings | Shown when | Hook | Where |
 |---|---|---|---|---|
-| `ValidationRow` | label: Nombre del Servicio · detail: coincide con la Ficha | `panelOpen && !(!dataLoaded) && selectedFicha && validationResult` |  | ProposalConfigPanel · l.810 |
-| `ValidationRow` | label: Horas presenciales + sincrónicas · detail: {subtotalHoras}/{selectedFicha.horas_presenc…} registradas | `panelOpen && !(!dataLoaded) && selectedFicha && validationResult` |  | ProposalConfigPanel · l.819 |
-| `ValidationRow` | label: Destinatarios | `panelOpen && !(!dataLoaded) && selectedFicha && validationResult` |  | ProposalConfigPanel · l.830 |
-| `ValidationRow` | label: Consultores en Ficha · detail: {selectedConsultores.length} seleccionado(s) | `panelOpen && !(!dataLoaded) && selectedFicha && validationResult` |  | ProposalConfigPanel · l.839 |
-| `ValidationRow` | label: Suma de módulos | `panelOpen && !(!dataLoaded) && selectedFicha && validationResult && validationResult.errors.some(e => e.rule === 7)` |  | ProposalConfigPanel · l.886 |
-| `SectionHeader` | title: Configuración de Horas | `panelOpen && !(!dataLoaded)` |  | ProposalConfigPanel · l.968 |
-| `SectionHeader` | title: Distribución de Actividades | `panelOpen && !(!dataLoaded)` |  | ProposalConfigPanel · l.1047 |
-| `BucketConfigSection` |  | `panelOpen && !(!dataLoaded) && secBuckets` |  | ProposalConfigPanel · l.1053 |
-| `SectionHeader` | title: Plataforma de Crecimiento | `panelOpen && !(!dataLoaded)` |  | ProposalConfigPanel · l.1062 |
-| `SectionHeader` | title: Equipo Consultor ({consultoresIds.length} seleccionado{consultoresIds.length !== 1…}) | `panelOpen && !(!dataLoaded)` |  | ProposalConfigPanel · l.1100 |
-| `SectionHeader` | title: Propuesta Económica | `panelOpen && !(!dataLoaded)` |  | ProposalConfigPanel · l.1178 |
-| `SectionHeader` | title: Módulos / Actividades | `panelOpen && !(!dataLoaded)` |  | ProposalConfigPanel · l.1307 |
-| `SectionHeader` | title: Documentos Adjuntos ({documentosIds.length} seleccionado{documentosIds.length !== 1 …}) | `panelOpen && !(!dataLoaded)` |  | ProposalConfigPanel · l.1490 |
-| `ProposalPreview` |  | `panelOpen && !(!dataLoaded) && showPreview && previewSnapshot` |  | ProposalConfigPanel · l.1636 |
-| `SectionHeader` | title: Historial de Propuestas ({propuestas.length}) | `panelOpen && !(!dataLoaded)` |  | ProposalConfigPanel · l.1725 |
+| `ValidationRow` | label: Nombre del Servicio · detail: coincide con la Ficha | `panelOpen && !(!dataLoaded) && selectedFicha && validationResult` |  | ProposalConfigPanel · l.816 |
+| `ValidationRow` | label: Horas presenciales + sincrónicas · detail: {subtotalHoras}/{selectedFicha.horas_presenc…} registradas | `panelOpen && !(!dataLoaded) && selectedFicha && validationResult` |  | ProposalConfigPanel · l.825 |
+| `ValidationRow` | label: Destinatarios | `panelOpen && !(!dataLoaded) && selectedFicha && validationResult` |  | ProposalConfigPanel · l.836 |
+| `ValidationRow` | label: Consultores en Ficha · detail: {selectedConsultores.length} seleccionado(s) | `panelOpen && !(!dataLoaded) && selectedFicha && validationResult` |  | ProposalConfigPanel · l.845 |
+| `ValidationRow` | label: Suma de módulos | `panelOpen && !(!dataLoaded) && selectedFicha && validationResult && validationResult.errors.some(e => e.rule === 7)` |  | ProposalConfigPanel · l.892 |
+| `SectionHeader` | title: Configuración de Horas | `panelOpen && !(!dataLoaded)` |  | ProposalConfigPanel · l.974 |
+| `SectionHeader` | title: Distribución de Actividades | `panelOpen && !(!dataLoaded)` |  | ProposalConfigPanel · l.1053 |
+| `BucketConfigSection` |  | `panelOpen && !(!dataLoaded) && secBuckets` |  | ProposalConfigPanel · l.1059 |
+| `SectionHeader` | title: Plataforma de Crecimiento | `panelOpen && !(!dataLoaded) && PLATAFORMA_DISPONIBLE` |  | ProposalConfigPanel · l.1069 |
+| `SectionHeader` | title: Equipo Consultor ({consultoresIds.length} seleccionado{consultoresIds.length !== 1…}) | `panelOpen && !(!dataLoaded)` |  | ProposalConfigPanel · l.1108 |
+| `SectionHeader` | title: Propuesta Económica | `panelOpen && !(!dataLoaded)` |  | ProposalConfigPanel · l.1186 |
+| `SectionHeader` | title: Módulos / Actividades | `panelOpen && !(!dataLoaded)` |  | ProposalConfigPanel · l.1315 |
+| `SectionHeader` | title: Documentos Adjuntos ({documentosIds.length} seleccionado{documentosIds.length !== 1 …}) | `panelOpen && !(!dataLoaded)` |  | ProposalConfigPanel · l.1498 |
+| `ProposalPreview` |  | `panelOpen && !(!dataLoaded) && showPreview && previewSnapshot` |  | ProposalConfigPanel · l.1649 |
+| `SectionHeader` | title: Historial de Propuestas ({propuestas.length}) | `panelOpen && !(!dataLoaded)` |  | ProposalConfigPanel · l.1738 |
 
 **Texts kept in lists and helpers in the code (labels, options, status names)** (6)
 
 | Name | Texts | Where |
 |---|---|---|
-| `TIPO_LABELS` | «Cert. Pertenencia», «Eval. Clientes», «Carta Rec.», «Ficha MINEDUC», «Otro» | l.73 |
-| `MESES` | «Enero», «Febrero», «Marzo», «Abril», «Mayo», «Junio», «Julio», «Agosto», «Septiembre», «Octubre», «Noviembre», «Diciembre» | l.89 |
-| `WEB_STATUS_LABELS` | «Borrador», «Publicada», «Vista», «Expirada» | l.122 |
-| `payload` | «3 cuotas iguales» | handleGenerate · l.671 |
-| `text` | «Link: {url} Código: {lastGenResult.access_code}» | ProposalConfigPanel · l.1711 |
-| `color` | «amber / green / red» | ValidationRow · l.1924 |
+| `TIPO_LABELS` | «Cert. Pertenencia», «Eval. Clientes», «Carta Rec.», «Ficha MINEDUC», «Otro» | l.75 |
+| `MESES` | «Enero», «Febrero», «Marzo», «Abril», «Mayo», «Junio», «Julio», «Agosto», «Septiembre», «Octubre», «Noviembre», «Diciembre» | l.91 |
+| `WEB_STATUS_LABELS` | «Borrador», «Publicada», «Vista», «Expirada» | l.124 |
+| `payload` | «3 cuotas iguales» | handleGenerate · l.673 |
+| `text` | «Link: {url} Código: {lastGenResult.access_code}» | ProposalConfigPanel · l.1724 |
+| `color` | «amber / green / red» | ValidationRow · l.1937 |
 
 **Other texts written in the code (safety net: not tied to an element by the script)** (1)
 
 | Text | Where |
 |---|---|
-| «Escuela» | ProposalConfigPanel · l.335 |
+| «Escuela» | ProposalConfigPanel · l.337 |
 
 **Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (3)
 
 | Kind | What | Where |
 |---|---|---|
-| mark | `testid=proposal-total-uf` | ProposalConfigPanel · l.1231 |
-| mark | `testid=proposal-total-uf` | ProposalConfigPanel · l.1262 |
-| mark | `testid=propuesta-row-{p.id}` | ProposalConfigPanel · l.1739 |
+| mark | `testid=proposal-total-uf` | ProposalConfigPanel · l.1239 |
+| mark | `testid=proposal-total-uf` | ProposalConfigPanel · l.1270 |
+| mark | `testid=propuesta-row-{p.id}` | ProposalConfigPanel · l.1752 |
 
 **Values shown from data** (8)
 
-- `{validationResult.warnings.find(w =>…}` — ProposalConfigPanel · l.866, when `!(!dataLoaded) && selectedFicha && validationResult && validationResult.warnings.some(w => w.rule === 6) && objetivoExpanded`
-- `{lastGenResult.access_code}` — ProposalConfigPanel · l.1657, when `panelOpen && !(!dataLoaded) && lastGenResult`
-- `{formatDateTime(p.created_at)}` — ProposalConfigPanel · l.1755, when `!(!dataLoaded) && secHistorial && !(propuestas.length === 0) && each propuestas`
-- `{p.estado}` — ProposalConfigPanel · l.1758, when `!(!dataLoaded) && secHistorial && !(propuestas.length === 0) && each propuestas`
-- `{WEB_STATUS_LABELS[p.web_status]} / {p.web_status}` — ProposalConfigPanel · l.1772, when `secHistorial && !(propuestas.length === 0) && each propuestas && p.web_status`
-- `{p.error_message}` — ProposalConfigPanel · l.1890, when `secHistorial && !(propuestas.length === 0) && each propuestas && p.estado === 'error' && p.error_message`
-- `{label} :` — ValidationRow · l.1930
-- `{detail}` — ValidationRow · l.1933
+- `{validationResult.warnings.find(w =>…}` — ProposalConfigPanel · l.872, when `!(!dataLoaded) && selectedFicha && validationResult && validationResult.warnings.some(w => w.rule === 6) && objetivoExpanded`
+- `{lastGenResult.access_code}` — ProposalConfigPanel · l.1670, when `panelOpen && !(!dataLoaded) && lastGenResult`
+- `{formatDateTime(p.created_at)}` — ProposalConfigPanel · l.1768, when `!(!dataLoaded) && secHistorial && !(propuestas.length === 0) && each propuestas`
+- `{p.estado}` — ProposalConfigPanel · l.1771, when `!(!dataLoaded) && secHistorial && !(propuestas.length === 0) && each propuestas`
+- `{WEB_STATUS_LABELS[p.web_status]} / {p.web_status}` — ProposalConfigPanel · l.1785, when `secHistorial && !(propuestas.length === 0) && each propuestas && p.web_status`
+- `{p.error_message}` — ProposalConfigPanel · l.1903, when `secHistorial && !(propuestas.length === 0) && each propuestas && p.estado === 'error' && p.error_message`
+- `{label} :` — ValidationRow · l.1943
+- `{detail}` — ValidationRow · l.1946
 
-**Other texts on screen** (62)
+**Other texts on screen** (63)
 
-- «Validación MINEDUC» — ProposalConfigPanel · l.801, when `panelOpen && !(!dataLoaded) && selectedFicha && validationResult`
-- «Ficha: Folio {selectedFicha.folio} — {selectedFicha.nombre_servicio}» — ProposalConfigPanel · l.803, when `panelOpen && !(!dataLoaded) && selectedFicha && validationResult`
-- «Ficha MINEDUC:» — ProposalConfigPanel · l.865, when `!(!dataLoaded) && selectedFicha && validationResult && validationResult.warnings.some(w => w.rule === 6) && objetivoExpanded`
-- «Propuesta:» — ProposalConfigPanel · l.871, when `!(!dataLoaded) && selectedFicha && validationResult && validationResult.warnings.some(w => w.rule === 6) && objetivoExpanded`
-- «Puede generar» — ProposalConfigPanel · l.905, when `panelOpen && !(!dataLoaded) && selectedFicha && validationResult && validationResult.valid`
-- «No puede generar (» — ProposalConfigPanel · l.910, when `panelOpen && !(!dataLoaded) && selectedFicha && validationResult && !(validationResult.valid)`
-- «error» — ProposalConfigPanel · l.910, when `panelOpen && !(!dataLoaded) && selectedFicha && validationResult && !(validationResult.valid)`
-- «es» — ProposalConfigPanel · l.911, when `panelOpen && !(!dataLoaded) && selectedFicha && validationResult && !(validationResult.valid)`
-- «Plantilla» (label) — ProposalConfigPanel · l.921, when `panelOpen && !(!dataLoaded)`
-- «Ficha de Servicio» (label) — ProposalConfigPanel · l.936, when `panelOpen && !(!dataLoaded)`
-- «La ficha se determina por la plantilla seleccionada» — ProposalConfigPanel · l.954, when `panelOpen && !(!dataLoaded) && plantillaId`
-- «{selectedFicha.horas_presenciales} h presenciales registradas · {selectedFicha.destinatarios.join(',…}» — ProposalConfigPanel · l.958, when `panelOpen && !(!dataLoaded) && selectedFicha`
-- «Presencial (hrs)» (label) — ProposalConfigPanel · l.977, when `panelOpen && !(!dataLoaded) && secHoras`
-- «Online Sincrónica (hrs)» (label) — ProposalConfigPanel · l.991, when `panelOpen && !(!dataLoaded) && secHoras`
-- «Online Asincrónica (hrs)» (label) — ProposalConfigPanel · l.1005, when `panelOpen && !(!dataLoaded) && secHoras`
-- «Subtotal presencial:» — ProposalConfigPanel · l.1032, when `panelOpen && !(!dataLoaded) && secHoras`
-- «hrs» — ProposalConfigPanel · l.1032, when `panelOpen && !(!dataLoaded) && secHoras`
-- «(de {selectedFicha.horas_presenc…} registradas)» — ProposalConfigPanel · l.1033, when `panelOpen && !(!dataLoaded) && secHoras`
-- «Total:» — ProposalConfigPanel · l.1036, when `panelOpen && !(!dataLoaded) && secHoras`
-- «{totalHoras} hrs» — ProposalConfigPanel · l.1037, when `panelOpen && !(!dataLoaded) && secHoras`
-- «asíncronas)» — ProposalConfigPanel · l.1038, when `panelOpen && !(!dataLoaded) && secHoras`
-- «Incluir acceso a Plataforma de Crecimiento» (label) — ProposalConfigPanel · l.1069, when `panelOpen && !(!dataLoaded) && secPlataforma`
-- «Beneficios de la plataforma» (label) — ProposalConfigPanel · l.1082, when `panelOpen && !(!dataLoaded) && secPlataforma && plataforma`
-- «No hay consultores.» — ProposalConfigPanel · l.1109, when `panelOpen && !(!dataLoaded) && secConsultores && consultores.length === 0`
-- «{c.nombre} [✓ en Ficha] {c.titulo} Comité Intl. / Equipo FNE / Asesor Intl.» (label) — ProposalConfigPanel · l.1128, when `!(!dataLoaded) && secConsultores && !(consultores.length === 0) && each consultores`
-- «Ficha registra {selectedFicha.equipo_trabajo.length} miembro(s) en equipo de trabajo. Se requieren al menos 2 coincidencias.» — ProposalConfigPanel · l.1167, when `panelOpen && !(!dataLoaded) && secConsultores && selectedFicha?.equipo_trabajo`
-- «Valor UF por hora» (label) — ProposalConfigPanel · l.1214, when `panelOpen && !(!dataLoaded) && secPrecio && precioModelo === 'per_hour'`
-- «Total calculado» (label) — ProposalConfigPanel · l.1228, when `panelOpen && !(!dataLoaded) && secPrecio && precioModelo === 'per_hour'`
-- «UF» — ProposalConfigPanel · l.1235, when `panelOpen && !(!dataLoaded) && secPrecio && precioModelo === 'per_hour'`
-- «( {precioUfNum} × {totalHoras} h)» — ProposalConfigPanel · l.1236, when `panelOpen && !(!dataLoaded) && secPrecio && precioModelo === 'per_hour'`
-- «Precio fijo (UF)» (label) — ProposalConfigPanel · l.1245, when `panelOpen && !(!dataLoaded) && secPrecio && !(precioModelo === 'per_hour')`
-- «Total» (label) — ProposalConfigPanel · l.1259, when `panelOpen && !(!dataLoaded) && secPrecio && !(precioModelo === 'per_hour')`
-- «{totalUf.toFixed(2)} UF» — ProposalConfigPanel · l.1262, when `panelOpen && !(!dataLoaded) && secPrecio && !(precioModelo === 'per_hour')`
-- «Forma de pago» (label) — ProposalConfigPanel · l.1274, when `panelOpen && !(!dataLoaded) && secPrecio`
-- «Detalle de pago» (label) — ProposalConfigPanel · l.1290, when `panelOpen && !(!dataLoaded) && secPrecio`
-- «Sin módulos configurados. Use &ldquo;Cargar desde plantilla&rdquo; o agregue manualmente.» — ProposalConfigPanel · l.1335, when `panelOpen && !(!dataLoaded) && secModulos && modulos.length === 0`
-- «{mTotal} h» — ProposalConfigPanel · l.1373, when `!(!dataLoaded) && secModulos && !(modulos.length === 0) && each modulos`
-- «Presencial» (label) — ProposalConfigPanel · l.1386, when `!(!dataLoaded) && secModulos && !(modulos.length === 0) && each modulos`
-- «Sincrónica» (label) — ProposalConfigPanel · l.1400, when `!(!dataLoaded) && secModulos && !(modulos.length === 0) && each modulos`
-- «Asincrónica» (label) — ProposalConfigPanel · l.1414, when `!(!dataLoaded) && secModulos && !(modulos.length === 0) && each modulos`
-- «Mes» (label) — ProposalConfigPanel · l.1428, when `!(!dataLoaded) && secModulos && !(modulos.length === 0) && each modulos`
-- «Suma módulos:» — ProposalConfigPanel · l.1455, when `panelOpen && !(!dataLoaded) && secModulos && !(modulos.length === 0)`
-- «{modulos.reduce( (acc, m) => acc + m…} h» — ProposalConfigPanel · l.1456, when `panelOpen && !(!dataLoaded) && secModulos && !(modulos.length === 0)`
-- «h total» — ProposalConfigPanel · l.1480, when `panelOpen && !(!dataLoaded) && secModulos && !(modulos.length === 0)`
-- «No hay documentos.» — ProposalConfigPanel · l.1499, when `panelOpen && !(!dataLoaded) && secDocumentos && documentos.length === 0`
-- «{doc.nombre} {TIPO_LABELS[doc.tipo]} [Vencido — bloquea generación] [Vence {formatDate(doc.fecha_vencimiento)}] [Vence: {formatDate(doc.fecha_vencimiento)}]» (label) — ProposalConfigPanel · l.1514, when `!(!dataLoaded) && secDocumentos && !(documentos.length === 0) && each documentos`
-- «Los CVs de los consultores seleccionados se incluyen automáticamente.» — ProposalConfigPanel · l.1571, when `panelOpen && !(!dataLoaded) && secDocumentos`
-- «Seleccione una plantilla para continuar» — ProposalConfigPanel · l.1618, when `panelOpen && !(!dataLoaded) && !plantillaId`
-- «Seleccione una ficha de servicio» — ProposalConfigPanel · l.1621, when `panelOpen && !(!dataLoaded) && plantillaId && !fichaId`
-- «{validationResult.errors.length} error es de validación MINEDUC» — ProposalConfigPanel · l.1624, when `panelOpen && !(!dataLoaded) && validationResult && !validationResult.valid`
-- «La generación puede tomar hasta 60 segundos. No cierre la página.» — ProposalConfigPanel · l.1631, when `panelOpen && !(!dataLoaded)`
-- «Comparta el enlace y código de acceso con el cliente» — ProposalConfigPanel · l.1649, when `panelOpen && !(!dataLoaded) && lastGenResult`
-- «Código de Acceso» (label) — ProposalConfigPanel · l.1655, when `panelOpen && !(!dataLoaded) && lastGenResult`
-- «Enlace Web» (label) — ProposalConfigPanel · l.1673, when `panelOpen && !(!dataLoaded) && lastGenResult`
-- «{window.location.origin}/propuesta/{lastGenResult.web_slug} / /propuesta/{lastGenResult.web_slug}» — ProposalConfigPanel · l.1675, when `panelOpen && !(!dataLoaded) && lastGenResult`
-- «No hay propuestas generadas aún para esta licitación.» — ProposalConfigPanel · l.1734, when `panelOpen && !(!dataLoaded) && secHistorial && propuestas.length === 0`
-- «v {p.version}» — ProposalConfigPanel · l.1752, when `!(!dataLoaded) && secHistorial && !(propuestas.length === 0) && each propuestas`
-- «vista» — ProposalConfigPanel · l.1783, when `secHistorial && !(propuestas.length === 0) && each propuestas && p.view_count != null && p.view_count > 0`
-- «s» — ProposalConfigPanel · l.1783, when `secHistorial && !(propuestas.length === 0) && each propuestas && p.view_count != null && p.view_count > 0`
-- «&middot; {formatDateTime(p.viewed_at)}» — ProposalConfigPanel · l.1785, when `!(propuestas.length === 0) && each propuestas && p.view_count != null && p.view_count > 0 && p.viewed_at`
-- «Enlace retirado» — ProposalConfigPanel · l.1846, when `secHistorial && !(propuestas.length === 0) && each propuestas && p.estado === 'completada' && p.web_slug && p.web_status === 'expired'`
-- «¿Retirar el enlace de v {p.version} ? La escuela ya no podrá abrir esta versión.» — ProposalConfigPanel · l.1864, when `secHistorial && !(propuestas.length === 0) && each propuestas && retireConfirmId === p.id`
+- «Validación MINEDUC» — ProposalConfigPanel · l.807, when `panelOpen && !(!dataLoaded) && selectedFicha && validationResult`
+- «Ficha: Folio {selectedFicha.folio} — {selectedFicha.nombre_servicio}» — ProposalConfigPanel · l.809, when `panelOpen && !(!dataLoaded) && selectedFicha && validationResult`
+- «Ficha MINEDUC:» — ProposalConfigPanel · l.871, when `!(!dataLoaded) && selectedFicha && validationResult && validationResult.warnings.some(w => w.rule === 6) && objetivoExpanded`
+- «Propuesta:» — ProposalConfigPanel · l.877, when `!(!dataLoaded) && selectedFicha && validationResult && validationResult.warnings.some(w => w.rule === 6) && objetivoExpanded`
+- «Puede generar» — ProposalConfigPanel · l.911, when `panelOpen && !(!dataLoaded) && selectedFicha && validationResult && validationResult.valid`
+- «No puede generar (» — ProposalConfigPanel · l.916, when `panelOpen && !(!dataLoaded) && selectedFicha && validationResult && !(validationResult.valid)`
+- «error» — ProposalConfigPanel · l.916, when `panelOpen && !(!dataLoaded) && selectedFicha && validationResult && !(validationResult.valid)`
+- «es» — ProposalConfigPanel · l.917, when `panelOpen && !(!dataLoaded) && selectedFicha && validationResult && !(validationResult.valid)`
+- «Plantilla» (label) — ProposalConfigPanel · l.927, when `panelOpen && !(!dataLoaded)`
+- «Ficha de Servicio» (label) — ProposalConfigPanel · l.942, when `panelOpen && !(!dataLoaded)`
+- «La ficha se determina por la plantilla seleccionada» — ProposalConfigPanel · l.960, when `panelOpen && !(!dataLoaded) && plantillaId`
+- «{selectedFicha.horas_presenciales} h presenciales registradas · {selectedFicha.destinatarios.join(',…}» — ProposalConfigPanel · l.964, when `panelOpen && !(!dataLoaded) && selectedFicha`
+- «Presencial (hrs)» (label) — ProposalConfigPanel · l.983, when `panelOpen && !(!dataLoaded) && secHoras`
+- «Online Sincrónica (hrs)» (label) — ProposalConfigPanel · l.997, when `panelOpen && !(!dataLoaded) && secHoras`
+- «Online Asincrónica (hrs)» (label) — ProposalConfigPanel · l.1011, when `panelOpen && !(!dataLoaded) && secHoras`
+- «Subtotal presencial:» — ProposalConfigPanel · l.1038, when `panelOpen && !(!dataLoaded) && secHoras`
+- «hrs» — ProposalConfigPanel · l.1038, when `panelOpen && !(!dataLoaded) && secHoras`
+- «(de {selectedFicha.horas_presenc…} registradas)» — ProposalConfigPanel · l.1039, when `panelOpen && !(!dataLoaded) && secHoras`
+- «Total:» — ProposalConfigPanel · l.1042, when `panelOpen && !(!dataLoaded) && secHoras`
+- «{totalHoras} hrs» — ProposalConfigPanel · l.1043, when `panelOpen && !(!dataLoaded) && secHoras`
+- «asíncronas)» — ProposalConfigPanel · l.1044, when `panelOpen && !(!dataLoaded) && secHoras`
+- «Incluir acceso a Plataforma de Crecimiento» (label) — ProposalConfigPanel · l.1076, when `panelOpen && !(!dataLoaded) && PLATAFORMA_DISPONIBLE && secPlataforma`
+- «Beneficios de la plataforma» (label) — ProposalConfigPanel · l.1089, when `!(!dataLoaded) && PLATAFORMA_DISPONIBLE && secPlataforma && plataforma`
+- «No hay consultores.» — ProposalConfigPanel · l.1117, when `panelOpen && !(!dataLoaded) && secConsultores && consultores.length === 0`
+- «{c.nombre} [✓ en Ficha] {c.titulo} Comité Intl. / Equipo FNE / Asesor Intl.» (label) — ProposalConfigPanel · l.1136, when `!(!dataLoaded) && secConsultores && !(consultores.length === 0) && each consultores`
+- «Ficha registra {selectedFicha.equipo_trabajo.length} miembro(s) en equipo de trabajo. Se requieren al menos 2 coincidencias.» — ProposalConfigPanel · l.1175, when `panelOpen && !(!dataLoaded) && secConsultores && selectedFicha?.equipo_trabajo`
+- «Valor UF por hora» (label) — ProposalConfigPanel · l.1222, when `panelOpen && !(!dataLoaded) && secPrecio && precioModelo === 'per_hour'`
+- «Total calculado» (label) — ProposalConfigPanel · l.1236, when `panelOpen && !(!dataLoaded) && secPrecio && precioModelo === 'per_hour'`
+- «UF» — ProposalConfigPanel · l.1243, when `panelOpen && !(!dataLoaded) && secPrecio && precioModelo === 'per_hour'`
+- «( {precioUfNum} × {totalHoras} h)» — ProposalConfigPanel · l.1244, when `panelOpen && !(!dataLoaded) && secPrecio && precioModelo === 'per_hour'`
+- «Precio fijo (UF)» (label) — ProposalConfigPanel · l.1253, when `panelOpen && !(!dataLoaded) && secPrecio && !(precioModelo === 'per_hour')`
+- «Total» (label) — ProposalConfigPanel · l.1267, when `panelOpen && !(!dataLoaded) && secPrecio && !(precioModelo === 'per_hour')`
+- «{totalUf.toFixed(2)} UF» — ProposalConfigPanel · l.1270, when `panelOpen && !(!dataLoaded) && secPrecio && !(precioModelo === 'per_hour')`
+- «Forma de pago» (label) — ProposalConfigPanel · l.1282, when `panelOpen && !(!dataLoaded) && secPrecio`
+- «Detalle de pago» (label) — ProposalConfigPanel · l.1298, when `panelOpen && !(!dataLoaded) && secPrecio`
+- «Sin módulos configurados. Use &ldquo;Cargar desde plantilla&rdquo; o agregue manualmente.» — ProposalConfigPanel · l.1343, when `panelOpen && !(!dataLoaded) && secModulos && modulos.length === 0`
+- «{mTotal} h» — ProposalConfigPanel · l.1381, when `!(!dataLoaded) && secModulos && !(modulos.length === 0) && each modulos`
+- «Presencial» (label) — ProposalConfigPanel · l.1394, when `!(!dataLoaded) && secModulos && !(modulos.length === 0) && each modulos`
+- «Sincrónica» (label) — ProposalConfigPanel · l.1408, when `!(!dataLoaded) && secModulos && !(modulos.length === 0) && each modulos`
+- «Asincrónica» (label) — ProposalConfigPanel · l.1422, when `!(!dataLoaded) && secModulos && !(modulos.length === 0) && each modulos`
+- «Mes» (label) — ProposalConfigPanel · l.1436, when `!(!dataLoaded) && secModulos && !(modulos.length === 0) && each modulos`
+- «Suma módulos:» — ProposalConfigPanel · l.1463, when `panelOpen && !(!dataLoaded) && secModulos && !(modulos.length === 0)`
+- «{modulos.reduce( (acc, m) => acc + m…} h» — ProposalConfigPanel · l.1464, when `panelOpen && !(!dataLoaded) && secModulos && !(modulos.length === 0)`
+- «h total» — ProposalConfigPanel · l.1488, when `panelOpen && !(!dataLoaded) && secModulos && !(modulos.length === 0)`
+- «No hay documentos.» — ProposalConfigPanel · l.1507, when `panelOpen && !(!dataLoaded) && secDocumentos && documentos.length === 0`
+- «{doc.nombre} {TIPO_LABELS[doc.tipo]} [Vencido — bloquea generación] [Vence {formatDate(doc.fecha_vencimiento)}] [Vence: {formatDate(doc.fecha_vencimiento)}]» (label) — ProposalConfigPanel · l.1522, when `!(!dataLoaded) && secDocumentos && !(documentos.length === 0) && each documentos`
+- «Los CVs de los consultores seleccionados se incluyen automáticamente.» — ProposalConfigPanel · l.1579, when `panelOpen && !(!dataLoaded) && secDocumentos`
+- «Al generar una nueva versión, los enlaces de las versiones anteriores dejarán de funcionar.» — ProposalConfigPanel · l.1597, when `panelOpen && !(!dataLoaded) && (propuestas.some(p => p.web_status === 'published' \|\| p.web_status === 'viewed'))`
+- «Seleccione una plantilla para continuar» — ProposalConfigPanel · l.1631, when `panelOpen && !(!dataLoaded) && !plantillaId`
+- «Seleccione una ficha de servicio» — ProposalConfigPanel · l.1634, when `panelOpen && !(!dataLoaded) && plantillaId && !fichaId`
+- «{validationResult.errors.length} error es de validación MINEDUC» — ProposalConfigPanel · l.1637, when `panelOpen && !(!dataLoaded) && validationResult && !validationResult.valid`
+- «La generación puede tomar hasta 60 segundos. No cierre la página.» — ProposalConfigPanel · l.1644, when `panelOpen && !(!dataLoaded)`
+- «Comparta el enlace y código de acceso con el cliente» — ProposalConfigPanel · l.1662, when `panelOpen && !(!dataLoaded) && lastGenResult`
+- «Código de Acceso» (label) — ProposalConfigPanel · l.1668, when `panelOpen && !(!dataLoaded) && lastGenResult`
+- «Enlace Web» (label) — ProposalConfigPanel · l.1686, when `panelOpen && !(!dataLoaded) && lastGenResult`
+- «{window.location.origin}/propuesta/{lastGenResult.web_slug} / /propuesta/{lastGenResult.web_slug}» — ProposalConfigPanel · l.1688, when `panelOpen && !(!dataLoaded) && lastGenResult`
+- «No hay propuestas generadas aún para esta licitación.» — ProposalConfigPanel · l.1747, when `panelOpen && !(!dataLoaded) && secHistorial && propuestas.length === 0`
+- «v {p.version}» — ProposalConfigPanel · l.1765, when `!(!dataLoaded) && secHistorial && !(propuestas.length === 0) && each propuestas`
+- «vista» — ProposalConfigPanel · l.1796, when `secHistorial && !(propuestas.length === 0) && each propuestas && p.view_count != null && p.view_count > 0`
+- «s» — ProposalConfigPanel · l.1796, when `secHistorial && !(propuestas.length === 0) && each propuestas && p.view_count != null && p.view_count > 0`
+- «&middot; {formatDateTime(p.viewed_at)}» — ProposalConfigPanel · l.1798, when `!(propuestas.length === 0) && each propuestas && p.view_count != null && p.view_count > 0 && p.viewed_at`
+- «Enlace retirado» — ProposalConfigPanel · l.1859, when `secHistorial && !(propuestas.length === 0) && each propuestas && p.estado === 'completada' && p.web_slug && p.web_status === 'expired'`
+- «¿Retirar el enlace de v {p.version} ? La escuela ya no podrá abrir esta versión.» — ProposalConfigPanel · l.1877, when `secHistorial && !(propuestas.length === 0) && each propuestas && retireConfirmId === p.id`
 
 ### components/licitaciones/ProposalPreview.tsx
 
@@ -3664,8 +3666,8 @@ Used by: `/admin/licitaciones/criterios`, `/admin/licitaciones/feriados`, `/admi
 | `/api/licitaciones/[id]/generate-bases` | `pages/api/licitaciones/[id]/generate-bases.ts` | GET | `/licitaciones/[id]` | `__tests__/api/licitaciones/client-document-access.test.ts`, `__tests__/api/licitaciones/generate-bases-criteria.test.ts`, `components/licitaciones/Step3Bases.tsx` |
 | `/api/licitaciones/[id]/generate-carta` | `pages/api/licitaciones/[id]/generate-carta.ts` | GET | `/licitaciones/[id]` | `__tests__/api/licitaciones/carta-stuck-tender.test.ts`, `__tests__/api/licitaciones/client-document-access.test.ts`, `__tests__/components/licitaciones/carta-before-award.test.tsx`, `components/licitaciones/Step6Adjudicacion.tsx`, `components/licitaciones/Step7Contrato.tsx` |
 | `/api/licitaciones/[id]/generate-contract` | `pages/api/licitaciones/[id]/generate-contract.ts` | POST | `/contracts` | `__tests__/api/licitaciones/client-document-access.test.ts`, `__tests__/api/licitaciones/generate-contract.test.ts`, `__tests__/pages/contracts-licitacion-once.test.tsx`, `pages/contracts.tsx` |
-| `/api/licitaciones/[id]/generate-propuesta` | `pages/api/licitaciones/[id]/generate-propuesta.ts` | POST | `/licitaciones/[id]` | `__tests__/api/licitaciones/generate-propuesta-price.test.ts`, `__tests__/api/licitaciones/generate-propuesta-slug.test.ts`, `__tests__/api/licitaciones/generate-propuesta-stale.test.ts`, `components/licitaciones/ProposalConfigPanel.tsx` |
-| `/api/licitaciones/[id]/propuestas` | `pages/api/licitaciones/[id]/propuestas.ts` | GET, POST | `/licitaciones/[id]` | `__tests__/api/licitaciones/propuesta-access-code.test.ts`, `__tests__/api/licitaciones/propuesta-retirar.test.ts`, `__tests__/components/licitaciones/proposal-access-code.test.tsx`, `__tests__/components/licitaciones/proposal-pricing.test.tsx`, `__tests__/components/licitaciones/proposal-retire-link.test.tsx` +1 |
+| `/api/licitaciones/[id]/generate-propuesta` | `pages/api/licitaciones/[id]/generate-propuesta.ts` | POST | `/licitaciones/[id]` | `__tests__/api/licitaciones/generate-propuesta-price.test.ts`, `__tests__/api/licitaciones/generate-propuesta-retire-older.test.ts`, `__tests__/api/licitaciones/generate-propuesta-slug.test.ts`, `__tests__/api/licitaciones/generate-propuesta-stale.test.ts`, `__tests__/components/licitaciones/proposal-retire-older.test.tsx` +1 |
+| `/api/licitaciones/[id]/propuestas` | `pages/api/licitaciones/[id]/propuestas.ts` | GET, POST | `/licitaciones/[id]` | `__tests__/api/licitaciones/propuesta-access-code.test.ts`, `__tests__/api/licitaciones/propuesta-retirar.test.ts`, `__tests__/components/licitaciones/proposal-access-code.test.tsx`, `__tests__/components/licitaciones/proposal-platform-hidden.test.tsx`, `__tests__/components/licitaciones/proposal-pricing.test.tsx` +3 |
 | `/api/licitaciones/[id]/publicacion` | `pages/api/licitaciones/[id]/publicacion.ts` | POST | `/licitaciones/[id]` | `__tests__/api/licitaciones/publicacion.test.ts`, `pages/licitaciones/[id].tsx` |
 | `/api/licitaciones/[id]/timeline` | `pages/api/licitaciones/[id]/timeline.ts` | GET | `/licitaciones/[id]` | `__tests__/pages/licitaciones/licitacion-detail-step2.test.tsx`, `pages/licitaciones/[id].tsx` |
 | `/api/licitaciones/[id]/upload` | `pages/api/licitaciones/[id]/upload.ts` | POST | `/licitaciones/[id]`, `/licitaciones/[id]/evaluacion` | `__tests__/api/licitaciones/estado-rules.test.ts`, `components/licitaciones/ArchiveView.tsx`, `components/licitaciones/Step6Adjudicacion.tsx`, `components/licitaciones/Step7Contrato.tsx`, `pages/licitaciones/[id].tsx` +1 |
@@ -3678,9 +3680,9 @@ Used by: `/admin/licitaciones/criterios`, `/admin/licitaciones/feriados`, `/admi
 | `/api/propuestas/documentos` | `pages/api/propuestas/documentos.ts` | GET, POST | `/admin/licitaciones/documentos-propuesta`, `/licitaciones/[id]` | `components/licitaciones/ProposalConfigPanel.tsx`, `pages/admin/licitaciones/documentos-propuesta.tsx` |
 | `/api/propuestas/documentos/[id]` | `pages/api/propuestas/documentos/[id].ts` | DELETE, GET, PATCH | `/admin/licitaciones/documentos-propuesta` | `pages/admin/licitaciones/documentos-propuesta.tsx` |
 | `/api/propuestas/download/[id]` | `pages/api/propuestas/download/[id].ts` | GET | **no screen** |  |
-| `/api/propuestas/fichas` | `pages/api/propuestas/fichas.ts` | GET, POST | `/licitaciones/[id]` | `components/licitaciones/ProposalConfigPanel.tsx` |
+| `/api/propuestas/fichas` | `pages/api/propuestas/fichas.ts` | GET, POST | `/licitaciones/[id]` | `__tests__/components/licitaciones/proposal-retire-older.test.tsx`, `components/licitaciones/ProposalConfigPanel.tsx` |
 | `/api/propuestas/fichas/[id]` | `pages/api/propuestas/fichas/[id].ts` | DELETE, GET, PATCH | **no screen** |  |
-| `/api/propuestas/plantillas` | `pages/api/propuestas/plantillas.ts` | GET, POST | `/licitaciones/[id]` | `components/licitaciones/ProposalConfigPanel.tsx` |
+| `/api/propuestas/plantillas` | `pages/api/propuestas/plantillas.ts` | GET, POST | `/licitaciones/[id]` | `__tests__/components/licitaciones/proposal-retire-older.test.tsx`, `components/licitaciones/ProposalConfigPanel.tsx` |
 | `/api/propuestas/plantillas/[id]` | `pages/api/propuestas/plantillas/[id].ts` | DELETE, GET, PATCH | **no screen** |  |
 | `/api/propuestas/upload` | `pages/api/propuestas/upload.ts` | POST | `/admin/licitaciones/consultores`, `/admin/licitaciones/documentos-propuesta` | `__tests__/api/propuestas/upload-unique-path.test.ts`, `pages/admin/licitaciones/consultores.tsx`, `pages/admin/licitaciones/documentos-propuesta.tsx` |
 | `/api/propuestas/web/[slug]/admin-access` | `pages/api/propuestas/web/[slug]/admin-access.ts` | GET | `/propuesta/[slug]` | `pages/propuesta/[slug].tsx` |

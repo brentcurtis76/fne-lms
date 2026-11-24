@@ -1,11 +1,11 @@
 {
  "readFrom": {
-  "commit": "c7e27398ca230dbbc3e581dcde19f92480491fcd",
-  "date": "2026-11-22T23:11:25-03:00"
+  "commit": "6a336e70e3a2a2175b39e2ebade821061497232c",
+  "date": "2026-11-24T17:54:00-03:00"
  },
  "counts": {
-  "screens": 155,
-  "api": 371
+  "screens": 156,
+  "api": 372
  },
  "menu": {
   "top": 18,
@@ -5224,6 +5224,52 @@
     "encargado_licitacion": {
      "menu": "yes",
      "middleware": "pass"
+    }
+   }
+  },
+  {
+   "route": "/admin/correos/vista-previa",
+   "file": "pages/admin/correos/vista-previa.tsx",
+   "area": "15-comunicacion",
+   "dynamic": false,
+   "frame": "MainLayout",
+   "marks": [],
+   "roles": {
+    "admin": {
+     "menu": "—",
+     "middleware": "pass"
+    },
+    "consultor": {
+     "menu": "—",
+     "middleware": "sent to /dashboard"
+    },
+    "equipo_directivo": {
+     "menu": "—",
+     "middleware": "sent to /dashboard"
+    },
+    "lider_generacion": {
+     "menu": "—",
+     "middleware": "sent to /dashboard"
+    },
+    "lider_comunidad": {
+     "menu": "—",
+     "middleware": "sent to /dashboard"
+    },
+    "supervisor_de_red": {
+     "menu": "—",
+     "middleware": "sent to /dashboard"
+    },
+    "community_manager": {
+     "menu": "—",
+     "middleware": "sent to /dashboard"
+    },
+    "docente": {
+     "menu": "—",
+     "middleware": "sent to /dashboard"
+    },
+    "encargado_licitacion": {
+     "menu": "—",
+     "middleware": "sent to /dashboard"
     }
    }
   },

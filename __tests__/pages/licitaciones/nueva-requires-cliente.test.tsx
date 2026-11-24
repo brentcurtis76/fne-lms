@@ -13,6 +13,10 @@ const SCHOOLS = [
   { id: 2, name: 'Escuela Con Cliente', cliente_id: 'cliente-2' },
 ];
 
+const { clienteRow } = vi.hoisted(() => ({
+  clienteRow: { current: null as Record<string, unknown> | null },
+}));
+
 vi.mock('next/router', () => ({ useRouter: () => ({ query: {}, push: vi.fn() }) }));
 vi.mock('react-hot-toast', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock('@/components/layout/MainLayout', () => ({ default: ({ children }: { children: React.ReactNode }) => <div>{children}</div> }));
@@ -23,7 +27,7 @@ vi.mock('@supabase/auth-helpers-react', () => {
       const q: any = {
         select: () => q, order: () => q, eq: () => q,
         single: async () => ({
-          data: { id: 'cliente-2', nombre_legal: 'Fundación Inventada', nombre_fantasia: 'Colegio Inventado', rut: '76.000.000-0', direccion: 'Calle Ficticia 1', comuna: 'Comuna Ficticia', nombre_representante: 'Representante Inventado', rut_representante: '1-9', fecha_escritura: '2020-01-01', nombre_notario: 'Notario Inventado' },
+          data: clienteRow.current ?? { id: 'cliente-2', nombre_legal: 'Fundación Inventada', nombre_fantasia: 'Colegio Inventado', rut: '76.000.000-0', direccion: 'Calle Ficticia 1', comuna: 'Comuna Ficticia', nombre_representante: 'Representante Inventado', rut_representante: '1-9', fecha_escritura: '2020-01-01', nombre_notario: 'Notario Inventado' },
           error: null,
         }),
         then: (ok: (v: unknown) => unknown) => Promise.resolve({ data: table === 'schools' ? SCHOOLS : [{ id: 'prog-1', nombre: 'Programa Inventado' }], error: null }).then(ok),
@@ -46,7 +50,7 @@ beforeEach(() => {
     return { ok: true, json: async () => ({ data: {} }) };
   });
 });
-afterEach(() => { vi.unstubAllGlobals(); vi.clearAllMocks(); });
+afterEach(() => { vi.unstubAllGlobals(); vi.clearAllMocks(); clienteRow.current = null; });
 
 async function pickSchool(id: string) {
   render(<NuevaLicitacionPage />);
@@ -67,5 +71,28 @@ describe('Nueva licitación — a school with no client cannot be submitted', ()
     await screen.findByText(/Colegio Inventado|Fundación Inventada/);
     expect(screen.getByRole('button', { name: 'Crear Licitacion' })).toBeEnabled();
     expect(screen.queryByText(MESSAGE)).not.toBeInTheDocument();
+  });
+});
+
+describe('Nueva licitación — the notary data is never required (Brent, 20 Nov 2026)', () => {
+  const base = {
+    id: 'cliente-2', nombre_legal: 'Fundación Inventada', nombre_fantasia: 'Colegio Inventado', rut: '76.000.000-0',
+    direccion: 'Calle Ficticia 1', comuna: 'Comuna Ficticia', nombre_representante: 'Representante Inventado',
+  };
+
+  it('opens without the notary name and the escritura date: no «informacion legal» sentence, «Crear Licitacion» enabled', async () => {
+    clienteRow.current = { ...base, rut_representante: '12.345.678-5', fecha_escritura: '', nombre_notario: '' };
+    await pickSchool('2');
+    await screen.findByText(/Colegio Inventado|Fundación Inventada/);
+    expect(screen.queryByText(/informacion legal/)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Crear Licitacion' })).toBeEnabled();
+  });
+
+  it('keeps today’s behaviour for a client without the representative’s RUT: the sentence shows, the button stays enabled', async () => {
+    clienteRow.current = { ...base, rut_representante: '', fecha_escritura: '', nombre_notario: '' };
+    await pickSchool('2');
+    await screen.findByText(/Colegio Inventado|Fundación Inventada/);
+    expect(screen.getAllByText(/El cliente no tiene toda la informacion legal requerida\. Edite el cliente en la seccion de Escuelas\./).length).toBeGreaterThan(0);
+    expect(screen.getByRole('button', { name: 'Crear Licitacion' })).toBeEnabled();
   });
 });

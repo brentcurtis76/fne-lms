@@ -20,8 +20,6 @@ interface Cliente {
   comuna?: string | null;
   nombre_representante: string;
   rut_representante: string;
-  fecha_escritura?: string | null;
-  nombre_notario?: string | null;
 }
 
 interface Programa {
@@ -175,7 +173,7 @@ export default function NuevaLicitacionPage() {
     try {
       const { data, error } = await supabase
         .from('clientes')
-        .select('id, nombre_legal, nombre_fantasia, rut, direccion, comuna, nombre_representante, rut_representante, fecha_escritura, nombre_notario')
+        .select('id, nombre_legal, nombre_fantasia, rut, direccion, comuna, nombre_representante, rut_representante')
         .eq('id', school.cliente_id)
         .single();
 
@@ -186,8 +184,8 @@ export default function NuevaLicitacionPage() {
 
       setSelectedCliente(data);
 
-      // Check required fields
-      if (!data.nombre_representante || !data.rut_representante || !data.fecha_escritura || !data.nombre_notario) {
+      // Check required fields (the notary name and the escritura date are never required: Brent, 17 and 20 Nov 2026)
+      if (!data.nombre_representante || !data.rut_representante) {
         setErrors(e => ({
           ...e,
           school_id: 'El cliente no tiene toda la informacion legal requerida. Edite el cliente en la seccion de Escuelas.'

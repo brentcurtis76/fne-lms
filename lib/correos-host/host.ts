@@ -23,7 +23,8 @@ export interface GeneraHostOptions {
   transport?: EmailTransport;
 }
 
-async function identify(req: NextApiRequest, res: NextApiResponse): Promise<AdminIdentity> {
+/** Who is asking: an admin (with id and address) or a refusal. Every Correos route calls this first. */
+export async function identify(req: NextApiRequest, res: NextApiResponse): Promise<AdminIdentity> {
   const { isAdmin, user, error } = await checkIsAdmin(req, res);
   if (!user) return { kind: 'refused', reason: 'not_signed_in' };
   if (!isAdmin || error) return { kind: 'refused', reason: 'not_admin' };

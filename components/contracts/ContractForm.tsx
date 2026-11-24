@@ -9,7 +9,8 @@ import { reconcileCuotas, attachExistingCuotaIds } from '@/lib/utils/reconcileCu
 import { buildClientRow } from '@/lib/contracts/client-row';
 import { splitEvenly, sumsMatch, difference, decimalsFor, hasCurrencyPrecision, precisionMessage } from '@/lib/contracts/cuotas-math';
 import { parseEsClDetailed } from '@/lib/money/parse-es-cl';
-import { formatRut, validateRut, isFillerRut } from '@/utils/rutValidation';
+import { formatRut, validateRut } from '@/utils/rutValidation';
+import { decideRepRut, freshReadNeeded, type FreshRead, type RepRutDecision } from '@/lib/contracts/rep-rut-decision';
 import { rutSpellings, oldestClient } from '@/lib/contracts/rut-spellings';
 
 interface Programa {
@@ -647,35 +648,37 @@ export default function ContractForm({ programas, clientes, editingContract, pre
   const importedNewClient = !!extractedData && !editingContract && !selectedClienteId;
   const escrituraDateMissing = importedNewClient && !clienteForm.fecha_escritura;
 
-  // F22e, the representative's RUT. A new client needs a real, valid one. An edited
-  // contract may keep the value stored for its client (an untouched old filler
-  // saves) but may not be given the filler. An existing client chosen for a new
-  // contract must not still have the filler stored (it is completed in Clientes).
+  // F22e, the representative's RUT: every decision on it is taken by decideRepRut
+  // (lib/contracts/rep-rut-decision.ts, send-back 3): a new client needs a real, valid
+  // one; an edited contract follows the edit rule; an existing client chosen (or a
+  // draft turned into a contract) is refused only for the filler as its STORED value,
+  // read afresh when the form holds the filler or no value (freshRepRut, below), or
+  // for a failed read.
   const isNewClient = !editingContract && !selectedClienteId;
-  const storedRepRut = editingContract ? (editingContract.clientes?.rut_representante ?? '') : '';
-  const repRutTyped = clienteForm.rut_representante.trim();
-  const repRutWritten = isNewClient || (!!editingContract && clienteForm.rut_representante !== storedRepRut);
-  const repRutMissing = isNewClient && repRutTyped === '';
-  const repRutFiller = repRutWritten && isFillerRut(repRutTyped) && !(editingContract && isFillerRut(storedRepRut));
-  const repRutInvalid = repRutWritten && repRutTyped !== '' && !isFillerRut(repRutTyped) && !validateRut(repRutTyped);
-  // The client list the page loaded can be stale (send-back 1): an existing client is
-  // refused only on its stored value read afresh (freshRepRut, below); a failed read refuses.
+  const heldRepRut = editingContract ? editingContract.clientes?.rut_representante : undefined;
+  // The client list the page loaded can be stale (send-back 1)
   const listedRepRut = storedCliente?.rut_representante;
   const freshForSelected = freshRepRut && freshRepRut.clienteId === selectedClienteId ? freshRepRut : null;
   // Send-back 2: a new selection clears the earlier verification (handleClienteSelection
-  // and the read below), so until this selection's read answers, a client the list shows
-  // with the filler is refused on the listed value and the client step cannot go on.
-  const selectedClientHasFiller = clientReadOnly && (
-    freshForSelected
-      ? !freshForSelected.ok || isFillerRut(freshForSelected.value !== undefined ? freshForSelected.value : listedRepRut)
-      : isFillerRut(listedRepRut)
-  );
-  const repRutProblem = repRutMissing || repRutInvalid || repRutFiller || selectedClientHasFiller;
-  const repRutMessage = () =>
-    selectedClientHasFiller ? FILLER_CLIENT_CONTRACT_MESSAGE
-      : repRutFiller ? REP_RUT_FILLER_MESSAGE
-        : repRutInvalid ? REP_RUT_INVALID_MESSAGE
+  // and the read below), so until this selection's read answers it decides on the listed value.
+  const stepFreshRead: FreshRead = freshForSelected
+    ? (freshForSelected.ok ? { state: 'answered', value: freshForSelected.value } : { state: 'failed' })
+    : (clientReadOnly && freshReadNeeded(listedRepRut) ? { state: 'pending' } : { state: 'not-needed' });
+  // The decision of the client step and «Siguiente» (for a draft being turned into a
+  // contract the save adds the stored check, below)
+  const repRutStep = decideRepRut({
+    context: editingContract ? 'edit' : clientReadOnly ? 'existing-client' : 'new-client',
+    form: clienteForm.rut_representante,
+    held: editingContract ? heldRepRut : listedRepRut,
+    fresh: stepFreshRead,
+  });
+  const repRutProblem = !repRutStep.allow;
+  const repRutMessageFor = (decision: RepRutDecision) =>
+    decision.refusal === 'client-filler' ? FILLER_CLIENT_CONTRACT_MESSAGE
+      : decision.refusal === 'filler' ? REP_RUT_FILLER_MESSAGE
+        : decision.refusal === 'invalid' ? REP_RUT_INVALID_MESSAGE
           : REP_RUT_MISSING_MESSAGE;
+  const repRutMessage = () => repRutMessageFor(repRutStep);
   // The stored representative's RUT of a client the form does not hold that column for
   const readStoredRepRut = async (clienteId: string): Promise<string | null | undefined> => {
     const { data, error } = await supabase
@@ -686,37 +689,41 @@ export default function ContractForm({ programas, clientes, editingContract, pre
     if (error) throw error;
     return (data as { rut_representante?: string | null } | null)?.rut_representante;
   };
-  // Whether a client's stored representative's RUT is the filler. A real RUT the form
-  // holds needs no read; a held filler (or no held value) is decided on the value read
-  // afresh from the database, as the held one may be stale (send-back 1). A failed
-  // read counts as the filler: refused, nothing written.
-  // Also gives the value read (undefined when nothing was read), so a save that
-  // writes the client row does not send the stale held filler back (send-back 2).
-  const storedRepRutCheck = async (
-    clienteId: string,
-    held: string | null | undefined,
-  ): Promise<{ filler: boolean; fresh?: string | null }> => {
-    if (held !== undefined && !isFillerRut(held)) return { filler: false };
+  // The fresh read a save decides on: none when the held value is a usable one
+  // (freshReadNeeded), else the stored value read now; a failed read is 'failed'.
+  const storedRepRutCheck = async (clienteId: string, held: string | null | undefined): Promise<FreshRead> => {
+    if (!freshReadNeeded(held)) return { state: 'not-needed' };
     try {
-      const fresh = await readStoredRepRut(clienteId);
-      return { filler: isFillerRut(fresh !== undefined ? fresh : held), fresh };
+      return { state: 'answered', value: await readStoredRepRut(clienteId) };
     } catch (readError) {
       console.error('Error reading the client representative RUT:', readError);
-      return { filler: true };
+      return { state: 'failed' };
     }
   };
-  const storedRepRutIsFiller = async (clienteId: string, held: string | null | undefined): Promise<boolean> =>
-    (await storedRepRutCheck(clienteId, held)).filler;
-  // Whether the existing client chosen for a new contract or draft still has the filler
-  const selectedClientStoredFiller = async (): Promise<boolean> => {
-    if (!clientReadOnly) return false;
-    return storedRepRutIsFiller(selectedClienteId, listedRepRut);
+  // The decision for the existing client chosen for a new contract or draft, on its
+  // stored value read afresh (null when no existing client is chosen)
+  const selectedClientRepRutDecision = async (): Promise<RepRutDecision | null> => {
+    if (!clientReadOnly) return null;
+    return decideRepRut({
+      context: 'existing-client',
+      form: clienteForm.rut_representante,
+      held: listedRepRut,
+      fresh: await storedRepRutCheck(selectedClienteId, listedRepRut),
+    });
   };
+  // A client found by its RUT (just read) chosen for a new contract or draft
+  const foundClientRepRutDecision = (found: { rut_representante?: string | null }) =>
+    decideRepRut({
+      context: 'existing-client',
+      form: found.rut_representante,
+      held: found.rut_representante,
+      fresh: { state: 'answered', value: found.rut_representante },
+    });
   // On choosing an existing client the list shows with the filler (or without the
   // column), its stored value is read afresh before the client step refuses it.
   useEffect(() => {
     if (!clientReadOnly || !selectedClienteId) return;
-    if (listedRepRut !== undefined && !isFillerRut(listedRepRut)) return;
+    if (!freshReadNeeded(listedRepRut)) return;
     let cancelled = false;
     const clienteId = selectedClienteId;
     setFreshRepRut(null); // the earlier verification does not count for this selection (send-back 2)
@@ -962,8 +969,9 @@ export default function ContractForm({ programas, clientes, editingContract, pre
           toast.error(repRutMessage());
           return;
         }
-        if (await selectedClientStoredFiller()) {
-          toast.error(FILLER_CLIENT_CONTRACT_MESSAGE);
+        const chosenRepRut = await selectedClientRepRutDecision();
+        if (chosenRepRut && !chosenRepRut.allow) {
+          toast.error(repRutMessageFor(chosenRepRut));
           return;
         }
       }
@@ -1008,7 +1016,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
 
           if (existingCliente) {
             // F22e: no new draft for a client that still has the filler
-            if (isFillerRut(existingCliente.rut_representante)) {
+            if (!foundClientRepRutDecision(existingCliente).allow) {
               toast.error(FILLER_CLIENT_CONTRACT_MESSAGE);
               return;
             }
@@ -1178,36 +1186,35 @@ export default function ContractForm({ programas, clientes, editingContract, pre
         // EDITING MODE
 
         // F22e: the edit rule for the representative's RUT (the filler only where the
-        // stored value already is the filler); turning a draft into a contract also
-        // needs a stored RUT that is not the filler. Checked before any write.
+        // stored value already is the filler), checked before any write and before any read.
         if (repRutProblem) {
           toast.error(repRutMessage());
           return;
         }
-        let freshStoredRepRut: string | null | undefined;
-        if (editingContract.estado === 'borrador') {
-          const stored = await storedRepRutCheck(editingContract.cliente_id, editingContract.clientes?.rut_representante);
-          if (stored.filler) {
-            toast.error(FILLER_CLIENT_CONTRACT_MESSAGE);
-            return;
-          }
-          freshStoredRepRut = stored.fresh;
+        // A draft turned into a contract also needs a stored RUT that is not the filler,
+        // read afresh when the form holds the filler or no value; the decision also says
+        // what may be written (never the filler, never an emptier value: send-back 3).
+        const repRutSave = editingContract.estado === 'borrador'
+          ? decideRepRut({
+              context: 'promote',
+              form: clienteForm.rut_representante,
+              held: heldRepRut,
+              fresh: await storedRepRutCheck(editingContract.cliente_id, heldRepRut),
+            })
+          : repRutStep;
+        if (!repRutSave.allow) {
+          toast.error(repRutMessageFor(repRutSave));
+          return;
         }
 
-        // Update client data with school_id
-        const clientUpdateData = buildClientRow(clienteForm, selectedSchoolId);
-        // Send-back 2: the form still holds the untouched filler, but the client's RUT
-        // read afresh is real (corrected meanwhile): that value is written, not the filler.
-        if (
-          freshStoredRepRut !== undefined &&
-          !isFillerRut(freshStoredRepRut) &&
-          clienteForm.rut_representante === storedRepRut &&
-          isFillerRut(storedRepRut)
-        ) {
-          clientUpdateData.rut_representante = freshStoredRepRut;
-          setClienteForm(prev => ({ ...prev, rut_representante: freshStoredRepRut || '' }));
+        // Update client data with school_id; the representative's RUT as decided
+        const clientUpdateData: Partial<ReturnType<typeof buildClientRow>> = buildClientRow(clienteForm, selectedSchoolId);
+        if (repRutSave.write.kind === 'value') clientUpdateData.rut_representante = repRutSave.write.value;
+        else delete clientUpdateData.rut_representante;
+        if (repRutSave.formValue !== clienteForm.rut_representante) {
+          setClienteForm(prev => ({ ...prev, rut_representante: repRutSave.formValue }));
         }
-        
+
         const { error: clienteError } = await supabase
           .from('clientes')
           .update(clientUpdateData)
@@ -1319,8 +1326,9 @@ export default function ContractForm({ programas, clientes, editingContract, pre
           toast.error(repRutMessage());
           return;
         }
-        if (await selectedClientStoredFiller()) {
-          toast.error(FILLER_CLIENT_CONTRACT_MESSAGE);
+        const chosenRepRut = await selectedClientRepRutDecision();
+        if (chosenRepRut && !chosenRepRut.allow) {
+          toast.error(repRutMessageFor(chosenRepRut));
           return;
         }
 
@@ -1357,7 +1365,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
             
             if (confirm(confirmMessage)) {
               // F22e: no new contract for a client that still has the filler
-              if (isFillerRut(existingCliente.rut_representante)) {
+              if (!foundClientRepRutDecision(existingCliente).allow) {
                 toast.error(FILLER_CLIENT_CONTRACT_MESSAGE);
                 return;
               }
@@ -2026,7 +2034,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                   className={`w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent ${clientFieldReadOnly('rut_representante') ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                   placeholder="12.345.678-9"
                 />
-                {(repRutFiller || repRutInvalid || selectedClientHasFiller) && (
+                {repRutStep.refusal && repRutStep.refusal !== 'missing' && (
                   <p className="text-sm text-red-600 mt-1">{repRutMessage()}</p>
                 )}
               </div>

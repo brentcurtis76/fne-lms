@@ -328,4 +328,37 @@ describe('ContractForm — the filler check reads the stored RUT afresh (F22e, s
     expect(nextButton()).toBeDisabled();
     expect(currentClient.__writes).toEqual([]);
   });
+
+  it.each([
+    ["''", ''],
+    ['null', null],
+    ['spaces', '   '],
+  ])('promoting an old draft whose held filler reads afresh as %s: promoted, the column is left out, the filler written nowhere (send-back 3)', async (_name, stored) => {
+    currentClient = fakeWithFreshRead({ value: stored as string | null });
+    const onSuccess = vi.fn();
+    const editing = contrato({ estado: 'borrador' });
+    const { container } = render(
+      <ContractForm programas={PROGRAMAS} clientes={[editing.clientes as any]} editingContract={editing} onSuccess={onSuccess} onCancel={vi.fn()} />,
+    );
+    clickButton('Siguiente');
+    clickButton('Siguiente');
+    fillCuotaDates(container);
+    clickButton(/Actualizar Contrato/);
+    await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+    expect(toast.error).not.toHaveBeenCalled();
+    const clientUpdate = currentClient.__writes.find((w: any) => w.table === 'clientes' && w.op === 'update');
+    expect(clientUpdate).toBeDefined();
+    expect('rut_representante' in clientUpdate.payload).toBe(false);
+    for (const w of currentClient.__writes) {
+      expect(JSON.stringify(w.payload ?? null)).not.toContain('11.111.111-1');
+    }
+    const promotion = currentClient.__writes.find((w: any) => w.table === 'contratos' && w.op === 'update');
+    expect(promotion.payload.estado).toBe('pendiente');
+    expect('snapshot_rut_representante' in promotion.payload).toBe(false);
+    // the form no longer holds the filler for anything that follows
+    clickButton('Anterior');
+    clickButton('Anterior');
+    await waitFor(() => expect(repRutInput()).toHaveValue(''));
+  });
 });
+

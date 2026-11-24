@@ -148,12 +148,6 @@ export default function LicitacionDetailPage() {
   // is closed — live records render the workflow directly (see computed
   // `historicalView` below).
   const [closedRecordState, setClosedRecordState] = useState<'pending' | 'archive' | 'workflow'>('pending');
-  // The loaded tender (this exact load's object) for which /evaluacion answered
-  // and showed a historical record. The failure fallback above shows the archive
-  // view but never counts as a historical record for «Eliminar» (the route would
-  // answer 409). Kept per load, so no render of another tender, nor of a new load
-  // of the same tender before its own detection answers, can use it.
-  const [archiveDetectedFor, setArchiveDetectedFor] = useState<LicitacionDetail | null>(null);
 
   useEffect(() => {
     checkAuth();
@@ -180,7 +174,6 @@ export default function LicitacionDetailPage() {
     if (!licitacion) return;
     if (licitacion.estado !== 'cerrada') return;
     setClosedRecordState('pending');
-    setArchiveDetectedFor(null);
     let cancelled = false;
     (async () => {
       try {
@@ -197,7 +190,6 @@ export default function LicitacionDetailPage() {
         if (!cancelled) {
           const isArchive = committee.length === 0 && ates.length === 0 && scores.length === 0;
           setClosedRecordState(isArchive ? 'archive' : 'workflow');
-          setArchiveDetectedFor(isArchive ? licitacion : null);
         }
       } catch {
         if (!cancelled) setClosedRecordState('archive');
@@ -523,7 +515,9 @@ export default function LicitacionDetailPage() {
           </div>
           <div className="flex items-center gap-3">
             <EstadoBadge estado={licitacion.estado} />
-            {isAdmin && puedeEliminarLicitacion(licitacion.estado, historicalView === 'archive' && archiveDetectedFor === licitacion) && (
+            {/* esHistorica is always false: Brent keeps every closed tender, archive records included
+                (20 Nov, "Never deleted either"); the route's remaining exception goes in a later change. */}
+            {isAdmin && puedeEliminarLicitacion(licitacion.estado, false) && (
               <button
                 onClick={() => {
                   if (window.confirm(

@@ -16,6 +16,11 @@ const AURORA: Brand = {
   logo: { url: 'https://aurora.example.test/marca/logo-aurora.png', description: 'Logo del Colegio Aurora', width: 160, height: 48 },
   accentColor: '#1a7f5a',
   onAccentColor: '#fffaf0',
+  textColor: '#2b2118',
+  mutedTextColor: '#7a6a58',
+  pageBackgroundColor: '#efe9df',
+  sheetBackgroundColor: '#fffdf8',
+  ruleColor: '#d8cfc0',
   fontStack: 'Georgia, "Times New Roman", serif',
   footerLines: ['Corporación Educacional Aurora'],
   sender: { name: 'Boletín Aurora', address: 'boletin@aurora.example.test' },
@@ -23,7 +28,20 @@ const AURORA: Brand = {
 };
 
 function leakValues(brand: Brand): string[] {
-  return [brand.name, brand.sender.name, brand.sender.address, brand.footerLines[0], brand.logo.url, brand.accentColor, brand.onAccentColor];
+  return [
+    brand.name,
+    brand.sender.name,
+    brand.sender.address,
+    brand.footerLines[0],
+    brand.logo.url,
+    brand.accentColor,
+    brand.onAccentColor,
+    brand.textColor,
+    brand.mutedTextColor,
+    brand.pageBackgroundColor,
+    brand.sheetBackgroundColor,
+    brand.ruleColor,
+  ];
 }
 
 describe("GENERA's brand file", () => {
@@ -41,6 +59,13 @@ describe("GENERA's brand file", () => {
     expect(genera.sender).toEqual({ name: 'Fundación Nueva Educación', address: 'novedades@boletin.nuevaeducacion.org' });
     expect(genera.language).toBe('es');
     expect(genera.accentColor).toBe('#fbbf24');
+    expect([genera.textColor, genera.mutedTextColor, genera.pageBackgroundColor, genera.sheetBackgroundColor, genera.ruleColor]).toEqual([
+      '#1f1f1f',
+      '#6b7280',
+      '#f9fafb',
+      '#ffffff',
+      '#e5e7eb',
+    ]);
     expect(genera.footerLines[0]).toBe('Fundación Nueva Educación');
     expect(genera.footerLines[1]).toMatch(/provisional/i);
     expect(genera.replyTo).toBeUndefined();

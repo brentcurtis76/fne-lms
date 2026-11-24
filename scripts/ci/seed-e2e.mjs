@@ -12,6 +12,8 @@
  *   - (A8) one Pasantías interest lead, for the admin triage surface,
  *   - (PASANT-B004) 1205 OWNED synthetic Pasantías contacts and their program interests,
  *     for the admin surface at scale, plus the one forced-password admin persona,
+ *   - (CORREOS r1) the Correos screens' rows: two contacts, one blocked address and two
+ *     pasantías leads (one ticked the newsletter box, one did not) — `ensureCorreosFixtures`,
  *   - (Z1c, extended by Z2-S8) the Zoom domain graph — growth community, three sessions
  *     (one unprovisioned, one carrying a legacy manual meeting link, one PLATFORM-MANAGED
  *     with no link at all), their facilitators, attendees and reports — via
@@ -38,6 +40,7 @@
  *   SUPABASE_SERVICE_ROLE_KEY=<local service role key> \
  *   node scripts/ci/seed-e2e.mjs
  */
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -319,6 +322,90 @@ async function ensurePasantiasLead(supabase, lead) {
   if (error) throw new Error(`pasantias_leads insert failed: ${error.message}`);
 
   console.log(`[seed-e2e] pasantias lead created — id ${inserted?.[0]?.id ?? 'unknown'}`);
+}
+
+/**
+ * CORREOS r1 phase 2 — the invented rows the Correos screens' specs need (`FIXTURES.correos`).
+ *
+ * - Two pasantías leads, looked up before insert like the A8 lead: one who ticked the newsletter
+ *   box (`marketing_opt_in` with its time and notice version, all three or none by CHECK), one who
+ *   did not. Both carry an old created_at so the A8 lead keeps its place among the newest.
+ * - One blocked address: its fingerprint (SHA-256 hex of lower(trim(address)), the
+ *   `email_address_fingerprint` form) in `email_suppression` with reason `bounce`. An existing row
+ *   is left exactly as it is (ignoreDuplicates): nothing here lifts or changes a block.
+ * - Two contacts on the day-one list «Boletín general», written ONLY through `email_add_contacts`
+ *   with the admin persona as actor and an invented reason. A second run classifies them as
+ *   duplicates and changes nothing; once the erase contact has been erased by hand it stays
+ *   erased (the function answers "blocked"), which is the point.
+ */
+async function ensureCorreosFixtures(supabase, correos, adminId) {
+  for (const [key, lead] of [['leadTicked', correos.leadTicked], ['leadNotTicked', correos.leadNotTicked]]) {
+    const emailNormalized = lead.email.trim().toLowerCase();
+    const { data: existing, error: selectError } = await supabase
+      .from('pasantias_leads')
+      .select('id')
+      .eq('email_normalized', emailNormalized)
+      .eq('cohort', lead.cohort)
+      .limit(1);
+    if (selectError) throw new Error(`correos ${key} select failed: ${selectError.message}`);
+    if (existing && existing.length > 0) {
+      console.log(`[seed-e2e] correos ${key} reused — id ${existing[0].id}`);
+      continue;
+    }
+    const row = {
+      cohort: lead.cohort,
+      first_name: lead.firstName,
+      last_name: lead.lastName,
+      email: lead.email,
+      email_normalized: emailNormalized,
+      institution: lead.institution,
+      status: 'new',
+      consent_accepted_at: lead.consentAcceptedAt,
+      consent_notice_version: lead.consentNoticeVersion,
+      created_at: lead.createdAt,
+    };
+    if (lead.marketingOptInAt) {
+      row.marketing_opt_in = true;
+      row.marketing_opt_in_at = lead.marketingOptInAt;
+      row.marketing_notice_version = lead.marketingNoticeVersion;
+    }
+    const { error } = await supabase.from('pasantias_leads').insert(row);
+    if (error) throw new Error(`correos ${key} insert failed: ${error.message}`);
+    console.log(`[seed-e2e] correos ${key} created`);
+  }
+
+  const fingerprint = createHash('sha256').update(correos.blockedAddress.trim().toLowerCase(), 'utf8').digest('hex');
+  const { error: blockError } = await supabase
+    .from('email_suppression')
+    .upsert({ email_hash: fingerprint, reason: 'bounce' }, { onConflict: 'email_hash', ignoreDuplicates: true });
+  if (blockError) throw new Error(`correos blocked address failed: ${blockError.message}`);
+  console.log('[seed-e2e] correos blocked address ready');
+
+  const { data: list, error: listError } = await supabase
+    .from('email_lists')
+    .select('id')
+    .eq('name', 'Boletín general')
+    .maybeSingle();
+  if (listError || !list) throw new Error(`correos day-one list not found: ${listError?.message ?? 'missing'}`);
+
+  const rows = [correos.searchContact, correos.eraseContact].map((person) => ({
+    email: person.email,
+    first_name: person.firstName,
+    last_name: person.lastName,
+    organization: person.organization,
+  }));
+  const { data: counts, error: addError } = await supabase.rpc('email_add_contacts', {
+    p_rows: rows,
+    p_list_ids: [list.id],
+    p_source: 'manual',
+    p_legal_basis: 'manual_verified',
+    p_basis_note: correos.basisNote,
+    p_basis_recorded_at: '2026-06-15T12:00:00.000Z',
+    p_consent_notice_version: null,
+    p_actor: adminId,
+  });
+  if (addError) throw new Error(`correos contacts failed: ${addError.message}`);
+  console.log(`[seed-e2e] correos contacts — ${JSON.stringify(counts)}`);
 }
 
 /**
@@ -732,6 +819,8 @@ async function main() {
   await ensurePasantiasLead(supabase, FIXTURES.pasantiasLead);
   // After the A8 lead and independent of it: the bulk writes only its own id namespace.
   await ensurePasantiasBulk(supabase, FIXTURES.pasantiasBulk);
+  // Correos: independent of the above; contacts are written with the admin persona as actor.
+  await ensureCorreosFixtures(supabase, FIXTURES.correos, userIds.admin);
 
   console.log('[seed-e2e] done');
 }

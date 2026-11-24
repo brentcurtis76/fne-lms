@@ -4,14 +4,1964 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "6a336e70e3a2a2175b39e2ebade821061497232c",
-  "date": "2026-11-24T17:54:00-03:00"
+  "commit": "9298935dbe2a95efd8049538ace9feb5f0394c46",
+  "date": "2026-11-25T10:48:59-03:00"
  },
  "screens": [
   {
+   "file": "pages/admin/correos/contactos/[id].tsx",
+   "route": "/admin/correos/contactos/[id]",
+   "lines": 105,
+   "marks": {},
+   "frame": "MainLayout",
+   "server": "getServerSideProps",
+   "reach": {
+    "menu": [],
+    "middleware": {
+     "rule": "the /admin rule",
+     "signedOut": "sent to /login",
+     "passwordChangeHold": true
+    },
+    "roles": {
+     "admin": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "equipo_directivo": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "lider_generacion": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "lider_comunidad": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "supervisor_de_red": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "community_manager": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "docente": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "encargado_licitacion": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     }
+    },
+    "inPage": [],
+    "linkedFrom": [
+     "pages/admin/correos/contactos/index.tsx:167",
+     "pages/admin/correos/contactos/index.tsx:215",
+     "pages/admin/correos/contactos/index.tsx:218"
+    ],
+    "qaScenarios": {},
+    "tests": {
+     "e2eCi": [],
+     "e2e": [],
+     "unit": []
+    }
+   },
+   "rows": [
+    {
+     "kind": "confirm",
+     "line": 37,
+     "in": "erase",
+     "text": "danger / ¿Borrar a esta persona? / Se borran su correo, su nombre y su organización, también de los envíos pasados, y sale de todas las listas. Su dirección queda bloqueada para siempre: nadie podrá volver a agregarla. No se puede deshacer. / Borrar para siempre"
+    },
+    {
+     "kind": "piece",
+     "line": 58,
+     "in": "CorreosPersona",
+     "text": "pageTitle: Contacto de correo · breadcrumbs: Administración / Correos / Contactos / Persona",
+     "tag": "MainLayout"
+    },
+    {
+     "kind": "hook",
+     "line": 63,
+     "in": "CorreosPersona",
+     "text": "testid=correos-persona-pagina",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "piece",
+     "line": 64,
+     "in": "CorreosPersona",
+     "text": "eyebrow: Correos · title: Persona borrada / Persona · description: Sus listas, el permiso registrado y si está bloqueada.",
+     "tag": "PageHeader"
+    },
+    {
+     "kind": "button",
+     "line": 70,
+     "in": "CorreosPersona",
+     "when": "contact && !contact.erased",
+     "text": "Borrar a esta persona",
+     "action": "{erase}",
+     "hook": {
+      "testid": "correos-persona-borrar"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 76,
+     "in": "CorreosPersona",
+     "text": "current: contactos",
+     "tag": "CorreosNav"
+    },
+    {
+     "kind": "link",
+     "line": 78,
+     "in": "CorreosPersona",
+     "text": "Volver a contactos",
+     "target": "/admin/correos/contactos"
+    },
+    {
+     "kind": "piece",
+     "line": 84,
+     "in": "CorreosPersona",
+     "when": "outcome",
+     "text": "",
+     "tag": "Notice",
+     "hook": {
+      "testid": "correos-persona-aviso"
+     }
+    },
+    {
+     "kind": "value",
+     "line": 84,
+     "in": "CorreosPersona",
+     "when": "outcome",
+     "text": "{outcome.text}"
+    },
+    {
+     "kind": "piece",
+     "line": 91,
+     "in": "CorreosPersona",
+     "when": "loadError",
+     "text": "tone: error · title: No se pudo mostrar a esta persona.",
+     "tag": "Notice"
+    },
+    {
+     "kind": "value",
+     "line": 91,
+     "in": "CorreosPersona",
+     "when": "loadError",
+     "text": "{loadError}"
+    },
+    {
+     "kind": "piece",
+     "line": 95,
+     "in": "CorreosPersona",
+     "when": "!(loadError) && contact",
+     "text": "",
+     "tag": "ContactDetails"
+    },
+    {
+     "kind": "piece",
+     "line": 97,
+     "in": "CorreosPersona",
+     "when": "!(loadError) && !(contact)",
+     "text": "label: Cargando a la persona",
+     "tag": "LoadingBlock"
+    }
+   ],
+   "db": [],
+   "pieces": [
+    "components/correos/ContactDetails.tsx",
+    "components/correos/CorreosNav.tsx",
+    "components/correos/api.ts",
+    "components/ui/kit/Button.tsx",
+    "components/ui/kit/Card.tsx",
+    "components/ui/kit/ConfirmDialog.tsx",
+    "components/ui/kit/Dialog.tsx",
+    "components/ui/kit/Field.tsx",
+    "components/ui/kit/Loading.tsx",
+    "components/ui/kit/Notice.tsx",
+    "components/ui/kit/PageHeader.tsx",
+    "components/ui/kit/Table.tsx",
+    "components/ui/kit/Tabs.tsx",
+    "lib/api-auth.ts",
+    "lib/auth/forced-password-change.ts",
+    "lib/correos-host/page-guard.ts",
+    "lib/correos/labels.ts",
+    "lib/correos/reason.ts",
+    "types/roles.ts",
+    "utils/roleUtils.ts"
+   ],
+   "api": [
+    {
+     "file": "pages/api/admin/correos/contactos/[id].ts",
+     "route": "/api/admin/correos/contactos/[id]",
+     "methods": [],
+     "from": [
+      "pages/admin/correos/contactos/[id].tsx:25"
+     ]
+    },
+    {
+     "file": "pages/api/admin/correos/contactos/borrar.ts",
+     "route": "/api/admin/correos/contactos/borrar",
+     "methods": [
+      "POST"
+     ],
+     "from": [
+      "pages/admin/correos/contactos/[id].tsx:46"
+     ]
+    }
+   ]
+  },
+  {
+   "file": "pages/admin/correos/contactos/index.tsx",
+   "route": "/admin/correos/contactos",
+   "lines": 305,
+   "marks": {},
+   "frame": "MainLayout",
+   "server": "getServerSideProps",
+   "reach": {
+    "menu": [],
+    "middleware": {
+     "rule": "the /admin rule",
+     "signedOut": "sent to /login",
+     "passwordChangeHold": true
+    },
+    "roles": {
+     "admin": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "equipo_directivo": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "lider_generacion": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "lider_comunidad": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "supervisor_de_red": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "community_manager": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "docente": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "encargado_licitacion": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     }
+    },
+    "inPage": [],
+    "linkedFrom": [
+     "components/correos/CorreosNav.tsx:8",
+     "pages/admin/correos/contactos/[id].tsx:61",
+     "pages/admin/correos/contactos/[id].tsx:78"
+    ],
+    "qaScenarios": {},
+    "tests": {
+     "e2eCi": [
+      "tests/e2e/correos-importar.spec.ts",
+      "tests/e2e/correos-listas-contactos.spec.ts"
+     ],
+     "e2e": [],
+     "unit": []
+    }
+   },
+   "rows": [
+    {
+     "kind": "message",
+     "line": 108,
+     "in": "addOne",
+     "when": "!isValidAddress(draft.email)",
+     "text": "Esa dirección de correo no es válida. Revísala.",
+     "via": "setFormError"
+    },
+    {
+     "kind": "message",
+     "line": 109,
+     "in": "addOne",
+     "when": "draft.list_ids.length === 0",
+     "text": "Elige al menos una lista.",
+     "via": "setFormError"
+    },
+    {
+     "kind": "message",
+     "line": 110,
+     "in": "addOne",
+     "when": "!reasonComplete(draft.reason)",
+     "text": "Indica de dónde viene el permiso y escribe la nota.",
+     "via": "setFormError"
+    },
+    {
+     "kind": "piece",
+     "line": 138,
+     "in": "CorreosContactos",
+     "text": "pageTitle: Contactos de correo · breadcrumbs: Administración / Correos / Contactos",
+     "tag": "MainLayout"
+    },
+    {
+     "kind": "hook",
+     "line": 143,
+     "in": "CorreosContactos",
+     "text": "testid=correos-contactos",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "piece",
+     "line": 144,
+     "in": "CorreosContactos",
+     "text": "eyebrow: Correos · title: Contactos · description: Las personas a quienes podemos escribir. Busca por parte del correo, del nombre o de la organización. · searchPlaceholder: Buscar personas... · searchLabel: Buscar personas · primaryAction: Agregar persona",
+     "tag": "PageHeader"
+    },
+    {
+     "kind": "piece",
+     "line": 161,
+     "in": "CorreosContactos",
+     "text": "current: contactos",
+     "tag": "CorreosNav"
+    },
+    {
+     "kind": "piece",
+     "line": 164,
+     "in": "CorreosContactos",
+     "when": "outcome",
+     "text": "",
+     "tag": "Notice",
+     "hook": {
+      "testid": "correos-contactos-aviso"
+     }
+    },
+    {
+     "kind": "link",
+     "line": 167,
+     "in": "CorreosContactos",
+     "when": "outcome && outcome.contactId",
+     "text": "Ver a la persona",
+     "target": "/admin/correos/contactos/[*]"
+    },
+    {
+     "kind": "piece",
+     "line": 176,
+     "in": "CorreosContactos",
+     "when": "loadError",
+     "text": "tone: error · title: No se pudo buscar.",
+     "tag": "Notice"
+    },
+    {
+     "kind": "value",
+     "line": 176,
+     "in": "CorreosContactos",
+     "when": "loadError",
+     "text": "{loadError}"
+    },
+    {
+     "kind": "piece",
+     "line": 180,
+     "in": "CorreosContactos",
+     "when": "!(loadError) && !result",
+     "text": "label: Buscando",
+     "tag": "LoadingBlock"
+    },
+    {
+     "kind": "piece",
+     "line": 182,
+     "in": "CorreosContactos",
+     "when": "!(loadError) && !(!result) && result.items.length === 0",
+     "text": "title: Nadie coincide con la búsqueda / Todavía no hay contactos · description: Prueba con otra parte del correo o del nombre. / Agrega una persona o importa un archivo.",
+     "tag": "EmptyState"
+    },
+    {
+     "kind": "piece",
+     "line": 187,
+     "in": "CorreosContactos",
+     "when": "!(loadError) && !(!result) && !(result.items.length === 0)",
+     "text": "aria-label: Contactos",
+     "tag": "Table",
+     "aria": "Contactos"
+    },
+    {
+     "kind": "piece",
+     "line": 191,
+     "in": "CorreosContactos",
+     "when": "!(loadError) && !(!result) && !(result.items.length === 0)",
+     "text": "noun: personas",
+     "tag": "Pagination",
+     "hook": {
+      "testid": "correos-contactos-paginas"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 201,
+     "in": "CorreosContactos",
+     "when": "!(loadError) && !(!result) && !(result.items.length === 0)",
+     "text": "",
+     "tag": "TableHead"
+    },
+    {
+     "kind": "piece",
+     "line": 202,
+     "in": "CorreosContactos",
+     "when": "!(loadError) && !(!result) && !(result.items.length === 0)",
+     "text": "",
+     "tag": "TableRow"
+    },
+    {
+     "kind": "piece",
+     "line": 203,
+     "in": "CorreosContactos",
+     "when": "!(loadError) && !(!result) && !(result.items.length === 0)",
+     "text": "",
+     "tag": "TableHeaderCell"
+    },
+    {
+     "kind": "text",
+     "line": 203,
+     "in": "CorreosContactos",
+     "when": "!(loadError) && !(!result) && !(result.items.length === 0)",
+     "text": "Correo"
+    },
+    {
+     "kind": "piece",
+     "line": 204,
+     "in": "CorreosContactos",
+     "when": "!(loadError) && !(!result) && !(result.items.length === 0)",
+     "text": "",
+     "tag": "TableHeaderCell"
+    },
+    {
+     "kind": "text",
+     "line": 204,
+     "in": "CorreosContactos",
+     "when": "!(loadError) && !(!result) && !(result.items.length === 0)",
+     "text": "Nombre"
+    },
+    {
+     "kind": "piece",
+     "line": 205,
+     "in": "CorreosContactos",
+     "when": "!(loadError) && !(!result) && !(result.items.length === 0)",
+     "text": "",
+     "tag": "TableHeaderCell"
+    },
+    {
+     "kind": "text",
+     "line": 205,
+     "in": "CorreosContactos",
+     "when": "!(loadError) && !(!result) && !(result.items.length === 0)",
+     "text": "Organización"
+    },
+    {
+     "kind": "piece",
+     "line": 206,
+     "in": "CorreosContactos",
+     "when": "!(loadError) && !(!result) && !(result.items.length === 0)",
+     "text": "",
+     "tag": "TableHeaderCell"
+    },
+    {
+     "kind": "text",
+     "line": 206,
+     "in": "CorreosContactos",
+     "when": "!(loadError) && !(!result) && !(result.items.length === 0)",
+     "text": "Agregada"
+    },
+    {
+     "kind": "piece",
+     "line": 209,
+     "in": "CorreosContactos",
+     "when": "!(loadError) && !(!result) && !(result.items.length === 0)",
+     "text": "",
+     "tag": "TableBody"
+    },
+    {
+     "kind": "clickable",
+     "line": 211,
+     "in": "CorreosContactos",
+     "when": "!(loadError) && !(!result) && !(result.items.length === 0) && each result.items",
+     "text": "{row.email} Bloqueada {fullName(row)} / — {row.organization} / — {formatDate(row.created_at)}",
+     "tag": "TableRow",
+     "action": "{() => router.push(`/admin/correos/contactos/${row.id}`)}",
+     "hook": {
+      "testid": "correos-contacto-fila"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 211,
+     "in": "CorreosContactos",
+     "when": "!(loadError) && !(!result) && !(result.items.length === 0) && each result.items",
+     "text": "",
+     "tag": "TableRow",
+     "hook": {
+      "testid": "correos-contacto-fila"
+     }
+    },
+    {
+     "kind": "nav",
+     "line": 215,
+     "in": "CorreosContactos",
+     "when": "!(loadError) && !(!result) && !(result.items.length === 0) && each result.items",
+     "text": "/admin/correos/contactos/[*]",
+     "via": "router.push"
+    },
+    {
+     "kind": "piece",
+     "line": 217,
+     "in": "CorreosContactos",
+     "when": "!(loadError) && !(!result) && !(result.items.length === 0) && each result.items",
+     "text": "label: Correo",
+     "tag": "TableCell"
+    },
+    {
+     "kind": "link",
+     "line": 218,
+     "in": "CorreosContactos",
+     "when": "!(loadError) && !(!result) && !(result.items.length === 0) && each result.items",
+     "text": "{row.email}",
+     "target": "/admin/correos/contactos/[*]"
+    },
+    {
+     "kind": "piece",
+     "line": 222,
+     "in": "CorreosContactos",
+     "when": "!(!result) && !(result.items.length === 0) && each result.items && row.blocked",
+     "text": "tone: error",
+     "tag": "Badge"
+    },
+    {
+     "kind": "text",
+     "line": 223,
+     "in": "CorreosContactos",
+     "when": "!(!result) && !(result.items.length === 0) && each result.items && row.blocked",
+     "text": "Bloqueada"
+    },
+    {
+     "kind": "piece",
+     "line": 227,
+     "in": "CorreosContactos",
+     "when": "!(loadError) && !(!result) && !(result.items.length === 0) && each result.items",
+     "text": "label: Nombre",
+     "tag": "TableCell"
+    },
+    {
+     "kind": "value",
+     "line": 227,
+     "in": "CorreosContactos",
+     "when": "!(loadError) && !(!result) && !(result.items.length === 0) && each result.items",
+     "text": "{fullName(row)} / —"
+    },
+    {
+     "kind": "piece",
+     "line": 228,
+     "in": "CorreosContactos",
+     "when": "!(loadError) && !(!result) && !(result.items.length === 0) && each result.items",
+     "text": "label: Organización",
+     "tag": "TableCell"
+    },
+    {
+     "kind": "value",
+     "line": 228,
+     "in": "CorreosContactos",
+     "when": "!(loadError) && !(!result) && !(result.items.length === 0) && each result.items",
+     "text": "{row.organization} / —"
+    },
+    {
+     "kind": "piece",
+     "line": 229,
+     "in": "CorreosContactos",
+     "when": "!(loadError) && !(!result) && !(result.items.length === 0) && each result.items",
+     "text": "label: Agregada",
+     "tag": "TableCell"
+    },
+    {
+     "kind": "value",
+     "line": 229,
+     "in": "CorreosContactos",
+     "when": "!(loadError) && !(!result) && !(result.items.length === 0) && each result.items",
+     "text": "{formatDate(row.created_at)}"
+    },
+    {
+     "kind": "popup",
+     "line": 238,
+     "in": "CorreosContactos",
+     "text": "Dialog",
+     "how": "component",
+     "open": "{draft !== null}",
+     "props": "title: Agregar persona",
+     "hook": {
+      "testid": "correos-persona-dialogo"
+     }
+    },
+    {
+     "kind": "button",
+     "line": 246,
+     "in": "CorreosContactos",
+     "text": "Cancelar",
+     "action": "{() => setDraft(null)}"
+    },
+    {
+     "kind": "button",
+     "line": 249,
+     "in": "CorreosContactos",
+     "text": "Agregar",
+     "submit": true,
+     "hook": {
+      "testid": "correos-persona-guardar"
+     }
+    },
+    {
+     "kind": "form",
+     "line": 256,
+     "in": "CorreosContactos",
+     "when": "draft",
+     "text": "{addOne}",
+     "hook": {
+      "id": "correos-persona-form"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 258,
+     "in": "CorreosContactos",
+     "when": "draft && formError",
+     "text": "tone: error",
+     "tag": "Notice",
+     "hook": {
+      "testid": "correos-persona-error"
+     }
+    },
+    {
+     "kind": "value",
+     "line": 258,
+     "in": "CorreosContactos",
+     "when": "draft && formError",
+     "text": "{formError}"
+    },
+    {
+     "kind": "piece",
+     "line": 262,
+     "in": "CorreosContactos",
+     "when": "draft",
+     "text": "label: Correo",
+     "tag": "Field"
+    },
+    {
+     "kind": "field",
+     "line": 263,
+     "in": "CorreosContactos",
+     "when": "draft",
+     "text": "",
+     "type": "email",
+     "action": "{(event) => setDraft({ ...draft, email: event.currentTarget.value })}",
+     "hook": {
+      "testid": "correos-persona-correo"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 272,
+     "in": "CorreosContactos",
+     "when": "draft",
+     "text": "label: Nombre",
+     "tag": "Field"
+    },
+    {
+     "kind": "field",
+     "line": 273,
+     "in": "CorreosContactos",
+     "when": "draft",
+     "text": "",
+     "type": "text",
+     "limits": "maxLength={200}",
+     "action": "{(event) => setDraft({ ...draft, first_name: event.currentTarget.value })}",
+     "hook": {
+      "testid": "correos-persona-nombre"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 280,
+     "in": "CorreosContactos",
+     "when": "draft",
+     "text": "label: Apellido",
+     "tag": "Field"
+    },
+    {
+     "kind": "field",
+     "line": 281,
+     "in": "CorreosContactos",
+     "when": "draft",
+     "text": "",
+     "type": "text",
+     "limits": "maxLength={200}",
+     "action": "{(event) => setDraft({ ...draft, last_name: event.currentTarget.value })}",
+     "hook": {
+      "testid": "correos-persona-apellido"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 289,
+     "in": "CorreosContactos",
+     "when": "draft",
+     "text": "label: Organización",
+     "tag": "Field"
+    },
+    {
+     "kind": "field",
+     "line": 290,
+     "in": "CorreosContactos",
+     "when": "draft",
+     "text": "",
+     "type": "text",
+     "limits": "maxLength={200}",
+     "action": "{(event) => setDraft({ ...draft, organization: event.currentTarget.value })}",
+     "hook": {
+      "testid": "correos-persona-organizacion"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 297,
+     "in": "CorreosContactos",
+     "when": "draft",
+     "text": "idPrefix: correos-persona",
+     "tag": "ListPicker"
+    },
+    {
+     "kind": "piece",
+     "line": 298,
+     "in": "CorreosContactos",
+     "when": "draft",
+     "text": "idPrefix: correos-persona",
+     "tag": "ReasonFields"
+    }
+   ],
+   "db": [],
+   "pieces": [
+    "components/correos/CorreosNav.tsx",
+    "components/correos/ListPicker.tsx",
+    "components/correos/ReasonFields.tsx",
+    "components/correos/api.ts",
+    "components/ui/kit/Button.tsx",
+    "components/ui/kit/Dialog.tsx",
+    "components/ui/kit/EmptyState.tsx",
+    "components/ui/kit/Field.tsx",
+    "components/ui/kit/Loading.tsx",
+    "components/ui/kit/Notice.tsx",
+    "components/ui/kit/PageHeader.tsx",
+    "components/ui/kit/Table.tsx",
+    "components/ui/kit/Tabs.tsx",
+    "lib/api-auth.ts",
+    "lib/auth/forced-password-change.ts",
+    "lib/correos-host/page-guard.ts",
+    "lib/correos/reason.ts",
+    "types/roles.ts",
+    "utils/roleUtils.ts"
+   ],
+   "api": [
+    {
+     "file": "pages/api/admin/correos/contactos/index.ts",
+     "route": "/api/admin/correos/contactos",
+     "methods": [
+      "POST"
+     ],
+     "from": [
+      "pages/admin/correos/contactos/index.tsx:112",
+      "pages/admin/correos/contactos/index.tsx:93"
+     ]
+    },
+    {
+     "file": "pages/api/admin/correos/listas/index.ts",
+     "route": "/api/admin/correos/listas",
+     "methods": [],
+     "from": [
+      "components/correos/ListPicker.tsx:26"
+     ]
+    }
+   ]
+  },
+  {
+   "file": "pages/admin/correos/importar.tsx",
+   "route": "/admin/correos/importar",
+   "lines": 103,
+   "marks": {},
+   "frame": "MainLayout",
+   "server": "getServerSideProps",
+   "reach": {
+    "menu": [],
+    "middleware": {
+     "rule": "the /admin rule",
+     "signedOut": "sent to /login",
+     "passwordChangeHold": true
+    },
+    "roles": {
+     "admin": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "equipo_directivo": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "lider_generacion": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "lider_comunidad": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "supervisor_de_red": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "community_manager": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "docente": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "encargado_licitacion": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     }
+    },
+    "inPage": [],
+    "linkedFrom": [
+     "components/correos/CorreosNav.tsx:10"
+    ],
+    "qaScenarios": {},
+    "tests": {
+     "e2eCi": [
+      "tests/e2e/correos-importar.spec.ts"
+     ],
+     "e2e": [],
+     "unit": []
+    }
+   },
+   "rows": [
+    {
+     "kind": "message",
+     "line": 34,
+     "in": "start",
+     "when": "!file",
+     "text": "Elige un archivo.",
+     "via": "setError"
+    },
+    {
+     "kind": "message",
+     "line": 35,
+     "in": "start",
+     "when": "listIds.length === 0",
+     "text": "Elige al menos una lista.",
+     "via": "setError"
+    },
+    {
+     "kind": "message",
+     "line": 36,
+     "in": "start",
+     "when": "!reasonComplete(reason)",
+     "text": "Indica de dónde viene el permiso y escribe la nota. Vale para todo el archivo.",
+     "via": "setError"
+    },
+    {
+     "kind": "message",
+     "line": 48,
+     "in": "start",
+     "when": "!(answer.status === 200 && answer.body) && answer.status === 413",
+     "text": "El archivo es demasiado grande (más de 8 MB). No se importó nada: divídelo en archivos más pequeños.",
+     "via": "setError"
+    },
+    {
+     "kind": "piece",
+     "line": 53,
+     "in": "CorreosImportar",
+     "text": "pageTitle: Importar contactos · breadcrumbs: Administración / Correos / Importar archivo",
+     "tag": "MainLayout"
+    },
+    {
+     "kind": "hook",
+     "line": 58,
+     "in": "CorreosImportar",
+     "text": "testid=correos-importar",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "piece",
+     "line": 59,
+     "in": "CorreosImportar",
+     "text": "eyebrow: Correos · title: Importar un archivo · description: Agrega muchas personas de una vez desde un archivo CSV. Las direcciones bloqueadas y quienes se dieron de baja no se agregan.",
+     "tag": "PageHeader"
+    },
+    {
+     "kind": "piece",
+     "line": 64,
+     "in": "CorreosImportar",
+     "text": "current: importar",
+     "tag": "CorreosNav"
+    },
+    {
+     "kind": "piece",
+     "line": 68,
+     "in": "CorreosImportar",
+     "when": "counts",
+     "text": "",
+     "tag": "AddResult"
+    },
+    {
+     "kind": "button",
+     "line": 69,
+     "in": "CorreosImportar",
+     "when": "counts",
+     "text": "Importar otro archivo",
+     "action": "{() => setCounts(null)}",
+     "hook": {
+      "testid": "correos-importar-otro"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 74,
+     "in": "CorreosImportar",
+     "when": "!(counts)",
+     "text": "",
+     "tag": "Card"
+    },
+    {
+     "kind": "piece",
+     "line": 75,
+     "in": "CorreosImportar",
+     "when": "!(counts)",
+     "text": "",
+     "tag": "CardBody"
+    },
+    {
+     "kind": "form",
+     "line": 76,
+     "in": "CorreosImportar",
+     "when": "!(counts)",
+     "text": "{start}"
+    },
+    {
+     "kind": "piece",
+     "line": 77,
+     "in": "CorreosImportar",
+     "when": "!(counts)",
+     "text": "",
+     "tag": "CsvFilePicker"
+    },
+    {
+     "kind": "piece",
+     "line": 78,
+     "in": "CorreosImportar",
+     "when": "!(counts)",
+     "text": "idPrefix: correos-importar",
+     "tag": "ListPicker"
+    },
+    {
+     "kind": "piece",
+     "line": 79,
+     "in": "CorreosImportar",
+     "when": "!(counts)",
+     "text": "idPrefix: correos-importar · basisHelp: Vale para todas las personas del archivo. Se guarda junto a cada una, con la fecha de hoy y tu nombre.",
+     "tag": "ReasonFields"
+    },
+    {
+     "kind": "piece",
+     "line": 86,
+     "in": "CorreosImportar",
+     "when": "!(counts) && error",
+     "text": "tone: error · title: No se importó nada.",
+     "tag": "Notice",
+     "hook": {
+      "testid": "correos-importar-error"
+     }
+    },
+    {
+     "kind": "value",
+     "line": 86,
+     "in": "CorreosImportar",
+     "when": "!(counts) && error",
+     "text": "{error}"
+    },
+    {
+     "kind": "button",
+     "line": 91,
+     "in": "CorreosImportar",
+     "when": "!(counts)",
+     "text": "Importar",
+     "submit": true,
+     "disabled": "{!ready}",
+     "hook": {
+      "testid": "correos-importar-empezar"
+     }
+    }
+   ],
+   "db": [],
+   "pieces": [
+    "components/correos/AddResult.tsx",
+    "components/correos/CorreosNav.tsx",
+    "components/correos/CsvFilePicker.tsx",
+    "components/correos/ListPicker.tsx",
+    "components/correos/ReasonFields.tsx",
+    "components/correos/api.ts",
+    "components/ui/kit/Button.tsx",
+    "components/ui/kit/Card.tsx",
+    "components/ui/kit/Field.tsx",
+    "components/ui/kit/Loading.tsx",
+    "components/ui/kit/Notice.tsx",
+    "components/ui/kit/PageHeader.tsx",
+    "components/ui/kit/Tabs.tsx",
+    "lib/api-auth.ts",
+    "lib/auth/forced-password-change.ts",
+    "lib/correos-host/page-guard.ts",
+    "lib/correos/reason.ts",
+    "types/roles.ts",
+    "utils/roleUtils.ts"
+   ],
+   "api": [
+    {
+     "file": "pages/api/admin/correos/importar.ts",
+     "route": "/api/admin/correos/importar",
+     "methods": [
+      "POST"
+     ],
+     "from": [
+      "pages/admin/correos/importar.tsx:39"
+     ]
+    },
+    {
+     "file": "pages/api/admin/correos/listas/index.ts",
+     "route": "/api/admin/correos/listas",
+     "methods": [],
+     "from": [
+      "components/correos/ListPicker.tsx:26"
+     ]
+    }
+   ]
+  },
+  {
+   "file": "pages/admin/correos/listas.tsx",
+   "route": "/admin/correos/listas",
+   "lines": 248,
+   "marks": {},
+   "frame": "MainLayout",
+   "server": "getServerSideProps",
+   "reach": {
+    "menu": [],
+    "middleware": {
+     "rule": "the /admin rule",
+     "signedOut": "sent to /login",
+     "passwordChangeHold": true
+    },
+    "roles": {
+     "admin": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "equipo_directivo": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "lider_generacion": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "lider_comunidad": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "supervisor_de_red": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "community_manager": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "docente": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "encargado_licitacion": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     }
+    },
+    "inPage": [],
+    "linkedFrom": [
+     "components/correos/CorreosNav.tsx:9"
+    ],
+    "qaScenarios": {},
+    "tests": {
+     "e2eCi": [
+      "tests/e2e/correos-listas-contactos.spec.ts"
+     ],
+     "e2e": [],
+     "unit": []
+    }
+   },
+   "rows": [
+    {
+     "kind": "message",
+     "line": 82,
+     "in": "save",
+     "when": "answer.status === 200 || answer.status === 201",
+     "text": "Lista guardada. / Lista creada.",
+     "via": "setNotice"
+    },
+    {
+     "kind": "confirm",
+     "line": 89,
+     "in": "archive",
+     "text": "¿Archivar «{list.name}»? / La lista deja de ofrecerse para agregar personas y ya no se puede cambiar. Nadie pierde su historial en ella. / Archivar"
+    },
+    {
+     "kind": "message",
+     "line": 97,
+     "in": "archive",
+     "when": "answer.status === 200",
+     "text": "Lista archivada.",
+     "via": "setNotice"
+    },
+    {
+     "kind": "piece",
+     "line": 103,
+     "in": "CorreosListas",
+     "text": "pageTitle: Listas de correo · breadcrumbs: Administración / Correos / Listas",
+     "tag": "MainLayout"
+    },
+    {
+     "kind": "hook",
+     "line": 108,
+     "in": "CorreosListas",
+     "text": "testid=correos-listas",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "piece",
+     "line": 109,
+     "in": "CorreosListas",
+     "text": "eyebrow: Correos · title: Listas · description: Cada persona puede estar en una o más listas. Las listas no se borran: se archivan. · primaryAction: Nueva lista",
+     "tag": "PageHeader"
+    },
+    {
+     "kind": "piece",
+     "line": 122,
+     "in": "CorreosListas",
+     "text": "current: listas",
+     "tag": "CorreosNav"
+    },
+    {
+     "kind": "piece",
+     "line": 125,
+     "in": "CorreosListas",
+     "when": "notice",
+     "text": "tone: neutral",
+     "tag": "Notice",
+     "hook": {
+      "testid": "correos-listas-aviso"
+     }
+    },
+    {
+     "kind": "value",
+     "line": 125,
+     "in": "CorreosListas",
+     "when": "notice",
+     "text": "{notice}"
+    },
+    {
+     "kind": "piece",
+     "line": 132,
+     "in": "CorreosListas",
+     "when": "loadError",
+     "text": "tone: error · title: No se pudieron cargar las listas.",
+     "tag": "Notice"
+    },
+    {
+     "kind": "value",
+     "line": 132,
+     "in": "CorreosListas",
+     "when": "loadError",
+     "text": "{loadError}"
+    },
+    {
+     "kind": "piece",
+     "line": 136,
+     "in": "CorreosListas",
+     "when": "!(loadError) && !lists",
+     "text": "label: Cargando las listas",
+     "tag": "LoadingBlock"
+    },
+    {
+     "kind": "piece",
+     "line": 138,
+     "in": "CorreosListas",
+     "when": "!(loadError) && !(!lists) && lists.length === 0",
+     "text": "title: Todavía no hay listas · description: Crea la primera con «Nueva lista».",
+     "tag": "EmptyState"
+    },
+    {
+     "kind": "piece",
+     "line": 140,
+     "in": "CorreosListas",
+     "when": "!(loadError) && !(!lists) && !(lists.length === 0)",
+     "text": "aria-label: Listas de correo",
+     "tag": "Table",
+     "aria": "Listas de correo"
+    },
+    {
+     "kind": "piece",
+     "line": 141,
+     "in": "CorreosListas",
+     "when": "!(loadError) && !(!lists) && !(lists.length === 0)",
+     "text": "",
+     "tag": "TableHead"
+    },
+    {
+     "kind": "piece",
+     "line": 142,
+     "in": "CorreosListas",
+     "when": "!(loadError) && !(!lists) && !(lists.length === 0)",
+     "text": "",
+     "tag": "TableRow"
+    },
+    {
+     "kind": "piece",
+     "line": 143,
+     "in": "CorreosListas",
+     "when": "!(loadError) && !(!lists) && !(lists.length === 0)",
+     "text": "",
+     "tag": "TableHeaderCell"
+    },
+    {
+     "kind": "text",
+     "line": 143,
+     "in": "CorreosListas",
+     "when": "!(loadError) && !(!lists) && !(lists.length === 0)",
+     "text": "Nombre"
+    },
+    {
+     "kind": "piece",
+     "line": 144,
+     "in": "CorreosListas",
+     "when": "!(loadError) && !(!lists) && !(lists.length === 0)",
+     "text": "",
+     "tag": "TableHeaderCell"
+    },
+    {
+     "kind": "text",
+     "line": 144,
+     "in": "CorreosListas",
+     "when": "!(loadError) && !(!lists) && !(lists.length === 0)",
+     "text": "Pública"
+    },
+    {
+     "kind": "piece",
+     "line": 145,
+     "in": "CorreosListas",
+     "when": "!(loadError) && !(!lists) && !(lists.length === 0)",
+     "text": "",
+     "tag": "TableHeaderCell"
+    },
+    {
+     "kind": "text",
+     "line": 145,
+     "in": "CorreosListas",
+     "when": "!(loadError) && !(!lists) && !(lists.length === 0)",
+     "text": "Suscritas"
+    },
+    {
+     "kind": "piece",
+     "line": 146,
+     "in": "CorreosListas",
+     "when": "!(loadError) && !(!lists) && !(lists.length === 0)",
+     "text": "",
+     "tag": "TableHeaderCell"
+    },
+    {
+     "kind": "text",
+     "line": 146,
+     "in": "CorreosListas",
+     "when": "!(loadError) && !(!lists) && !(lists.length === 0)",
+     "text": "Estado"
+    },
+    {
+     "kind": "piece",
+     "line": 147,
+     "in": "CorreosListas",
+     "when": "!(loadError) && !(!lists) && !(lists.length === 0)",
+     "text": "",
+     "tag": "TableHeaderCell"
+    },
+    {
+     "kind": "text",
+     "line": 148,
+     "in": "CorreosListas",
+     "when": "!(loadError) && !(!lists) && !(lists.length === 0)",
+     "screen": "sr-only",
+     "text": "Acciones"
+    },
+    {
+     "kind": "piece",
+     "line": 152,
+     "in": "CorreosListas",
+     "when": "!(loadError) && !(!lists) && !(lists.length === 0)",
+     "text": "",
+     "tag": "TableBody"
+    },
+    {
+     "kind": "piece",
+     "line": 154,
+     "in": "CorreosListas",
+     "when": "!(loadError) && !(!lists) && !(lists.length === 0) && each lists",
+     "text": "",
+     "tag": "TableRow",
+     "hook": {
+      "testid": "correos-lista-fila"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 155,
+     "in": "CorreosListas",
+     "when": "!(loadError) && !(!lists) && !(lists.length === 0) && each lists",
+     "text": "label: Nombre",
+     "tag": "TableCell"
+    },
+    {
+     "kind": "value",
+     "line": 156,
+     "in": "CorreosListas",
+     "when": "!(loadError) && !(!lists) && !(lists.length === 0) && each lists",
+     "text": "{list.name}"
+    },
+    {
+     "kind": "value",
+     "line": 157,
+     "in": "CorreosListas",
+     "when": "!(!lists) && !(lists.length === 0) && each lists && list.description",
+     "text": "{list.description}"
+    },
+    {
+     "kind": "piece",
+     "line": 159,
+     "in": "CorreosListas",
+     "when": "!(loadError) && !(!lists) && !(lists.length === 0) && each lists",
+     "text": "label: Pública",
+     "tag": "TableCell"
+    },
+    {
+     "kind": "text",
+     "line": 159,
+     "in": "CorreosListas",
+     "when": "!(loadError) && !(!lists) && !(lists.length === 0) && each lists",
+     "text": "Sí / No"
+    },
+    {
+     "kind": "piece",
+     "line": 160,
+     "in": "CorreosListas",
+     "when": "!(loadError) && !(!lists) && !(lists.length === 0) && each lists",
+     "text": "label: Suscritas",
+     "tag": "TableCell"
+    },
+    {
+     "kind": "hook",
+     "line": 161,
+     "in": "CorreosListas",
+     "when": "!(loadError) && !(!lists) && !(lists.length === 0) && each lists",
+     "text": "testid=correos-lista-suscritas",
+     "type": "mark",
+     "tag": "span"
+    },
+    {
+     "kind": "value",
+     "line": 161,
+     "in": "CorreosListas",
+     "when": "!(loadError) && !(!lists) && !(lists.length === 0) && each lists",
+     "text": "{list.subscribed.toLocaleString('es-…}"
+    },
+    {
+     "kind": "piece",
+     "line": 163,
+     "in": "CorreosListas",
+     "when": "!(loadError) && !(!lists) && !(lists.length === 0) && each lists",
+     "text": "label: Estado",
+     "tag": "TableCell"
+    },
+    {
+     "kind": "piece",
+     "line": 164,
+     "in": "CorreosListas",
+     "when": "!(!lists) && !(lists.length === 0) && each lists && list.archived_at",
+     "text": "tone: neutral",
+     "tag": "Badge"
+    },
+    {
+     "kind": "text",
+     "line": 164,
+     "in": "CorreosListas",
+     "when": "!(!lists) && !(lists.length === 0) && each lists && list.archived_at",
+     "text": "Archivada"
+    },
+    {
+     "kind": "piece",
+     "line": 164,
+     "in": "CorreosListas",
+     "when": "!(!lists) && !(lists.length === 0) && each lists && !(list.archived_at)",
+     "text": "tone: success",
+     "tag": "Badge"
+    },
+    {
+     "kind": "text",
+     "line": 164,
+     "in": "CorreosListas",
+     "when": "!(!lists) && !(lists.length === 0) && each lists && !(list.archived_at)",
+     "text": "Activa"
+    },
+    {
+     "kind": "piece",
+     "line": 166,
+     "in": "CorreosListas",
+     "when": "!(loadError) && !(!lists) && !(lists.length === 0) && each lists",
+     "text": "label: Acciones",
+     "tag": "TableCell"
+    },
+    {
+     "kind": "button",
+     "line": 169,
+     "in": "CorreosListas",
+     "when": "!(!lists) && !(lists.length === 0) && each lists && !(list.archived_at)",
+     "text": "Editar",
+     "action": "{() => { setFormError(null); setDraft({ id: list.id, name: list.name, descriptio…}",
+     "hook": {
+      "testid": "correos-lista-editar"
+     }
+    },
+    {
+     "kind": "button",
+     "line": 180,
+     "in": "CorreosListas",
+     "when": "!(!lists) && !(lists.length === 0) && each lists && !(list.archived_at)",
+     "text": "Archivar",
+     "action": "{() => archive(list)}",
+     "hook": {
+      "testid": "correos-lista-archivar"
+     }
+    },
+    {
+     "kind": "popup",
+     "line": 194,
+     "in": "CorreosListas",
+     "text": "Dialog",
+     "how": "component",
+     "open": "{draft !== null}",
+     "props": "title: Editar lista / Nueva lista",
+     "hook": {
+      "testid": "correos-lista-dialogo"
+     }
+    },
+    {
+     "kind": "button",
+     "line": 201,
+     "in": "CorreosListas",
+     "text": "Cancelar",
+     "action": "{() => setDraft(null)}"
+    },
+    {
+     "kind": "button",
+     "line": 204,
+     "in": "CorreosListas",
+     "text": "Guardar",
+     "submit": true,
+     "hook": {
+      "testid": "correos-lista-guardar"
+     }
+    },
+    {
+     "kind": "form",
+     "line": 211,
+     "in": "CorreosListas",
+     "when": "draft",
+     "text": "{save}",
+     "hook": {
+      "id": "correos-lista-form"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 213,
+     "in": "CorreosListas",
+     "when": "draft && formError",
+     "text": "tone: error",
+     "tag": "Notice",
+     "hook": {
+      "testid": "correos-lista-error"
+     }
+    },
+    {
+     "kind": "value",
+     "line": 213,
+     "in": "CorreosListas",
+     "when": "draft && formError",
+     "text": "{formError}"
+    },
+    {
+     "kind": "piece",
+     "line": 217,
+     "in": "CorreosListas",
+     "when": "draft",
+     "text": "label: Nombre",
+     "tag": "Field"
+    },
+    {
+     "kind": "field",
+     "line": 218,
+     "in": "CorreosListas",
+     "when": "draft",
+     "text": "",
+     "type": "text",
+     "limits": "maxLength={200}",
+     "action": "{(event) => setDraft({ ...draft, name: event.currentTarget.value })}",
+     "hook": {
+      "testid": "correos-lista-nombre"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 225,
+     "in": "CorreosListas",
+     "when": "draft",
+     "text": "label: Descripción · help: Para qué es la lista. Opcional.",
+     "tag": "Field"
+    },
+    {
+     "kind": "field",
+     "line": 226,
+     "in": "CorreosListas",
+     "when": "draft",
+     "text": "",
+     "type": "textarea",
+     "limits": "maxLength={1000}",
+     "action": "{(event) => setDraft({ ...draft, description: event.currentTarget.value })}",
+     "hook": {
+      "testid": "correos-lista-descripcion"
+     }
+    },
+    {
+     "kind": "field",
+     "line": 234,
+     "in": "CorreosListas",
+     "when": "draft",
+     "text": "",
+     "type": "switch",
+     "action": "{(event) => setDraft({ ...draft, is_public: event.currentTarget.checked })}",
+     "hook": {
+      "testid": "correos-lista-publica"
+     }
+    },
+    {
+     "kind": "string",
+     "line": 235,
+     "in": "CorreosListas",
+     "text": "Lista pública"
+    },
+    {
+     "kind": "string",
+     "line": 236,
+     "in": "CorreosListas",
+     "text": "Una lista pública podrá ofrecerse a las personas para que se suscriban solas."
+    }
+   ],
+   "db": [],
+   "pieces": [
+    "components/correos/CorreosNav.tsx",
+    "components/correos/api.ts",
+    "components/ui/kit/Button.tsx",
+    "components/ui/kit/ConfirmDialog.tsx",
+    "components/ui/kit/Dialog.tsx",
+    "components/ui/kit/EmptyState.tsx",
+    "components/ui/kit/Field.tsx",
+    "components/ui/kit/Loading.tsx",
+    "components/ui/kit/Notice.tsx",
+    "components/ui/kit/PageHeader.tsx",
+    "components/ui/kit/Table.tsx",
+    "components/ui/kit/Tabs.tsx",
+    "lib/api-auth.ts",
+    "lib/auth/forced-password-change.ts",
+    "lib/correos-host/page-guard.ts",
+    "types/roles.ts",
+    "utils/roleUtils.ts"
+   ],
+   "api": [
+    {
+     "file": "pages/api/admin/correos/listas/index.ts",
+     "route": "/api/admin/correos/listas",
+     "methods": [],
+     "from": [
+      "pages/admin/correos/listas.tsx:48"
+     ]
+    }
+   ]
+  },
+  {
+   "file": "pages/admin/correos/pasantias.tsx",
+   "route": "/admin/correos/pasantias",
+   "lines": 67,
+   "marks": {},
+   "frame": "MainLayout",
+   "server": "getServerSideProps",
+   "reach": {
+    "menu": [],
+    "middleware": {
+     "rule": "the /admin rule",
+     "signedOut": "sent to /login",
+     "passwordChangeHold": true
+    },
+    "roles": {
+     "admin": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "equipo_directivo": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "lider_generacion": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "lider_comunidad": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "supervisor_de_red": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "community_manager": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "docente": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "encargado_licitacion": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     }
+    },
+    "inPage": [],
+    "linkedFrom": [
+     "components/correos/CorreosNav.tsx:12"
+    ],
+    "qaScenarios": {},
+    "tests": {
+     "e2eCi": [
+      "tests/e2e/correos-importar.spec.ts"
+     ],
+     "e2e": [],
+     "unit": []
+    }
+   },
+   "rows": [
+    {
+     "kind": "piece",
+     "line": 32,
+     "in": "CorreosPasantias",
+     "text": "pageTitle: Agregar interesados en pasantías · breadcrumbs: Administración / Correos / Interesados en pasantías",
+     "tag": "MainLayout"
+    },
+    {
+     "kind": "hook",
+     "line": 37,
+     "in": "CorreosPasantias",
+     "text": "testid=correos-pasantias",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "piece",
+     "line": 38,
+     "in": "CorreosPasantias",
+     "text": "eyebrow: Correos · title: Interesados en pasantías · description: Solo aparecen quienes marcaron, en el formulario de pasantías, la casilla para recibir el boletín.",
+     "tag": "PageHeader"
+    },
+    {
+     "kind": "piece",
+     "line": 43,
+     "in": "CorreosPasantias",
+     "text": "current: pasantias",
+     "tag": "CorreosNav"
+    },
+    {
+     "kind": "piece",
+     "line": 44,
+     "in": "CorreosPasantias",
+     "text": "api: /api/admin/correos/pasantias · idsField: lead_ids · testPrefix: correos-pasantias · noun: interesados · searchLabel: Buscar interesados por correo, nombre o institución · emptyTitle: Nadie coincide · emptyDescription: Solo aparecen quienes marcaron la casilla del boletín. · basisHelp: Marcaron la casilla del boletín en el formulario. La fecha y la versión del aviso de cada persona se guardan tal como quedaron. · columns: Nombre / Correo / Institución / Marcó la casilla",
+     "tag": "PickPeople"
+    },
+    {
+     "kind": "value",
+     "line": 57,
+     "in": "CorreosPasantias",
+     "text": "{nameOf(row)}"
+    },
+    {
+     "kind": "value",
+     "line": 58,
+     "in": "CorreosPasantias",
+     "text": "{row.email}"
+    }
+   ],
+   "db": [],
+   "pieces": [
+    "components/correos/AddResult.tsx",
+    "components/correos/CorreosNav.tsx",
+    "components/correos/ListPicker.tsx",
+    "components/correos/PickPeople.tsx",
+    "components/correos/ReasonFields.tsx",
+    "components/correos/api.ts",
+    "components/ui/kit/Button.tsx",
+    "components/ui/kit/Card.tsx",
+    "components/ui/kit/EmptyState.tsx",
+    "components/ui/kit/Field.tsx",
+    "components/ui/kit/Loading.tsx",
+    "components/ui/kit/Notice.tsx",
+    "components/ui/kit/PageHeader.tsx",
+    "components/ui/kit/Table.tsx",
+    "components/ui/kit/Tabs.tsx",
+    "lib/api-auth.ts",
+    "lib/auth/forced-password-change.ts",
+    "lib/correos-host/page-guard.ts",
+    "lib/correos/reason.ts",
+    "types/roles.ts",
+    "utils/roleUtils.ts"
+   ],
+   "api": [
+    {
+     "file": "pages/api/admin/correos/listas/index.ts",
+     "route": "/api/admin/correos/listas",
+     "methods": [],
+     "from": [
+      "components/correos/ListPicker.tsx:26"
+     ]
+    },
+    {
+     "file": "pages/api/admin/correos/pasantias.ts",
+     "route": "/api/admin/correos/pasantias",
+     "methods": [],
+     "from": [
+      "pages/admin/correos/pasantias.tsx:45"
+     ]
+    }
+   ]
+  },
+  {
+   "file": "pages/admin/correos/usuarios.tsx",
+   "route": "/admin/correos/usuarios",
+   "lines": 57,
+   "marks": {},
+   "frame": "MainLayout",
+   "server": "getServerSideProps",
+   "reach": {
+    "menu": [],
+    "middleware": {
+     "rule": "the /admin rule",
+     "signedOut": "sent to /login",
+     "passwordChangeHold": true
+    },
+    "roles": {
+     "admin": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "equipo_directivo": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "lider_generacion": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "lider_comunidad": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "supervisor_de_red": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "community_manager": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "docente": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "encargado_licitacion": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     }
+    },
+    "inPage": [],
+    "linkedFrom": [
+     "components/correos/CorreosNav.tsx:11"
+    ],
+    "qaScenarios": {},
+    "tests": {
+     "e2eCi": [
+      "tests/e2e/correos-importar.spec.ts"
+     ],
+     "e2e": [],
+     "unit": []
+    }
+   },
+   "rows": [
+    {
+     "kind": "piece",
+     "line": 27,
+     "in": "CorreosUsuarios",
+     "text": "pageTitle: Agregar usuarios de la plataforma · breadcrumbs: Administración / Correos / Usuarios de la plataforma",
+     "tag": "MainLayout"
+    },
+    {
+     "kind": "hook",
+     "line": 32,
+     "in": "CorreosUsuarios",
+     "text": "testid=correos-usuarios",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "piece",
+     "line": 33,
+     "in": "CorreosUsuarios",
+     "text": "eyebrow: Correos · title: Usuarios de la plataforma · description: Agrega a personas del equipo y de los colegios que tienen un rol activo. Se copian su nombre y su correo tal como están hoy.",
+     "tag": "PageHeader"
+    },
+    {
+     "kind": "piece",
+     "line": 38,
+     "in": "CorreosUsuarios",
+     "text": "current: usuarios",
+     "tag": "CorreosNav"
+    },
+    {
+     "kind": "piece",
+     "line": 39,
+     "in": "CorreosUsuarios",
+     "text": "api: /api/admin/correos/usuarios · idsField: user_ids · testPrefix: correos-usuarios · noun: usuarios · searchLabel: Buscar usuarios por correo o nombre · emptyTitle: Nadie coincide · emptyDescription: Solo aparecen usuarios con un rol activo y un correo válido. · columns: Nombre / Correo",
+     "tag": "PickPeople"
+    },
+    {
+     "kind": "value",
+     "line": 49,
+     "in": "CorreosUsuarios",
+     "text": "{nameOf(row)}"
+    },
+    {
+     "kind": "value",
+     "line": 50,
+     "in": "CorreosUsuarios",
+     "text": "{row.email}"
+    }
+   ],
+   "db": [],
+   "pieces": [
+    "components/correos/AddResult.tsx",
+    "components/correos/CorreosNav.tsx",
+    "components/correos/ListPicker.tsx",
+    "components/correos/PickPeople.tsx",
+    "components/correos/ReasonFields.tsx",
+    "components/correos/api.ts",
+    "components/ui/kit/Button.tsx",
+    "components/ui/kit/Card.tsx",
+    "components/ui/kit/EmptyState.tsx",
+    "components/ui/kit/Field.tsx",
+    "components/ui/kit/Loading.tsx",
+    "components/ui/kit/Notice.tsx",
+    "components/ui/kit/PageHeader.tsx",
+    "components/ui/kit/Table.tsx",
+    "components/ui/kit/Tabs.tsx",
+    "lib/api-auth.ts",
+    "lib/auth/forced-password-change.ts",
+    "lib/correos-host/page-guard.ts",
+    "lib/correos/reason.ts",
+    "types/roles.ts",
+    "utils/roleUtils.ts"
+   ],
+   "api": [
+    {
+     "file": "pages/api/admin/correos/listas/index.ts",
+     "route": "/api/admin/correos/listas",
+     "methods": [],
+     "from": [
+      "components/correos/ListPicker.tsx:26"
+     ]
+    },
+    {
+     "file": "pages/api/admin/correos/usuarios.ts",
+     "route": "/api/admin/correos/usuarios",
+     "methods": [],
+     "from": [
+      "pages/admin/correos/usuarios.tsx:40"
+     ]
+    }
+   ]
+  },
+  {
    "file": "pages/admin/correos/vista-previa.tsx",
    "route": "/admin/correos/vista-previa",
-   "lines": 191,
+   "lines": 192,
    "marks": {},
    "frame": "MainLayout",
    "server": "getServerSideProps",
@@ -241,7 +2191,7 @@
     },
     {
      "kind": "piece",
-     "line": 184,
+     "line": 185,
      "in": "CorreosVistaPrevia",
      "when": "!(loadError) && !(preview)",
      "text": "label: Cargando el correo de ejemplo",
@@ -1623,8 +3573,1191 @@
   }
  ],
  "pieces": {
+  "components/correos/AddResult.tsx": {
+   "usedBy": [
+    "/admin/correos/importar",
+    "/admin/correos/pasantias",
+    "/admin/correos/usuarios"
+   ],
+   "lines": 48,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 5,
+     "text": "ROWS",
+     "items": [
+      "Agregadas",
+      "Repetidas o que ya estaban en esas listas",
+      "Bloqueadas (no se agregaron)",
+      "Se dieron de baja por decisión propia, no se volvieron a agregar",
+      "Direcciones mal escritas"
+     ]
+    },
+    {
+     "kind": "hook",
+     "line": 20,
+     "in": "AddResult",
+     "text": "testid=correos-resultado",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "piece",
+     "line": 21,
+     "in": "AddResult",
+     "text": "title: Listo.",
+     "tag": "Notice"
+    },
+    {
+     "kind": "text",
+     "line": 21,
+     "in": "AddResult",
+     "text": "Se revisaron {fmt(counts.total)} {noun} . Se agregaron {fmt(counts.accepted)} ."
+    },
+    {
+     "kind": "value",
+     "line": 27,
+     "in": "AddResult",
+     "when": "each ROWS",
+     "text": "{row.label}"
+    },
+    {
+     "kind": "hook",
+     "line": 28,
+     "in": "AddResult",
+     "when": "each ROWS",
+     "text": "testid=correos-resultado-{row.testId}",
+     "type": "mark",
+     "tag": "dd"
+    },
+    {
+     "kind": "value",
+     "line": 28,
+     "in": "AddResult",
+     "when": "each ROWS",
+     "text": "{fmt(counts[row.key])}"
+    },
+    {
+     "kind": "text",
+     "line": 34,
+     "in": "AddResult",
+     "text": "Total"
+    },
+    {
+     "kind": "hook",
+     "line": 35,
+     "in": "AddResult",
+     "text": "testid=correos-resultado-total",
+     "type": "mark",
+     "tag": "dd"
+    },
+    {
+     "kind": "value",
+     "line": 35,
+     "in": "AddResult",
+     "text": "{fmt(counts.total)}"
+    },
+    {
+     "kind": "hook",
+     "line": 40,
+     "in": "AddResult",
+     "text": "testid=correos-resultado-suma",
+     "type": "mark",
+     "tag": "p"
+    },
+    {
+     "kind": "text",
+     "line": 40,
+     "in": "AddResult",
+     "text": "Las cinco cifras suman {fmt(sum)}, el total. / Las cifras suman {fmt(sum)} y el total es {fmt(counts.total)}: avisa al equipo técnico."
+    }
+   ],
+   "db": []
+  },
+  "components/correos/ContactDetails.tsx": {
+   "usedBy": [
+    "/admin/correos/contactos/[id]"
+   ],
+   "lines": 136,
+   "rows": [
+    {
+     "kind": "hook",
+     "line": 28,
+     "in": "ContactDetails",
+     "text": "testid=correos-persona",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "piece",
+     "line": 30,
+     "in": "ContactDetails",
+     "when": "contact.block.blocked",
+     "text": "tone: error · title: Bloqueada.",
+     "tag": "Notice",
+     "hook": {
+      "testid": "correos-persona-bloqueo"
+     }
+    },
+    {
+     "kind": "text",
+     "line": 30,
+     "in": "ContactDetails",
+     "when": "contact.block.blocked",
+     "text": "{labelFor(BLOCK_REASON_LABELS, conta…} (desde el {formatDate(contact.block.si…}) . No se le puede volver a agregar ni escribir."
+    },
+    {
+     "kind": "piece",
+     "line": 36,
+     "in": "ContactDetails",
+     "text": "",
+     "tag": "Card"
+    },
+    {
+     "kind": "piece",
+     "line": 37,
+     "in": "ContactDetails",
+     "text": "",
+     "tag": "CardHeader"
+    },
+    {
+     "kind": "piece",
+     "line": 38,
+     "in": "ContactDetails",
+     "text": "",
+     "tag": "CardTitle"
+    },
+    {
+     "kind": "text",
+     "line": 38,
+     "in": "ContactDetails",
+     "text": "Datos"
+    },
+    {
+     "kind": "piece",
+     "line": 40,
+     "in": "ContactDetails",
+     "text": "",
+     "tag": "CardBody"
+    },
+    {
+     "kind": "text",
+     "line": 43,
+     "in": "ContactDetails",
+     "text": "Correo"
+    },
+    {
+     "kind": "hook",
+     "line": 44,
+     "in": "ContactDetails",
+     "text": "testid=correos-persona-correo",
+     "type": "mark",
+     "tag": "dd"
+    },
+    {
+     "kind": "text",
+     "line": 44,
+     "in": "ContactDetails",
+     "text": "{contact.email} / Borrado"
+    },
+    {
+     "kind": "text",
+     "line": 49,
+     "in": "ContactDetails",
+     "text": "Nombre"
+    },
+    {
+     "kind": "hook",
+     "line": 50,
+     "in": "ContactDetails",
+     "text": "testid=correos-persona-nombre",
+     "type": "mark",
+     "tag": "dd"
+    },
+    {
+     "kind": "value",
+     "line": 50,
+     "in": "ContactDetails",
+     "text": "{name} / —"
+    },
+    {
+     "kind": "text",
+     "line": 55,
+     "in": "ContactDetails",
+     "text": "Organización"
+    },
+    {
+     "kind": "hook",
+     "line": 56,
+     "in": "ContactDetails",
+     "text": "testid=correos-persona-organizacion",
+     "type": "mark",
+     "tag": "dd"
+    },
+    {
+     "kind": "value",
+     "line": 56,
+     "in": "ContactDetails",
+     "text": "{contact.organization} / —"
+    },
+    {
+     "kind": "text",
+     "line": 61,
+     "in": "ContactDetails",
+     "text": "Cómo llegó"
+    },
+    {
+     "kind": "value",
+     "line": 62,
+     "in": "ContactDetails",
+     "text": "{labelFor(JOINED_VIA_LABELS, contact…}"
+    },
+    {
+     "kind": "text",
+     "line": 65,
+     "in": "ContactDetails",
+     "text": "Permiso registrado"
+    },
+    {
+     "kind": "hook",
+     "line": 66,
+     "in": "ContactDetails",
+     "text": "testid=correos-persona-motivo",
+     "type": "mark",
+     "tag": "dd"
+    },
+    {
+     "kind": "text",
+     "line": 66,
+     "in": "ContactDetails",
+     "text": "{labelFor(LEGAL_BASIS_LABELS as Reco…} (aviso {contact.consent_notice_vers…})"
+    },
+    {
+     "kind": "text",
+     "line": 72,
+     "in": "ContactDetails",
+     "text": "Fecha del permiso"
+    },
+    {
+     "kind": "hook",
+     "line": 73,
+     "in": "ContactDetails",
+     "text": "testid=correos-persona-fecha",
+     "type": "mark",
+     "tag": "dd"
+    },
+    {
+     "kind": "value",
+     "line": 73,
+     "in": "ContactDetails",
+     "text": "{formatDate(contact.basis_recorded_a…}"
+    },
+    {
+     "kind": "text",
+     "line": 78,
+     "in": "ContactDetails",
+     "text": "Nota sobre el permiso"
+    },
+    {
+     "kind": "value",
+     "line": 79,
+     "in": "ContactDetails",
+     "text": "{contact.basis_note} / —"
+    },
+    {
+     "kind": "text",
+     "line": 82,
+     "in": "ContactDetails",
+     "text": "Bloqueada"
+    },
+    {
+     "kind": "hook",
+     "line": 83,
+     "in": "ContactDetails",
+     "text": "testid=correos-persona-bloqueada",
+     "type": "mark",
+     "tag": "dd"
+    },
+    {
+     "kind": "text",
+     "line": 83,
+     "in": "ContactDetails",
+     "text": "Sí: {labelFor(BLOCK_REASON_LABEL…} / No"
+    },
+    {
+     "kind": "heading",
+     "line": 92,
+     "in": "ContactDetails",
+     "text": "Listas",
+     "level": 2,
+     "hook": {
+      "id": "correos-persona-listas-titulo",
+      "idUsed": true
+     }
+    },
+    {
+     "kind": "text",
+     "line": 96,
+     "in": "ContactDetails",
+     "when": "contact.memberships.length === 0",
+     "text": "No está en ninguna lista."
+    },
+    {
+     "kind": "piece",
+     "line": 98,
+     "in": "ContactDetails",
+     "when": "!(contact.memberships.length === 0)",
+     "text": "aria-label: Listas de la persona",
+     "tag": "Table",
+     "aria": "Listas de la persona"
+    },
+    {
+     "kind": "piece",
+     "line": 99,
+     "in": "ContactDetails",
+     "when": "!(contact.memberships.length === 0)",
+     "text": "",
+     "tag": "TableHead"
+    },
+    {
+     "kind": "piece",
+     "line": 100,
+     "in": "ContactDetails",
+     "when": "!(contact.memberships.length === 0)",
+     "text": "",
+     "tag": "TableRow"
+    },
+    {
+     "kind": "piece",
+     "line": 101,
+     "in": "ContactDetails",
+     "when": "!(contact.memberships.length === 0)",
+     "text": "",
+     "tag": "TableHeaderCell"
+    },
+    {
+     "kind": "text",
+     "line": 101,
+     "in": "ContactDetails",
+     "when": "!(contact.memberships.length === 0)",
+     "text": "Lista"
+    },
+    {
+     "kind": "piece",
+     "line": 102,
+     "in": "ContactDetails",
+     "when": "!(contact.memberships.length === 0)",
+     "text": "",
+     "tag": "TableHeaderCell"
+    },
+    {
+     "kind": "text",
+     "line": 102,
+     "in": "ContactDetails",
+     "when": "!(contact.memberships.length === 0)",
+     "text": "Estado"
+    },
+    {
+     "kind": "piece",
+     "line": 103,
+     "in": "ContactDetails",
+     "when": "!(contact.memberships.length === 0)",
+     "text": "",
+     "tag": "TableHeaderCell"
+    },
+    {
+     "kind": "text",
+     "line": 103,
+     "in": "ContactDetails",
+     "when": "!(contact.memberships.length === 0)",
+     "text": "Permiso"
+    },
+    {
+     "kind": "piece",
+     "line": 104,
+     "in": "ContactDetails",
+     "when": "!(contact.memberships.length === 0)",
+     "text": "",
+     "tag": "TableHeaderCell"
+    },
+    {
+     "kind": "text",
+     "line": 104,
+     "in": "ContactDetails",
+     "when": "!(contact.memberships.length === 0)",
+     "text": "Fecha del permiso"
+    },
+    {
+     "kind": "piece",
+     "line": 105,
+     "in": "ContactDetails",
+     "when": "!(contact.memberships.length === 0)",
+     "text": "",
+     "tag": "TableHeaderCell"
+    },
+    {
+     "kind": "text",
+     "line": 105,
+     "in": "ContactDetails",
+     "when": "!(contact.memberships.length === 0)",
+     "text": "Cómo llegó"
+    },
+    {
+     "kind": "piece",
+     "line": 108,
+     "in": "ContactDetails",
+     "when": "!(contact.memberships.length === 0)",
+     "text": "",
+     "tag": "TableBody"
+    },
+    {
+     "kind": "piece",
+     "line": 110,
+     "in": "ContactDetails",
+     "when": "!(contact.memberships.length === 0) && each contact.memberships",
+     "text": "",
+     "tag": "TableRow",
+     "hook": {
+      "testid": "correos-persona-lista"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 111,
+     "in": "ContactDetails",
+     "when": "!(contact.memberships.length === 0) && each contact.memberships",
+     "text": "label: Lista",
+     "tag": "TableCell"
+    },
+    {
+     "kind": "value",
+     "line": 112,
+     "in": "ContactDetails",
+     "when": "!(contact.memberships.length === 0) && each contact.memberships",
+     "text": "{member.list_name}"
+    },
+    {
+     "kind": "piece",
+     "line": 114,
+     "in": "ContactDetails",
+     "when": "!(contact.memberships.length === 0) && each contact.memberships",
+     "text": "label: Estado",
+     "tag": "TableCell"
+    },
+    {
+     "kind": "piece",
+     "line": 115,
+     "in": "ContactDetails",
+     "when": "!(contact.memberships.length === 0) && each contact.memberships",
+     "text": "",
+     "tag": "Badge",
+     "hook": {
+      "testid": "correos-persona-lista-estado"
+     }
+    },
+    {
+     "kind": "value",
+     "line": 115,
+     "in": "ContactDetails",
+     "when": "!(contact.memberships.length === 0) && each contact.memberships",
+     "text": "{labelFor(STATE_LABELS, member.state)}"
+    },
+    {
+     "kind": "value",
+     "line": 119,
+     "in": "ContactDetails",
+     "when": "!(contact.memberships.length === 0) && each contact.memberships && member.state === 'unsubscribed' && member.unsubscribed_by",
+     "text": "{labelFor(UNSUBSCRIBED_BY_LABELS, me…} , {formatDate(member.unsubscribed_at)}"
+    },
+    {
+     "kind": "piece",
+     "line": 124,
+     "in": "ContactDetails",
+     "when": "!(contact.memberships.length === 0) && each contact.memberships",
+     "text": "label: Permiso",
+     "tag": "TableCell"
+    },
+    {
+     "kind": "value",
+     "line": 124,
+     "in": "ContactDetails",
+     "when": "!(contact.memberships.length === 0) && each contact.memberships",
+     "text": "{labelFor(LEGAL_BASIS_LABELS as Reco…}"
+    },
+    {
+     "kind": "piece",
+     "line": 125,
+     "in": "ContactDetails",
+     "when": "!(contact.memberships.length === 0) && each contact.memberships",
+     "text": "label: Fecha del permiso",
+     "tag": "TableCell"
+    },
+    {
+     "kind": "value",
+     "line": 125,
+     "in": "ContactDetails",
+     "when": "!(contact.memberships.length === 0) && each contact.memberships",
+     "text": "{formatDate(member.basis_recorded_at)}"
+    },
+    {
+     "kind": "piece",
+     "line": 126,
+     "in": "ContactDetails",
+     "when": "!(contact.memberships.length === 0) && each contact.memberships",
+     "text": "label: Cómo llegó",
+     "tag": "TableCell"
+    },
+    {
+     "kind": "value",
+     "line": 126,
+     "in": "ContactDetails",
+     "when": "!(contact.memberships.length === 0) && each contact.memberships",
+     "text": "{labelFor(JOINED_VIA_LABELS, member.…}"
+    }
+   ],
+   "db": []
+  },
+  "components/correos/CorreosNav.tsx": {
+   "usedBy": [
+    "/admin/correos/contactos/[id]",
+    "/admin/correos/contactos",
+    "/admin/correos/importar",
+    "/admin/correos/listas",
+    "/admin/correos/pasantias",
+    "/admin/correos/usuarios"
+   ],
+   "lines": 29,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 7,
+     "text": "ITEMS",
+     "items": [
+      "Contactos",
+      "Listas",
+      "Importar archivo",
+      "Usuarios de la plataforma",
+      "Interesados en pasantías"
+     ]
+    },
+    {
+     "kind": "piece",
+     "line": 17,
+     "in": "CorreosNav",
+     "text": "label: Secciones de Correos",
+     "tag": "TabLinks"
+    }
+   ],
+   "db": []
+  },
+  "components/correos/CsvFilePicker.tsx": {
+   "usedBy": [
+    "/admin/correos/importar"
+   ],
+   "lines": 93,
+   "rows": [
+    {
+     "kind": "message",
+     "line": 36,
+     "in": "choose",
+     "when": "picked.size > MAX_CSV_BYTES",
+     "text": "El archivo pesa más de 8 MB. Divídelo en archivos más pequeños.",
+     "via": "setError"
+    },
+    {
+     "kind": "message",
+     "line": 51,
+     "in": "choose",
+     "text": "No se pudo leer el archivo. Inténtalo de nuevo.",
+     "via": "setError"
+    },
+    {
+     "kind": "label",
+     "line": 60,
+     "in": "CsvFilePicker",
+     "text": "Archivo CSV",
+     "for": "{inputId}"
+    },
+    {
+     "kind": "field",
+     "line": 63,
+     "in": "CsvFilePicker",
+     "screen": "sr-only",
+     "text": "Archivo CSV",
+     "type": "file",
+     "disabled": "{disabled}",
+     "accept": ".csv,text/csv,text/plain",
+     "action": "{(event) => choose(event.currentTarget.files?.[0])}",
+     "hook": {
+      "testid": "correos-importar-archivo"
+     }
+    },
+    {
+     "kind": "button",
+     "line": 74,
+     "in": "CsvFilePicker",
+     "text": "Elegir otro archivo / Elegir archivo",
+     "action": "{() => inputRef.current?.click()}",
+     "disabled": "{disabled}"
+    },
+    {
+     "kind": "hook",
+     "line": 77,
+     "in": "CsvFilePicker",
+     "text": "testid=correos-importar-nombre",
+     "type": "mark",
+     "tag": "span"
+    },
+    {
+     "kind": "text",
+     "line": 77,
+     "in": "CsvFilePicker",
+     "text": "{file.name} ({Math.max(1, Math.round(file…} KB) / Ningún archivo elegido"
+    },
+    {
+     "kind": "text",
+     "line": 82,
+     "in": "CsvFilePicker",
+     "text": "La primera fila nombra las columnas: «correo» (obligatoria), y si quieres «nombre», «apellido» y «organización». Separado por comas o por punto y coma. Hasta 20.000 filas."
+    },
+    {
+     "kind": "piece",
+     "line": 86,
+     "in": "CsvFilePicker",
+     "when": "error",
+     "text": "tone: error · title: No se pudo usar el archivo.",
+     "tag": "Notice"
+    },
+    {
+     "kind": "value",
+     "line": 86,
+     "in": "CsvFilePicker",
+     "when": "error",
+     "text": "{error}"
+    }
+   ],
+   "db": []
+  },
+  "components/correos/ListPicker.tsx": {
+   "usedBy": [
+    "/admin/correos/contactos",
+    "/admin/correos/importar",
+    "/admin/correos/pasantias",
+    "/admin/correos/usuarios"
+   ],
+   "lines": 62,
+   "rows": [
+    {
+     "kind": "gate",
+     "line": 27,
+     "in": "ListPicker",
+     "text": "!alive"
+    },
+    {
+     "kind": "piece",
+     "line": 36,
+     "in": "ListPicker",
+     "when": "error",
+     "text": "tone: error · title: No se pudieron cargar las listas.",
+     "tag": "Notice"
+    },
+    {
+     "kind": "value",
+     "line": 36,
+     "in": "ListPicker",
+     "when": "error",
+     "text": "{error}"
+    },
+    {
+     "kind": "piece",
+     "line": 37,
+     "in": "ListPicker",
+     "when": "!lists",
+     "text": "label: Cargando las listas",
+     "tag": "LoadingBlock"
+    },
+    {
+     "kind": "piece",
+     "line": 39,
+     "in": "ListPicker",
+     "when": "lists.length === 0",
+     "text": "tone: warning · title: No hay listas.",
+     "tag": "Notice"
+    },
+    {
+     "kind": "text",
+     "line": 39,
+     "in": "ListPicker",
+     "when": "lists.length === 0",
+     "text": "Crea una lista antes de agregar personas."
+    },
+    {
+     "kind": "piece",
+     "line": 47,
+     "in": "ListPicker",
+     "text": "label: Listas · help: Elige una o más. La persona queda suscrita a cada una.",
+     "tag": "Field"
+    },
+    {
+     "kind": "field",
+     "line": 49,
+     "in": "ListPicker",
+     "when": "each lists",
+     "text": "",
+     "type": "checkbox",
+     "action": "{(event) => toggle(list.id, event.currentTarget.checked)}",
+     "hook": {
+      "testid": "{idPrefix}-lista",
+      "id": "{idPrefix}-lista-{list.id}"
+     }
+    }
+   ],
+   "db": []
+  },
+  "components/correos/PickPeople.tsx": {
+   "usedBy": [
+    "/admin/correos/pasantias",
+    "/admin/correos/usuarios"
+   ],
+   "lines": 243,
+   "rows": [
+    {
+     "kind": "message",
+     "line": 118,
+     "in": "add",
+     "when": "picked.size === 0",
+     "text": "Marca al menos una persona.",
+     "via": "setError"
+    },
+    {
+     "kind": "message",
+     "line": 119,
+     "in": "add",
+     "when": "listIds.length === 0",
+     "text": "Elige al menos una lista.",
+     "via": "setError"
+    },
+    {
+     "kind": "message",
+     "line": 120,
+     "in": "add",
+     "when": "!reasonComplete(reason, { versionFromForm })",
+     "text": "Indica de dónde viene el permiso y escribe la nota.",
+     "via": "setError"
+    },
+    {
+     "kind": "piece",
+     "line": 136,
+     "in": "PickPeople",
+     "when": "counts",
+     "text": "",
+     "tag": "AddResult"
+    },
+    {
+     "kind": "button",
+     "line": 137,
+     "in": "PickPeople",
+     "when": "counts",
+     "text": "Agregar más personas",
+     "action": "{() => setCounts(null)}",
+     "hook": {
+      "testid": "{testPrefix}-otra-vez"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 147,
+     "in": "PickPeople",
+     "text": "",
+     "tag": "SearchInput",
+     "hook": {
+      "testid": "{testPrefix}-buscar"
+     },
+     "aria": "{searchLabel}"
+    },
+    {
+     "kind": "piece",
+     "line": 157,
+     "in": "PickPeople",
+     "when": "loadError",
+     "text": "tone: error · title: No se pudo cargar la lista.",
+     "tag": "Notice"
+    },
+    {
+     "kind": "value",
+     "line": 157,
+     "in": "PickPeople",
+     "when": "loadError",
+     "text": "{loadError}"
+    },
+    {
+     "kind": "piece",
+     "line": 161,
+     "in": "PickPeople",
+     "when": "!(loadError) && !result",
+     "text": "label: Cargando",
+     "tag": "LoadingBlock"
+    },
+    {
+     "kind": "piece",
+     "line": 163,
+     "in": "PickPeople",
+     "when": "!(loadError) && !(!result) && result.items.length === 0",
+     "text": "",
+     "tag": "EmptyState"
+    },
+    {
+     "kind": "piece",
+     "line": 165,
+     "in": "PickPeople",
+     "when": "!(loadError) && !(!result) && !(result.items.length === 0)",
+     "text": "",
+     "tag": "Table",
+     "aria": "{searchLabel}"
+    },
+    {
+     "kind": "piece",
+     "line": 169,
+     "in": "PickPeople",
+     "when": "!(loadError) && !(!result) && !(result.items.length === 0)",
+     "text": "",
+     "tag": "Pagination"
+    },
+    {
+     "kind": "piece",
+     "line": 172,
+     "in": "PickPeople",
+     "when": "!(loadError) && !(!result) && !(result.items.length === 0)",
+     "text": "",
+     "tag": "TableHead"
+    },
+    {
+     "kind": "piece",
+     "line": 173,
+     "in": "PickPeople",
+     "when": "!(loadError) && !(!result) && !(result.items.length === 0)",
+     "text": "",
+     "tag": "TableRow"
+    },
+    {
+     "kind": "piece",
+     "line": 174,
+     "in": "PickPeople",
+     "when": "!(loadError) && !(!result) && !(result.items.length === 0)",
+     "text": "",
+     "tag": "TableHeaderCell"
+    },
+    {
+     "kind": "text",
+     "line": 175,
+     "in": "PickPeople",
+     "when": "!(loadError) && !(!result) && !(result.items.length === 0)",
+     "screen": "sr-only",
+     "text": "Elegir"
+    },
+    {
+     "kind": "piece",
+     "line": 178,
+     "in": "PickPeople",
+     "when": "!(loadError) && !(!result) && !(result.items.length === 0) && each columns",
+     "text": "",
+     "tag": "TableHeaderCell"
+    },
+    {
+     "kind": "value",
+     "line": 178,
+     "in": "PickPeople",
+     "when": "!(loadError) && !(!result) && !(result.items.length === 0) && each columns",
+     "text": "{column.header}"
+    },
+    {
+     "kind": "piece",
+     "line": 182,
+     "in": "PickPeople",
+     "when": "!(loadError) && !(!result) && !(result.items.length === 0)",
+     "text": "",
+     "tag": "TableBody"
+    },
+    {
+     "kind": "piece",
+     "line": 184,
+     "in": "PickPeople",
+     "when": "!(loadError) && !(!result) && !(result.items.length === 0) && each result.items",
+     "text": "",
+     "tag": "TableRow",
+     "hook": {
+      "testid": "{testPrefix}-fila"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 185,
+     "in": "PickPeople",
+     "when": "!(loadError) && !(!result) && !(result.items.length === 0) && each result.items",
+     "text": "label: Elegir",
+     "tag": "TableCell"
+    },
+    {
+     "kind": "field",
+     "line": 186,
+     "in": "PickPeople",
+     "when": "!(loadError) && !(!result) && !(result.items.length === 0) && each result.items",
+     "text": "",
+     "type": "checkbox",
+     "action": "{(event) => toggle(row, event.currentTarget.checked)}",
+     "hook": {
+      "testid": "{testPrefix}-elegir"
+     }
+    },
+    {
+     "kind": "text",
+     "line": 187,
+     "in": "PickPeople",
+     "when": "!(loadError) && !(!result) && !(result.items.length === 0) && each result.items",
+     "screen": "sr-only",
+     "text": "Elegir a {rowLabel(row)}"
+    },
+    {
+     "kind": "piece",
+     "line": 194,
+     "in": "PickPeople",
+     "when": "!(!result) && !(result.items.length === 0) && each result.items && each columns",
+     "text": "",
+     "tag": "TableCell"
+    },
+    {
+     "kind": "value",
+     "line": 194,
+     "in": "PickPeople",
+     "when": "!(!result) && !(result.items.length === 0) && each result.items && each columns",
+     "text": "{column.cell(row)}"
+    },
+    {
+     "kind": "hook",
+     "line": 204,
+     "in": "PickPeople",
+     "when": "result?.hidden",
+     "text": "testid={testPrefix}-ocultas",
+     "type": "mark",
+     "tag": "p"
+    },
+    {
+     "kind": "text",
+     "line": 204,
+     "in": "PickPeople",
+     "when": "result?.hidden",
+     "text": "En esta página hay {result.hidden} persona que no se ofrece / personas que no se ofrecen : no tienen un correo válido o están vinculadas a un colegio de prueba."
+    },
+    {
+     "kind": "piece",
+     "line": 210,
+     "in": "PickPeople",
+     "text": "",
+     "tag": "Card"
+    },
+    {
+     "kind": "piece",
+     "line": 211,
+     "in": "PickPeople",
+     "text": "",
+     "tag": "CardBody"
+    },
+    {
+     "kind": "form",
+     "line": 212,
+     "in": "PickPeople",
+     "text": "{add}"
+    },
+    {
+     "kind": "hook",
+     "line": 213,
+     "in": "PickPeople",
+     "text": "testid={testPrefix}-elegidas",
+     "type": "mark",
+     "tag": "p"
+    },
+    {
+     "kind": "text",
+     "line": 213,
+     "in": "PickPeople",
+     "text": "Todavía no marcaste a nadie. / Marcaste {picked.size} {picked.size === 1 ? 'person…}."
+    },
+    {
+     "kind": "piece",
+     "line": 218,
+     "in": "PickPeople",
+     "text": "",
+     "tag": "ListPicker"
+    },
+    {
+     "kind": "piece",
+     "line": 219,
+     "in": "PickPeople",
+     "text": "",
+     "tag": "ReasonFields"
+    },
+    {
+     "kind": "piece",
+     "line": 228,
+     "in": "PickPeople",
+     "when": "error",
+     "text": "tone: error · title: No se agregó a nadie.",
+     "tag": "Notice",
+     "hook": {
+      "testid": "{testPrefix}-error"
+     }
+    },
+    {
+     "kind": "value",
+     "line": 228,
+     "in": "PickPeople",
+     "when": "error",
+     "text": "{error}"
+    },
+    {
+     "kind": "button",
+     "line": 233,
+     "in": "PickPeople",
+     "text": "Agregar a las listas",
+     "submit": true,
+     "hook": {
+      "testid": "{testPrefix}-agregar"
+     }
+    }
+   ],
+   "db": []
+  },
+  "components/correos/ReasonFields.tsx": {
+   "usedBy": [
+    "/admin/correos/contactos",
+    "/admin/correos/importar",
+    "/admin/correos/pasantias",
+    "/admin/correos/usuarios"
+   ],
+   "lines": 89,
+   "rows": [
+    {
+     "kind": "piece",
+     "line": 42,
+     "in": "ReasonFields",
+     "text": "label: ¿De dónde viene el permiso para escribirles?",
+     "tag": "Field"
+    },
+    {
+     "kind": "piece",
+     "line": 44,
+     "in": "ReasonFields",
+     "when": "each allowed",
+     "text": "",
+     "tag": "Radio",
+     "hook": {
+      "testid": "{idPrefix}-motivo-{basis}",
+      "id": "{idPrefix}-motivo-{basis}"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 56,
+     "in": "ReasonFields",
+     "text": "label: Nota sobre el permiso · help: Cómo y cuándo lo dieron. Queda guardada junto a cada persona.",
+     "tag": "Field"
+    },
+    {
+     "kind": "field",
+     "line": 57,
+     "in": "ReasonFields",
+     "text": "",
+     "type": "textarea",
+     "limits": "maxLength={MAX_NOTE_LENGTH}",
+     "action": "{(event) => onChange({ ...value, basis_note: event.currentTarget.value })}",
+     "hook": {
+      "testid": "{idPrefix}-nota",
+      "id": "{idPrefix}-nota"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 67,
+     "in": "ReasonFields",
+     "when": "value.legal_basis === 'consent_form' && versionFromForm",
+     "text": "label: Versión del aviso de privacidad que aceptaron",
+     "tag": "Field"
+    },
+    {
+     "kind": "field",
+     "line": 68,
+     "in": "ReasonFields",
+     "when": "value.legal_basis === 'consent_form' && versionFromForm",
+     "text": "",
+     "type": "text",
+     "limits": "maxLength={100}",
+     "action": "{(event) => onChange({ ...value, consent_notice_version: event.currentTarget.val…}",
+     "hook": {
+      "testid": "{idPrefix}-version",
+      "id": "{idPrefix}-version"
+     }
+    }
+   ],
+   "db": []
+  },
+  "components/correos/api.ts": {
+   "usedBy": [
+    "/admin/correos/contactos/[id]",
+    "/admin/correos/contactos",
+    "/admin/correos/importar",
+    "/admin/correos/listas",
+    "/admin/correos/pasantias",
+    "/admin/correos/usuarios"
+   ],
+   "lines": 32,
+   "rows": [
+    {
+     "kind": "string",
+     "line": 27,
+     "in": "failureText",
+     "text": "Tu sesión terminó. Vuelve a iniciar sesión."
+    },
+    {
+     "kind": "string",
+     "line": 28,
+     "in": "failureText",
+     "text": "Solo un administrador puede hacer esto."
+    },
+    {
+     "kind": "string",
+     "line": 29,
+     "in": "failureText",
+     "text": "No hay conexión. Revisa tu internet e inténtalo de nuevo."
+    },
+    {
+     "kind": "string",
+     "line": 30,
+     "in": "failureText",
+     "text": "Algo falló. Inténtalo de nuevo en un momento."
+    },
+    {
+     "kind": "list",
+     "line": 27,
+     "in": "failureText",
+     "text": "failureText()",
+     "items": [
+      "Tu sesión terminó. Vuelve a iniciar sesión.",
+      "Solo un administrador puede hacer esto.",
+      "No hay conexión. Revisa tu internet e inténtalo de nuevo.",
+      "Algo falló. Inténtalo de nuevo en un momento."
+     ]
+    }
+   ],
+   "db": []
+  },
   "components/ui/kit/Button.tsx": {
    "usedBy": [
+    "/admin/correos/contactos/[id]",
+    "/admin/correos/contactos",
+    "/admin/correos/importar",
+    "/admin/correos/listas",
+    "/admin/correos/pasantias",
+    "/admin/correos/usuarios",
     "/admin/correos/vista-previa"
    ],
    "lines": 178,
@@ -1668,12 +4801,358 @@
    ],
    "db": []
   },
+  "components/ui/kit/Card.tsx": {
+   "usedBy": [
+    "/admin/correos/contactos/[id]",
+    "/admin/correos/importar",
+    "/admin/correos/pasantias",
+    "/admin/correos/usuarios"
+   ],
+   "lines": 123,
+   "rows": [
+    {
+     "kind": "value",
+     "line": 50,
+     "when": "!rest.interactive",
+     "text": "{children}"
+    },
+    {
+     "kind": "link",
+     "line": 60,
+     "when": "typeof rest.href === 'string'",
+     "text": "{children}",
+     "target": "{href}"
+    },
+    {
+     "kind": "button",
+     "line": 68,
+     "text": "{children}"
+    }
+   ],
+   "db": []
+  },
+  "components/ui/kit/ConfirmDialog.tsx": {
+   "usedBy": [
+    "/admin/correos/contactos/[id]",
+    "/admin/correos/listas"
+   ],
+   "lines": 184,
+   "rows": [
+    {
+     "kind": "hook",
+     "line": 65,
+     "in": "ConfirmDialog",
+     "when": "open && before.open && before.key !== questionKey",
+     "text": "cancelRef.current.focus()",
+     "type": "focus"
+    },
+    {
+     "kind": "popup",
+     "line": 68,
+     "in": "ConfirmDialog",
+     "text": "Dialog",
+     "how": "component",
+     "open": "{open}",
+     "hook": {
+      "testid": "{testId}"
+     }
+    },
+    {
+     "kind": "button",
+     "line": 80,
+     "in": "ConfirmDialog",
+     "text": "{cancelLabel}",
+     "action": "{onCancel}",
+     "disabled": "{loading}",
+     "hook": {
+      "testid": "{testId ? `${testId}-cancel` : undefined}"
+     }
+    },
+    {
+     "kind": "button",
+     "line": 89,
+     "in": "ConfirmDialog",
+     "text": "{confirmLabel}",
+     "action": "{onConfirm}",
+     "hook": {
+      "testid": "{testId ? `${testId}-confirm` : undefined}"
+     }
+    },
+    {
+     "kind": "value",
+     "line": 100,
+     "in": "ConfirmDialog",
+     "when": "message && typeof message === 'string'",
+     "text": "{message}"
+    },
+    {
+     "kind": "list",
+     "line": 115,
+     "text": "DEFAULT_CONFIRM_TITLE",
+     "items": [
+      "Confirmar acción"
+     ]
+    },
+    {
+     "kind": "popup",
+     "line": 167,
+     "in": "useConfirm",
+     "text": "ConfirmDialog",
+     "how": "component",
+     "open": "{pending !== null}",
+     "hook": {
+      "testid": "{testId}"
+     }
+    },
+    {
+     "kind": "string",
+     "line": 49,
+     "in": "ConfirmDialog",
+     "text": "Cancelar"
+    }
+   ],
+   "db": []
+  },
+  "components/ui/kit/Dialog.tsx": {
+   "usedBy": [
+    "/admin/correos/contactos/[id]",
+    "/admin/correos/contactos",
+    "/admin/correos/listas"
+   ],
+   "lines": 235,
+   "rows": [
+    {
+     "kind": "hook",
+     "line": 75,
+     "in": "firstFocusable",
+     "text": "querySelectorAll({FOCUSABLE})",
+     "type": "lookup"
+    },
+    {
+     "kind": "hook",
+     "line": 130,
+     "in": "Dialog",
+     "text": "testid={testId}",
+     "type": "mark",
+     "tag": "RadixDialog.Content"
+    },
+    {
+     "kind": "hook",
+     "line": 151,
+     "in": "Dialog",
+     "text": "candidate.focus()",
+     "type": "focus"
+    },
+    {
+     "kind": "hook",
+     "line": 154,
+     "in": "Dialog",
+     "when": "!landed",
+     "text": "box.focus()",
+     "type": "focus"
+    },
+    {
+     "kind": "hook",
+     "line": 160,
+     "in": "Dialog",
+     "when": "target?.isConnected",
+     "text": "target.focus()",
+     "type": "focus"
+    },
+    {
+     "kind": "value",
+     "line": 179,
+     "in": "Dialog",
+     "when": "eyebrow",
+     "text": "{eyebrow}"
+    },
+    {
+     "kind": "value",
+     "line": 180,
+     "in": "Dialog",
+     "text": "{title}"
+    },
+    {
+     "kind": "value",
+     "line": 189,
+     "in": "Dialog",
+     "when": "description",
+     "text": "{description}"
+    },
+    {
+     "kind": "piece",
+     "line": 193,
+     "in": "Dialog",
+     "when": "dismissable",
+     "text": "aria-label: Cerrar",
+     "tag": "RadixDialog.Close",
+     "hook": {
+      "testid": "{testId ? `${testId}-close` : undefined}"
+     },
+     "aria": "Cerrar"
+    },
+    {
+     "kind": "piece",
+     "line": 204,
+     "in": "Dialog",
+     "when": "dismissable",
+     "text": "aria-hidden: true",
+     "tag": "X"
+    },
+    {
+     "kind": "value",
+     "line": 208,
+     "in": "Dialog",
+     "text": "{children}"
+    },
+    {
+     "kind": "value",
+     "line": 218,
+     "in": "Dialog",
+     "when": "footer",
+     "text": "{footer}"
+    }
+   ],
+   "db": []
+  },
+  "components/ui/kit/EmptyState.tsx": {
+   "usedBy": [
+    "/admin/correos/contactos",
+    "/admin/correos/listas",
+    "/admin/correos/pasantias",
+    "/admin/correos/usuarios"
+   ],
+   "lines": 58,
+   "rows": [
+    {
+     "kind": "value",
+     "line": 43,
+     "text": "{title}"
+    },
+    {
+     "kind": "value",
+     "line": 52,
+     "when": "description",
+     "text": "{description}"
+    },
+    {
+     "kind": "value",
+     "line": 54,
+     "when": "action",
+     "text": "{action}"
+    }
+   ],
+   "db": []
+  },
   "components/ui/kit/Field.tsx": {
    "usedBy": [
+    "/admin/correos/contactos/[id]",
+    "/admin/correos/contactos",
+    "/admin/correos/importar",
+    "/admin/correos/listas",
+    "/admin/correos/pasantias",
+    "/admin/correos/usuarios",
     "/admin/correos/vista-previa"
    ],
    "lines": 396,
    "rows": [
+    {
+     "kind": "value",
+     "line": 127,
+     "in": "Field",
+     "when": "help",
+     "text": "{help}"
+    },
+    {
+     "kind": "piece",
+     "line": 133,
+     "in": "Field",
+     "when": "error",
+     "text": "aria-hidden: true",
+     "tag": "AlertCircle"
+    },
+    {
+     "kind": "label",
+     "line": 152,
+     "in": "Field",
+     "when": "group",
+     "text": "{label} {mark}"
+    },
+    {
+     "kind": "value",
+     "line": 157,
+     "in": "Field",
+     "when": "group",
+     "text": "{children}"
+    },
+    {
+     "kind": "label",
+     "line": 166,
+     "in": "Field",
+     "text": "{label} {mark}",
+     "for": "{id}"
+    },
+    {
+     "kind": "value",
+     "line": 170,
+     "in": "Field",
+     "text": "{children}"
+    },
+    {
+     "kind": "list",
+     "line": 181,
+     "text": "AT_LEAST_ONE",
+     "items": [
+      "Marca al menos una opción."
+     ]
+    },
+    {
+     "kind": "hook",
+     "line": 194,
+     "in": "boxes",
+     "text": "querySelectorAll(input[type=\"checkbox\"])",
+     "type": "lookup"
+    },
+    {
+     "kind": "hook",
+     "line": 203,
+     "in": "useAtLeastOneTicked",
+     "text": "group.addEventListener('change')",
+     "type": "listener"
+    },
+    {
+     "kind": "hook",
+     "line": 204,
+     "in": "useAtLeastOneTicked",
+     "text": "form.addEventListener('reset')",
+     "type": "listener"
+    },
+    {
+     "kind": "field",
+     "line": 229,
+     "text": "",
+     "type": "{type}"
+    },
+    {
+     "kind": "field",
+     "line": 237,
+     "text": "",
+     "type": "textarea",
+     "limits": ""
+    },
+    {
+     "kind": "field",
+     "line": 248,
+     "text": "",
+     "type": "select"
+    },
+    {
+     "kind": "piece",
+     "line": 251,
+     "screen": "hidden",
+     "text": "aria-hidden: true",
+     "tag": "ChevronDown"
+    },
     {
      "kind": "piece",
      "line": 264,
@@ -1685,12 +5164,67 @@
      "line": 268,
      "text": "",
      "type": "{type}"
+    },
+    {
+     "kind": "label",
+     "line": 302,
+     "in": "Choice",
+     "text": "{label}",
+     "for": "{inputId}"
+    },
+    {
+     "kind": "field",
+     "line": 304,
+     "in": "Choice",
+     "text": "{label}",
+     "type": "{kind}",
+     "required": "{isRequired}"
+    },
+    {
+     "kind": "piece",
+     "line": 314,
+     "in": "Choice",
+     "when": "kind === 'checkbox'",
+     "screen": "hidden",
+     "text": "aria-hidden: true",
+     "tag": "Check"
+    },
+    {
+     "kind": "value",
+     "line": 330,
+     "in": "Choice",
+     "when": "help",
+     "text": "{help}"
+    },
+    {
+     "kind": "label",
+     "line": 358,
+     "text": "{label}",
+     "for": "{inputId}"
+    },
+    {
+     "kind": "field",
+     "line": 363,
+     "text": "{label}",
+     "type": "checkbox"
+    },
+    {
+     "kind": "value",
+     "line": 389,
+     "when": "help",
+     "text": "{help}"
     }
    ],
    "db": []
   },
   "components/ui/kit/Loading.tsx": {
    "usedBy": [
+    "/admin/correos/contactos/[id]",
+    "/admin/correos/contactos",
+    "/admin/correos/importar",
+    "/admin/correos/listas",
+    "/admin/correos/pasantias",
+    "/admin/correos/usuarios",
     "/admin/correos/vista-previa"
    ],
    "lines": 109,
@@ -1712,6 +5246,12 @@
   },
   "components/ui/kit/Notice.tsx": {
    "usedBy": [
+    "/admin/correos/contactos/[id]",
+    "/admin/correos/contactos",
+    "/admin/correos/importar",
+    "/admin/correos/listas",
+    "/admin/correos/pasantias",
+    "/admin/correos/usuarios",
     "/admin/correos/vista-previa"
    ],
    "lines": 76,
@@ -1727,6 +5267,12 @@
   },
   "components/ui/kit/PageHeader.tsx": {
    "usedBy": [
+    "/admin/correos/contactos/[id]",
+    "/admin/correos/contactos",
+    "/admin/correos/importar",
+    "/admin/correos/listas",
+    "/admin/correos/pasantias",
+    "/admin/correos/usuarios",
     "/admin/correos/vista-previa"
    ],
    "lines": 128,
@@ -1804,8 +5350,178 @@
    ],
    "db": []
   },
+  "components/ui/kit/Table.tsx": {
+   "usedBy": [
+    "/admin/correos/contactos/[id]",
+    "/admin/correos/contactos",
+    "/admin/correos/listas",
+    "/admin/correos/pasantias",
+    "/admin/correos/usuarios"
+   ],
+   "lines": 276,
+   "rows": [
+    {
+     "kind": "hook",
+     "line": 47,
+     "text": "role=table",
+     "type": "role",
+     "tag": "table"
+    },
+    {
+     "kind": "value",
+     "line": 47,
+     "text": "{children}"
+    },
+    {
+     "kind": "hook",
+     "line": 72,
+     "text": "role=rowgroup",
+     "type": "role",
+     "tag": "thead"
+    },
+    {
+     "kind": "hook",
+     "line": 81,
+     "text": "role=rowgroup",
+     "type": "role",
+     "tag": "tbody"
+    },
+    {
+     "kind": "hook",
+     "line": 98,
+     "text": "role=row",
+     "type": "role",
+     "tag": "tr"
+    },
+    {
+     "kind": "column",
+     "line": 139,
+     "text": "{children} / {children}"
+    },
+    {
+     "kind": "button",
+     "line": 148,
+     "when": "sortable",
+     "text": "{children}",
+     "action": "{onSort}"
+    },
+    {
+     "kind": "piece",
+     "line": 158,
+     "when": "sortable",
+     "text": "aria-hidden: true",
+     "tag": "Icon"
+    },
+    {
+     "kind": "hook",
+     "line": 189,
+     "text": "role=cell",
+     "type": "role",
+     "tag": "td"
+    },
+    {
+     "kind": "value",
+     "line": 213,
+     "when": "named",
+     "text": "{label}"
+    },
+    {
+     "kind": "list",
+     "line": 238,
+     "in": "Pagination",
+     "text": "shown",
+     "items": [
+      "Mostrando 0 de 0 / Mostrando {from}–{to} de {total}"
+     ]
+    },
+    {
+     "kind": "text",
+     "line": 240,
+     "in": "Pagination",
+     "text": "Paginación",
+     "attr": "aria-label"
+    },
+    {
+     "kind": "hook",
+     "line": 240,
+     "in": "Pagination",
+     "text": "testid={testId}",
+     "type": "mark",
+     "tag": "nav",
+     "aria": "Paginación"
+    },
+    {
+     "kind": "hook",
+     "line": 250,
+     "in": "Pagination",
+     "text": "testid={testId ? `${testId}-range` : undefined}",
+     "type": "mark",
+     "tag": "span"
+    },
+    {
+     "kind": "value",
+     "line": 250,
+     "in": "Pagination",
+     "text": "{shown} {noun} / {shown}"
+    },
+    {
+     "kind": "button",
+     "line": 254,
+     "in": "Pagination",
+     "text": "Anterior",
+     "action": "{() => onPageChange(current - 1)}",
+     "disabled": "{current <= 1}",
+     "hook": {
+      "testid": "{testId ? `${testId}-previous` : undefined}"
+     }
+    },
+    {
+     "kind": "button",
+     "line": 263,
+     "in": "Pagination",
+     "text": "Siguiente",
+     "action": "{() => onPageChange(current + 1)}",
+     "disabled": "{current >= pages}",
+     "hook": {
+      "testid": "{testId ? `${testId}-next` : undefined}"
+     }
+    }
+   ],
+   "db": []
+  },
+  "components/ui/kit/Tabs.tsx": {
+   "usedBy": [
+    "/admin/correos/contactos/[id]",
+    "/admin/correos/contactos",
+    "/admin/correos/importar",
+    "/admin/correos/listas",
+    "/admin/correos/pasantias",
+    "/admin/correos/usuarios"
+   ],
+   "lines": 219,
+   "rows": [
+    {
+     "kind": "link",
+     "line": 206,
+     "in": "TabLinks",
+     "when": "each items",
+     "text": "{item.label}",
+     "target": "{item.href}",
+     "hook": {
+      "testid": "{item['data-testid']}"
+     }
+    }
+   ],
+   "db": []
+  },
   "lib/api-auth.ts": {
    "usedBy": [
+    "/admin/correos/contactos/[id]",
+    "/admin/correos/contactos",
+    "/admin/correos/importar",
+    "/admin/correos/listas",
+    "/admin/correos/pasantias",
+    "/admin/correos/usuarios",
     "/admin/correos/vista-previa"
    ],
    "lines": 551,
@@ -1837,6 +5553,12 @@
   },
   "lib/auth/forced-password-change.ts": {
    "usedBy": [
+    "/admin/correos/contactos/[id]",
+    "/admin/correos/contactos",
+    "/admin/correos/importar",
+    "/admin/correos/listas",
+    "/admin/correos/pasantias",
+    "/admin/correos/usuarios",
     "/admin/correos/vista-previa"
    ],
    "lines": 284,
@@ -1848,6 +5570,129 @@
      "text": "verdictFromProfile()",
      "items": [
       "required / allowed"
+     ]
+    }
+   ],
+   "db": []
+  },
+  "lib/correos-host/page-guard.ts": {
+   "usedBy": [
+    "/admin/correos/contactos/[id]",
+    "/admin/correos/contactos",
+    "/admin/correos/importar",
+    "/admin/correos/listas",
+    "/admin/correos/pasantias",
+    "/admin/correos/usuarios"
+   ],
+   "lines": 29,
+   "rows": [
+    {
+     "kind": "nav",
+     "line": 17,
+     "in": "correosAdminPage",
+     "when": "!viewer",
+     "text": "/login?next=[*]",
+     "via": "server redirect"
+    },
+    {
+     "kind": "nav",
+     "line": 22,
+     "in": "correosAdminPage",
+     "when": "verdict !== 'allowed'",
+     "text": "{forcedChangeRedirectPath(verdict)}",
+     "via": "server redirect"
+    },
+    {
+     "kind": "access",
+     "line": 24,
+     "in": "correosAdminPage",
+     "text": "if (!(await isGlobalAdmin(service, viewer.id))) { return { redirect: { destination: '/dashboard', permanent: false } }; }",
+     "via": "isGlobalAdmin"
+    },
+    {
+     "kind": "nav",
+     "line": 25,
+     "in": "correosAdminPage",
+     "when": "!(await isGlobalAdmin(service, viewer.id))",
+     "text": "/dashboard",
+     "via": "server redirect"
+    }
+   ],
+   "db": []
+  },
+  "lib/correos/labels.ts": {
+   "usedBy": [
+    "/admin/correos/contactos/[id]"
+   ],
+   "lines": 45,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 3,
+     "text": "STATE_LABELS",
+     "items": [
+      "Suscrito",
+      "Pendiente",
+      "Se dio de baja"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 9,
+     "text": "JOINED_VIA_LABELS",
+     "items": [
+      "Agregada a mano",
+      "Importada desde un archivo",
+      "Usuario de la plataforma",
+      "Interesada en pasantías",
+      "Formulario de inscripción",
+      "Formulario antiguo",
+      "Otro origen"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 19,
+     "text": "UNSUBSCRIBED_BY_LABELS",
+     "items": [
+      "por decisión propia",
+      "por un administrador"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 24,
+     "text": "BLOCK_REASON_LABELS",
+     "items": [
+      "Su correo rebotó de forma permanente",
+      "Marcó un correo nuestro como spam",
+      "Bloqueada a mano",
+      "Los envíos a su dirección fallaron",
+      "Bloqueada",
+      "Se borraron sus datos"
+     ]
+    }
+   ],
+   "db": []
+  },
+  "lib/correos/reason.ts": {
+   "usedBy": [
+    "/admin/correos/contactos/[id]",
+    "/admin/correos/contactos",
+    "/admin/correos/importar",
+    "/admin/correos/pasantias",
+    "/admin/correos/usuarios"
+   ],
+   "lines": 69,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 11,
+     "text": "LEGAL_BASIS_LABELS",
+     "items": [
+      "Dio su consentimiento en un formulario",
+      "Tiene una relación de trabajo con nosotros",
+      "Lo verificamos a mano con la persona"
      ]
     }
    ],
@@ -2099,6 +5944,12 @@
   },
   "types/roles.ts": {
    "usedBy": [
+    "/admin/correos/contactos/[id]",
+    "/admin/correos/contactos",
+    "/admin/correos/importar",
+    "/admin/correos/listas",
+    "/admin/correos/pasantias",
+    "/admin/correos/usuarios",
     "/admin/correos/vista-previa",
     "/admin/events",
     "/admin/news"
@@ -2242,6 +6093,12 @@
   },
   "utils/roleUtils.ts": {
    "usedBy": [
+    "/admin/correos/contactos/[id]",
+    "/admin/correos/contactos",
+    "/admin/correos/importar",
+    "/admin/correos/listas",
+    "/admin/correos/pasantias",
+    "/admin/correos/usuarios",
     "/admin/correos/vista-previa",
     "/admin/events",
     "/admin/news"
@@ -2350,6 +6207,124 @@
   }
  },
  "api": [
+  {
+   "file": "pages/api/admin/correos/contactos/[id].ts",
+   "route": "/api/admin/correos/contactos/[id]",
+   "methods": [],
+   "guards": [],
+   "calledBy": [
+    "/admin/correos/contactos/[id]"
+   ],
+   "referencedIn": [
+    "__tests__/correos/routes-access.test.ts",
+    "__tests__/correos/routes-people.test.ts",
+    "pages/admin/correos/contactos/[id].tsx"
+   ]
+  },
+  {
+   "file": "pages/api/admin/correos/contactos/borrar.ts",
+   "route": "/api/admin/correos/contactos/borrar",
+   "methods": [],
+   "guards": [],
+   "calledBy": [
+    "/admin/correos/contactos/[id]"
+   ],
+   "referencedIn": [
+    "__tests__/correos/routes-access.test.ts",
+    "__tests__/correos/routes-people.test.ts",
+    "pages/admin/correos/contactos/[id].tsx",
+    "tests/e2e/correos-listas-contactos.spec.ts"
+   ]
+  },
+  {
+   "file": "pages/api/admin/correos/contactos/index.ts",
+   "route": "/api/admin/correos/contactos",
+   "methods": [],
+   "guards": [],
+   "calledBy": [
+    "/admin/correos/contactos"
+   ],
+   "referencedIn": [
+    "__tests__/correos/routes-access.test.ts",
+    "pages/admin/correos/contactos/index.tsx",
+    "tests/e2e/correos-listas-contactos.spec.ts"
+   ]
+  },
+  {
+   "file": "pages/api/admin/correos/importar.ts",
+   "route": "/api/admin/correos/importar",
+   "methods": [],
+   "guards": [],
+   "calledBy": [
+    "/admin/correos/importar"
+   ],
+   "referencedIn": [
+    "__tests__/correos/routes-access.test.ts",
+    "__tests__/correos/routes-people.test.ts",
+    "pages/admin/correos/importar.tsx",
+    "tests/e2e/correos-importar.spec.ts"
+   ]
+  },
+  {
+   "file": "pages/api/admin/correos/listas/[id].ts",
+   "route": "/api/admin/correos/listas/[id]",
+   "methods": [],
+   "guards": [],
+   "calledBy": [],
+   "referencedIn": [
+    "__tests__/correos/routes-access.test.ts",
+    "__tests__/correos/routes-people.test.ts"
+   ]
+  },
+  {
+   "file": "pages/api/admin/correos/listas/index.ts",
+   "route": "/api/admin/correos/listas",
+   "methods": [],
+   "guards": [],
+   "calledBy": [
+    "/admin/correos/contactos",
+    "/admin/correos/importar",
+    "/admin/correos/listas",
+    "/admin/correos/pasantias",
+    "/admin/correos/usuarios"
+   ],
+   "referencedIn": [
+    "components/correos/ListPicker.tsx",
+    "pages/admin/correos/listas.tsx",
+    "tests/e2e/correos-importar.spec.ts",
+    "tests/e2e/correos-listas-contactos.spec.ts"
+   ]
+  },
+  {
+   "file": "pages/api/admin/correos/pasantias.ts",
+   "route": "/api/admin/correos/pasantias",
+   "methods": [],
+   "guards": [],
+   "calledBy": [
+    "/admin/correos/pasantias"
+   ],
+   "referencedIn": [
+    "__tests__/correos/routes-access.test.ts",
+    "__tests__/correos/routes-people.test.ts",
+    "pages/admin/correos/pasantias.tsx",
+    "tests/e2e/correos-importar.spec.ts"
+   ]
+  },
+  {
+   "file": "pages/api/admin/correos/usuarios.ts",
+   "route": "/api/admin/correos/usuarios",
+   "methods": [],
+   "guards": [],
+   "calledBy": [
+    "/admin/correos/usuarios"
+   ],
+   "referencedIn": [
+    "__tests__/correos/routes-access.test.ts",
+    "__tests__/correos/routes-people.test.ts",
+    "pages/admin/correos/usuarios.tsx",
+    "tests/e2e/correos-importar.spec.ts"
+   ]
+  },
   {
    "file": "pages/api/admin/correos/vista-previa.ts",
    "route": "/api/admin/correos/vista-previa",

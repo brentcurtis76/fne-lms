@@ -1,7 +1,7 @@
 # Tareas y quizzes (assignments, group work, quiz review)
 
 Area `05-tareas`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `6a336e70e` (2026-11-24).
+Read from commit `9298935db` (2026-11-25).
 
 9 screen files, 14 API files, 19 pieces.
 

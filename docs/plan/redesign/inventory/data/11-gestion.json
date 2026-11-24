@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "6a336e70e3a2a2175b39e2ebade821061497232c",
-  "date": "2026-11-24T17:54:00-03:00"
+  "commit": "9298935dbe2a95efd8049538ace9feb5f0394c46",
+  "date": "2026-11-25T10:48:59-03:00"
  },
  "screens": [
   {
@@ -1981,7 +1981,7 @@
   {
    "file": "pages/contract-print/[id].tsx",
    "route": "/contract-print/[id]",
-   "lines": 340,
+   "lines": 352,
    "marks": {},
    "frame": "none",
    "server": "none",
@@ -2042,6 +2042,7 @@
      "e2e": [],
      "unit": [
       "__tests__/pages/contract-print-annex.test.tsx",
+      "__tests__/pages/contract-print-original.test.tsx",
       "__tests__/pages/contract-print-version.test.tsx"
      ]
     }
@@ -2049,7 +2050,7 @@
    "rows": [
     {
      "kind": "message",
-     "line": 128,
+     "line": 130,
      "in": "upgradeContractText",
      "when": "error || !data || data.length === 0",
      "text": "No se pudo cambiar el texto del contrato.",
@@ -2057,21 +2058,21 @@
     },
     {
      "kind": "text",
-     "line": 141,
+     "line": 143,
      "in": "ContractPrintPage",
      "when": "loading",
      "text": "Cargando contrato..."
     },
     {
      "kind": "text",
-     "line": 151,
+     "line": 153,
      "in": "ContractPrintPage",
      "when": "!contrato",
      "text": "Contrato no encontrado"
     },
     {
      "kind": "button",
-     "line": 152,
+     "line": 154,
      "in": "ContractPrintPage",
      "when": "!contrato",
      "text": "Volver",
@@ -2079,37 +2080,52 @@
     },
     {
      "kind": "text",
-     "line": 170,
+     "line": 172,
      "in": "ContractPrintPage",
      "when": "isImportedSource",
      "text": "Contrato importado"
     },
     {
      "kind": "text",
-     "line": 172,
+     "line": 174,
      "in": "ContractPrintPage",
      "when": "isImportedSource",
      "text": "Este contrato fue importado desde un documento externo, por lo que no se genera una versión desde plantilla."
     },
     {
-     "kind": "link",
-     "line": 175,
+     "kind": "button",
+     "line": 179,
      "in": "ContractPrintPage",
      "when": "isImportedSource && contrato.contrato_url",
      "text": "Descargar documento original",
-     "target": "{contrato.contrato_url}",
-     "newTab": true
+     "action": "{() => { setOriginalError(null); void downloadContractDocument(contrato.id, setO…}"
+    },
+    {
+     "kind": "hook",
+     "line": 190,
+     "in": "ContractPrintPage",
+     "when": "isImportedSource && contrato.contrato_url && originalError",
+     "text": "role=alert",
+     "type": "role",
+     "tag": "p"
+    },
+    {
+     "kind": "value",
+     "line": 190,
+     "in": "ContractPrintPage",
+     "when": "isImportedSource && contrato.contrato_url && originalError",
+     "text": "{originalError}"
     },
     {
      "kind": "text",
-     "line": 185,
+     "line": 197,
      "in": "ContractPrintPage",
      "when": "isImportedSource && !(contrato.contrato_url)",
      "text": "No hay un documento original cargado. Use &quot;Subir contrato&quot; para adjuntarlo."
     },
     {
      "kind": "button",
-     "line": 189,
+     "line": 201,
      "in": "ContractPrintPage",
      "when": "isImportedSource",
      "text": "Volver",
@@ -2117,26 +2133,26 @@
     },
     {
      "kind": "text",
-     "line": 204,
+     "line": 216,
      "in": "ContractPrintPage",
      "text": "Contrato {contrato.numero_contrato} - Fundación Nueva Educación"
     },
     {
      "kind": "value",
-     "line": 205,
+     "line": 217,
      "in": "ContractPrintPage",
      "text": "{CONTRACT_DOCUMENT_CSS}"
     },
     {
      "kind": "heading",
-     "line": 210,
+     "line": 222,
      "in": "ContractPrintPage",
      "text": "Vista previa del contrato",
      "level": 2
     },
     {
      "kind": "hook",
-     "line": 213,
+     "line": 225,
      "in": "ContractPrintPage",
      "when": "!contrato.is_anexo",
      "text": "testid=contract-text-version",
@@ -2145,14 +2161,14 @@
     },
     {
      "kind": "text",
-     "line": 213,
+     "line": 225,
      "in": "ContractPrintPage",
      "when": "!contrato.is_anexo",
      "text": "Texto del contrato: versión actualizada / Texto del contrato: versión anterior"
     },
     {
      "kind": "button",
-     "line": 217,
+     "line": 229,
      "in": "ContractPrintPage",
      "when": "!contrato.is_anexo && canUpgradeText && upgradeStep === 'idle'",
      "text": "Usar el texto actualizado",
@@ -2163,7 +2179,7 @@
     },
     {
      "kind": "popup",
-     "line": 222,
+     "line": 234,
      "in": "ContractPrintPage",
      "when": "!contrato.is_anexo && canUpgradeText && upgradeStep !== 'idle'",
      "text": "Usar el texto actualizado",
@@ -2171,14 +2187,14 @@
     },
     {
      "kind": "text",
-     "line": 223,
+     "line": 235,
      "in": "ContractPrintPage",
      "when": "!contrato.is_anexo && canUpgradeText && upgradeStep !== 'idle'",
      "text": "Este contrato pasará a imprimirse con el texto actualizado. No se puede volver al texto anterior."
     },
     {
      "kind": "button",
-     "line": 224,
+     "line": 236,
      "in": "ContractPrintPage",
      "when": "!contrato.is_anexo && canUpgradeText && upgradeStep !== 'idle'",
      "text": "Confirmar",
@@ -2190,7 +2206,7 @@
     },
     {
      "kind": "button",
-     "line": 232,
+     "line": 244,
      "in": "ContractPrintPage",
      "when": "!contrato.is_anexo && canUpgradeText && upgradeStep !== 'idle'",
      "text": "Cancelar",
@@ -2202,7 +2218,7 @@
     },
     {
      "kind": "hook",
-     "line": 242,
+     "line": 254,
      "in": "ContractPrintPage",
      "when": "!contrato.is_anexo && upgradeError",
      "text": "role=alert",
@@ -2211,35 +2227,35 @@
     },
     {
      "kind": "value",
-     "line": 242,
+     "line": 254,
      "in": "ContractPrintPage",
      "when": "!contrato.is_anexo && upgradeError",
      "text": "{upgradeError}"
     },
     {
      "kind": "button",
-     "line": 246,
+     "line": 258,
      "in": "ContractPrintPage",
      "text": "← Volver",
      "action": "{() => router.back()}"
     },
     {
      "kind": "button",
-     "line": 252,
+     "line": 264,
      "in": "ContractPrintPage",
      "text": "Imprimir / Guardar PDF",
      "action": "{() => window.print()}"
     },
     {
      "kind": "download",
-     "line": 253,
+     "line": 265,
      "in": "ContractPrintPage",
      "text": "window.print()",
      "how": "print"
     },
     {
      "kind": "value",
-     "line": 266,
+     "line": 278,
      "in": "ContractPrintPage",
      "text": "{CONTRACT_PRINT_GUIDANCE}"
     },
@@ -2262,14 +2278,24 @@
    "pieces": [
     "lib/annex-template.ts",
     "lib/contract-document.ts",
-    "lib/contract-template.ts"
+    "lib/contract-template.ts",
+    "lib/contracts/open-contract.ts"
    ],
-   "api": []
+   "api": [
+    {
+     "file": "pages/api/contracts/contract-link.ts",
+     "route": "/api/contracts/contract-link",
+     "methods": [],
+     "from": [
+      "lib/contracts/open-contract.ts:16"
+     ]
+    }
+   ]
   },
   {
    "file": "pages/contracts.tsx",
    "route": "/contracts",
-   "lines": 1140,
+   "lines": 1137,
    "marks": {},
    "frame": "MainLayout",
    "server": "none",
@@ -2330,23 +2356,23 @@
     },
     "inPage": [
      {
-      "line": 160,
+      "line": 162,
       "text": "router.push → /login  (when !session?.user)"
      },
      {
-      "line": 173,
+      "line": 175,
       "text": "userRole = await getUserPrimaryRole(session.user.id)"
      },
      {
-      "line": 175,
+      "line": 177,
       "text": "router.push → /dashboard  (when !profile || userRole !== 'admin')"
      },
      {
-      "line": 250,
+      "line": 252,
       "text": "router.push → /login"
      },
      {
-      "line": 325,
+      "line": 327,
       "text": "router.push → /login"
      }
     ],
@@ -2396,14 +2422,14 @@
    "rows": [
     {
      "kind": "hook",
-     "line": 148,
+     "line": 150,
      "in": "ContractsPage",
      "text": "window.addEventListener('openPDFImporterFromForm')",
      "type": "listener"
     },
     {
      "kind": "nav",
-     "line": 160,
+     "line": 162,
      "in": "checkSession",
      "when": "!session?.user",
      "text": "/login",
@@ -2411,14 +2437,14 @@
     },
     {
      "kind": "access",
-     "line": 173,
+     "line": 175,
      "in": "checkSession",
      "text": "userRole = await getUserPrimaryRole(session.user.id)",
      "via": "getUserPrimaryRole"
     },
     {
      "kind": "nav",
-     "line": 175,
+     "line": 177,
      "in": "checkSession",
      "when": "!profile || userRole !== 'admin'",
      "text": "/dashboard",
@@ -2426,7 +2452,7 @@
     },
     {
      "kind": "toast",
-     "line": 207,
+     "line": 209,
      "in": "checkSession",
      "when": "cliente_id && typeof cliente_id === 'string' && school_name && typeof school_name === 'string'",
      "text": "Creando contrato para: {decodeURIComponent(school_n…}",
@@ -2434,7 +2460,7 @@
     },
     {
      "kind": "toast",
-     "line": 238,
+     "line": 240,
      "in": "checkSession",
      "when": "tab === 'nuevo' && licitacion_id && typeof licitacion_id === 'string' && handledLicitacionIdRef.current !== licitacion_id && licRes.ok && lic",
      "text": "Datos de la licitacion cargados. Complete los campos del contrato.",
@@ -2442,7 +2468,7 @@
     },
     {
      "kind": "toast",
-     "line": 242,
+     "line": 244,
      "in": "checkSession",
      "when": "tab === 'nuevo' && licitacion_id && typeof licitacion_id === 'string' && handledLicitacionIdRef.current !== licitacion_id",
      "text": "No se pudo cargar datos de la licitacion",
@@ -2450,63 +2476,63 @@
     },
     {
      "kind": "nav",
-     "line": 250,
+     "line": 252,
      "in": "checkSession",
      "text": "/login",
      "via": "router.push"
     },
     {
      "kind": "toast",
-     "line": 275,
+     "line": 277,
      "in": "loadContratos",
      "text": "Error al actualizar la lista de contratos:",
      "variant": "error"
     },
     {
      "kind": "hook",
-     "line": 323,
+     "line": 325,
      "in": "handleLogout",
      "text": "localStorage: rememberMe",
      "type": "storage"
     },
     {
      "kind": "hook",
-     "line": 324,
+     "line": 326,
      "in": "handleLogout",
      "text": "sessionStorage: sessionOnly",
      "type": "storage"
     },
     {
      "kind": "nav",
-     "line": 325,
+     "line": 327,
      "in": "handleLogout",
      "text": "/login",
      "via": "router.push"
     },
     {
      "kind": "toast",
-     "line": 375,
+     "line": 377,
      "in": "handleDeleteContract",
      "text": "Error al eliminar el contrato:",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 391,
+     "line": 393,
      "in": "handleMarkSigned",
      "text": "Contrato marcado como firmado.",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 395,
+     "line": 397,
      "in": "handleMarkSigned",
      "text": "Error al marcar el contrato como firmado:",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 440,
+     "line": 438,
      "in": "handleUploadContract",
      "when": "contrato.estado === 'borrador'",
      "text": "Documento firmado guardado. El contrato sigue en borrador hasta que se active.",
@@ -2514,42 +2540,42 @@
     },
     {
      "kind": "toast",
-     "line": 446,
+     "line": 444,
      "in": "handleUploadContract",
      "text": "Error al subir el contrato:",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 470,
+     "line": 468,
      "in": "handleActivateWithoutDocument",
      "text": "Contrato activado. Recuerda subir el documento firmado cuando el cliente lo envíe.",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 475,
+     "line": 473,
      "in": "handleActivateWithoutDocument",
      "text": "Error al activar el contrato:",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 498,
+     "line": 496,
      "in": "handleToggleCashFlow",
      "text": "Contrato {newCashFlowStatus ? 'inclui…} flujo de caja exitosamente.",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 501,
+     "line": 499,
      "in": "handleToggleCashFlow",
      "text": "Error al actualizar el flujo de caja:",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 510,
+     "line": 508,
      "in": "handleInvoiceUpload",
      "when": "!validTypes.includes(file.type)",
      "text": "Tipo de archivo no válido. Use PDF, JPG o PNG.",
@@ -2557,7 +2583,7 @@
     },
     {
      "kind": "toast",
-     "line": 516,
+     "line": 514,
      "in": "handleInvoiceUpload",
      "when": "file.size > maxSize",
      "text": "El archivo es demasiado grande. Máximo 10MB.",
@@ -2565,35 +2591,35 @@
     },
     {
      "kind": "toast",
-     "line": 539,
+     "line": 537,
      "in": "handleInvoiceUpload",
      "text": "Factura subida exitosamente: {file.name}",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 546,
+     "line": 544,
      "in": "handleInvoiceUpload",
      "text": "Error al subir la factura:",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 565,
+     "line": 563,
      "in": "handleTogglePaymentStatus",
      "text": "Cuota marcada como {!currentStatus ? 'pagada' :…}",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 572,
+     "line": 570,
      "in": "handleTogglePaymentStatus",
      "text": "Error al actualizar el estado de pago:",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 587,
+     "line": 585,
      "in": "handleInvoiceDelete",
      "when": "!cuota?.factura_url",
      "text": "No se encontró la factura",
@@ -2601,35 +2627,35 @@
     },
     {
      "kind": "toast",
-     "line": 621,
+     "line": 619,
      "in": "handleInvoiceDelete",
      "text": "Factura eliminada exitosamente",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 628,
+     "line": 626,
      "in": "handleInvoiceDelete",
      "text": "Error al eliminar la factura:",
      "variant": "error"
     },
     {
      "kind": "text",
-     "line": 649,
+     "line": 647,
      "in": "ContractsPage",
      "when": "loading",
      "text": "Cargando..."
     },
     {
      "kind": "piece",
-     "line": 656,
+     "line": 654,
      "in": "ContractsPage",
      "text": "",
      "tag": "MainLayout"
     },
     {
      "kind": "piece",
-     "line": 666,
+     "line": 664,
      "in": "ContractsPage",
      "when": "(activeTab === 'lista' || activeTab === 'flujo')",
      "text": "title: Contratos · subtitle: Gestión de contratos, anexos y flujo de caja · searchPlaceholder: Buscar por número, cliente... · primaryAction: Nuevo Contrato",
@@ -2637,7 +2663,7 @@
     },
     {
      "kind": "button",
-     "line": 680,
+     "line": 678,
      "in": "ContractsPage",
      "when": "(activeTab === 'lista' || activeTab === 'flujo')",
      "text": "Importar PDF",
@@ -2646,7 +2672,7 @@
     },
     {
      "kind": "button",
-     "line": 688,
+     "line": 686,
      "in": "ContractsPage",
      "when": "(activeTab === 'lista' || activeTab === 'flujo')",
      "text": "Nuevo Anexo",
@@ -2654,7 +2680,7 @@
     },
     {
      "kind": "button",
-     "line": 695,
+     "line": 693,
      "in": "ContractsPage",
      "when": "(activeTab === 'lista' || activeTab === 'flujo')",
      "text": "Flujo de Caja",
@@ -2662,7 +2688,7 @@
     },
     {
      "kind": "button",
-     "line": 716,
+     "line": 714,
      "in": "ContractsPage",
      "when": "(activeTab === 'nuevo' || activeTab === 'editar' || activeTab === 'nuevo-anexo' || activeTab === 'editar-anexo')",
      "text": "Volver a Contratos",
@@ -2670,7 +2696,7 @@
     },
     {
      "kind": "heading",
-     "line": 724,
+     "line": 722,
      "in": "ContractsPage",
      "when": "(activeTab === 'nuevo' || activeTab === 'editar' || activeTab === 'nuevo-anexo' || activeTab === 'editar-anexo')",
      "text": "Crear Nuevo Contrato / Crear Nuevo Anexo / Editar Anexo / Editar Contrato",
@@ -2678,7 +2704,7 @@
     },
     {
      "kind": "heading",
-     "line": 738,
+     "line": 736,
      "in": "ContractsPage",
      "when": "activeTab === 'lista'",
      "text": "Contratos Registrados ( {contratos.length} )",
@@ -2686,7 +2712,7 @@
     },
     {
      "kind": "button",
-     "line": 742,
+     "line": 740,
      "in": "ContractsPage",
      "when": "activeTab === 'lista' && ((firmaPendienteCount > 0 || showFirmaPendiente))",
      "text": "Firma pendiente ( {firmaPendienteCount} )",
@@ -2698,42 +2724,42 @@
     },
     {
      "kind": "column",
-     "line": 763,
+     "line": 761,
      "in": "ContractsPage",
      "when": "activeTab === 'lista' && contratos.length > 0",
      "text": "N° Contrato"
     },
     {
      "kind": "column",
-     "line": 764,
+     "line": 762,
      "in": "ContractsPage",
      "when": "activeTab === 'lista' && contratos.length > 0",
      "text": "Cliente"
     },
     {
      "kind": "column",
-     "line": 765,
+     "line": 763,
      "in": "ContractsPage",
      "when": "activeTab === 'lista' && contratos.length > 0",
      "text": "Fecha"
     },
     {
      "kind": "column",
-     "line": 766,
+     "line": 764,
      "in": "ContractsPage",
      "when": "activeTab === 'lista' && contratos.length > 0",
      "text": "Valor Total"
     },
     {
      "kind": "column",
-     "line": 767,
+     "line": 765,
      "in": "ContractsPage",
      "when": "activeTab === 'lista' && contratos.length > 0",
      "text": "Estado"
     },
     {
      "kind": "button",
-     "line": 776,
+     "line": 774,
      "in": "ContractsPage",
      "when": "activeTab === 'lista' && contratos.length > 0 && filteredContratos.length > 0 && each filteredContratos",
      "text": "{contrato.numero_contrato} [ANEXO] [MANUAL] [BORRADOR]",
@@ -2741,56 +2767,56 @@
     },
     {
      "kind": "value",
-     "line": 800,
+     "line": 798,
      "in": "ContractsPage",
      "when": "activeTab === 'lista' && contratos.length > 0 && filteredContratos.length > 0 && each filteredContratos",
      "text": "{contrato.clientes.nombre_legal}"
     },
     {
      "kind": "text",
-     "line": 801,
+     "line": 799,
      "in": "ContractsPage",
      "when": "activeTab === 'lista' && contratos.length > 0 && filteredContratos.length > 0 && each filteredContratos",
      "text": "{contrato.descripcion_manual} / Contrato Manual / {contrato.clientes.nombre_fantasia}"
     },
     {
      "kind": "value",
-     "line": 811,
+     "line": 809,
      "in": "ContractsPage",
      "when": "activeTab === 'lista' && contratos.length > 0 && filteredContratos.length > 0 && each filteredContratos",
      "text": "{formatDate(contrato.fecha_contrato)}"
     },
     {
      "kind": "value",
-     "line": 816,
+     "line": 814,
      "in": "ContractsPage",
      "when": "activeTab === 'lista' && contratos.length > 0 && filteredContratos.length > 0 && each filteredContratos",
      "text": "{formatCurrency(contrato.precio_tota…}"
     },
     {
      "kind": "text",
-     "line": 822,
+     "line": 820,
      "in": "ContractsPage",
      "when": "activeTab === 'lista' && contratos.length > 0 && filteredContratos.length > 0 && each filteredContratos",
      "text": "Activo / Borrador / Pendiente"
     },
     {
      "kind": "text",
-     "line": 833,
+     "line": 831,
      "in": "ContractsPage",
      "when": "contratos.length > 0 && filteredContratos.length > 0 && each filteredContratos && isFirmaPendiente(contrato)",
      "text": "FIRMA PENDIENTE"
     },
     {
      "kind": "text",
-     "line": 838,
+     "line": 836,
      "in": "ContractsPage",
      "when": "contratos.length > 0 && filteredContratos.length > 0 && each filteredContratos && contrato.incluir_en_flujo",
      "text": "En Flujo"
     },
     {
      "kind": "button",
-     "line": 845,
+     "line": 843,
      "in": "ContractsPage",
      "when": "activeTab === 'lista' && contratos.length > 0 && filteredContratos.length > 0 && each filteredContratos",
      "text": "[icon Eye]",
@@ -2799,7 +2825,7 @@
     },
     {
      "kind": "link",
-     "line": 854,
+     "line": 852,
      "in": "ContractsPage",
      "when": "contratos.length > 0 && filteredContratos.length > 0 && each filteredContratos && contrato.licitacion_id",
      "text": "[icon ExternalLink]",
@@ -2807,49 +2833,49 @@
     },
     {
      "kind": "text",
-     "line": 871,
+     "line": 869,
      "in": "ContractsPage",
      "when": "activeTab === 'lista' && contratos.length > 0 && !(filteredContratos.length > 0) && showFirmaPendiente",
      "text": "No hay contratos activos con firma pendiente"
     },
     {
      "kind": "text",
-     "line": 872,
+     "line": 870,
      "in": "ContractsPage",
      "when": "contratos.length > 0 && !(filteredContratos.length > 0) && showFirmaPendiente && searchQuery",
      "text": "que coincidan con &quot;"
     },
     {
      "kind": "text",
-     "line": 872,
+     "line": 870,
      "in": "ContractsPage",
      "when": "contratos.length > 0 && !(filteredContratos.length > 0) && showFirmaPendiente && searchQuery",
      "text": "&quot;"
     },
     {
      "kind": "text",
-     "line": 873,
+     "line": 871,
      "in": "ContractsPage",
      "when": "activeTab === 'lista' && contratos.length > 0 && !(filteredContratos.length > 0) && showFirmaPendiente",
      "text": ". Desactiva el filtro &quot;Firma pendiente&quot; para ver todos los contratos."
     },
     {
      "kind": "text",
-     "line": 877,
+     "line": 875,
      "in": "ContractsPage",
      "when": "activeTab === 'lista' && contratos.length > 0 && !(filteredContratos.length > 0) && !(showFirmaPendiente)",
      "text": "No se encontraron contratos para &quot;"
     },
     {
      "kind": "text",
-     "line": 877,
+     "line": 875,
      "in": "ContractsPage",
      "when": "activeTab === 'lista' && contratos.length > 0 && !(filteredContratos.length > 0) && !(showFirmaPendiente)",
      "text": "&quot;. Prueba con otro número de contrato, cliente o programa."
     },
     {
      "kind": "heading",
-     "line": 889,
+     "line": 887,
      "in": "ContractsPage",
      "when": "activeTab === 'lista' && !(contratos.length > 0)",
      "text": "No hay contratos registrados",
@@ -2857,14 +2883,14 @@
     },
     {
      "kind": "text",
-     "line": 890,
+     "line": 888,
      "in": "ContractsPage",
      "when": "activeTab === 'lista' && !(contratos.length > 0)",
      "text": "Comienza creando tu primer contrato"
     },
     {
      "kind": "button",
-     "line": 891,
+     "line": 889,
      "in": "ContractsPage",
      "when": "activeTab === 'lista' && !(contratos.length > 0)",
      "text": "Crear Primer Contrato",
@@ -2872,7 +2898,7 @@
     },
     {
      "kind": "piece",
-     "line": 904,
+     "line": 902,
      "in": "ContractsPage",
      "when": "activeTab === 'nuevo'",
      "text": "",
@@ -2880,7 +2906,7 @@
     },
     {
      "kind": "toast",
-     "line": 925,
+     "line": 923,
      "in": "ContractsPage",
      "when": "activeTab === 'nuevo' && activeLicitacionId && contratoId && !linkRes.ok",
      "text": "Contrato creado pero error al vincular con licitacion: {err.error || 'Error descono…}. Contacte al administrador.",
@@ -2888,7 +2914,7 @@
     },
     {
      "kind": "toast",
-     "line": 929,
+     "line": 927,
      "in": "ContractsPage",
      "when": "activeTab === 'nuevo' && activeLicitacionId && contratoId && !(!linkRes.ok) && reuse?.reused",
      "text": "Esta licitación ya tenía un contrato: se abrió el contrato existente. Los cambios de este formulario no se guardaron; edite el contrato desde Gestión. / El contrato existente no tiene cuotas registradas: revíselo antes de continuar.",
@@ -2896,7 +2922,7 @@
     },
     {
      "kind": "toast",
-     "line": 937,
+     "line": 935,
      "in": "ContractsPage",
      "when": "activeTab === 'nuevo' && activeLicitacionId && contratoId && !(!linkRes.ok) && !(reuse?.reused)",
      "text": "Contrato generado y vinculado a la licitacion exitosamente",
@@ -2904,7 +2930,7 @@
     },
     {
      "kind": "nav",
-     "line": 941,
+     "line": 939,
      "in": "ContractsPage",
      "when": "activeTab === 'nuevo' && activeLicitacionId && contratoId && !(!linkRes.ok)",
      "text": "/contracts",
@@ -2912,7 +2938,7 @@
     },
     {
      "kind": "toast",
-     "line": 948,
+     "line": 946,
      "in": "ContractsPage",
      "when": "activeTab === 'nuevo' && activeLicitacionId && contratoId",
      "text": "Contrato creado pero no se pudo vincular con la licitacion. Contacte al administrador.",
@@ -2920,7 +2946,7 @@
     },
     {
      "kind": "piece",
-     "line": 969,
+     "line": 967,
      "in": "ContractsPage",
      "when": "activeTab === 'editar' && editingContrato",
      "text": "",
@@ -2928,7 +2954,7 @@
     },
     {
      "kind": "piece",
-     "line": 986,
+     "line": 984,
      "in": "ContractsPage",
      "when": "activeTab === 'nuevo-anexo'",
      "text": "",
@@ -2936,7 +2962,7 @@
     },
     {
      "kind": "piece",
-     "line": 997,
+     "line": 995,
      "in": "ContractsPage",
      "when": "activeTab === 'editar-anexo' && editingAnexo",
      "text": "",
@@ -2944,7 +2970,7 @@
     },
     {
      "kind": "piece",
-     "line": 1013,
+     "line": 1011,
      "in": "ContractsPage",
      "when": "activeTab === 'flujo'",
      "text": "",
@@ -2952,7 +2978,7 @@
     },
     {
      "kind": "popup",
-     "line": 1018,
+     "line": 1016,
      "in": "ContractsPage",
      "when": "deleteModalContrato",
      "text": "Eliminar Contrato",
@@ -2960,7 +2986,7 @@
     },
     {
      "kind": "heading",
-     "line": 1026,
+     "line": 1024,
      "in": "ContractsPage",
      "when": "deleteModalContrato",
      "text": "Eliminar Contrato",
@@ -2968,35 +2994,35 @@
     },
     {
      "kind": "text",
-     "line": 1027,
+     "line": 1025,
      "in": "ContractsPage",
      "when": "deleteModalContrato",
      "text": "Esta acción no se puede deshacer"
     },
     {
      "kind": "text",
-     "line": 1033,
+     "line": 1031,
      "in": "ContractsPage",
      "when": "deleteModalContrato",
      "text": "¿Estás seguro de que deseas eliminar el contrato"
     },
     {
      "kind": "value",
-     "line": 1034,
+     "line": 1032,
      "in": "ContractsPage",
      "when": "deleteModalContrato",
      "text": "{deleteModalContrato.numero_contrato}"
     },
     {
      "kind": "text",
-     "line": 1037,
+     "line": 1035,
      "in": "ContractsPage",
      "when": "deleteModalContrato",
      "text": "Se eliminarán también todas las cuotas asociadas a este contrato."
     },
     {
      "kind": "button",
-     "line": 1042,
+     "line": 1040,
      "in": "ContractsPage",
      "when": "deleteModalContrato",
      "text": "Cancelar",
@@ -3004,7 +3030,7 @@
     },
     {
      "kind": "button",
-     "line": 1048,
+     "line": 1046,
      "in": "ContractsPage",
      "when": "deleteModalContrato",
      "text": "Eliminar Contrato",
@@ -3012,19 +3038,19 @@
     },
     {
      "kind": "popup",
-     "line": 1061,
+     "line": 1059,
      "in": "ContractsPage",
      "text": "ContractDetailsModal",
      "how": "component",
      "open": "{!!selectedContrato}"
     },
     {
-     "kind": "nav",
+     "kind": "toast",
      "line": 1089,
      "in": "ContractsPage",
      "when": "target.kind === 'original'",
-     "text": "{target.url}",
-     "via": "window.open"
+     "text": "{m}",
+     "variant": "error"
     },
     {
      "kind": "toast",
@@ -3052,7 +3078,7 @@
     },
     {
      "kind": "toast",
-     "line": 1125,
+     "line": 1122,
      "in": "ContractsPage",
      "when": "showPDFImporter && sourceFile",
      "text": "No se pudo guardar el PDF original; podrá adjuntarlo luego con \"Subir contrato\".",
@@ -3060,7 +3086,7 @@
     },
     {
      "kind": "toast",
-     "line": 1131,
+     "line": 1128,
      "in": "ContractsPage",
      "when": "showPDFImporter",
      "text": "Datos extraídos del PDF. Complete la información faltante.",
@@ -3068,19 +3094,19 @@
     },
     {
      "kind": "string",
-     "line": 857,
+     "line": 855,
      "in": "ContractsPage",
      "text": "Ver Licitacion"
     },
     {
      "kind": "string",
-     "line": 925,
+     "line": 923,
      "in": "ContractsPage",
      "text": "Error desconocido"
     },
     {
      "kind": "list",
-     "line": 332,
+     "line": 334,
      "in": "formatCurrency",
      "text": "formatCurrency()",
      "items": [
@@ -3120,16 +3146,15 @@
    ],
    "db": [
     {
-     "what": "bucket:{INVOICES_BUCKET}",
+     "what": "bucket:{CONTRACTS_BUCKET}",
      "ops": [
-      "remove"
+      "upload"
      ]
     },
     {
-     "what": "bucket:contracts",
+     "what": "bucket:{INVOICES_BUCKET}",
      "ops": [
-      "getPublicUrl",
-      "upload"
+      "remove"
      ]
     },
     {
@@ -3187,6 +3212,7 @@
     "lib/contract-template.ts",
     "lib/contracts/cuotas-math.ts",
     "lib/contracts/extractionError.ts",
+    "lib/contracts/open-contract.ts",
     "lib/contracts/open-invoice.ts",
     "lib/uf-service.ts",
     "lib/utils/reconcileCuotas.ts",
@@ -3245,6 +3271,14 @@
      ]
     },
     {
+     "file": "pages/api/contracts/contract-link.ts",
+     "route": "/api/contracts/contract-link",
+     "methods": [],
+     "from": [
+      "lib/contracts/open-contract.ts:16"
+     ]
+    },
+    {
      "file": "pages/api/contracts/extract-pdf.ts",
      "route": "/api/contracts/extract-pdf",
      "methods": [
@@ -3269,7 +3303,7 @@
       "GET"
      ],
      "from": [
-      "pages/contracts.tsx:223"
+      "pages/contracts.tsx:225"
      ]
     },
     {
@@ -3279,7 +3313,7 @@
       "POST"
      ],
      "from": [
-      "pages/contracts.tsx:916"
+      "pages/contracts.tsx:914"
      ]
     },
     {
@@ -10853,6 +10887,70 @@
    ],
    "db": []
   },
+  "lib/contracts/open-contract.ts": {
+   "usedBy": [
+    "/contract-print/[id]",
+    "/contracts"
+   ],
+   "lines": 62,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 9,
+     "text": "CONTRACT_OPEN_FAILED",
+     "items": [
+      "No se pudo abrir el documento del contrato."
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 10,
+     "text": "CONTRACT_POPUP_BLOCKED",
+     "items": [
+      "El navegador bloqueó la ventana. Permite las ventanas emergentes para ver el documento."
+     ]
+    },
+    {
+     "kind": "nav",
+     "line": 32,
+     "in": "openContractDocumentInNewTab",
+     "text": "",
+     "via": "window.open"
+    },
+    {
+     "kind": "toast",
+     "line": 34,
+     "in": "openContractDocumentInNewTab",
+     "when": "!tab",
+     "text": "{CONTRACT_POPUP_BLOCKED}",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 41,
+     "in": "openContractDocumentInNewTab",
+     "when": "!url",
+     "text": "{CONTRACT_OPEN_FAILED}",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 57,
+     "in": "downloadContractDocument",
+     "when": "!url",
+     "text": "{CONTRACT_OPEN_FAILED}",
+     "variant": "error"
+    },
+    {
+     "kind": "nav",
+     "line": 60,
+     "in": "downloadContractDocument",
+     "text": "{url}",
+     "via": "window.location.assign"
+    }
+   ],
+   "db": []
+  },
   "lib/contracts/open-invoice.ts": {
    "usedBy": [
     "/contracts"
@@ -11243,6 +11341,27 @@
     "__tests__/api/hour-tracking/reallocation.test.ts",
     "components/contracts/ReallocationModal.tsx",
     "supabase/tests/150-reallocate-hours.sql"
+   ]
+  },
+  {
+   "file": "pages/api/contracts/contract-link.ts",
+   "route": "/api/contracts/contract-link",
+   "methods": [
+    "GET"
+   ],
+   "guards": [
+    "createServiceRoleClient"
+   ],
+   "calledBy": [
+    "/contract-print/[id]",
+    "/contracts"
+   ],
+   "referencedIn": [
+    "__tests__/api/contracts/contract-link.test.ts",
+    "__tests__/lib/contracts/open-contract.test.ts",
+    "__tests__/pages/contract-print-original.test.tsx",
+    "__tests__/pages/contracts-activation.test.tsx",
+    "lib/contracts/open-contract.ts"
    ]
   },
   {

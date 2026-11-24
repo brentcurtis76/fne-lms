@@ -1,7 +1,7 @@
 # Licitaciones (processes, templates, proposals)
 
 Area `10-licitaciones`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `6a336e70e` (2026-11-24).
+Read from commit `9298935db` (2026-11-25).
 
 11 screen files, 42 API files, 32 pieces.
 
@@ -14,11 +14,11 @@ Read from commit `6a336e70e` (2026-11-24).
 | `/admin/licitaciones/documentos-propuesta` | `pages/admin/licitaciones/documentos-propuesta.tsx` | 625 | — |  |
 | `/admin/licitaciones/feriados` | `pages/admin/licitaciones/feriados.tsx` | 535 | Gestión › Feriados |  |
 | `/admin/licitaciones/templates` | `pages/admin/licitaciones/templates.tsx` | 753 | Gestión › Plantillas de Bases |  |
-| `/licitaciones/[id]` | `pages/licitaciones/[id].tsx` | 966 | — |  |
+| `/licitaciones/[id]` | `pages/licitaciones/[id].tsx` | 969 | — |  |
 | `/licitaciones/[id]/evaluacion` | `pages/licitaciones/[id]/evaluacion.tsx` | 1137 | — |  |
 | `/licitaciones/importar` | `pages/licitaciones/importar.tsx` | 360 | — |  |
 | `/licitaciones` | `pages/licitaciones/index.tsx` | 689 | Gestión › Procesos |  |
-| `/licitaciones/nueva` | `pages/licitaciones/nueva.tsx` | 598 | — |  |
+| `/licitaciones/nueva` | `pages/licitaciones/nueva.tsx` | 596 | — |  |
 | `/propuesta/[slug]` | `pages/propuesta/[slug].tsx` | 220 | — |  |
 
 ## /admin/licitaciones/consultores
@@ -839,18 +839,18 @@ File `pages/admin/licitaciones/templates.tsx` · 753 lines · frame: MainLayout
 
 ## /licitaciones/[id]
 
-File `pages/licitaciones/[id].tsx` · 966 lines · frame: MainLayout
+File `pages/licitaciones/[id].tsx` · 969 lines · frame: MainLayout
 
 ### Who reaches it
 
 - Menu: no entry.
 - Middleware: no role rule. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: yes.
 - In the page:
-  - l.210 `router.push → /login  (when !user)`
-  - l.222 `router.push → /dashboard  (when !adminAccess && !encargadoAccess)`
-  - l.232 `router.push → /login`
-- Linked from: `middleware.ts:351`, `pages/contracts.tsx:854`, `pages/contracts.tsx:855`, `pages/licitaciones/[id]/evaluacion.tsx:280`, `pages/licitaciones/[id]/evaluacion.tsx:634`, `pages/licitaciones/[id]/evaluacion.tsx:677`, `pages/licitaciones/importar.tsx:197`, `pages/licitaciones/index.tsx:427`, `pages/licitaciones/index.tsx:607`, `pages/licitaciones/index.tsx:611`, `pages/licitaciones/index.tsx:612`, `pages/licitaciones/index.tsx:614` and 1 more
-- Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/flows/proposal-admin-visibility.spec.ts`, `tests/e2e/flows/proposal-buckets.spec.ts`, `tests/e2e/flows/proposal-config.spec.ts`, `tests/e2e/flows/proposal-versioning.spec.ts`; unit tests of the page: `__tests__/pages/licitaciones/licitacion-detail-step2.test.tsx`, `__tests__/pages/licitaciones/licitacion-detail-step6-carta.test.tsx`.
+  - l.211 `router.push → /login  (when !user)`
+  - l.223 `router.push → /dashboard  (when !adminAccess && !encargadoAccess)`
+  - l.233 `router.push → /login`
+- Linked from: `middleware.ts:351`, `pages/contracts.tsx:852`, `pages/contracts.tsx:853`, `pages/licitaciones/[id]/evaluacion.tsx:280`, `pages/licitaciones/[id]/evaluacion.tsx:634`, `pages/licitaciones/[id]/evaluacion.tsx:677`, `pages/licitaciones/importar.tsx:197`, `pages/licitaciones/index.tsx:427`, `pages/licitaciones/index.tsx:607`, `pages/licitaciones/index.tsx:611`, `pages/licitaciones/index.tsx:612`, `pages/licitaciones/index.tsx:614` and 1 more
+- Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/flows/proposal-admin-visibility.spec.ts`, `tests/e2e/flows/proposal-buckets.spec.ts`, `tests/e2e/flows/proposal-config.spec.ts`, `tests/e2e/flows/proposal-versioning.spec.ts`; unit tests of the page: `__tests__/pages/licitaciones/licitacion-detail-eliminar.test.tsx`, `__tests__/pages/licitaciones/licitacion-detail-step2.test.tsx`, `__tests__/pages/licitaciones/licitacion-detail-step6-carta.test.tsx`.
 
 | Role | Sees it in the menu | Middleware |
 |---|---|---|
@@ -870,178 +870,178 @@ File `pages/licitaciones/[id].tsx` · 966 lines · frame: MainLayout
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «{licitacion.nombre_licitacion}» | h1 |  | LicitacionDetailPage · l.510 |
-| «1 Creacion de Licitacion [(Completado)]» | h2 | `!(historicalView === 'pending') && !(historicalView === 'archive')` | LicitacionDetailPage · l.556 |
-| «Informacion General» | h3 | `!(historicalView === 'pending') && !(historicalView === 'archive')` | LicitacionDetailPage · l.565 |
-| «Presupuesto y Plazos» | h3 | `!(historicalView === 'pending') && !(historicalView === 'archive')` | LicitacionDetailPage · l.572 |
-| «Cliente» | h3 | `!(historicalView === 'pending') && !(historicalView === 'archive') && licitacion.cliente` | LicitacionDetailPage · l.582 |
-| «2 Publicacion [(Completado)]» | h2 | `!(historicalView === 'pending') && !(historicalView === 'archive')` | LicitacionDetailPage · l.596 |
-| «Bases [(Completado)] [(Disponible cuando la publicacion este confirmada)]» | h2 | `!(historicalView === 'pending') && !(historicalView === 'archive')` | LicitacionDetailPage · l.781 |
-| «Propuestas [(Completado)] [(Disponible en Paso 3)]» | h2 | `!(historicalView === 'pending') && !(historicalView === 'archive')` | LicitacionDetailPage · l.812 |
-| «Evaluacion [(Completado)] [(Disponible en Paso 4)]» | h2 | `!(historicalView === 'pending') && !(historicalView === 'archive')` | LicitacionDetailPage · l.843 |
-| «Adjudicacion [(Completado)] [(Disponible en Paso 5)]» | h2 | `!(historicalView === 'pending') && !(historicalView === 'archive')` | LicitacionDetailPage · l.891 |
-| «Contrato [(Completado)] [(Disponible en Paso 6)]» | h2 | `!(historicalView === 'pending') && !(historicalView === 'archive')` | LicitacionDetailPage · l.921 |
+| «{licitacion.nombre_licitacion}» | h1 |  | LicitacionDetailPage · l.511 |
+| «1 Creacion de Licitacion [(Completado)]» | h2 | `!(historicalView === 'pending') && !(historicalView === 'archive')` | LicitacionDetailPage · l.559 |
+| «Informacion General» | h3 | `!(historicalView === 'pending') && !(historicalView === 'archive')` | LicitacionDetailPage · l.568 |
+| «Presupuesto y Plazos» | h3 | `!(historicalView === 'pending') && !(historicalView === 'archive')` | LicitacionDetailPage · l.575 |
+| «Cliente» | h3 | `!(historicalView === 'pending') && !(historicalView === 'archive') && licitacion.cliente` | LicitacionDetailPage · l.585 |
+| «2 Publicacion [(Completado)]» | h2 | `!(historicalView === 'pending') && !(historicalView === 'archive')` | LicitacionDetailPage · l.599 |
+| «Bases [(Completado)] [(Disponible cuando la publicacion este confirmada)]» | h2 | `!(historicalView === 'pending') && !(historicalView === 'archive')` | LicitacionDetailPage · l.784 |
+| «Propuestas [(Completado)] [(Disponible en Paso 3)]» | h2 | `!(historicalView === 'pending') && !(historicalView === 'archive')` | LicitacionDetailPage · l.815 |
+| «Evaluacion [(Completado)] [(Disponible en Paso 4)]» | h2 | `!(historicalView === 'pending') && !(historicalView === 'archive')` | LicitacionDetailPage · l.846 |
+| «Adjudicacion [(Completado)] [(Disponible en Paso 5)]» | h2 | `!(historicalView === 'pending') && !(historicalView === 'archive')` | LicitacionDetailPage · l.894 |
+| «Contrato [(Completado)] [(Disponible en Paso 6)]» | h2 | `!(historicalView === 'pending') && !(historicalView === 'archive')` | LicitacionDetailPage · l.924 |
 
 **Buttons** (9)
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «Copiado! / Copiar texto» | `{handleCopyText}` |  | `{!publicacionText \|\| timelinePendingForChosenDate}` |  | LicitacionDetailPage · l.459 |
-| «Volver a Licitaciones» | `{() => router.push('/licitaciones')}` |  |  |  | LicitacionDetailPage · l.498 |
-| «Eliminando... / Eliminar» | `{() => { if (window.confirm( '¿Eliminar la licitacion "${licitacion.numero_licit…}` | `isAdmin` | `{deleting}` |  | LicitacionDetailPage · l.518 |
-| «Cancelar ajuste / Ajustar fechas (admin)» | `{() => { // Start from the stored dates (after a reload nothing else is loaded).…}` | `!(historicalView === 'pending') && !(historicalView === 'archive') && step2Done && isAdmin` |  |  | LicitacionDetailPage · l.625 |
-| «Guardando... / Guardar fechas ajustadas» | `{handleSaveDates}` | `!(historicalView === 'archive') && step2Done && isAdmin && editingTimeline` | `{savingDates}` |  | LicitacionDetailPage · l.659 |
-| «Subiendo... / Subir» | `{handleUploadImage}` | `!(step2Done) && step2Active && canConfirmPublicacion && imageFile` | `{uploadingImage}` |  | LicitacionDetailPage · l.725 |
-| «Confirmando... / Confirmar Publicacion» | `{() => { if (window.confirm('Esta acción no se puede deshacer. ¿Confirmar la pub…}` | `!(historicalView === 'archive') && !(step2Done) && step2Active && canConfirmPublicacion` | `{confirmingPublicacion \|\| !fechaPublicacion}` |  | LicitacionDetailPage · l.747 |
-| «Ir a Evaluacion de Propuestas →» | `{() => router.push('/licitaciones/${id}/evaluacion')}` | `!(historicalView === 'pending') && !(historicalView === 'archive') && !isStep5Locked && isStep5Active` |  |  | LicitacionDetailPage · l.859 |
-| «Ver resumen de evaluacion» | `{() => router.push('/licitaciones/${id}/evaluacion')}` | `!(historicalView === 'pending') && !(historicalView === 'archive') && !isStep5Locked && !(isStep5Active)` |  |  | LicitacionDetailPage · l.869 |
+| «Copiado! / Copiar texto» | `{handleCopyText}` |  | `{!publicacionText \|\| timelinePendingForChosenDate}` |  | LicitacionDetailPage · l.460 |
+| «Volver a Licitaciones» | `{() => router.push('/licitaciones')}` |  |  |  | LicitacionDetailPage · l.499 |
+| «Eliminando... / Eliminar» | `{() => { if (window.confirm( '¿Eliminar la licitacion "${licitacion.numero_licit…}` | `isAdmin && puedeEliminarLicitacion(licitacion.estado, false)` | `{deleting}` |  | LicitacionDetailPage · l.521 |
+| «Cancelar ajuste / Ajustar fechas (admin)» | `{() => { // Start from the stored dates (after a reload nothing else is loaded).…}` | `!(historicalView === 'pending') && !(historicalView === 'archive') && step2Done && isAdmin` |  |  | LicitacionDetailPage · l.628 |
+| «Guardando... / Guardar fechas ajustadas» | `{handleSaveDates}` | `!(historicalView === 'archive') && step2Done && isAdmin && editingTimeline` | `{savingDates}` |  | LicitacionDetailPage · l.662 |
+| «Subiendo... / Subir» | `{handleUploadImage}` | `!(step2Done) && step2Active && canConfirmPublicacion && imageFile` | `{uploadingImage}` |  | LicitacionDetailPage · l.728 |
+| «Confirmando... / Confirmar Publicacion» | `{() => { if (window.confirm('Esta acción no se puede deshacer. ¿Confirmar la pub…}` | `!(historicalView === 'archive') && !(step2Done) && step2Active && canConfirmPublicacion` | `{confirmingPublicacion \|\| !fechaPublicacion}` |  | LicitacionDetailPage · l.750 |
+| «Ir a Evaluacion de Propuestas →» | `{() => router.push('/licitaciones/${id}/evaluacion')}` | `!(historicalView === 'pending') && !(historicalView === 'archive') && !isStep5Locked && isStep5Active` |  |  | LicitacionDetailPage · l.862 |
+| «Ver resumen de evaluacion» | `{() => router.push('/licitaciones/${id}/evaluacion')}` | `!(historicalView === 'pending') && !(historicalView === 'archive') && !isStep5Locked && !(isStep5Active)` |  |  | LicitacionDetailPage · l.872 |
 
 **Fields** (3)
 
 | Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
 |---|---|---|---|---|---|---|
-| «{key.replace(/_/g, ' ')}» | date |  |  | `step2Done && isAdmin && editingTimeline && each (Object.keys(editedDates) as Array<keyof Timeline…` |  | LicitacionDetailPage · l.651 |
-| «Fecha de publicacion *» | date |  |  | `!(historicalView === 'pending') && !(historicalView === 'archive') && !(step2Done) && step2Active` |  | LicitacionDetailPage · l.682 |
-| «Imagen de publicacion (opcional)» | file | accepts `image/png,image/jpeg,image/jpg,image/webp` |  | `!(historicalView === 'archive') && !(step2Done) && step2Active && canConfirmPublicacion` |  | LicitacionDetailPage · l.718 |
+| «{key.replace(/_/g, ' ')}» | date |  |  | `step2Done && isAdmin && editingTimeline && each (Object.keys(editedDates) as Array<keyof Timeline…` |  | LicitacionDetailPage · l.654 |
+| «Fecha de publicacion *» | date |  |  | `!(historicalView === 'pending') && !(historicalView === 'archive') && !(step2Done) && step2Active` |  | LicitacionDetailPage · l.685 |
+| «Imagen de publicacion (opcional)» | file | accepts `image/png,image/jpeg,image/jpg,image/webp` |  | `!(historicalView === 'archive') && !(step2Done) && step2Active && canConfirmPublicacion` |  | LicitacionDetailPage · l.721 |
 
 **Browser confirm()** (2)
 
 | Question | When | Where |
 |---|---|---|
-| «¿Eliminar la licitacion "{licitacion.numero_licitacion}"? / Se eliminaran permanentemente todos los datos asociados: ATEs, documentos, evaluaciones, historial, etc. / Esta accion no se puede deshacer.» | `isAdmin` | LicitacionDetailPage · l.520 |
-| «Esta acción no se puede deshacer. ¿Confirmar la publicación?» | `!(historicalView === 'archive') && !(step2Done) && step2Active && canConfirmPublicacion` | LicitacionDetailPage · l.749 |
+| «¿Eliminar la licitacion "{licitacion.numero_licitacion}"? / Se eliminaran permanentemente todos los datos asociados: ATEs, documentos, evaluaciones, historial, etc. / Esta accion no se puede deshacer.» | `isAdmin && puedeEliminarLicitacion(licitacion.estado, false)` | LicitacionDetailPage · l.523 |
+| «Esta acción no se puede deshacer. ¿Confirmar la publicación?» | `!(historicalView === 'archive') && !(step2Done) && step2Active && canConfirmPublicacion` | LicitacionDetailPage · l.752 |
 
 **Toasts** (17)
 
 | Kind | Text | When | Where |
 |---|---|---|---|
-| error | «No tiene permisos para acceder a licitaciones» | `!adminAccess && !encargadoAccess` | checkAuth · l.221 |
-| error | «Error al cargar licitacion» | `!res.ok` | fetchLicitacion · l.251 |
-| error | «Error al cargar licitacion» |  | fetchLicitacion · l.265 |
-| error | «Error al calcular cronograma» | `latestFechaRef.current === fecha` | LicitacionDetailPage · l.299 |
-| error | «Error al subir imagen» | `!res.ok` | handleUploadImage · l.322 |
-| success | «Imagen subida exitosamente» |  | handleUploadImage · l.326 |
-| error | «Error al subir imagen» |  | handleUploadImage · l.330 |
-| error | «Ingrese la fecha de publicacion» | `!fechaPublicacion \|\| !id` | handleConfirmPublicacion · l.338 |
-| error | «Error al confirmar publicacion» | `!res.ok` | handleConfirmPublicacion · l.358 |
-| success | «Publicacion confirmada exitosamente» |  | handleConfirmPublicacion · l.362 |
-| error | «Error al confirmar publicacion» |  | handleConfirmPublicacion · l.365 |
-| error | «Error al guardar fechas» | `!res.ok` | handleSaveDates · l.384 |
-| success | «Fechas actualizadas correctamente» |  | handleSaveDates · l.388 |
-| error | «Error al guardar fechas» |  | handleSaveDates · l.392 |
-| error | «Error al eliminar licitacion» | `!res.ok` | handleDeleteLicitacion · l.405 |
-| success | «Licitacion eliminada exitosamente» |  | handleDeleteLicitacion · l.408 |
-| error | «Error al eliminar licitacion» |  | handleDeleteLicitacion · l.411 |
+| error | «No tiene permisos para acceder a licitaciones» | `!adminAccess && !encargadoAccess` | checkAuth · l.222 |
+| error | «Error al cargar licitacion» | `!res.ok` | fetchLicitacion · l.252 |
+| error | «Error al cargar licitacion» |  | fetchLicitacion · l.266 |
+| error | «Error al calcular cronograma» | `latestFechaRef.current === fecha` | LicitacionDetailPage · l.300 |
+| error | «Error al subir imagen» | `!res.ok` | handleUploadImage · l.323 |
+| success | «Imagen subida exitosamente» |  | handleUploadImage · l.327 |
+| error | «Error al subir imagen» |  | handleUploadImage · l.331 |
+| error | «Ingrese la fecha de publicacion» | `!fechaPublicacion \|\| !id` | handleConfirmPublicacion · l.339 |
+| error | «Error al confirmar publicacion» | `!res.ok` | handleConfirmPublicacion · l.359 |
+| success | «Publicacion confirmada exitosamente» |  | handleConfirmPublicacion · l.363 |
+| error | «Error al confirmar publicacion» |  | handleConfirmPublicacion · l.366 |
+| error | «Error al guardar fechas» | `!res.ok` | handleSaveDates · l.385 |
+| success | «Fechas actualizadas correctamente» |  | handleSaveDates · l.389 |
+| error | «Error al guardar fechas» |  | handleSaveDates · l.393 |
+| error | «Error al eliminar licitacion» | `!res.ok` | handleDeleteLicitacion · l.406 |
+| success | «Licitacion eliminada exitosamente» |  | handleDeleteLicitacion · l.409 |
+| error | «Error al eliminar licitacion» |  | handleDeleteLicitacion · l.412 |
 
 **Moves to another page from code** (9)
 
 | Goes to | How | When | Where |
 |---|---|---|---|
-| `/login` | `router.push` | `!user` | checkAuth · l.210 |
-| `/dashboard` | `router.push` | `!adminAccess && !encargadoAccess` | checkAuth · l.222 |
-| `/login` | `router.push` |  | checkAuth · l.232 |
-| `/licitaciones` | `router.push` | `!res.ok` | fetchLicitacion · l.252 |
-| `/licitaciones` | `router.push` |  | fetchLicitacion · l.266 |
-| `/licitaciones` | `router.push` |  | handleDeleteLicitacion · l.409 |
-| `/licitaciones` | `router.push` |  | LicitacionDetailPage · l.499 |
-| `/licitaciones/[*]/evaluacion` | `router.push` | `!(historicalView === 'pending') && !(historicalView === 'archive') && !isStep5Locked && isStep5Active` | LicitacionDetailPage · l.860 |
-| `/licitaciones/[*]/evaluacion` | `router.push` | `!(historicalView === 'pending') && !(historicalView === 'archive') && !isStep5Locked && !(isStep5Active)` | LicitacionDetailPage · l.870 |
+| `/login` | `router.push` | `!user` | checkAuth · l.211 |
+| `/dashboard` | `router.push` | `!adminAccess && !encargadoAccess` | checkAuth · l.223 |
+| `/login` | `router.push` |  | checkAuth · l.233 |
+| `/licitaciones` | `router.push` | `!res.ok` | fetchLicitacion · l.253 |
+| `/licitaciones` | `router.push` |  | fetchLicitacion · l.267 |
+| `/licitaciones` | `router.push` |  | handleDeleteLicitacion · l.410 |
+| `/licitaciones` | `router.push` |  | LicitacionDetailPage · l.500 |
+| `/licitaciones/[*]/evaluacion` | `router.push` | `!(historicalView === 'pending') && !(historicalView === 'archive') && !isStep5Locked && isStep5Active` | LicitacionDetailPage · l.863 |
+| `/licitaciones/[*]/evaluacion` | `router.push` | `!(historicalView === 'pending') && !(historicalView === 'archive') && !isStep5Locked && !(isStep5Active)` | LicitacionDetailPage · l.873 |
 
 **Draws nothing when** (4)
 
 | Condition | Where |
 |---|---|
-| `!authReady` | LicitacionDetailPage · l.163 |
-| `!licitacion` | LicitacionDetailPage · l.173 |
-| `licitacion.estado !== 'cerrada'` | LicitacionDetailPage · l.174 |
-| `latestFechaRef.current !== fecha` | LicitacionDetailPage · l.294 |
+| `!authReady` | LicitacionDetailPage · l.164 |
+| `!licitacion` | LicitacionDetailPage · l.174 |
+| `licitacion.estado !== 'cerrada'` | LicitacionDetailPage · l.175 |
+| `latestFechaRef.current !== fecha` | LicitacionDetailPage · l.295 |
 
 **Pieces placed here, with the texts and settings handed to them** (35)
 
 | Piece | Texts and settings | Shown when | Hook | Where |
 |---|---|---|---|---|
-| `MainLayout` | pageTitle: Licitacion | `loading \|\| !licitacion` |  | LicitacionDetailPage · l.429 |
-| `Check` | aria-hidden: true | `copied` |  | LicitacionDetailPage · l.464 |
-| `Copy` | aria-hidden: true | `!(copied)` |  | LicitacionDetailPage · l.464 |
-| `MainLayout` |  |  |  | LicitacionDetailPage · l.489 |
-| `ArchiveView` |  | `!(historicalView === 'pending') && historicalView === 'archive'` |  | LicitacionDetailPage · l.543 |
-| `InfoRow` | label: Numero | `!(historicalView === 'pending') && !(historicalView === 'archive')` |  | LicitacionDetailPage · l.566 |
-| `InfoRow` | label: Programa | `!(historicalView === 'pending') && !(historicalView === 'archive')` |  | LicitacionDetailPage · l.567 |
-| `InfoRow` | label: Ano | `!(historicalView === 'pending') && !(historicalView === 'archive')` |  | LicitacionDetailPage · l.568 |
-| `InfoRow` | label: Correo licitacion | `!(historicalView === 'pending') && !(historicalView === 'archive')` |  | LicitacionDetailPage · l.569 |
-| `InfoRow` | label: Monto minimo | `!(historicalView === 'pending') && !(historicalView === 'archive')` |  | LicitacionDetailPage · l.573 |
-| `InfoRow` | label: Monto maximo | `!(historicalView === 'pending') && !(historicalView === 'archive')` |  | LicitacionDetailPage · l.574 |
-| `InfoRow` | label: Duracion minima | `!(historicalView === 'pending') && !(historicalView === 'archive')` |  | LicitacionDetailPage · l.575 |
-| `InfoRow` | label: Duracion maxima | `!(historicalView === 'pending') && !(historicalView === 'archive')` |  | LicitacionDetailPage · l.576 |
-| `InfoRow` | label: Peso tecnico | `!(historicalView === 'pending') && !(historicalView === 'archive')` |  | LicitacionDetailPage · l.577 |
-| `InfoRow` | label: Peso economico | `!(historicalView === 'pending') && !(historicalView === 'archive')` |  | LicitacionDetailPage · l.578 |
-| `InfoRow` | label: Nombre legal | `!(historicalView === 'pending') && !(historicalView === 'archive') && licitacion.cliente` |  | LicitacionDetailPage · l.583 |
-| `InfoRow` | label: RUT | `!(historicalView === 'pending') && !(historicalView === 'archive') && licitacion.cliente` |  | LicitacionDetailPage · l.584 |
-| `InfoRow` | label: Representante | `!(historicalView === 'pending') && !(historicalView === 'archive') && licitacion.cliente` |  | LicitacionDetailPage · l.585 |
-| `InfoRow` | label: Comuna | `!(historicalView === 'pending') && !(historicalView === 'archive') && licitacion.cliente` |  | LicitacionDetailPage · l.586 |
-| `InfoRow` | label: Limite solicitud de bases | `!(historicalView === 'pending') && !(historicalView === 'archive') && step2Done` |  | LicitacionDetailPage · l.616 |
-| `InfoRow` | label: Limite consultas | `!(historicalView === 'pending') && !(historicalView === 'archive') && step2Done` |  | LicitacionDetailPage · l.617 |
-| `InfoRow` | label: Inicio propuestas | `!(historicalView === 'pending') && !(historicalView === 'archive') && step2Done` |  | LicitacionDetailPage · l.618 |
-| `InfoRow` | label: Limite propuestas | `!(historicalView === 'pending') && !(historicalView === 'archive') && step2Done` |  | LicitacionDetailPage · l.619 |
-| `InfoRow` | label: Limite evaluacion | `!(historicalView === 'pending') && !(historicalView === 'archive') && step2Done` |  | LicitacionDetailPage · l.620 |
-| `InfoRow` | label: Limite solicitud de bases (+5 dias habiles) | `!(historicalView === 'archive') && !(step2Done) && step2Active && displayTimeline.fecha_limite_solicitud_bases` |  | LicitacionDetailPage · l.702 |
-| `InfoRow` | label: Limite consultas (+3 dias habiles) | `!(historicalView === 'archive') && !(step2Done) && step2Active && displayTimeline.fecha_limite_solicitud_bases` |  | LicitacionDetailPage · l.703 |
-| `InfoRow` | label: Inicio recepcion propuestas (+1 dia habil) | `!(historicalView === 'archive') && !(step2Done) && step2Active && displayTimeline.fecha_limite_solicitud_bases` |  | LicitacionDetailPage · l.704 |
-| `InfoRow` | label: Limite propuestas (+5 dias habiles) | `!(historicalView === 'archive') && !(step2Done) && step2Active && displayTimeline.fecha_limite_solicitud_bases` |  | LicitacionDetailPage · l.705 |
-| `InfoRow` | label: Limite evaluacion (+3 dias habiles) | `!(historicalView === 'archive') && !(step2Done) && step2Active && displayTimeline.fecha_limite_solicitud_bases` |  | LicitacionDetailPage · l.706 |
-| `Step3Bases` |  | `!(historicalView === 'pending') && !(historicalView === 'archive') && !isStep3Locked` |  | LicitacionDetailPage · l.792 |
-| `Step4Propuestas` |  | `!(historicalView === 'pending') && !(historicalView === 'archive') && !isStep4Locked` |  | LicitacionDetailPage · l.823 |
-| `Step6Adjudicacion` |  | `!(historicalView === 'pending') && !(historicalView === 'archive') && !isStep6Locked` |  | LicitacionDetailPage · l.902 |
-| `Step7Contrato` |  | `!(historicalView === 'pending') && !(historicalView === 'archive') && !isStep7Locked` |  | LicitacionDetailPage · l.932 |
-| `ProposalConfigPanel` |  | `!(historicalView === 'pending') && !(historicalView === 'archive') && isAdmin` |  | LicitacionDetailPage · l.945 |
-| `DocumentCenter` |  | `!(historicalView === 'pending') && !(historicalView === 'archive') && activeStep >= 2` |  | LicitacionDetailPage · l.953 |
+| `MainLayout` | pageTitle: Licitacion | `loading \|\| !licitacion` |  | LicitacionDetailPage · l.430 |
+| `Check` | aria-hidden: true | `copied` |  | LicitacionDetailPage · l.465 |
+| `Copy` | aria-hidden: true | `!(copied)` |  | LicitacionDetailPage · l.465 |
+| `MainLayout` |  |  |  | LicitacionDetailPage · l.490 |
+| `ArchiveView` |  | `!(historicalView === 'pending') && historicalView === 'archive'` |  | LicitacionDetailPage · l.546 |
+| `InfoRow` | label: Numero | `!(historicalView === 'pending') && !(historicalView === 'archive')` |  | LicitacionDetailPage · l.569 |
+| `InfoRow` | label: Programa | `!(historicalView === 'pending') && !(historicalView === 'archive')` |  | LicitacionDetailPage · l.570 |
+| `InfoRow` | label: Ano | `!(historicalView === 'pending') && !(historicalView === 'archive')` |  | LicitacionDetailPage · l.571 |
+| `InfoRow` | label: Correo licitacion | `!(historicalView === 'pending') && !(historicalView === 'archive')` |  | LicitacionDetailPage · l.572 |
+| `InfoRow` | label: Monto minimo | `!(historicalView === 'pending') && !(historicalView === 'archive')` |  | LicitacionDetailPage · l.576 |
+| `InfoRow` | label: Monto maximo | `!(historicalView === 'pending') && !(historicalView === 'archive')` |  | LicitacionDetailPage · l.577 |
+| `InfoRow` | label: Duracion minima | `!(historicalView === 'pending') && !(historicalView === 'archive')` |  | LicitacionDetailPage · l.578 |
+| `InfoRow` | label: Duracion maxima | `!(historicalView === 'pending') && !(historicalView === 'archive')` |  | LicitacionDetailPage · l.579 |
+| `InfoRow` | label: Peso tecnico | `!(historicalView === 'pending') && !(historicalView === 'archive')` |  | LicitacionDetailPage · l.580 |
+| `InfoRow` | label: Peso economico | `!(historicalView === 'pending') && !(historicalView === 'archive')` |  | LicitacionDetailPage · l.581 |
+| `InfoRow` | label: Nombre legal | `!(historicalView === 'pending') && !(historicalView === 'archive') && licitacion.cliente` |  | LicitacionDetailPage · l.586 |
+| `InfoRow` | label: RUT | `!(historicalView === 'pending') && !(historicalView === 'archive') && licitacion.cliente` |  | LicitacionDetailPage · l.587 |
+| `InfoRow` | label: Representante | `!(historicalView === 'pending') && !(historicalView === 'archive') && licitacion.cliente` |  | LicitacionDetailPage · l.588 |
+| `InfoRow` | label: Comuna | `!(historicalView === 'pending') && !(historicalView === 'archive') && licitacion.cliente` |  | LicitacionDetailPage · l.589 |
+| `InfoRow` | label: Limite solicitud de bases | `!(historicalView === 'pending') && !(historicalView === 'archive') && step2Done` |  | LicitacionDetailPage · l.619 |
+| `InfoRow` | label: Limite consultas | `!(historicalView === 'pending') && !(historicalView === 'archive') && step2Done` |  | LicitacionDetailPage · l.620 |
+| `InfoRow` | label: Inicio propuestas | `!(historicalView === 'pending') && !(historicalView === 'archive') && step2Done` |  | LicitacionDetailPage · l.621 |
+| `InfoRow` | label: Limite propuestas | `!(historicalView === 'pending') && !(historicalView === 'archive') && step2Done` |  | LicitacionDetailPage · l.622 |
+| `InfoRow` | label: Limite evaluacion | `!(historicalView === 'pending') && !(historicalView === 'archive') && step2Done` |  | LicitacionDetailPage · l.623 |
+| `InfoRow` | label: Limite solicitud de bases (+5 dias habiles) | `!(historicalView === 'archive') && !(step2Done) && step2Active && displayTimeline.fecha_limite_solicitud_bases` |  | LicitacionDetailPage · l.705 |
+| `InfoRow` | label: Limite consultas (+3 dias habiles) | `!(historicalView === 'archive') && !(step2Done) && step2Active && displayTimeline.fecha_limite_solicitud_bases` |  | LicitacionDetailPage · l.706 |
+| `InfoRow` | label: Inicio recepcion propuestas (+1 dia habil) | `!(historicalView === 'archive') && !(step2Done) && step2Active && displayTimeline.fecha_limite_solicitud_bases` |  | LicitacionDetailPage · l.707 |
+| `InfoRow` | label: Limite propuestas (+5 dias habiles) | `!(historicalView === 'archive') && !(step2Done) && step2Active && displayTimeline.fecha_limite_solicitud_bases` |  | LicitacionDetailPage · l.708 |
+| `InfoRow` | label: Limite evaluacion (+3 dias habiles) | `!(historicalView === 'archive') && !(step2Done) && step2Active && displayTimeline.fecha_limite_solicitud_bases` |  | LicitacionDetailPage · l.709 |
+| `Step3Bases` |  | `!(historicalView === 'pending') && !(historicalView === 'archive') && !isStep3Locked` |  | LicitacionDetailPage · l.795 |
+| `Step4Propuestas` |  | `!(historicalView === 'pending') && !(historicalView === 'archive') && !isStep4Locked` |  | LicitacionDetailPage · l.826 |
+| `Step6Adjudicacion` |  | `!(historicalView === 'pending') && !(historicalView === 'archive') && !isStep6Locked` |  | LicitacionDetailPage · l.905 |
+| `Step7Contrato` |  | `!(historicalView === 'pending') && !(historicalView === 'archive') && !isStep7Locked` |  | LicitacionDetailPage · l.935 |
+| `ProposalConfigPanel` |  | `!(historicalView === 'pending') && !(historicalView === 'archive') && isAdmin` |  | LicitacionDetailPage · l.948 |
+| `DocumentCenter` |  | `!(historicalView === 'pending') && !(historicalView === 'archive') && activeStep >= 2` |  | LicitacionDetailPage · l.956 |
 
 **Texts kept in lists and helpers in the code (labels, options, status names)** (1)
 
 | Name | Texts | Where |
 |---|---|---|
-| `STEPS` | «Creacion», «Publicacion», «Bases», «Propuestas», «Evaluacion», «Adjudicacion», «Contrato» | l.22 |
+| `STEPS` | «Creacion», «Publicacion», «Bases», «Propuestas», «Evaluacion», «Adjudicacion», «Contrato» | l.23 |
 
 **Other texts written in the code (safety net: not tied to an element by the script)** (1)
 
 | Text | Where |
 |---|---|
-| «Imagen publicacion - {licitacion?.numero_licitaci…}» | LicitacionDetailPage · l.313 |
+| «Imagen publicacion - {licitacion?.numero_licitaci…}» | LicitacionDetailPage · l.314 |
 
 **Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (2)
 
 | Kind | What | Where |
 |---|---|---|
-| timer | `setTimeout(…, 2000)` | handleCopyText · l.275 |
+| timer | `setTimeout(…, 2000)` | handleCopyText · l.276 |
 | address value | `[id] (part of the address)` | l.1 |
 
 **Values shown from data** (7)
 
-- `{step.label}` — Stepper · l.73, when `each STEPS`
-- `{label}` — InfoRow · l.90
-- `{value} / -` — InfoRow · l.91
-- `{info.label}` — EstadoBadge · l.99
-- `{licitacion.numero_licitacion}` — LicitacionDetailPage · l.509
-- `{licitacion.school?.name} — {licitacion.year}` — LicitacionDetailPage · l.511
-- `{formatDate(licitacion.fecha_publica…}` — LicitacionDetailPage · l.611, when `!(historicalView === 'pending') && !(historicalView === 'archive') && step2Done`
+- `{step.label}` — Stepper · l.74, when `each STEPS`
+- `{label}` — InfoRow · l.91
+- `{value} / -` — InfoRow · l.92
+- `{info.label}` — EstadoBadge · l.100
+- `{licitacion.numero_licitacion}` — LicitacionDetailPage · l.510
+- `{licitacion.school?.name} — {licitacion.year}` — LicitacionDetailPage · l.512
+- `{formatDate(licitacion.fecha_publica…}` — LicitacionDetailPage · l.614, when `!(historicalView === 'pending') && !(historicalView === 'archive') && step2Done`
 
 **Other texts on screen** (15)
 
-- «Texto de publicacion» — LicitacionDetailPage · l.455
-- «{publicacionText} / Seleccione una escuela con cliente vinculado para generar el texto.» — LicitacionDetailPage · l.456
-- «Cargando» (aria-label) — LicitacionDetailPage · l.540, when `historicalView === 'pending'`
-- «Fecha de publicacion» — LicitacionDetailPage · l.610, when `!(historicalView === 'pending') && !(historicalView === 'archive') && step2Done`
-- «Cronograma calculado» — LicitacionDetailPage · l.614, when `!(historicalView === 'pending') && !(historicalView === 'archive') && step2Done`
-- «{key.replace(/_/g, ' ')}» (label) — LicitacionDetailPage · l.648, when `step2Done && isAdmin && editingTimeline && each (Object.keys(editedDates) as Array<keyof Timeline…`
-- «Fecha de publicacion *» (label) — LicitacionDetailPage · l.678, when `!(historicalView === 'pending') && !(historicalView === 'archive') && !(step2Done) && step2Active`
-- «Calculando cronograma...» — LicitacionDetailPage · l.689, when `!(historicalView === 'archive') && !(step2Done) && step2Active && timelineLoading`
-- «Cronograma calculado (dias habiles, sin feriados chilenos)» — LicitacionDetailPage · l.699, when `!(historicalView === 'archive') && !(step2Done) && step2Active && displayTimeline.fecha_limite_solicitud_bases`
-- «Imagen de publicacion (opcional)» (label) — LicitacionDetailPage · l.714, when `!(historicalView === 'archive') && !(step2Done) && step2Active && canConfirmPublicacion`
-- «Imagen subida» — LicitacionDetailPage · l.737, when `!(step2Done) && step2Active && canConfirmPublicacion && uploadedImageUrl`
-- «Al confirmar, el estado cambiara a &ldquo;Recepcion de Bases&rdquo; y el cronograma quedara registrado.» — LicitacionDetailPage · l.759, when `!(historicalView === 'archive') && !(step2Done) && step2Active && canConfirmPublicacion`
-- «Este paso estara disponible cuando la licitacion avance al estado &ldquo;Publicacion Pendiente&rdquo;.» — LicitacionDetailPage · l.767, when `!(historicalView === 'pending') && !(historicalView === 'archive') && !(step2Done) && !(step2Active)`
-- «Complete la evaluacion de propuestas de cada ATE usando la pagina de evaluacion.» — LicitacionDetailPage · l.857, when `!(historicalView === 'pending') && !(historicalView === 'archive') && !isStep5Locked && isStep5Active`
-- «La evaluacion fue completada. El Acta de Reunion fue firmada y subida.» — LicitacionDetailPage · l.868, when `!(historicalView === 'pending') && !(historicalView === 'archive') && !isStep5Locked && !(isStep5Active)`
+- «Texto de publicacion» — LicitacionDetailPage · l.456
+- «{publicacionText} / Seleccione una escuela con cliente vinculado para generar el texto.» — LicitacionDetailPage · l.457
+- «Cargando» (aria-label) — LicitacionDetailPage · l.543, when `historicalView === 'pending'`
+- «Fecha de publicacion» — LicitacionDetailPage · l.613, when `!(historicalView === 'pending') && !(historicalView === 'archive') && step2Done`
+- «Cronograma calculado» — LicitacionDetailPage · l.617, when `!(historicalView === 'pending') && !(historicalView === 'archive') && step2Done`
+- «{key.replace(/_/g, ' ')}» (label) — LicitacionDetailPage · l.651, when `step2Done && isAdmin && editingTimeline && each (Object.keys(editedDates) as Array<keyof Timeline…`
+- «Fecha de publicacion *» (label) — LicitacionDetailPage · l.681, when `!(historicalView === 'pending') && !(historicalView === 'archive') && !(step2Done) && step2Active`
+- «Calculando cronograma...» — LicitacionDetailPage · l.692, when `!(historicalView === 'archive') && !(step2Done) && step2Active && timelineLoading`
+- «Cronograma calculado (dias habiles, sin feriados chilenos)» — LicitacionDetailPage · l.702, when `!(historicalView === 'archive') && !(step2Done) && step2Active && displayTimeline.fecha_limite_solicitud_bases`
+- «Imagen de publicacion (opcional)» (label) — LicitacionDetailPage · l.717, when `!(historicalView === 'archive') && !(step2Done) && step2Active && canConfirmPublicacion`
+- «Imagen subida» — LicitacionDetailPage · l.740, when `!(step2Done) && step2Active && canConfirmPublicacion && uploadedImageUrl`
+- «Al confirmar, el estado cambiara a &ldquo;Recepcion de Bases&rdquo; y el cronograma quedara registrado.» — LicitacionDetailPage · l.762, when `!(historicalView === 'archive') && !(step2Done) && step2Active && canConfirmPublicacion`
+- «Este paso estara disponible cuando la licitacion avance al estado &ldquo;Publicacion Pendiente&rdquo;.» — LicitacionDetailPage · l.770, when `!(historicalView === 'pending') && !(historicalView === 'archive') && !(step2Done) && !(step2Active)`
+- «Complete la evaluacion de propuestas de cada ATE usando la pagina de evaluacion.» — LicitacionDetailPage · l.860, when `!(historicalView === 'pending') && !(historicalView === 'archive') && !isStep5Locked && isStep5Active`
+- «La evaluacion fue completada. El Acta de Reunion fue firmada y subida.» — LicitacionDetailPage · l.871, when `!(historicalView === 'pending') && !(historicalView === 'archive') && !isStep5Locked && !(isStep5Active)`
 
 ### Pieces it uses (each is listed once, under "Pieces" below)
 
@@ -1070,8 +1070,8 @@ File `pages/licitaciones/[id].tsx` · 966 lines · frame: MainLayout
 
 | Address | Method | Called from |
 |---|---|---|
-| `/api/auth/my-roles` | GET | `pages/licitaciones/[id].tsx:214` |
-| `/api/licitaciones/[id]` | DELETE, GET, PATCH | `pages/licitaciones/[id].tsx:246`, `pages/licitaciones/[id].tsx:376`, `pages/licitaciones/[id].tsx:402` |
+| `/api/auth/my-roles` | GET | `pages/licitaciones/[id].tsx:215` |
+| `/api/licitaciones/[id]` | DELETE, GET, PATCH | `pages/licitaciones/[id].tsx:247`, `pages/licitaciones/[id].tsx:377`, `pages/licitaciones/[id].tsx:403` |
 | `/api/licitaciones/[id]/adjudicacion` | POST | `components/licitaciones/Step6Adjudicacion.tsx:135` |
 | `/api/licitaciones/[id]/adjudicacion-confirmar` | POST | `components/licitaciones/Step6Adjudicacion.tsx:257` |
 | `/api/licitaciones/[id]/advance` | POST | `components/licitaciones/Step3Bases.tsx:341`, `components/licitaciones/Step4Propuestas.tsx:245` |
@@ -1081,15 +1081,15 @@ File `pages/licitaciones/[id].tsx` · 966 lines · frame: MainLayout
 | `/api/licitaciones/[id]/documentos` | DELETE, GET | `components/licitaciones/ArchiveView.tsx:61`, `components/licitaciones/DocumentCenter.tsx:120`, `components/licitaciones/DocumentCenter.tsx:220`, `components/licitaciones/Step3Bases.tsx:104` +1 |
 | `/api/licitaciones/[id]/download-doc` | GET | `components/licitaciones/ArchiveView.tsx:82`, `components/licitaciones/DocumentCenter.tsx:148`, `components/licitaciones/DocumentPreview.tsx:40` |
 | `/api/licitaciones/[id]/download-zip` | POST | `components/licitaciones/DocumentCenter.tsx:184` |
-| `/api/licitaciones/[id]/evaluacion` | GET | `pages/licitaciones/[id].tsx:179` |
+| `/api/licitaciones/[id]/evaluacion` | GET | `pages/licitaciones/[id].tsx:180` |
 | `/api/licitaciones/[id]/generate-bases` | GET | `components/licitaciones/Step3Bases.tsx:262` |
 | `/api/licitaciones/[id]/generate-carta` | GET | `components/licitaciones/Step6Adjudicacion.tsx:183`, `components/licitaciones/Step7Contrato.tsx:104` |
 | `/api/licitaciones/[id]/generate-propuesta` | POST | `components/licitaciones/ProposalConfigPanel.tsx:724` |
 | `/api/licitaciones/[id]/propuestas` | GET, POST | `components/licitaciones/ProposalConfigPanel.tsx:256`, `components/licitaciones/ProposalConfigPanel.tsx:613`, `components/licitaciones/ProposalConfigPanel.tsx:757` |
-| `/api/licitaciones/[id]/publicacion` | POST | `pages/licitaciones/[id].tsx:349` |
-| `/api/licitaciones/[id]/timeline` | GET | `pages/licitaciones/[id].tsx:290` |
-| `/api/licitaciones/[id]/upload` | POST | `components/licitaciones/ArchiveView.tsx:111`, `components/licitaciones/Step6Adjudicacion.tsx:219`, `components/licitaciones/Step7Contrato.tsx:69`, `pages/licitaciones/[id].tsx:315` |
-| `/api/licitaciones/check-deadlines` | POST | `pages/licitaciones/[id].tsx:164` |
+| `/api/licitaciones/[id]/publicacion` | POST | `pages/licitaciones/[id].tsx:350` |
+| `/api/licitaciones/[id]/timeline` | GET | `pages/licitaciones/[id].tsx:291` |
+| `/api/licitaciones/[id]/upload` | POST | `components/licitaciones/ArchiveView.tsx:111`, `components/licitaciones/Step6Adjudicacion.tsx:219`, `components/licitaciones/Step7Contrato.tsx:69`, `pages/licitaciones/[id].tsx:316` |
+| `/api/licitaciones/check-deadlines` | POST | `pages/licitaciones/[id].tsx:165` |
 | `/api/propuestas/bloques` | GET | `components/licitaciones/ProposalConfigPanel.tsx:255` |
 | `/api/propuestas/consultores` | GET | `components/licitaciones/ProposalConfigPanel.tsx:253` |
 | `/api/propuestas/documentos` | GET | `components/licitaciones/ProposalConfigPanel.tsx:254` |
@@ -1108,7 +1108,7 @@ File `pages/licitaciones/[id]/evaluacion.tsx` · 1137 lines · frame: MainLayout
   - l.236 `router.push → /login  (when !user)`
   - l.253 `router.push → /dashboard  (when !adminAccess && !encargadoAccess)`
   - l.262 `router.push → /login`
-- Linked from: `pages/licitaciones/[id].tsx:860`, `pages/licitaciones/[id].tsx:870`
+- Linked from: `pages/licitaciones/[id].tsx:863`, `pages/licitaciones/[id].tsx:873`
 - Tests: no browser test that CI runs; unit tests of the page: `__tests__/pages/licitaciones/evaluacion-page.test.tsx`.
 
 | Role | Sees it in the menu | Middleware |
@@ -1609,15 +1609,15 @@ File `pages/licitaciones/index.tsx` · 689 lines · frame: MainLayout
 
 ## /licitaciones/nueva
 
-File `pages/licitaciones/nueva.tsx` · 598 lines · frame: MainLayout
+File `pages/licitaciones/nueva.tsx` · 596 lines · frame: MainLayout
 
 ### Who reaches it
 
 - Menu: no entry.
 - Middleware: no role rule. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: yes.
 - In the page:
-  - l.120 `router.push → /login  (when !user)`
-  - l.141 `router.push → /login`
+  - l.118 `router.push → /login  (when !user)`
+  - l.139 `router.push → /login`
 - Linked from: `pages/licitaciones/index.tsx:406`
 - Tests: no browser test that CI runs; unit tests of the page: `__tests__/pages/licitaciones/nueva-requires-cliente.test.tsx`.
 - QA scenarios that name this address: encargado_licitacion 1.
@@ -1640,120 +1640,120 @@ File `pages/licitaciones/nueva.tsx` · 598 lines · frame: MainLayout
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «Nueva Licitacion» | h1 |  | NuevaLicitacionPage · l.317 |
-| «Escuela» | h2 |  | NuevaLicitacionPage · l.323 |
-| «Programa» | h2 |  | NuevaLicitacionPage · l.390 |
-| «Datos de la Licitacion» | h2 |  | NuevaLicitacionPage · l.408 |
-| «Campos Opcionales» | h2 |  | NuevaLicitacionPage · l.528 |
+| «Nueva Licitacion» | h1 |  | NuevaLicitacionPage · l.315 |
+| «Escuela» | h2 |  | NuevaLicitacionPage · l.321 |
+| «Programa» | h2 |  | NuevaLicitacionPage · l.388 |
+| «Datos de la Licitacion» | h2 |  | NuevaLicitacionPage · l.406 |
+| «Campos Opcionales» | h2 |  | NuevaLicitacionPage · l.526 |
 
 **Buttons** (3)
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «Volver a Licitaciones» | `{() => router.push('/licitaciones')}` |  |  |  | NuevaLicitacionPage · l.309 |
-| «Cancelar» | `{() => router.push('/licitaciones')}` |  |  |  | NuevaLicitacionPage · l.577 |
-| «Creando... / Crear Licitacion» (submits the form) · tooltip «{schoolSinCliente ? SIN_CLIENTE : undefined}» |  |  | `{submitting \|\| schoolSinCliente}` |  | NuevaLicitacionPage · l.584 |
+| «Volver a Licitaciones» | `{() => router.push('/licitaciones')}` |  |  |  | NuevaLicitacionPage · l.307 |
+| «Cancelar» | `{() => router.push('/licitaciones')}` |  |  |  | NuevaLicitacionPage · l.575 |
+| «Creando... / Crear Licitacion» (submits the form) · tooltip «{schoolSinCliente ? SIN_CLIENTE : undefined}» |  |  | `{submitting \|\| schoolSinCliente}` |  | NuevaLicitacionPage · l.582 |
 
 **Fields** (14)
 
 | Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
 |---|---|---|---|---|---|---|
-|  | select |  | «Seleccione una escuela...», «(lista) {s.name}» |  | `id=field-school_id` | NuevaLicitacionPage · l.329 |
-|  | select |  | «(lista) {y}» |  | `id=field-year` | NuevaLicitacionPage · l.345 |
-|  | select |  | «Seleccione un programa...», «(lista) {p.nombre}» |  | `id=field-programa_id` | NuevaLicitacionPage · l.392 |
-| «Ej: Asesoria integral para transformacion educativa 2026» | text | «Ej: Asesoria integral para transformacion educativa 2026» · `maxLength={500}` |  |  | `id=field-nombre_licitacion` | NuevaLicitacionPage · l.411 |
-| «licitaciones@escuela.cl» | email | «licitaciones@escuela.cl» |  |  | `id=field-email_licitacion` | NuevaLicitacionPage · l.423 |
-|  | select |  | «UF», «CLP» |  | `id=field-tipo_moneda` | NuevaLicitacionPage · l.435 |
-| «0» | number | «0» · `min=0 step=0.01` |  |  | `id=field-monto_minimo` | NuevaLicitacionPage · l.447 |
-| «0» | number | «0» · `min=0 step=0.01` |  |  | `id=field-monto_maximo` | NuevaLicitacionPage · l.460 |
-| «Ej: 6 meses» | text | «Ej: 6 meses» |  |  | `id=field-duracion_minima` | NuevaLicitacionPage · l.475 |
-| «Ej: 12 meses» | text | «Ej: 12 meses» |  |  | `id=field-duracion_maxima` | NuevaLicitacionPage · l.486 |
-| «Peso Evaluacion Tecnica *» | range | `min=1 max=99` |  |  | `id=field-peso_evaluacion_tecnica (id used by code)` | NuevaLicitacionPage · l.504 |
-| «Ej: 30» | number | «Ej: 30» · `min=1` |  |  | `id=field-participantes_estimados` | NuevaLicitacionPage · l.531 |
-|  | select |  | «Sin preferencia», «Presencial», «Virtual», «Hibrido» |  | `id=field-modalidad_preferida` | NuevaLicitacionPage · l.543 |
-| «Observaciones o contexto adicional...» | textarea | «Observaciones o contexto adicional...» · `maxLength={2000}` |  |  | `id=field-notas` | NuevaLicitacionPage · l.558 |
+|  | select |  | «Seleccione una escuela...», «(lista) {s.name}» |  | `id=field-school_id` | NuevaLicitacionPage · l.327 |
+|  | select |  | «(lista) {y}» |  | `id=field-year` | NuevaLicitacionPage · l.343 |
+|  | select |  | «Seleccione un programa...», «(lista) {p.nombre}» |  | `id=field-programa_id` | NuevaLicitacionPage · l.390 |
+| «Ej: Asesoria integral para transformacion educativa 2026» | text | «Ej: Asesoria integral para transformacion educativa 2026» · `maxLength={500}` |  |  | `id=field-nombre_licitacion` | NuevaLicitacionPage · l.409 |
+| «licitaciones@escuela.cl» | email | «licitaciones@escuela.cl» |  |  | `id=field-email_licitacion` | NuevaLicitacionPage · l.421 |
+|  | select |  | «UF», «CLP» |  | `id=field-tipo_moneda` | NuevaLicitacionPage · l.433 |
+| «0» | number | «0» · `min=0 step=0.01` |  |  | `id=field-monto_minimo` | NuevaLicitacionPage · l.445 |
+| «0» | number | «0» · `min=0 step=0.01` |  |  | `id=field-monto_maximo` | NuevaLicitacionPage · l.458 |
+| «Ej: 6 meses» | text | «Ej: 6 meses» |  |  | `id=field-duracion_minima` | NuevaLicitacionPage · l.473 |
+| «Ej: 12 meses» | text | «Ej: 12 meses» |  |  | `id=field-duracion_maxima` | NuevaLicitacionPage · l.484 |
+| «Peso Evaluacion Tecnica *» | range | `min=1 max=99` |  |  | `id=field-peso_evaluacion_tecnica (id used by code)` | NuevaLicitacionPage · l.502 |
+| «Ej: 30» | number | «Ej: 30» · `min=1` |  |  | `id=field-participantes_estimados` | NuevaLicitacionPage · l.529 |
+|  | select |  | «Sin preferencia», «Presencial», «Virtual», «Hibrido» |  | `id=field-modalidad_preferida` | NuevaLicitacionPage · l.541 |
+| «Observaciones o contexto adicional...» | textarea | «Observaciones o contexto adicional...» · `maxLength={2000}` |  |  | `id=field-notas` | NuevaLicitacionPage · l.556 |
 
 **Forms** (1)
 
 | On submit | Shown when | Where |
 |---|---|---|
-| `{handleSubmit}` |  | NuevaLicitacionPage · l.320 |
+| `{handleSubmit}` |  | NuevaLicitacionPage · l.318 |
 
 **Toasts** (5)
 
 | Kind | Text | When | Where |
 |---|---|---|---|
-| error | «Solo administradores pueden crear licitaciones» | `!roles.includes('admin')` | checkAuth · l.129 |
-| error | «No se pudo cargar el cliente vinculado» | `error \|\| !data` | handleSchoolChange · l.183 |
-| error | «Error al crear licitacion» | `!res.ok` | handleSubmit · l.265 |
-| success | «Licitacion creada exitosamente» |  | handleSubmit · l.269 |
-| error | «Error inesperado al crear licitacion» |  | handleSubmit · l.272 |
+| error | «Solo administradores pueden crear licitaciones» | `!roles.includes('admin')` | checkAuth · l.127 |
+| error | «No se pudo cargar el cliente vinculado» | `error \|\| !data` | handleSchoolChange · l.181 |
+| error | «Error al crear licitacion» | `!res.ok` | handleSubmit · l.263 |
+| success | «Licitacion creada exitosamente» |  | handleSubmit · l.267 |
+| error | «Error inesperado al crear licitacion» |  | handleSubmit · l.270 |
 
 **Moves to another page from code** (6)
 
 | Goes to | How | When | Where |
 |---|---|---|---|
-| `/login` | `router.push` | `!user` | checkAuth · l.120 |
-| `/licitaciones` | `router.push` | `!roles.includes('admin')` | checkAuth · l.130 |
-| `/login` | `router.push` |  | checkAuth · l.141 |
-| `/licitaciones/[*]` | `router.push` |  | handleSubmit · l.270 |
-| `/licitaciones` | `router.push` |  | NuevaLicitacionPage · l.310 |
-| `/licitaciones` | `router.push` |  | NuevaLicitacionPage · l.579 |
+| `/login` | `router.push` | `!user` | checkAuth · l.118 |
+| `/licitaciones` | `router.push` | `!roles.includes('admin')` | checkAuth · l.128 |
+| `/login` | `router.push` |  | checkAuth · l.139 |
+| `/licitaciones/[*]` | `router.push` |  | handleSubmit · l.268 |
+| `/licitaciones` | `router.push` |  | NuevaLicitacionPage · l.308 |
+| `/licitaciones` | `router.push` |  | NuevaLicitacionPage · l.577 |
 
 **Pieces placed here, with the texts and settings handed to them** (15)
 
 | Piece | Texts and settings | Shown when | Hook | Where |
 |---|---|---|---|---|
-| `MainLayout` | pageTitle: Nueva Licitacion | `authLoading` |  | NuevaLicitacionPage · l.282 |
-| `MainLayout` | pageTitle: Nueva Licitacion |  |  | NuevaLicitacionPage · l.300 |
-| `Field` | label: Escuela |  |  | NuevaLicitacionPage · l.328 |
-| `Field` | label: Ano de Licitacion |  |  | NuevaLicitacionPage · l.344 |
-| `Field` | label: Programa FNE |  |  | NuevaLicitacionPage · l.391 |
-| `Field` | label: Nombre de la Licitacion |  |  | NuevaLicitacionPage · l.410 |
-| `Field` | label: Correo electronico de contacto para la licitacion |  |  | NuevaLicitacionPage · l.422 |
-| `Field` | label: Moneda |  |  | NuevaLicitacionPage · l.434 |
-| `Field` | label: Monto minimo ({form.tipo_moneda}) |  |  | NuevaLicitacionPage · l.446 |
-| `Field` | label: Monto maximo ({form.tipo_moneda}) |  |  | NuevaLicitacionPage · l.459 |
-| `Field` | label: Duracion minima del servicio |  |  | NuevaLicitacionPage · l.474 |
-| `Field` | label: Duracion maxima del servicio |  |  | NuevaLicitacionPage · l.485 |
-| `Field` | label: Participantes estimados |  |  | NuevaLicitacionPage · l.530 |
-| `Field` | label: Modalidad preferida |  |  | NuevaLicitacionPage · l.542 |
-| `Field` | label: Notas adicionales |  |  | NuevaLicitacionPage · l.557 |
+| `MainLayout` | pageTitle: Nueva Licitacion | `authLoading` |  | NuevaLicitacionPage · l.280 |
+| `MainLayout` | pageTitle: Nueva Licitacion |  |  | NuevaLicitacionPage · l.298 |
+| `Field` | label: Escuela |  |  | NuevaLicitacionPage · l.326 |
+| `Field` | label: Ano de Licitacion |  |  | NuevaLicitacionPage · l.342 |
+| `Field` | label: Programa FNE |  |  | NuevaLicitacionPage · l.389 |
+| `Field` | label: Nombre de la Licitacion |  |  | NuevaLicitacionPage · l.408 |
+| `Field` | label: Correo electronico de contacto para la licitacion |  |  | NuevaLicitacionPage · l.420 |
+| `Field` | label: Moneda |  |  | NuevaLicitacionPage · l.432 |
+| `Field` | label: Monto minimo ({form.tipo_moneda}) |  |  | NuevaLicitacionPage · l.444 |
+| `Field` | label: Monto maximo ({form.tipo_moneda}) |  |  | NuevaLicitacionPage · l.457 |
+| `Field` | label: Duracion minima del servicio |  |  | NuevaLicitacionPage · l.472 |
+| `Field` | label: Duracion maxima del servicio |  |  | NuevaLicitacionPage · l.483 |
+| `Field` | label: Participantes estimados |  |  | NuevaLicitacionPage · l.528 |
+| `Field` | label: Modalidad preferida |  |  | NuevaLicitacionPage · l.540 |
+| `Field` | label: Notas adicionales |  |  | NuevaLicitacionPage · l.555 |
 
 **Texts kept in lists and helpers in the code (labels, options, status names)** (2)
 
 | Name | Texts | Where |
 |---|---|---|
-| `SIN_CLIENTE` | «Esta escuela no tiene un cliente vinculado. Vincule un cliente antes de crear la licitación.» | l.73 |
-| `DEFAULT_FORM` | «UF» | l.77 |
+| `SIN_CLIENTE` | «Esta escuela no tiene un cliente vinculado. Vincule un cliente antes de crear la licitación.» | l.71 |
+| `DEFAULT_FORM` | «UF» | l.75 |
 
 **Other texts written in the code (safety net: not tied to an element by the script)** (3)
 
 | Text | Where |
 |---|---|
-| «El cliente no tiene toda la informacion legal requerida. Edite el cliente en la seccion de Escuelas.» | NuevaLicitacionPage · l.193 |
-| «Ingrese el monto minimo» | NuevaLicitacionPage · l.213 |
-| «Ingrese el monto maximo» | NuevaLicitacionPage · l.214 |
+| «El cliente no tiene toda la informacion legal requerida. Edite el cliente en la seccion de Escuelas.» | NuevaLicitacionPage · l.191 |
+| «Ingrese el monto minimo» | NuevaLicitacionPage · l.211 |
+| «Ingrese el monto maximo» | NuevaLicitacionPage · l.212 |
 
 **Values shown from data** (3)
 
-- `{errors[name]}` — Field · l.68, when `errors[name]`
-- `{errors.peso_evaluacion_tecnica}` — NuevaLicitacionPage · l.520, when `errors.peso_evaluacion_tecnica`
-- `{SIN_CLIENTE}` — NuevaLicitacionPage · l.574, when `schoolSinCliente`
+- `{errors[name]}` — Field · l.66, when `errors[name]`
+- `{errors.peso_evaluacion_tecnica}` — NuevaLicitacionPage · l.518, when `errors.peso_evaluacion_tecnica`
+- `{SIN_CLIENTE}` — NuevaLicitacionPage · l.572, when `schoolSinCliente`
 
 **Other texts on screen** (11)
 
-- «{label} [*]» (label) — Field · l.63
-- «Complete los campos para crear un nuevo proceso de licitacion» — NuevaLicitacionPage · l.318
-- «Cargando informacion del cliente...» — NuevaLicitacionPage · l.361, when `loadingCliente`
-- «Cliente vinculado» — NuevaLicitacionPage · l.368, when `selectedCliente && !loadingCliente`
-- «Nombre legal:» — NuevaLicitacionPage · l.372, when `selectedCliente && !loadingCliente`
-- «RUT:» — NuevaLicitacionPage · l.375, when `selectedCliente && !loadingCliente`
-- «Representante:» — NuevaLicitacionPage · l.378, when `selectedCliente && !loadingCliente`
-- «Comuna:» — NuevaLicitacionPage · l.381, when `selectedCliente && !loadingCliente`
-- «Peso Evaluacion Tecnica *» (label) — NuevaLicitacionPage · l.499
-- «Tecnica: {pesoTecnico} %» — NuevaLicitacionPage · l.515
-- «Economica: {pesoEconomico} %» — NuevaLicitacionPage · l.516
+- «{label} [*]» (label) — Field · l.61
+- «Complete los campos para crear un nuevo proceso de licitacion» — NuevaLicitacionPage · l.316
+- «Cargando informacion del cliente...» — NuevaLicitacionPage · l.359, when `loadingCliente`
+- «Cliente vinculado» — NuevaLicitacionPage · l.366, when `selectedCliente && !loadingCliente`
+- «Nombre legal:» — NuevaLicitacionPage · l.370, when `selectedCliente && !loadingCliente`
+- «RUT:» — NuevaLicitacionPage · l.373, when `selectedCliente && !loadingCliente`
+- «Representante:» — NuevaLicitacionPage · l.376, when `selectedCliente && !loadingCliente`
+- «Comuna:» — NuevaLicitacionPage · l.379, when `selectedCliente && !loadingCliente`
+- «Peso Evaluacion Tecnica *» (label) — NuevaLicitacionPage · l.497
+- «Tecnica: {pesoTecnico} %» — NuevaLicitacionPage · l.513
+- «Economica: {pesoEconomico} %» — NuevaLicitacionPage · l.514
 
 **Reads and writes the database directly:** `table:clientes` (select), `table:programas` (select), `table:schools` (select)
 
@@ -1761,8 +1761,8 @@ File `pages/licitaciones/nueva.tsx` · 598 lines · frame: MainLayout
 
 | Address | Method | Called from |
 |---|---|---|
-| `/api/auth/my-roles` | GET | `pages/licitaciones/nueva.tsx:124` |
-| `/api/licitaciones` | POST | `pages/licitaciones/nueva.tsx:256` |
+| `/api/auth/my-roles` | GET | `pages/licitaciones/nueva.tsx:122` |
+| `/api/licitaciones` | POST | `pages/licitaciones/nueva.tsx:254` |
 
 ## /propuesta/[slug]
 
@@ -3651,7 +3651,7 @@ Used by: `/admin/licitaciones/criterios`, `/admin/licitaciones/feriados`, `/admi
 | `/api/admin/licitaciones/criterios` | `pages/api/admin/licitaciones/criterios.ts` | DELETE, GET, PATCH, POST | `/admin/licitaciones/criterios` | `pages/admin/licitaciones/criterios.tsx` |
 | `/api/admin/licitaciones/feriados` | `pages/api/admin/licitaciones/feriados.ts` | DELETE, GET, POST, PUT | `/admin/licitaciones/feriados` | `__tests__/api/licitaciones/generate-contract.test.ts`, `pages/admin/licitaciones/feriados.tsx` |
 | `/api/admin/licitaciones/templates` | `pages/api/admin/licitaciones/templates.ts` | GET, PATCH, POST | `/admin/licitaciones/criterios`, `/admin/licitaciones/templates` | `pages/admin/licitaciones/criterios.tsx`, `pages/admin/licitaciones/templates.tsx` |
-| `/api/licitaciones/[id]` | `pages/api/licitaciones/[id].ts` | DELETE, GET, PATCH | `/contracts`, `/licitaciones/[id]`, `/licitaciones/[id]/evaluacion` | `__tests__/api/licitaciones/create-requires-cliente.test.ts`, `__tests__/api/licitaciones/detail-encargado-cliente.test.ts`, `__tests__/api/licitaciones/estado-rules.test.ts`, `__tests__/api/licitaciones/licitaciones-historico.test.ts`, `__tests__/api/licitaciones/licitaciones-index.test.ts` +10 |
+| `/api/licitaciones/[id]` | `pages/api/licitaciones/[id].ts` | DELETE, GET, PATCH | `/contracts`, `/licitaciones/[id]`, `/licitaciones/[id]/evaluacion` | `__tests__/api/licitaciones/create-requires-cliente.test.ts`, `__tests__/api/licitaciones/detail-encargado-cliente.test.ts`, `__tests__/api/licitaciones/estado-rules.test.ts`, `__tests__/api/licitaciones/licitaciones-historico.test.ts`, `__tests__/api/licitaciones/licitaciones-index.test.ts` +11 |
 | `/api/licitaciones/[id]/adjudicacion-confirmar` | `pages/api/licitaciones/[id]/adjudicacion-confirmar.ts` | POST | `/licitaciones/[id]` | `__tests__/api/licitaciones/adjudicacion-confirmar-winner.test.ts`, `__tests__/api/licitaciones/carta-stuck-tender.test.ts`, `__tests__/components/licitaciones/step6-award-selection.test.tsx`, `components/licitaciones/Step6Adjudicacion.tsx` |
 | `/api/licitaciones/[id]/adjudicacion` | `pages/api/licitaciones/[id]/adjudicacion.ts` | POST | `/licitaciones/[id]` | `__tests__/api/licitaciones/adjudicacion-carta-stale.test.ts`, `__tests__/components/licitaciones/step6-award-selection.test.tsx`, `components/licitaciones/Step6Adjudicacion.tsx` |
 | `/api/licitaciones/[id]/advance` | `pages/api/licitaciones/[id]/advance.ts` | POST | `/licitaciones/[id]`, `/licitaciones/[id]/evaluacion` | `__tests__/api/licitaciones/ates.test.ts`, `components/licitaciones/Step3Bases.tsx`, `components/licitaciones/Step4Propuestas.tsx`, `pages/licitaciones/[id]/evaluacion.tsx` |
@@ -3661,10 +3661,10 @@ Used by: `/admin/licitaciones/criterios`, `/admin/licitaciones/feriados`, `/admi
 | `/api/licitaciones/[id]/documentos` | `pages/api/licitaciones/[id]/documentos.ts` | DELETE | `/licitaciones/[id]` | `__tests__/api/licitaciones/estado-rules.test.ts`, `components/licitaciones/ArchiveView.tsx`, `components/licitaciones/DocumentCenter.tsx`, `components/licitaciones/Step3Bases.tsx` |
 | `/api/licitaciones/[id]/download-doc` | `pages/api/licitaciones/[id]/download-doc.ts` | GET | `/licitaciones/[id]` | `__tests__/components/licitaciones/document-preview.test.tsx`, `components/licitaciones/ArchiveView.tsx`, `components/licitaciones/DocumentCenter.tsx`, `components/licitaciones/DocumentPreview.tsx` |
 | `/api/licitaciones/[id]/download-zip` | `pages/api/licitaciones/[id]/download-zip.ts` | POST | `/licitaciones/[id]` | `__tests__/api/licitaciones/download-zip.test.ts`, `components/licitaciones/DocumentCenter.tsx` |
-| `/api/licitaciones/[id]/evaluacion` | `pages/api/licitaciones/[id]/evaluacion.ts` | GET, POST | `/licitaciones/[id]`, `/licitaciones/[id]/evaluacion` | `__tests__/api/licitaciones/evaluacion-route.test.ts`, `__tests__/pages/licitaciones/evaluacion-page.test.tsx`, `pages/licitaciones/[id].tsx`, `pages/licitaciones/[id]/evaluacion.tsx` |
+| `/api/licitaciones/[id]/evaluacion` | `pages/api/licitaciones/[id]/evaluacion.ts` | GET, POST | `/licitaciones/[id]`, `/licitaciones/[id]/evaluacion` | `__tests__/api/licitaciones/evaluacion-route.test.ts`, `__tests__/pages/licitaciones/evaluacion-page.test.tsx`, `__tests__/pages/licitaciones/licitacion-detail-eliminar.test.tsx`, `pages/licitaciones/[id].tsx`, `pages/licitaciones/[id]/evaluacion.tsx` |
 | `/api/licitaciones/[id]/generate-acta` | `pages/api/licitaciones/[id]/generate-acta.ts` | GET | `/licitaciones/[id]/evaluacion` | `__tests__/api/licitaciones/generate-acta-route.test.ts`, `pages/licitaciones/[id]/evaluacion.tsx` |
 | `/api/licitaciones/[id]/generate-bases` | `pages/api/licitaciones/[id]/generate-bases.ts` | GET | `/licitaciones/[id]` | `__tests__/api/licitaciones/client-document-access.test.ts`, `__tests__/api/licitaciones/generate-bases-criteria.test.ts`, `components/licitaciones/Step3Bases.tsx` |
-| `/api/licitaciones/[id]/generate-carta` | `pages/api/licitaciones/[id]/generate-carta.ts` | GET | `/licitaciones/[id]` | `__tests__/api/licitaciones/carta-stuck-tender.test.ts`, `__tests__/api/licitaciones/client-document-access.test.ts`, `__tests__/components/licitaciones/carta-before-award.test.tsx`, `components/licitaciones/Step6Adjudicacion.tsx`, `components/licitaciones/Step7Contrato.tsx` |
+| `/api/licitaciones/[id]/generate-carta` | `pages/api/licitaciones/[id]/generate-carta.ts` | GET | `/licitaciones/[id]` | `__tests__/api/licitaciones/carta-signer.test.ts`, `__tests__/api/licitaciones/carta-stuck-tender.test.ts`, `__tests__/api/licitaciones/client-document-access.test.ts`, `__tests__/components/licitaciones/carta-before-award.test.tsx`, `components/licitaciones/Step6Adjudicacion.tsx` +1 |
 | `/api/licitaciones/[id]/generate-contract` | `pages/api/licitaciones/[id]/generate-contract.ts` | POST | `/contracts` | `__tests__/api/licitaciones/client-document-access.test.ts`, `__tests__/api/licitaciones/generate-contract.test.ts`, `__tests__/pages/contracts-licitacion-once.test.tsx`, `pages/contracts.tsx` |
 | `/api/licitaciones/[id]/generate-propuesta` | `pages/api/licitaciones/[id]/generate-propuesta.ts` | POST | `/licitaciones/[id]` | `__tests__/api/licitaciones/generate-propuesta-price.test.ts`, `__tests__/api/licitaciones/generate-propuesta-retire-older.test.ts`, `__tests__/api/licitaciones/generate-propuesta-slug.test.ts`, `__tests__/api/licitaciones/generate-propuesta-stale.test.ts`, `__tests__/components/licitaciones/proposal-retire-older.test.tsx` +1 |
 | `/api/licitaciones/[id]/propuestas` | `pages/api/licitaciones/[id]/propuestas.ts` | GET, POST | `/licitaciones/[id]` | `__tests__/api/licitaciones/propuesta-access-code.test.ts`, `__tests__/api/licitaciones/propuesta-retirar.test.ts`, `__tests__/components/licitaciones/proposal-access-code.test.tsx`, `__tests__/components/licitaciones/proposal-platform-hidden.test.tsx`, `__tests__/components/licitaciones/proposal-pricing.test.tsx` +3 |

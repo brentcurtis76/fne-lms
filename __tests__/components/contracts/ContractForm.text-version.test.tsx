@@ -114,6 +114,41 @@ describe('ContractForm — the preview prints the contract\'s own text', () => {
     expect(html).not.toContain(OLD_TEXT);
   });
 
+  // «Guardar Borrador» of a new form reuses the draft with the same number (estado 'borrador')
+  // and keeps its mark, so the preview must show the text that draft prints (send-back 1, R2).
+  const newFormPreview = async (existingDraft: Record<string, any> | null) => {
+    currentClient = createFakeSupabase({ existingDraft });
+    const { container } = render(<ContractForm programas={PROGRAMAS} clientes={[]} onSuccess={vi.fn()} onCancel={vi.fn()} />);
+    fillNewClientStep();
+    clickButton('Siguiente');
+    fillContractStep(container, { programaId: 'prog-a', total: 100 });
+    clickButton('Siguiente');
+    clickButton(/Agregar Cuota/);
+    clickButton('Calcular Automático');
+    fillCuotaDates(container);
+    const html = await openPreview();
+    return { html, reads: currentClient.__reads as Array<{ table: string; filters: Record<string, any> }> };
+  };
+
+  it('a new form whose number matches an old-text draft previews the old text', async () => {
+    const { html, reads } = await newFormPreview({ id: 'draft-1', numero_contrato: 'X', estado: 'borrador', plantilla_version: null });
+    expect(html).toContain(OLD_TEXT);
+    expect(html).not.toContain(NEW_TEXT);
+    expect(reads.some((r) => r.table === 'contratos' && r.filters.estado === 'borrador' && 'numero_contrato' in r.filters)).toBe(true);
+  });
+
+  it('a new form whose number matches a draft on version 2 previews the corrected text', async () => {
+    const { html } = await newFormPreview({ id: 'draft-2', numero_contrato: 'X', estado: 'borrador', plantilla_version: 2 });
+    expect(html).toContain(NEW_TEXT);
+    expect(html).not.toContain(OLD_TEXT);
+  });
+
+  it('a new form with no such draft previews the corrected text', async () => {
+    const { html } = await newFormPreview(null);
+    expect(html).toContain(NEW_TEXT);
+    expect(html).not.toContain(OLD_TEXT);
+  });
+
   it('editing a contract still on the old text previews the old text', async () => {
     currentClient = createFakeSupabase();
     render(<ContractForm programas={PROGRAMAS} clientes={[client]} editingContract={editing()} onSuccess={vi.fn()} onCancel={vi.fn()} />);

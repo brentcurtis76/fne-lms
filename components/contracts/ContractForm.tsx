@@ -1352,8 +1352,31 @@ export default function ContractForm({ programas, clientes, editingContract, pre
     return new Date(dateString).toLocaleDateString('es-CL');
   };
 
+  // F22: the version of the draft «Guardar Borrador» would reuse for a new form (same
+  // lookup: same number, estado 'borrador'); that draft keeps its mark when saved. No such
+  // draft, an empty number or a failed lookup: 2, the text a new contract gets.
+  const readReusedDraftVersion = async (): Promise<number | null> => {
+    if (!contractForm.numero_contrato) return 2;
+    try {
+      const { data, error } = await supabase
+        .from('contratos')
+        .select('id, plantilla_version')
+        .eq('numero_contrato', contractForm.numero_contrato)
+        .eq('estado', 'borrador')
+        .single();
+      if (error || !data) return 2;
+      return data.plantilla_version ?? null;
+    } catch {
+      return 2;
+    }
+  };
+
   // Generate PDF using contract-template.ts
   const generateContractPDF = async () => {
+    // The window opens first, inside the click, so that the lookup below does not trip the popup blocker.
+    const preview = openDocumentPreview();
+    const plantillaVersion = editingContract ? (editingContract.plantilla_version ?? null) : await readReusedDraftVersion();
+
     // Get selected program
     const selectedPrograma = programas.find(p => p.id === contractForm.programa_id);
 
@@ -1365,8 +1388,8 @@ export default function ContractForm({ programas, clientes, editingContract, pre
       precio_total_uf: contractForm.precio_total_uf,
       precio_total_clp: contractForm.tipo_moneda === 'CLP' ? contractForm.precio_total_uf : 0,
       tipo_moneda: contractForm.tipo_moneda,
-      // F22: a new contract gets the corrected text (2); an edited one previews its own text.
-      plantilla_version: editingContract ? (editingContract.plantilla_version ?? null) : 2,
+      // F22: an edited contract, or the draft a new form reuses, previews its own text; otherwise 2.
+      plantilla_version: plantillaVersion,
       cliente: {
         nombre_legal: clienteForm.nombre_legal,
         nombre_fantasia: clienteForm.nombre_fantasia,
@@ -1397,7 +1420,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
     // Generate HTML from template
     const htmlContent = generateContractFromTemplate(contractData);
 
-    return renderDocumentPreview(openDocumentPreview(), htmlContent, `Contrato ${contractForm.numero_contrato}`);
+    return renderDocumentPreview(preview, htmlContent, `Contrato ${contractForm.numero_contrato}`);
   };
 
   // Cuotas against the contract total, in whole units of the currency (GES-2.7)

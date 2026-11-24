@@ -16,7 +16,10 @@
 --   on INSERT, every caller gets 2 (whatever was sent);
 --   on UPDATE by a signed-in caller (auth.uid() IS NOT NULL), a change of the mark is
 --   allowed only from empty to 2, on a contract that is not signed (before or after
---   the update), not an annex and not manual or imported. Anything else is refused
+--   the update), not an annex and not manual or imported. "Imported" is the print
+--   page's own test (pages/contract-print/[id].tsx: not an annex and es_manual or no
+--   joined programme); programa_id has a foreign key to programas, so "no joined
+--   programme" is programa_id IS NULL. Anything else is refused
 --   with 42501. Nobody moves a contract back. The owner and server jobs
 --   (auth.uid() IS NULL) are not checked on UPDATE.
 -- Additive: one column, one function, one trigger. No policy changes.
@@ -48,8 +51,10 @@ BEGIN
             AND NOT coalesce(OLD.firmado, false)
             AND NOT coalesce(NEW.firmado, false)
             AND NOT coalesce(OLD.is_anexo, false)
-            AND NOT coalesce(OLD.es_manual, false)) THEN
-      RAISE EXCEPTION 'F22: plantilla_version moves only from empty to 2, on an unsigned contract that is not an annex and not manual'
+            AND NOT coalesce(OLD.es_manual, false)
+            AND OLD.programa_id IS NOT NULL
+            AND NEW.programa_id IS NOT NULL) THEN
+      RAISE EXCEPTION 'F22: plantilla_version moves only from empty to 2, on an unsigned programme contract that is not an annex and not manual'
         USING ERRCODE = '42501';
     END IF;
   END IF;
@@ -58,7 +63,7 @@ END;
 $$;
 REVOKE ALL ON FUNCTION public.guard_contrato_plantilla_version() FROM PUBLIC, anon, authenticated;
 COMMENT ON FUNCTION public.guard_contrato_plantilla_version() IS
-  'F22 (T1): a contract keeps the text it was made with. Every new contract gets plantilla_version 2. A signed-in person may change the mark only from empty to 2, on a contract that is not signed, not an annex and not manual; never back. Calls without a signed-in person (the owner, server jobs) are not checked on update.';
+  'F22 (T1): a contract keeps the text it was made with. Every new contract gets plantilla_version 2. A signed-in person may change the mark only from empty to 2, on a contract that is not signed, not an annex, not manual and has a programme; never back. Calls without a signed-in person (the owner, server jobs) are not checked on update.';
 
 CREATE TRIGGER trg_guard_contrato_plantilla_version
   BEFORE INSERT OR UPDATE ON public.contratos

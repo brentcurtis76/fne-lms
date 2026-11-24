@@ -34,7 +34,9 @@ INSERT INTO public.contratos(id,numero_contrato,fecha_contrato,cliente_id,progra
 ('15400000-0000-4000-8000-000000000023','CT154-annex','2026-01-01','15400000-0000-4000-8000-000000000011','15400000-0000-4000-8000-000000000031',false,true,false,'15400000-0000-4000-8000-000000000021'),
 ('15400000-0000-4000-8000-000000000024','CT154-manual','2026-01-01','15400000-0000-4000-8000-000000000011',NULL,false,false,true,NULL),
 ('15400000-0000-4000-8000-000000000025','CT154-sign-and-move','2026-01-01','15400000-0000-4000-8000-000000000011','15400000-0000-4000-8000-000000000031',false,false,false,NULL),
-('15400000-0000-4000-8000-000000000026','CT154-other-roles','2026-01-01','15400000-0000-4000-8000-000000000011','15400000-0000-4000-8000-000000000031',false,false,false,NULL);
+('15400000-0000-4000-8000-000000000026','CT154-other-roles','2026-01-01','15400000-0000-4000-8000-000000000011','15400000-0000-4000-8000-000000000031',false,false,false,NULL),
+-- Not manual but without a programme: the print page treats it as imported (send-back 1, R1).
+('15400000-0000-4000-8000-000000000028','CT154-no-programme','2026-01-01','15400000-0000-4000-8000-000000000011',NULL,false,false,false,NULL);
 
 -- The column.
 SELECT has_column('public','contratos','plantilla_version','contratos has plantilla_version');
@@ -47,7 +49,7 @@ SELECT is(pg_temp.affected($q$INSERT INTO public.contratos(id,numero_contrato,fe
 SELECT is(pg_temp.mark('15400000-0000-4000-8000-000000000027'),'2','owner: insert with 1 gets 2');
 
 -- "Made before the release": the owner clears the mark (the owner is not checked).
-SELECT is(pg_temp.affected($q$UPDATE public.contratos SET plantilla_version = NULL WHERE id::text LIKE '15400000-0000-4000-8000-00000000002%' AND id <> '15400000-0000-4000-8000-000000000027'$q$),6,'owner: clears the mark of the six old contracts');
+SELECT is(pg_temp.affected($q$UPDATE public.contratos SET plantilla_version = NULL WHERE id::text LIKE '15400000-0000-4000-8000-00000000002%' AND id <> '15400000-0000-4000-8000-000000000027'$q$),7,'owner: clears the mark of the seven old contracts');
 SELECT is(pg_temp.mark('15400000-0000-4000-8000-000000000021'),'empty','owner: old contract mark is empty');
 
 SELECT tests.authenticate_as('ct154_admin');
@@ -73,6 +75,7 @@ SELECT throws_ok($q$UPDATE public.contratos SET plantilla_version = 2 WHERE id='
 SELECT throws_ok($q$UPDATE public.contratos SET plantilla_version = 2, firmado = true WHERE id='15400000-0000-4000-8000-000000000025'$q$,'42501',NULL,'admin: cannot move and sign in one update');
 SELECT throws_ok($q$UPDATE public.contratos SET plantilla_version = 2 WHERE id='15400000-0000-4000-8000-000000000023'$q$,'42501',NULL,'admin: cannot move an annex');
 SELECT throws_ok($q$UPDATE public.contratos SET plantilla_version = 2 WHERE id='15400000-0000-4000-8000-000000000024'$q$,'42501',NULL,'admin: cannot move a manual contract');
+SELECT throws_ok($q$UPDATE public.contratos SET plantilla_version = 2 WHERE id='15400000-0000-4000-8000-000000000028'$q$,'42501',NULL,'admin: cannot move a contract without a programme (imported)');
 SELECT is(pg_temp.mark('15400000-0000-4000-8000-000000000025'),'empty','admin: the refused sign-and-move left the mark empty');
 RESET ROLE;
 

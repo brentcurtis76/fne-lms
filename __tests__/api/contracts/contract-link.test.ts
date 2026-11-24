@@ -266,6 +266,43 @@ describe('GET /api/contracts/contract-link', () => {
     neverSigned();
   });
 
+  // Review SOL-a1: the store answers an unacceptable key with a message that
+  // carries the key itself (e.g. `Invalid key: <name>`), so the route must never
+  // print the error's message or the error object.
+  function spyAllConsole() {
+    return (['error', 'warn', 'log', 'info'] as const).map((m) => vi.spyOn(console, m).mockImplementation(() => {}));
+  }
+  function printedBy(spies: Array<{ mock: { calls: unknown[][] } }>) {
+    return spies
+      .flatMap((s) => s.mock.calls)
+      .flat()
+      .map((a) => (a instanceof Error ? `${a.message} ${a.stack}` : typeof a === 'string' ? a : JSON.stringify(a)))
+      .join(' ');
+  }
+
+  it('a signing error whose message holds the stored name → same 404, the name never logged', async () => {
+    const spies = spyAllConsole();
+    signedIn(ADMIN);
+    mockCreateSignedUrl.mockResolvedValueOnce({ data: null, error: { message: `Invalid key: ${NAME}`, statusCode: '400' } });
+    const { status, body } = await call(C_NAME);
+    expect(status).toBe(404);
+    expect(body).toEqual(NOT_FOUND);
+    expect(mockCreateSignedUrl).toHaveBeenCalledTimes(1);
+    expect(printedBy(spies)).not.toContain(NAME);
+    spies.forEach((s) => s.mockRestore());
+  });
+
+  it('a signing call that throws an error holding the stored name → 500 as before, the name never logged', async () => {
+    const spies = spyAllConsole();
+    signedIn(ADMIN);
+    mockCreateSignedUrl.mockRejectedValueOnce(new Error(`Invalid key: ${NAME}`));
+    const { status, body } = await call(C_NAME);
+    expect(status).toBe(500);
+    expect(body).toEqual({ error: 'Error interno del servidor' });
+    expect(printedBy(spies)).not.toContain(NAME);
+    spies.forEach((s) => s.mockRestore());
+  });
+
   it('never logs the stored value or the link', async () => {
     const log = vi.spyOn(console, 'log').mockImplementation(() => {});
     const error = vi.spyOn(console, 'error').mockImplementation(() => {});

@@ -69,7 +69,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .eq('id', contratoId)
       .maybeSingle();
     if (contratoError) {
-      console.error('[contract-link] contract read failed:', contratoError.message);
+      // Fixed texts only in this route: an error's message can carry the stored
+      // value (the store answers a bad key with `Invalid key: <name>`).
+      console.error('[contract-link] contract read failed');
       return res.status(500).json({ error: 'Error interno del servidor' });
     }
     if (!contrato) {
@@ -86,14 +88,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       ? await bucket.createSignedUrl(name, LINK_SECONDS, { download: true })
       : await bucket.createSignedUrl(name, LINK_SECONDS);
     if (signError || !signed?.signedUrl) {
-      if (signError) console.error('[contract-link] signing failed:', signError.message);
+      if (signError) console.error('[contract-link] signing failed');
       return res.status(404).json(NOT_FOUND);
     }
 
     res.setHeader('Cache-Control', 'no-store');
     return res.status(200).json({ url: signed.signedUrl, expiresIn: LINK_SECONDS });
-  } catch (error) {
-    console.error('[contract-link] unexpected error:', error instanceof Error ? error.message : 'unknown');
+  } catch {
+    console.error('[contract-link] unexpected error');
     return res.status(500).json({ error: 'Error interno del servidor' });
   }
 }

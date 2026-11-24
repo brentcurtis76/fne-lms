@@ -148,6 +148,10 @@ export default function LicitacionDetailPage() {
   // is closed — live records render the workflow directly (see computed
   // `historicalView` below).
   const [closedRecordState, setClosedRecordState] = useState<'pending' | 'archive' | 'workflow'>('pending');
+  // True only when /evaluacion answered and showed a historical record. The
+  // failure fallback above shows the archive view but never counts as a
+  // historical record for «Eliminar» (the route would answer 409).
+  const [archiveDetected, setArchiveDetected] = useState(false);
 
   useEffect(() => {
     checkAuth();
@@ -174,6 +178,7 @@ export default function LicitacionDetailPage() {
     if (!licitacion) return;
     if (licitacion.estado !== 'cerrada') return;
     setClosedRecordState('pending');
+    setArchiveDetected(false);
     let cancelled = false;
     (async () => {
       try {
@@ -190,6 +195,7 @@ export default function LicitacionDetailPage() {
         if (!cancelled) {
           const isArchive = committee.length === 0 && ates.length === 0 && scores.length === 0;
           setClosedRecordState(isArchive ? 'archive' : 'workflow');
+          setArchiveDetected(isArchive);
         }
       } catch {
         if (!cancelled) setClosedRecordState('archive');
@@ -515,7 +521,7 @@ export default function LicitacionDetailPage() {
           </div>
           <div className="flex items-center gap-3">
             <EstadoBadge estado={licitacion.estado} />
-            {isAdmin && puedeEliminarLicitacion(licitacion.estado, historicalView === 'archive') && (
+            {isAdmin && puedeEliminarLicitacion(licitacion.estado, historicalView === 'archive' && archiveDetected) && (
               <button
                 onClick={() => {
                   if (window.confirm(

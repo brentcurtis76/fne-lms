@@ -11,7 +11,10 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { h } = vi.hoisted(() => ({
-  h: { detail: {} as Record<string, unknown>, role: 'admin', evaluacion: {} as Record<string, unknown> },
+  h: {
+    detail: {} as Record<string, unknown>, role: 'admin', evaluacion: {} as Record<string, unknown>,
+    evaluacionOutcome: 'ok' as 'ok' | 'error' | 'throw' | 'never',
+  },
 }));
 
 vi.mock('next/router', () => ({ useRouter: () => ({ query: { id: 'lic-1' }, push: vi.fn() }) }));
@@ -45,11 +48,17 @@ const tender = (estado: string) => ({
 beforeEach(() => {
   h.role = 'admin';
   h.evaluacion = { committee: [{ id: 'm-1' }], ates: [{ id: 'ate-1' }], scores: [] };
+  h.evaluacionOutcome = 'ok';
   vi.stubGlobal('fetch', fetchMock);
   fetchMock.mockImplementation(async (url: string) => {
     if (url === '/api/auth/my-roles') return { ok: true, json: async () => ({ roles: [{ role_type: h.role }] }) };
     if (url === '/api/licitaciones/lic-1') return { ok: true, json: async () => ({ data: { licitacion: h.detail } }) };
-    if (url === '/api/licitaciones/lic-1/evaluacion') return { ok: true, json: async () => ({ data: h.evaluacion }) };
+    if (url === '/api/licitaciones/lic-1/evaluacion') {
+      if (h.evaluacionOutcome === 'error') return { ok: false, status: 500, json: async () => ({ error: 'fallo inventado' }) };
+      if (h.evaluacionOutcome === 'throw') throw new Error('red inventada caída');
+      if (h.evaluacionOutcome === 'never') return new Promise(() => { /* never settles */ });
+      return { ok: true, json: async () => ({ data: h.evaluacion }) };
+    }
     return { ok: true, json: async () => ({ data: {} }) };
   });
 });
@@ -88,6 +97,39 @@ describe('Tender detail — «Eliminar» only where the tender may be deleted', 
     h.evaluacion = { committee: [], ates: [], scores: [] };
     await renderPage();
     await screen.findByText('Vista de archivo (simulada)');
+    expect(screen.getByRole('button', { name: 'Eliminar' })).toBeInTheDocument();
+  });
+
+  // SOL-a1: a failed historical check falls back to the archive view, but it is
+  // never permission to delete — the route would find the committee and answer 409.
+  it('does not offer it for a closed tender when the historical check answers with an error', async () => {
+    h.detail = tender('cerrada');
+    h.evaluacionOutcome = 'error';
+    await renderPage();
+    await screen.findByText('Vista de archivo (simulada)');
+    expect(screen.queryByRole('button', { name: 'Eliminar' })).not.toBeInTheDocument();
+  });
+
+  it('does not offer it for a closed tender when the historical check request throws', async () => {
+    h.detail = tender('cerrada');
+    h.evaluacionOutcome = 'throw';
+    await renderPage();
+    await screen.findByText('Vista de archivo (simulada)');
+    expect(screen.queryByRole('button', { name: 'Eliminar' })).not.toBeInTheDocument();
+  });
+
+  it('does not offer it for a closed tender while the historical check is still pending', async () => {
+    h.detail = tender('cerrada');
+    h.evaluacionOutcome = 'never';
+    await renderPage();
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/licitaciones/lic-1/evaluacion'));
+    expect(screen.queryByRole('button', { name: 'Eliminar' })).not.toBeInTheDocument();
+  });
+
+  it('still offers it to an admin before the award even if the historical check would fail', async () => {
+    h.detail = tender('publicacion_pendiente');
+    h.evaluacionOutcome = 'error';
+    await renderPage();
     expect(screen.getByRole('button', { name: 'Eliminar' })).toBeInTheDocument();
   });
 

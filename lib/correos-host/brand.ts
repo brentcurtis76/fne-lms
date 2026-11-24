@@ -34,6 +34,15 @@ export function generaBrand(baseUrl: string): Brand {
     },
     accentColor: '#fbbf24',
     onAccentColor: '#0a0a0a',
+    // The neutrals: an email cannot read CSS variables, so these are the literal values of the named
+    // colours. Text is --fne-gray-dark, muted text --fne-gray-medium, the sheet --fne-white (all brand kit);
+    // the page is --surface-sunken (gray-50) and the rule --border-default (gray-200), the redesign's own
+    // neutrals, which the stray-colours test lists as exceptions for this file.
+    textColor: '#1f1f1f',
+    mutedTextColor: '#6b7280',
+    pageBackgroundColor: '#f9fafb',
+    sheetBackgroundColor: '#ffffff',
+    ruleColor: '#e5e7eb',
     fontStack:
       'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"',
     footerLines: ['Fundación Nueva Educación', GENERA_FOOTER_PLACEHOLDER],

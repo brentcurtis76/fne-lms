@@ -178,7 +178,8 @@ export default function CorreosVistaPrevia() {
               srcDoc={preview.html}
               sandbox=""
               data-testid="correos-marco"
-              style={{ width: `${frameWidth}px`, maxWidth: '100%', height: '900px', border: '1px solid #e5e7eb', background: '#ffffff' }}
+              className="border border-gray-200 bg-white nuevo:border-brand_primary/[0.24]"
+              style={{ width: `${frameWidth}px`, maxWidth: '100%', height: '900px' }}
             />
           ) : (
             <LoadingBlock label="Cargando el correo de ejemplo" />

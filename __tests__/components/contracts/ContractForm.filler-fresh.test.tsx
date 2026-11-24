@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import React from 'react';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 (globalThis as any).React = React;
@@ -35,7 +35,9 @@ const EXISTING_SENTENCE =
   'Este cliente aún no tiene el RUT de su representante legal. Complétalo en Clientes antes de crear el contrato.';
 const REAL_REP_RUT = '12.345.678-5';
 
-type Fresh = { value?: string | null; error?: boolean };
+type FreshAnswer = { data: { rut_representante?: string | null } | null; error: { message: string } | null };
+/** `respond`, when given, answers each read itself (for a read still pending: a deferred promise). */
+type Fresh = { value?: string | null; error?: boolean; respond?: (id: string) => Promise<FreshAnswer> };
 
 /**
  * The shared fake, with one more answer: `clientes … select('rut_representante')
@@ -55,6 +57,7 @@ function fakeWithFreshRead(fresh: Fresh) {
           return (onFulfilled: any, onRejected: any) => {
             if (!writing && columns === 'rut_representante' && id !== undefined) {
               freshReads.push(id);
+              if (fresh.respond) return fresh.respond(id).then(onFulfilled, onRejected);
               const answer = fresh.error
                 ? { data: null, error: { message: 'lectura fallida' } }
                 : { data: { rut_representante: fresh.value }, error: null };
@@ -238,5 +241,91 @@ describe('ContractForm — the filler check reads the stored RUT afresh (F22e, s
       expect(onSuccess).not.toHaveBeenCalled();
     }
     expect(currentClient.__freshReads).toContain('cliente-1');
+  });
+
+  it('promoting an old draft whose held filler was corrected meanwhile: the client write keeps the real RUT (send-back 2)', async () => {
+    currentClient = fakeWithFreshRead({ value: REAL_REP_RUT });
+    const onSuccess = vi.fn();
+    const editing = contrato({ estado: 'borrador' });
+    const { container } = render(
+      <ContractForm programas={PROGRAMAS} clientes={[editing.clientes as any]} editingContract={editing} onSuccess={onSuccess} onCancel={vi.fn()} />,
+    );
+    clickButton('Siguiente');
+    clickButton('Siguiente');
+    fillCuotaDates(container);
+    clickButton(/Actualizar Contrato/);
+    await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+    const clientWrites = currentClient.__writes.filter((w: any) => w.table === 'clientes');
+    expect(clientWrites.length).toBeGreaterThan(0);
+    for (const w of clientWrites) {
+      // the stale filler is never sent over the stored real RUT
+      expect(w.payload.rut_representante).not.toBe('11.111.111-1');
+    }
+    const clientUpdate = clientWrites.find((w: any) => w.op === 'update');
+    expect(clientUpdate.payload.rut_representante).toBe(REAL_REP_RUT);
+    const promotion = currentClient.__writes.find((w: any) => w.table === 'contratos' && w.op === 'update');
+    expect(promotion.payload.estado).toBe('pendiente');
+  });
+
+  it.each([
+    ['the draft save', /Guardar Borrador/],
+    ['the full save of a new contract', /Guardar Contrato/],
+  ])('stale list, real RUT in the database: %s never writes the filler into clientes (send-back 2)', async (_name, button) => {
+    const { container, onSuccess } = chooseListedClient({ value: REAL_REP_RUT });
+    await waitFor(() => expect(nextButton()).toBeEnabled());
+    toStep3AndFill(container);
+    clickButton(button);
+    await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+    for (const w of currentClient.__writes.filter((x: any) => x.table === 'clientes')) {
+      const rows = Array.isArray(w.payload) ? w.payload : [w.payload];
+      for (const row of rows) expect(row.rut_representante).not.toBe('11.111.111-1');
+    }
+  });
+
+  it('a new selection clears the verification of an earlier one: A verified, B pending, A again pending then failing (send-back 2)', async () => {
+    const pending: Record<string, Array<(answer: FreshAnswer) => void>> = {};
+    const deferredRead = (id: string) =>
+      new Promise<FreshAnswer>(resolve => {
+        (pending[id] ||= []).push(resolve);
+      });
+    currentClient = fakeWithFreshRead({ respond: deferredRead });
+    const clienteA = cliente({ id: 'cliente-a', nombre_legal: 'Colegio A SpA' });
+    const clienteB = cliente({ id: 'cliente-b', nombre_legal: 'Colegio B SpA', rut: '77.111.222-3' });
+    const { container } = render(
+      <ContractForm programas={PROGRAMAS} clientes={[clienteA as any, clienteB as any]} onSuccess={vi.fn()} onCancel={vi.fn()} />,
+    );
+    const select = container.querySelector('select') as Element;
+
+    // A: the list holds the filler, the database answers with a real RUT
+    typeInto(select, 'cliente-a');
+    await waitFor(() => expect(pending['cliente-a']?.length).toBe(1));
+    expect(nextButton()).toBeDisabled();
+    await act(async () => {
+      pending['cliente-a'][0]({ data: { rut_representante: REAL_REP_RUT }, error: null });
+    });
+    await waitFor(() => expect(nextButton()).toBeEnabled());
+
+    // B, whose answer has not arrived; then A again before it does
+    typeInto(select, 'cliente-b');
+    await waitFor(() => expect(pending['cliente-b']?.length).toBe(1));
+    expect(nextButton()).toBeDisabled();
+    typeInto(select, 'cliente-a');
+    await waitFor(() => expect(pending['cliente-a']?.length).toBe(2));
+    // A's earlier verification does not count for this new selection
+    expect(nextButton()).toBeDisabled();
+
+    // B's late answer changes nothing for A
+    await act(async () => {
+      pending['cliente-b'][0]({ data: { rut_representante: REAL_REP_RUT }, error: null });
+    });
+    expect(nextButton()).toBeDisabled();
+
+    // A's new read fails: refused
+    await act(async () => {
+      pending['cliente-a'][1]({ data: null, error: { message: 'lectura fallida' } });
+    });
+    await waitFor(() => expect(screen.getByText(EXISTING_SENTENCE)).toBeInTheDocument());
+    expect(nextButton()).toBeDisabled();
+    expect(currentClient.__writes).toEqual([]);
   });
 });

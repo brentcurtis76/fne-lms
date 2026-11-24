@@ -89,7 +89,8 @@ describe('ContractForm — «Guardar Borrador»', () => {
       nombre_fantasia: 'Colegio Inventado',
       rut: '76.123.456-0',
       nombre_representante: 'Persona Inventada',
-      rut_representante: '11.111.111-1',
+      // F22e: the representative's RUT typed by fillNewClientStep, no filler default
+      rut_representante: '12.345.678-5',
       nombre_notario: 'Notario Público',
       comuna_notaria: null,
     });

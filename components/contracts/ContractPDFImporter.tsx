@@ -236,7 +236,8 @@ export default function ContractPDFImporter({
         ...extractedData.client,
         // Set defaults for required fields if they're missing
         nombre_fantasia: extractedData.client.nombre_fantasia || extractedData.client.nombre_legal,
-        rut_representante: extractedData.client.rut_representante || '11.111.111-1'
+        // none given: passed empty, the contract form asks for it (F22e)
+        rut_representante: extractedData.client.rut_representante || ''
       }
     };
 

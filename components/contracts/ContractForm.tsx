@@ -10,6 +10,7 @@ import { buildClientRow } from '@/lib/contracts/client-row';
 import { splitEvenly, sumsMatch, difference, decimalsFor, hasCurrencyPrecision, precisionMessage } from '@/lib/contracts/cuotas-math';
 import { parseEsClDetailed } from '@/lib/money/parse-es-cl';
 import { formatRut, validateRut } from '@/utils/rutValidation';
+import { decideRepRut, freshReadNeeded, type FreshRead, type RepRutDecision } from '@/lib/contracts/rep-rut-decision';
 import { rutSpellings, oldestClient } from '@/lib/contracts/rut-spellings';
 
 interface Programa {
@@ -137,6 +138,12 @@ const unreadableMessage = (target: { cuota: number } | 'total'): string => {
 
 // A client's RUT is formatted as typed and checked with utils/rutValidation.ts (GES-3.11)
 const RUT_INVALID_MESSAGE = 'El RUT del cliente no es válido. Revise los números y el dígito verificador.';
+// The representative's RUT: required and real for a new client, never the filler 11.111.111-1 (F22e)
+const REP_RUT_MISSING_MESSAGE = 'Ingresa el RUT del representante legal.';
+const REP_RUT_INVALID_MESSAGE = 'El RUT del representante legal no es válido.';
+const REP_RUT_FILLER_MESSAGE = 'Ingresa el RUT real del representante legal; 11.111.111-1 no es válido.';
+const FILLER_CLIENT_CONTRACT_MESSAGE =
+  'Este cliente aún no tiene el RUT de su representante legal. Complétalo en Clientes antes de crear el contrato.';
 // An imported contract's new client: the escritura date is asked for, never made up (GES-3.6)
 const ASK_ESCRITURA_DATE_MESSAGE = 'El PDF no indica la fecha de la escritura pública. Escríbala para crear el cliente.';
 
@@ -199,6 +206,8 @@ export default function ContractForm({ programas, clientes, editingContract, pre
   
   // Client form
   const [selectedClienteId, setSelectedClienteId] = useState(preSelectedClientId || '');
+  // The chosen client's representative's RUT as read afresh from the database (F22e send-back 1)
+  const [freshRepRut, setFreshRepRut] = useState<{ clienteId: string; value: string | null | undefined; ok: boolean } | null>(null);
   const [schools, setSchools] = useState<School[]>([]);
   const [selectedSchoolId, setSelectedSchoolId] = useState<number | ''>('');
   const [showNewSchoolForm, setShowNewSchoolForm] = useState(false);
@@ -333,7 +342,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
         comuna: extractedData.client?.comuna || '',
         ciudad: extractedData.client?.ciudad || '',
         nombre_representante: extractedData.client?.nombre_representante || '',
-        rut_representante: extractedData.client?.rut_representante || '11.111.111-1',
+        rut_representante: extractedData.client?.rut_representante || '', // asked for on the client step (F22e)
         fecha_escritura: extractedData.client?.fecha_escritura || '',
         nombre_notario: extractedData.client?.nombre_notario || 'Notario Público',
         comuna_notaria: extractedData.client?.comuna_notaria || '',
@@ -639,6 +648,99 @@ export default function ContractForm({ programas, clientes, editingContract, pre
   const importedNewClient = !!extractedData && !editingContract && !selectedClienteId;
   const escrituraDateMissing = importedNewClient && !clienteForm.fecha_escritura;
 
+  // F22e, the representative's RUT: every decision on it is taken by decideRepRut
+  // (lib/contracts/rep-rut-decision.ts, send-back 3): a new client needs a real, valid
+  // one; an edited contract follows the edit rule; an existing client chosen (or a
+  // draft turned into a contract) is refused only for the filler as its STORED value,
+  // read afresh when the form holds the filler or no value (freshRepRut, below), or
+  // for a failed read.
+  const isNewClient = !editingContract && !selectedClienteId;
+  const heldRepRut = editingContract ? editingContract.clientes?.rut_representante : undefined;
+  // The client list the page loaded can be stale (send-back 1)
+  const listedRepRut = storedCliente?.rut_representante;
+  const freshForSelected = freshRepRut && freshRepRut.clienteId === selectedClienteId ? freshRepRut : null;
+  // Send-back 2: a new selection clears the earlier verification (handleClienteSelection
+  // and the read below), so until this selection's read answers it decides on the listed value.
+  const stepFreshRead: FreshRead = freshForSelected
+    ? (freshForSelected.ok ? { state: 'answered', value: freshForSelected.value } : { state: 'failed' })
+    : (clientReadOnly && freshReadNeeded(listedRepRut) ? { state: 'pending' } : { state: 'not-needed' });
+  // The decision of the client step and «Siguiente» (for a draft being turned into a
+  // contract the save adds the stored check, below)
+  const repRutStep = decideRepRut({
+    context: editingContract ? 'edit' : clientReadOnly ? 'existing-client' : 'new-client',
+    form: clienteForm.rut_representante,
+    held: editingContract ? heldRepRut : listedRepRut,
+    fresh: stepFreshRead,
+  });
+  const repRutProblem = !repRutStep.allow;
+  const repRutMessageFor = (decision: RepRutDecision) =>
+    decision.refusal === 'client-filler' ? FILLER_CLIENT_CONTRACT_MESSAGE
+      : decision.refusal === 'filler' ? REP_RUT_FILLER_MESSAGE
+        : decision.refusal === 'invalid' ? REP_RUT_INVALID_MESSAGE
+          : REP_RUT_MISSING_MESSAGE;
+  const repRutMessage = () => repRutMessageFor(repRutStep);
+  // The stored representative's RUT of a client the form does not hold that column for
+  const readStoredRepRut = async (clienteId: string): Promise<string | null | undefined> => {
+    const { data, error } = await supabase
+      .from('clientes')
+      .select('rut_representante')
+      .eq('id', clienteId)
+      .single();
+    if (error) throw error;
+    return (data as { rut_representante?: string | null } | null)?.rut_representante;
+  };
+  // The fresh read a save decides on: none when the held value is a usable one
+  // (freshReadNeeded), else the stored value read now; a failed read is 'failed'.
+  const storedRepRutCheck = async (clienteId: string, held: string | null | undefined): Promise<FreshRead> => {
+    if (!freshReadNeeded(held)) return { state: 'not-needed' };
+    try {
+      return { state: 'answered', value: await readStoredRepRut(clienteId) };
+    } catch (readError) {
+      console.error('Error reading the client representative RUT:', readError);
+      return { state: 'failed' };
+    }
+  };
+  // The decision for the existing client chosen for a new contract or draft, on its
+  // stored value read afresh (null when no existing client is chosen)
+  const selectedClientRepRutDecision = async (): Promise<RepRutDecision | null> => {
+    if (!clientReadOnly) return null;
+    return decideRepRut({
+      context: 'existing-client',
+      form: clienteForm.rut_representante,
+      held: listedRepRut,
+      fresh: await storedRepRutCheck(selectedClienteId, listedRepRut),
+    });
+  };
+  // A client found by its RUT (just read) chosen for a new contract or draft
+  const foundClientRepRutDecision = (found: { rut_representante?: string | null }) =>
+    decideRepRut({
+      context: 'existing-client',
+      form: found.rut_representante,
+      held: found.rut_representante,
+      fresh: { state: 'answered', value: found.rut_representante },
+    });
+  // On choosing an existing client the list shows with the filler (or without the
+  // column), its stored value is read afresh before the client step refuses it.
+  useEffect(() => {
+    if (!clientReadOnly || !selectedClienteId) return;
+    if (!freshReadNeeded(listedRepRut)) return;
+    let cancelled = false;
+    const clienteId = selectedClienteId;
+    setFreshRepRut(null); // the earlier verification does not count for this selection (send-back 2)
+    (async () => {
+      try {
+        const value = await readStoredRepRut(clienteId);
+        if (!cancelled) setFreshRepRut({ clienteId, value, ok: true });
+      } catch (readError) {
+        console.error('Error reading the client representative RUT:', readError);
+        if (!cancelled) setFreshRepRut({ clienteId, value: undefined, ok: false });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [clientReadOnly, selectedClienteId, listedRepRut]);
+
   // Handle client selection
   const handleClienteSelection = (clienteId: string) => {
     const cliente = clientes.find(c => c.id === clienteId);
@@ -664,6 +766,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
         email_contacto_administrativo: cliente.email_contacto_administrativo || ''
       });
     }
+    setFreshRepRut(null); // cleared with the selection itself, before any read starts (send-back 2)
     setSelectedClienteId(clienteId);
   };
 
@@ -825,7 +928,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
       rut: formatRut(clienteForm.rut), // the product's format (GES-3.11)
       // Required fields with defaults
       nombre_fantasia: clienteForm.nombre_fantasia || clienteForm.nombre_legal, // Use legal name if no fantasy name
-      rut_representante: clienteForm.rut_representante || '11.111.111-1', // Default RUT if not provided
+      rut_representante: clienteForm.rut_representante, // required and checked on the client step (F22e)
       // An imported contract's date is never made up: the form asks for it (GES-3.6)
       fecha_escritura: extractedData ? (clienteForm.fecha_escritura || null) : (clienteForm.fecha_escritura || today),
       nombre_notario: clienteForm.nombre_notario || 'Notario Público', // Default notary name
@@ -857,6 +960,20 @@ export default function ContractForm({ programas, clientes, editingContract, pre
       if (escrituraDateMissing) {
         toast.error(ASK_ESCRITURA_DATE_MESSAGE);
         return;
+      }
+      // F22e: a NEW draft checks the representative's RUT before any write: a new
+      // client's typed one, or the stored one of the existing client chosen.
+      // Saving an existing draft again is an edit and writes no client: as before.
+      if (!editingContract) {
+        if (isNewClient && (clienteForm.rut || clienteForm.nombre_legal) && repRutProblem) {
+          toast.error(repRutMessage());
+          return;
+        }
+        const chosenRepRut = await selectedClientRepRutDecision();
+        if (chosenRepRut && !chosenRepRut.allow) {
+          toast.error(repRutMessageFor(chosenRepRut));
+          return;
+        }
       }
 
       // Validate minimum required fields for draft
@@ -890,14 +1007,19 @@ export default function ContractForm({ programas, clientes, editingContract, pre
         if (clienteForm.rut) {
           const { data: matchingClientes } = await supabase
             .from('clientes')
-            .select('id, created_at')
+            .select('id, created_at, rut_representante')
             // however the stored RUT is written; the oldest such client (GES-3.11, send-back 3)
             .in('rut', rutSpellings(clienteForm.rut))
             .order('created_at', { ascending: true })
             .order('id', { ascending: true });
-          const existingCliente = oldestClient(matchingClientes as Array<{ id: string; created_at?: string | null }> | null);
+          const existingCliente = oldestClient(matchingClientes as Array<{ id: string; created_at?: string | null; rut_representante?: string | null }> | null);
 
           if (existingCliente) {
+            // F22e: no new draft for a client that still has the filler
+            if (!foundClientRepRutDecision(existingCliente).allow) {
+              toast.error(FILLER_CLIENT_CONTRACT_MESSAGE);
+              return;
+            }
             clienteId = existingCliente.id;
           }
         }
@@ -1062,10 +1184,37 @@ export default function ContractForm({ programas, clientes, editingContract, pre
       
       if (editingContract) {
         // EDITING MODE
-        
-        // Update client data with school_id
-        const clientUpdateData = buildClientRow(clienteForm, selectedSchoolId);
-        
+
+        // F22e: the edit rule for the representative's RUT (the filler only where the
+        // stored value already is the filler), checked before any write and before any read.
+        if (repRutProblem) {
+          toast.error(repRutMessage());
+          return;
+        }
+        // A draft turned into a contract also needs a stored RUT that is not the filler,
+        // read afresh when the form holds the filler or no value; the decision also says
+        // what may be written (never the filler, never an emptier value: send-back 3).
+        const repRutSave = editingContract.estado === 'borrador'
+          ? decideRepRut({
+              context: 'promote',
+              form: clienteForm.rut_representante,
+              held: heldRepRut,
+              fresh: await storedRepRutCheck(editingContract.cliente_id, heldRepRut),
+            })
+          : repRutStep;
+        if (!repRutSave.allow) {
+          toast.error(repRutMessageFor(repRutSave));
+          return;
+        }
+
+        // Update client data with school_id; the representative's RUT as decided
+        const clientUpdateData: Partial<ReturnType<typeof buildClientRow>> = buildClientRow(clienteForm, selectedSchoolId);
+        if (repRutSave.write.kind === 'value') clientUpdateData.rut_representante = repRutSave.write.value;
+        else delete clientUpdateData.rut_representante;
+        if (repRutSave.formValue !== clienteForm.rut_representante) {
+          setClienteForm(prev => ({ ...prev, rut_representante: repRutSave.formValue }));
+        }
+
         const { error: clienteError } = await supabase
           .from('clientes')
           .update(clientUpdateData)
@@ -1171,6 +1320,18 @@ export default function ContractForm({ programas, clientes, editingContract, pre
           }
         }
 
+        // F22e: a new contract checks the representative's RUT before any write: a new
+        // client's typed one, or the stored one of the existing client chosen.
+        if (isNewClient && repRutProblem) {
+          toast.error(repRutMessage());
+          return;
+        }
+        const chosenRepRut = await selectedClientRepRutDecision();
+        if (chosenRepRut && !chosenRepRut.allow) {
+          toast.error(repRutMessageFor(chosenRepRut));
+          return;
+        }
+
         // First, save or update client
         if (!selectedClienteId) {
           // Prepare client data with school_id if selected (defaults applied by newClientRow)
@@ -1203,6 +1364,11 @@ export default function ContractForm({ programas, clientes, editingContract, pre
               `• NO: Verifica el RUT y corrige los datos`;
             
             if (confirm(confirmMessage)) {
+              // F22e: no new contract for a client that still has the filler
+              if (!foundClientRepRutDecision(existingCliente).allow) {
+                toast.error(FILLER_CLIENT_CONTRACT_MESSAGE);
+                return;
+              }
               // User confirmed to use existing client
               clienteId = existingCliente.id;
             } else {
@@ -1352,8 +1518,31 @@ export default function ContractForm({ programas, clientes, editingContract, pre
     return new Date(dateString).toLocaleDateString('es-CL');
   };
 
+  // F22: the version of the draft «Guardar Borrador» would reuse for a new form (same
+  // lookup: same number, estado 'borrador'); that draft keeps its mark when saved. No such
+  // draft, an empty number or a failed lookup: 2, the text a new contract gets.
+  const readReusedDraftVersion = async (): Promise<number | null> => {
+    if (!contractForm.numero_contrato) return 2;
+    try {
+      const { data, error } = await supabase
+        .from('contratos')
+        .select('id, plantilla_version')
+        .eq('numero_contrato', contractForm.numero_contrato)
+        .eq('estado', 'borrador')
+        .single();
+      if (error || !data) return 2;
+      return data.plantilla_version ?? null;
+    } catch {
+      return 2;
+    }
+  };
+
   // Generate PDF using contract-template.ts
   const generateContractPDF = async () => {
+    // The window opens first, inside the click, so that the lookup below does not trip the popup blocker.
+    const preview = openDocumentPreview();
+    const plantillaVersion = editingContract ? (editingContract.plantilla_version ?? null) : await readReusedDraftVersion();
+
     // Get selected program
     const selectedPrograma = programas.find(p => p.id === contractForm.programa_id);
 
@@ -1365,6 +1554,8 @@ export default function ContractForm({ programas, clientes, editingContract, pre
       precio_total_uf: contractForm.precio_total_uf,
       precio_total_clp: contractForm.tipo_moneda === 'CLP' ? contractForm.precio_total_uf : 0,
       tipo_moneda: contractForm.tipo_moneda,
+      // F22: an edited contract, or the draft a new form reuses, previews its own text; otherwise 2.
+      plantilla_version: plantillaVersion,
       cliente: {
         nombre_legal: clienteForm.nombre_legal,
         nombre_fantasia: clienteForm.nombre_fantasia,
@@ -1395,7 +1586,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
     // Generate HTML from template
     const htmlContent = generateContractFromTemplate(contractData);
 
-    return renderDocumentPreview(openDocumentPreview(), htmlContent, `Contrato ${contractForm.numero_contrato}`);
+    return renderDocumentPreview(preview, htmlContent, `Contrato ${contractForm.numero_contrato}`);
   };
 
   // Cuotas against the contract total, in whole units of the currency (GES-2.7)
@@ -1426,7 +1617,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
         // For manual contracts, require less information
         // A RUT that fails its check digit, or an imported new client without its
         // escritura date, cannot go on (GES-3.11, GES-3.6)
-        if (rutInvalid || escrituraDateMissing) return false;
+        if (rutInvalid || escrituraDateMissing || repRutProblem) return false;
         if (esManual) {
           return clienteForm.nombre_legal && clienteForm.rut && 
                  clienteForm.nombre_contacto_administrativo && clienteForm.email_contacto_administrativo;
@@ -1833,7 +2024,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  RUT Representante
+                  RUT Representante *
                 </label>
                 <input
                   type="text"
@@ -1843,6 +2034,9 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                   className={`w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent ${clientFieldReadOnly('rut_representante') ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                   placeholder="12.345.678-9"
                 />
+                {repRutStep.refusal && repRutStep.refusal !== 'missing' && (
+                  <p className="text-sm text-red-600 mt-1">{repRutMessage()}</p>
+                )}
               </div>
             </div>
 

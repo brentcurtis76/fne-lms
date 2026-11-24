@@ -6,6 +6,10 @@ import { openDocumentPreview, renderDocumentPreview } from '@/lib/contract-docum
 import { toast } from 'react-hot-toast';
 import { generateAnnexFromTemplate } from '../../lib/annex-template';
 import { reconcileCuotas } from '../../lib/utils/reconcileCuotas';
+import { isFillerRut } from '@/utils/rutValidation';
+
+const FILLER_CLIENT_ANNEX_MESSAGE =
+  'Este cliente aún no tiene el RUT de su representante legal. Complétalo en Clientes antes de crear el anexo.';
 
 interface Programa {
   id: string;
@@ -330,7 +334,25 @@ export default function AnnexForm({ clientes, editingAnnex, onSuccess, onCancel 
         
       } else {
         // CREATE MODE
-        
+
+        // F22e: no annex for a client that still has the filler RUT 11.111.111-1
+        // as its stored representative's RUT; nothing is written. The joined
+        // client row holds the column; if it does not, that one column is read.
+        let storedRepresentanteRut = selectedContrato.clientes?.rut_representante;
+        if (storedRepresentanteRut === undefined) {
+          const { data: clienteRow, error: clienteReadError } = await supabase
+            .from('clientes')
+            .select('rut_representante')
+            .eq('id', selectedContrato.cliente_id)
+            .single();
+          if (clienteReadError) throw clienteReadError;
+          storedRepresentanteRut = clienteRow?.rut_representante;
+        }
+        if (isFillerRut(storedRepresentanteRut)) {
+          toast.error(FILLER_CLIENT_ANNEX_MESSAGE);
+          return;
+        }
+
         // Get next annex number
         const anexoNumero = await getNextAnexoNumber(selectedContrato.id);
         const numeroContrato = generateAnexoNumeroContrato(selectedContrato.numero_contrato, anexoNumero);

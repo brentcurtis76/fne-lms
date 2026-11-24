@@ -85,6 +85,17 @@ export function validateRut(rut: string): boolean {
 }
 
 /**
+ * True when the value is the filler RUT 11.111.111-1 in any spelling: cleaned of
+ * everything except digits and K (upper-cased) it equals `111111111` (F22e).
+ * validateRut accepts the filler (its check digit is valid), so the forms that
+ * need a real representative's RUT ask this as well.
+ */
+export function isFillerRut(rut: string | null | undefined): boolean {
+  if (!rut || typeof rut !== 'string') return false;
+  return rut.replace(/[^0-9kK]/g, '').toUpperCase() === '111111111';
+}
+
+/**
  * Extract RUT parts (body and verifier)
  */
 export function parseRut(rut: string): { body: string; verifier: string } | null {

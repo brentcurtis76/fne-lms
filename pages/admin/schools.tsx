@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import MainLayout from '../../components/layout/MainLayout';
 import { getUserPrimaryRole } from '../../utils/roleUtils';
-import { formatRut, validateRut } from '../../utils/rutValidation';
+import { formatRut, validateRut, isFillerRut } from '../../utils/rutValidation';
 
 import { toast } from 'react-hot-toast';
 import { Plus, Edit2, Trash2, Building, Users, ChevronDown, ChevronRight, FileText } from 'lucide-react';
@@ -724,6 +724,12 @@ export default function SchoolsManagement() {
     }
     if (!validateRut(clienteForm.rut_representante)) {
       toast.error('El RUT del representante legal no es válido');
+      return;
+    }
+    // F22e: the filler 11.111.111-1 is refused, unless the stored value of the
+    // client being edited already is the filler (an untouched old one saves)
+    if (isFillerRut(clienteForm.rut_representante) && !(editingCliente && isFillerRut(editingCliente.rut_representante))) {
+      toast.error('Ingresa el RUT real del representante legal; 11.111.111-1 no es válido.');
       return;
     }
 

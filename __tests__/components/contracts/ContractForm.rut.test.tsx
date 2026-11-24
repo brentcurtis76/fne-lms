@@ -163,6 +163,8 @@ describe('ContractForm — a contract imported from a PDF', () => {
           rut: '761234560',
           nombre_contacto: 'Contacto Importado',
           email_contacto: 'importado@ejemplo.test',
+          // F22e: a new client needs the representative's real RUT (no filler default any more)
+          rut_representante: '12.345.678-5',
         })}
         onSuccess={onSuccess}
         onCancel={vi.fn()}

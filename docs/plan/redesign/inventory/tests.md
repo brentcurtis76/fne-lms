@@ -1,11 +1,11 @@
 # Screens and their tests
 
-Written by `scripts/redesign/inventory.mjs` from commit `6a336e70e`. For phase 3 (the safety net). A browser test is counted for a screen when the test file names the screen's address; that is weaker than "the test checks the screen". CI runs 32 of 73 browser test files (`scripts/ci/e2e-mandatory.mjs`).
+Written by `scripts/redesign/inventory.mjs` from commit `9298935db`. For phase 3 (the safety net). A browser test is counted for a screen when the test file names the screen's address; that is weaker than "the test checks the screen". CI runs 34 of 75 browser test files (`scripts/ci/e2e-mandatory.mjs`).
 
-- 153 screens with an address.
-- 39 are named by a browser test that CI runs.
+- 159 screens with an address.
+- 44 are named by a browser test that CI runs.
 - 50 are named only by tests CI skips, or have only unit tests.
-- 64 have no test at all.
+- 65 have no test at all.
 
 ## No test at all
 
@@ -58,6 +58,7 @@ Written by `scripts/redesign/inventory.mjs` from commit `6a336e70e`. For phase 3
 | 13-reportes | `/detailed-reports` | `pages/detailed-reports.tsx` |
 | 13-reportes | `/reporte-horas` | `pages/reporte-horas.tsx` |
 | 14-personas | `/admin/role-management` | `pages/admin/role-management.tsx` |
+| 15-comunicacion | `/admin/correos/contactos/[id]` | `pages/admin/correos/contactos/[id].tsx` |
 | 15-comunicacion | `/admin/correos/vista-previa` | `pages/admin/correos/vista-previa.tsx` |
 | 15-comunicacion | `/admin/events` | `pages/admin/events.tsx` |
 | 17-horas-gastos | `/admin/consultant-earnings` | `pages/admin/consultant-earnings.tsx` |
@@ -109,13 +110,13 @@ Written by `scripts/redesign/inventory.mjs` from commit `6a336e70e`. For phase 3
 | 09-vias-transformacion | `/community/workspace/transformation/evaluate` | — | 1 |
 | 10-licitaciones | `/admin/licitaciones/consultores` | `e2e/flows/proposal-consultant-crud.spec.ts` | — |
 | 10-licitaciones | `/admin/licitaciones/documentos-propuesta` | `e2e/flows/proposal-document-library.spec.ts` | — |
-| 10-licitaciones | `/licitaciones/[id]` | `e2e/flows/proposal-admin-visibility.spec.ts`, `e2e/flows/proposal-buckets.spec.ts`, `e2e/flows/proposal-config.spec.ts`, `e2e/flows/proposal-versioning.spec.ts` | 2 |
+| 10-licitaciones | `/licitaciones/[id]` | `e2e/flows/proposal-admin-visibility.spec.ts`, `e2e/flows/proposal-buckets.spec.ts`, `e2e/flows/proposal-config.spec.ts`, `e2e/flows/proposal-versioning.spec.ts` | 3 |
 | 10-licitaciones | `/licitaciones/[id]/evaluacion` | — | 1 |
 | 10-licitaciones | `/licitaciones/nueva` | — | 1 |
 | 10-licitaciones | `/propuesta/[slug]` | `e2e/flows/proposal-buckets.spec.ts`, `e2e/flows/proposal-web-view.spec.ts` | — |
 | 11-gestion | `/admin/clients` | — | 1 |
 | 11-gestion | `/admin/quotes` | — | 1 |
-| 11-gestion | `/contract-print/[id]` | — | 2 |
+| 11-gestion | `/contract-print/[id]` | — | 3 |
 | 11-gestion | `/contracts` | `e2e/urgent-anonymous-boundaries.spec.ts`, `e2e/urgent-anonymous-current.spec.ts` | 5 |
 | 14-personas | `/admin/school-users` | — | 1 |
 | 15-comunicacion | `/admin/news` | `e2e/urgent-anonymous-boundaries.spec.ts`, `e2e/urgent-anonymous-current.spec.ts` | — |
@@ -137,7 +138,7 @@ Written by `scripts/redesign/inventory.mjs` from commit `6a336e70e`. For phase 3
 |---|---|---|
 | 01-acceso | `/login` | `e2e/auth-cookie-identity.spec.ts`, `e2e/auth-lifecycle.spec.ts`, `e2e/login-resilience.spec.ts`, `e2e/look-frame.spec.ts`, `e2e/look-kit.spec.ts`, `e2e/look-panel.spec.ts`, `e2e/look-sessions.spec.ts`, `e2e/look-switch.spec.ts`, `e2e/notification-preferences-api.spec.ts`, `e2e/notification-settings.spec.ts`, `e2e/pasantias-leads-admin.spec.ts`, `e2e/smoke.spec.ts` |
 | 01-acceso | `/reset-password` | `e2e/auth-lifecycle.spec.ts` |
-| 02-panel | `/dashboard` | `e2e/auth-lifecycle.spec.ts`, `e2e/ci-fixture.spec.ts`, `e2e/footer-heading-order.spec.ts`, `e2e/look-frame.spec.ts`, `e2e/look-panel.spec.ts`, `e2e/look-switch.spec.ts`, `e2e/notification-settings.spec.ts`, `e2e/pasantias-leads-admin.spec.ts` |
+| 02-panel | `/dashboard` | `e2e/auth-lifecycle.spec.ts`, `e2e/ci-fixture.spec.ts`, `e2e/correos-listas-contactos.spec.ts`, `e2e/footer-heading-order.spec.ts`, `e2e/look-frame.spec.ts`, `e2e/look-panel.spec.ts`, `e2e/look-switch.spec.ts`, `e2e/notification-settings.spec.ts`, `e2e/pasantias-leads-admin.spec.ts` |
 | 03-aprendizaje | `/mi-aprendizaje/ruta/[id]` | `e2e/look-panel.spec.ts` |
 | 03-aprendizaje | `/mi-aprendizaje/tareas` | `e2e/look-frame.spec.ts` |
 | 03-aprendizaje | `/student/course/[courseId]` | `e2e/look-panel.spec.ts` |
@@ -162,6 +163,11 @@ Written by `scripts/redesign/inventory.mjs` from commit `6a336e70e`. For phase 3
 | 14-personas | `/admin/tractor-signups` | `e2e/auth-lifecycle.spec.ts` |
 | 14-personas | `/admin/user-management` | `e2e/auth-lifecycle.spec.ts` |
 | 14-personas | `/profile` | `e2e/look-frame.spec.ts`, `e2e/look-panel.spec.ts`, `e2e/notification-settings.spec.ts` |
+| 15-comunicacion | `/admin/correos/contactos` | `e2e/correos-importar.spec.ts`, `e2e/correos-listas-contactos.spec.ts` |
+| 15-comunicacion | `/admin/correos/importar` | `e2e/correos-importar.spec.ts` |
+| 15-comunicacion | `/admin/correos/listas` | `e2e/correos-listas-contactos.spec.ts` |
+| 15-comunicacion | `/admin/correos/pasantias` | `e2e/correos-importar.spec.ts` |
+| 15-comunicacion | `/admin/correos/usuarios` | `e2e/correos-importar.spec.ts` |
 | 16-notificaciones | `/configuracion/apariencia` | `e2e/look-frame.spec.ts`, `e2e/look-kit.spec.ts`, `e2e/look-panel.spec.ts`, `e2e/look-sessions.spec.ts`, `e2e/look-switch.spec.ts` |
 | 16-notificaciones | `/configuracion` | `e2e/look-switch.spec.ts`, `e2e/notification-settings.spec.ts` |
 | 16-notificaciones | `/configuracion/notificaciones` | `e2e/look-kit.spec.ts`, `e2e/look-switch.spec.ts`, `e2e/notification-settings.spec.ts` |

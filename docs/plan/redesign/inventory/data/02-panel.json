@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "6a336e70e3a2a2175b39e2ebade821061497232c",
-  "date": "2026-11-24T17:54:00-03:00"
+  "commit": "9298935dbe2a95efd8049538ace9feb5f0394c46",
+  "date": "2026-11-25T10:48:59-03:00"
  },
  "screens": [
   {
@@ -87,6 +87,7 @@
      "hooks/useSessionDetail.ts:101",
      "hooks/useSessionsList.ts:134",
      "lib/auth/forced-password-change.ts:142",
+     "lib/correos-host/page-guard.ts:25",
      "lib/frontend-auth-utils.ts:155",
      "lib/notificationEvents.ts:831",
      "lib/notificationEvents.ts:848",
@@ -161,11 +162,11 @@
      "pages/community/workspace.tsx:912",
      "pages/consultor/sessions/reports.tsx:279",
      "pages/consultor/sessions/reports.tsx:380",
-     "pages/contracts.tsx:175",
+     "pages/contracts.tsx:177",
      "pages/detailed-reports.tsx:172",
      "pages/detailed-reports.tsx:178",
      "pages/expense-reports.tsx:143",
-     "pages/licitaciones/[id].tsx:222",
+     "pages/licitaciones/[id].tsx:223",
      "pages/licitaciones/[id]/evaluacion.tsx:253",
      "pages/licitaciones/index.tsx:185",
      "pages/licitaciones/index.tsx:198",
@@ -220,6 +221,7 @@
      "e2eCi": [
       "tests/e2e/auth-lifecycle.spec.ts",
       "tests/e2e/ci-fixture.spec.ts",
+      "tests/e2e/correos-listas-contactos.spec.ts",
       "tests/e2e/footer-heading-order.spec.ts",
       "tests/e2e/look-frame.spec.ts",
       "tests/e2e/look-panel.spec.ts",

@@ -1,9 +1,9 @@
 # Gestión (clients, contracts, quotes)
 
 Area `11-gestion`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `6a336e70e` (2026-11-24).
+Read from commit `9298935db` (2026-11-25).
 
-7 screen files, 15 API files, 22 pieces.
+7 screen files, 16 API files, 23 pieces.
 
 ## Screens
 
@@ -13,8 +13,8 @@ Read from commit `6a336e70e` (2026-11-24).
 | `/admin/quotes/[id]/edit` | `pages/admin/quotes/[id]/edit.tsx` | 197 | — |  |
 | `/admin/quotes` | `pages/admin/quotes/index.tsx` | 438 | Gestión › Propuestas Pasantías |  |
 | `/admin/quotes/new` | `pages/admin/quotes/new.tsx` | 117 | — |  |
-| `/contract-print/[id]` | `pages/contract-print/[id].tsx` | 340 | — |  |
-| `/contracts` | `pages/contracts.tsx` | 1140 | Gestión › Contratos |  |
+| `/contract-print/[id]` | `pages/contract-print/[id].tsx` | 352 | — |  |
+| `/contracts` | `pages/contracts.tsx` | 1137 | Gestión › Contratos |  |
 | `/quote/[id]` | `pages/quote/[id].tsx` | 129 | — |  |
 
 ## /admin/clients
@@ -582,7 +582,7 @@ File `pages/admin/quotes/new.tsx` · 117 lines · frame: MainLayout
 
 ## /contract-print/[id]
 
-File `pages/contract-print/[id].tsx` · 340 lines · frame: none
+File `pages/contract-print/[id].tsx` · 352 lines · frame: none
 
 ### Who reaches it
 
@@ -590,7 +590,7 @@ File `pages/contract-print/[id].tsx` · 340 lines · frame: none
 - Middleware: no role rule. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: yes.
 - In the page: no access check found by the script.
 - Linked from: `lib/look.ts:114`, `middleware.ts:338`, `pages/contracts.tsx:1094`
-- Tests: no browser test that CI runs; unit tests of the page: `__tests__/pages/contract-print-annex.test.tsx`, `__tests__/pages/contract-print-version.test.tsx`.
+- Tests: no browser test that CI runs; unit tests of the page: `__tests__/pages/contract-print-annex.test.tsx`, `__tests__/pages/contract-print-original.test.tsx`, `__tests__/pages/contract-print-version.test.tsx`.
 
 | Role | Sees it in the menu | Middleware |
 |---|---|---|
@@ -610,68 +610,65 @@ File `pages/contract-print/[id].tsx` · 340 lines · frame: none
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «Vista previa del contrato» | h2 |  | ContractPrintPage · l.210 |
+| «Vista previa del contrato» | h2 |  | ContractPrintPage · l.222 |
 
-**Buttons** (7)
+**Buttons** (8)
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «Volver» | `{() => router.back()}` | `!contrato` |  |  | ContractPrintPage · l.152 |
-| «Volver» | `{() => router.back()}` | `isImportedSource` |  |  | ContractPrintPage · l.189 |
-| «Usar el texto actualizado» | `{() => setUpgradeStep('confirming')}` | `!contrato.is_anexo && canUpgradeText && upgradeStep === 'idle'` |  | `testid=contract-text-upgrade` | ContractPrintPage · l.217 |
-| «Confirmar» | `{upgradeContractText}` | `!contrato.is_anexo && canUpgradeText && upgradeStep !== 'idle'` | `{upgradeStep === 'saving'}` | `testid=contract-text-upgrade-confirm` | ContractPrintPage · l.224 |
-| «Cancelar» | `{() => setUpgradeStep('idle')}` | `!contrato.is_anexo && canUpgradeText && upgradeStep !== 'idle'` | `{upgradeStep === 'saving'}` | `testid=contract-text-upgrade-cancel` | ContractPrintPage · l.232 |
-| «← Volver» | `{() => router.back()}` |  |  |  | ContractPrintPage · l.246 |
-| «Imprimir / Guardar PDF» | `{() => window.print()}` |  |  |  | ContractPrintPage · l.252 |
-
-**Links** (1)
-
-| Text | Goes to | Shown when | Hook | Where |
-|---|---|---|---|---|
-| «Descargar documento original» | `{contrato.contrato_url}` (new tab) | `isImportedSource && contrato.contrato_url` |  | ContractPrintPage · l.175 |
+| «Volver» | `{() => router.back()}` | `!contrato` |  |  | ContractPrintPage · l.154 |
+| «Descargar documento original» | `{() => { setOriginalError(null); void downloadContractDocument(contrato.id, setO…}` | `isImportedSource && contrato.contrato_url` |  |  | ContractPrintPage · l.179 |
+| «Volver» | `{() => router.back()}` | `isImportedSource` |  |  | ContractPrintPage · l.201 |
+| «Usar el texto actualizado» | `{() => setUpgradeStep('confirming')}` | `!contrato.is_anexo && canUpgradeText && upgradeStep === 'idle'` |  | `testid=contract-text-upgrade` | ContractPrintPage · l.229 |
+| «Confirmar» | `{upgradeContractText}` | `!contrato.is_anexo && canUpgradeText && upgradeStep !== 'idle'` | `{upgradeStep === 'saving'}` | `testid=contract-text-upgrade-confirm` | ContractPrintPage · l.236 |
+| «Cancelar» | `{() => setUpgradeStep('idle')}` | `!contrato.is_anexo && canUpgradeText && upgradeStep !== 'idle'` | `{upgradeStep === 'saving'}` | `testid=contract-text-upgrade-cancel` | ContractPrintPage · l.244 |
+| «← Volver» | `{() => router.back()}` |  |  |  | ContractPrintPage · l.258 |
+| «Imprimir / Guardar PDF» | `{() => window.print()}` |  |  |  | ContractPrintPage · l.264 |
 
 **Pop-ups** (1)
 
 | Name or title | How | Opens when | Texts passed to it | Where |
 |---|---|---|---|---|
-| «Usar el texto actualizado» | written in this file | `!contrato.is_anexo && canUpgradeText && upgradeStep !== 'idle'` |  | ContractPrintPage · l.222 |
+| «Usar el texto actualizado» | written in this file | `!contrato.is_anexo && canUpgradeText && upgradeStep !== 'idle'` |  | ContractPrintPage · l.234 |
 
 **Messages set on the page** (1)
 
 | Text | Set by | When | Where |
 |---|---|---|---|
-| «No se pudo cambiar el texto del contrato.» | `setUpgradeError` | `error \|\| !data \|\| data.length === 0` | upgradeContractText · l.128 |
+| «No se pudo cambiar el texto del contrato.» | `setUpgradeError` | `error \|\| !data \|\| data.length === 0` | upgradeContractText · l.130 |
 
 **Downloads and printing** (1)
 
 | How | When | Where |
 |---|---|---|
-| `window.print()` |  | ContractPrintPage · l.253 |
+| `window.print()` |  | ContractPrintPage · l.265 |
 
-**Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (3)
+**Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (4)
 
 | Kind | What | Where |
 |---|---|---|
-| mark | `testid=contract-text-version` | ContractPrintPage · l.213 |
-| role | `role=alert` | ContractPrintPage · l.242 |
+| role | `role=alert` | ContractPrintPage · l.190 |
+| mark | `testid=contract-text-version` | ContractPrintPage · l.225 |
+| role | `role=alert` | ContractPrintPage · l.254 |
 | address value | `[id] (part of the address)` | l.1 |
 
-**Values shown from data** (3)
+**Values shown from data** (4)
 
-- `{CONTRACT_DOCUMENT_CSS}` — ContractPrintPage · l.205
-- `{upgradeError}` — ContractPrintPage · l.242, when `!contrato.is_anexo && upgradeError`
-- `{CONTRACT_PRINT_GUIDANCE}` — ContractPrintPage · l.266
+- `{originalError}` — ContractPrintPage · l.190, when `isImportedSource && contrato.contrato_url && originalError`
+- `{CONTRACT_DOCUMENT_CSS}` — ContractPrintPage · l.217
+- `{upgradeError}` — ContractPrintPage · l.254, when `!contrato.is_anexo && upgradeError`
+- `{CONTRACT_PRINT_GUIDANCE}` — ContractPrintPage · l.278
 
 **Other texts on screen** (8)
 
-- «Cargando contrato...» — ContractPrintPage · l.141, when `loading`
-- «Contrato no encontrado» — ContractPrintPage · l.151, when `!contrato`
-- «Contrato importado» — ContractPrintPage · l.170, when `isImportedSource`
-- «Este contrato fue importado desde un documento externo, por lo que no se genera una versión desde plantilla.» — ContractPrintPage · l.172, when `isImportedSource`
-- «No hay un documento original cargado. Use &quot;Subir contrato&quot; para adjuntarlo.» — ContractPrintPage · l.185, when `isImportedSource && !(contrato.contrato_url)`
-- «Contrato {contrato.numero_contrato} - Fundación Nueva Educación» — ContractPrintPage · l.204
-- «Texto del contrato: versión actualizada / Texto del contrato: versión anterior» — ContractPrintPage · l.213, when `!contrato.is_anexo`
-- «Este contrato pasará a imprimirse con el texto actualizado. No se puede volver al texto anterior.» — ContractPrintPage · l.223, when `!contrato.is_anexo && canUpgradeText && upgradeStep !== 'idle'`
+- «Cargando contrato...» — ContractPrintPage · l.143, when `loading`
+- «Contrato no encontrado» — ContractPrintPage · l.153, when `!contrato`
+- «Contrato importado» — ContractPrintPage · l.172, when `isImportedSource`
+- «Este contrato fue importado desde un documento externo, por lo que no se genera una versión desde plantilla.» — ContractPrintPage · l.174, when `isImportedSource`
+- «No hay un documento original cargado. Use &quot;Subir contrato&quot; para adjuntarlo.» — ContractPrintPage · l.197, when `isImportedSource && !(contrato.contrato_url)`
+- «Contrato {contrato.numero_contrato} - Fundación Nueva Educación» — ContractPrintPage · l.216
+- «Texto del contrato: versión actualizada / Texto del contrato: versión anterior» — ContractPrintPage · l.225, when `!contrato.is_anexo`
+- «Este contrato pasará a imprimirse con el texto actualizado. No se puede volver al texto anterior.» — ContractPrintPage · l.235, when `!contrato.is_anexo && canUpgradeText && upgradeStep !== 'idle'`
 
 **Reads and writes the database directly:** `table:contratos` (select, update)
 
@@ -680,21 +677,28 @@ File `pages/contract-print/[id].tsx` · 340 lines · frame: none
 - `lib/annex-template.ts`
 - `lib/contract-document.ts`
 - `lib/contract-template.ts`
+- `lib/contracts/open-contract.ts`
+
+### API addresses it calls
+
+| Address | Method | Called from |
+|---|---|---|
+| `/api/contracts/contract-link` | ? | `lib/contracts/open-contract.ts:16` |
 
 ## /contracts
 
-File `pages/contracts.tsx` · 1140 lines · frame: MainLayout
+File `pages/contracts.tsx` · 1137 lines · frame: MainLayout
 
 ### Who reaches it
 
 - Menu: Gestión › «Contratos» → `/contracts` — permission: view_contracts_all or view_contracts_school or view_contracts_own; the group: roles: admin, community_manager, encargado_licitacion (`Sidebar.tsx` l.557)
 - Middleware: no role rule. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: yes.
 - In the page:
-  - l.160 `router.push → /login  (when !session?.user)`
-  - l.173 `userRole = await getUserPrimaryRole(session.user.id)`
-  - l.175 `router.push → /dashboard  (when !profile \|\| userRole !== 'admin')`
-  - l.250 `router.push → /login`
-  - l.325 `router.push → /login`
+  - l.162 `router.push → /login  (when !session?.user)`
+  - l.175 `userRole = await getUserPrimaryRole(session.user.id)`
+  - l.177 `router.push → /dashboard  (when !profile \|\| userRole !== 'admin')`
+  - l.252 `router.push → /login`
+  - l.327 `router.push → /login`
 - Linked from: `components/DynamicFavicon.tsx:39`, `components/layout/Sidebar.tsx:559`, `components/licitaciones/Step7Contrato.tsx:207`, `components/licitaciones/Step7Contrato.tsx:262`, `components/licitaciones/Step7Contrato.tsx:263`, `components/licitaciones/Step7Contrato.tsx:419`, `components/licitaciones/Step7Contrato.tsx:420`, `lib/auth/forced-password-change.ts:138`, `middleware.ts:339`, `pages/admin/schools.tsx:591`
 - Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/urgent-anonymous-boundaries.spec.ts`, `tests/e2e/urgent-anonymous-current.spec.ts`; unit tests of the page: `__tests__/pages/contracts-activation.test.tsx`, `__tests__/pages/contracts-cashflow-refresh.test.tsx`, `__tests__/pages/contracts-edit-annex.test.tsx`, `__tests__/pages/contracts-invoice-storage.test.tsx`, `__tests__/pages/contracts-licitacion-once.test.tsx`.
 - QA scenarios that name this address: admin 3, consultor 1, equipo_directivo 1, lider_comunidad 1.
@@ -717,134 +721,134 @@ File `pages/contracts.tsx` · 1140 lines · frame: MainLayout
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «Crear Nuevo Contrato / Crear Nuevo Anexo / Editar Anexo / Editar Contrato» | h1 | `(activeTab === 'nuevo' \|\| activeTab === 'editar' \|\| activeTab === 'nuevo-anexo' \|\| activeTab === 'editar-anexo')` | ContractsPage · l.724 |
-| «Contratos Registrados ( {contratos.length} )» | h2 | `activeTab === 'lista'` | ContractsPage · l.738 |
-| «No hay contratos registrados» | h3 | `activeTab === 'lista' && !(contratos.length > 0)` | ContractsPage · l.889 |
-| «Eliminar Contrato» | h3 | `deleteModalContrato` | ContractsPage · l.1026 |
+| «Crear Nuevo Contrato / Crear Nuevo Anexo / Editar Anexo / Editar Contrato» | h1 | `(activeTab === 'nuevo' \|\| activeTab === 'editar' \|\| activeTab === 'nuevo-anexo' \|\| activeTab === 'editar-anexo')` | ContractsPage · l.722 |
+| «Contratos Registrados ( {contratos.length} )» | h2 | `activeTab === 'lista'` | ContractsPage · l.736 |
+| «No hay contratos registrados» | h3 | `activeTab === 'lista' && !(contratos.length > 0)` | ContractsPage · l.887 |
+| «Eliminar Contrato» | h3 | `deleteModalContrato` | ContractsPage · l.1024 |
 
 **Buttons** (10)
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «Importar PDF» · tooltip «Importar contrato desde PDF usando AI» | `{() => setShowPDFImporter(true)}` | `(activeTab === 'lista' \|\| activeTab === 'flujo')` |  |  | ContractsPage · l.680 |
-| «Nuevo Anexo» | `{() => setActiveTab('nuevo-anexo')}` | `(activeTab === 'lista' \|\| activeTab === 'flujo')` |  |  | ContractsPage · l.688 |
-| «Flujo de Caja» | `{() => setActiveTab('flujo')}` | `(activeTab === 'lista' \|\| activeTab === 'flujo')` |  |  | ContractsPage · l.695 |
-| «Volver a Contratos» | `{() => setActiveTab('lista')}` | `(activeTab === 'nuevo' \|\| activeTab === 'editar' \|\| activeTab === 'nuevo-anexo' \|\| activeTab === 'editar-anexo')` |  |  | ContractsPage · l.716 |
-| «Firma pendiente ( {firmaPendienteCount} )» · tooltip «Mostrar solo contratos activos con firma sin confirmar» | `{() => setShowFirmaPendiente(!showFirmaPendiente)}` | `activeTab === 'lista' && ((firmaPendienteCount > 0 \|\| showFirmaPendiente))` |  | `testid=firma-pendiente-filter` | ContractsPage · l.742 |
-| «{contrato.numero_contrato} [ANEXO] [MANUAL] [BORRADOR]» | `{() => setSelectedContrato(contrato)}` | `activeTab === 'lista' && contratos.length > 0 && filteredContratos.length > 0 && each filteredContratos` |  |  | ContractsPage · l.776 |
-| «[icon Eye]» · tooltip «Ver detalles» | `{() => setSelectedContrato(contrato)}` | `activeTab === 'lista' && contratos.length > 0 && filteredContratos.length > 0 && each filteredContratos` |  |  | ContractsPage · l.845 |
-| «Crear Primer Contrato» | `{() => setActiveTab('nuevo')}` | `activeTab === 'lista' && !(contratos.length > 0)` |  |  | ContractsPage · l.891 |
-| «Cancelar» | `{() => setDeleteModalContrato(null)}` | `deleteModalContrato` |  |  | ContractsPage · l.1042 |
-| «Eliminar Contrato» | `{() => handleDeleteContract(deleteModalContrato)}` | `deleteModalContrato` |  |  | ContractsPage · l.1048 |
+| «Importar PDF» · tooltip «Importar contrato desde PDF usando AI» | `{() => setShowPDFImporter(true)}` | `(activeTab === 'lista' \|\| activeTab === 'flujo')` |  |  | ContractsPage · l.678 |
+| «Nuevo Anexo» | `{() => setActiveTab('nuevo-anexo')}` | `(activeTab === 'lista' \|\| activeTab === 'flujo')` |  |  | ContractsPage · l.686 |
+| «Flujo de Caja» | `{() => setActiveTab('flujo')}` | `(activeTab === 'lista' \|\| activeTab === 'flujo')` |  |  | ContractsPage · l.693 |
+| «Volver a Contratos» | `{() => setActiveTab('lista')}` | `(activeTab === 'nuevo' \|\| activeTab === 'editar' \|\| activeTab === 'nuevo-anexo' \|\| activeTab === 'editar-anexo')` |  |  | ContractsPage · l.714 |
+| «Firma pendiente ( {firmaPendienteCount} )» · tooltip «Mostrar solo contratos activos con firma sin confirmar» | `{() => setShowFirmaPendiente(!showFirmaPendiente)}` | `activeTab === 'lista' && ((firmaPendienteCount > 0 \|\| showFirmaPendiente))` |  | `testid=firma-pendiente-filter` | ContractsPage · l.740 |
+| «{contrato.numero_contrato} [ANEXO] [MANUAL] [BORRADOR]» | `{() => setSelectedContrato(contrato)}` | `activeTab === 'lista' && contratos.length > 0 && filteredContratos.length > 0 && each filteredContratos` |  |  | ContractsPage · l.774 |
+| «[icon Eye]» · tooltip «Ver detalles» | `{() => setSelectedContrato(contrato)}` | `activeTab === 'lista' && contratos.length > 0 && filteredContratos.length > 0 && each filteredContratos` |  |  | ContractsPage · l.843 |
+| «Crear Primer Contrato» | `{() => setActiveTab('nuevo')}` | `activeTab === 'lista' && !(contratos.length > 0)` |  |  | ContractsPage · l.889 |
+| «Cancelar» | `{() => setDeleteModalContrato(null)}` | `deleteModalContrato` |  |  | ContractsPage · l.1040 |
+| «Eliminar Contrato» | `{() => handleDeleteContract(deleteModalContrato)}` | `deleteModalContrato` |  |  | ContractsPage · l.1046 |
 
 **Links** (1)
 
 | Text | Goes to | Shown when | Hook | Where |
 |---|---|---|---|---|
-| «[icon ExternalLink]» | `/licitaciones/[*]` | `contratos.length > 0 && filteredContratos.length > 0 && each filteredContratos && contrato.licitacion_id` |  | ContractsPage · l.854 |
+| «[icon ExternalLink]» | `/licitaciones/[*]` | `contratos.length > 0 && filteredContratos.length > 0 && each filteredContratos && contrato.licitacion_id` |  | ContractsPage · l.852 |
 
 **Table columns** (5)
 
 | Text | Shown when | Where |
 |---|---|---|
-| «N° Contrato» | `activeTab === 'lista' && contratos.length > 0` | ContractsPage · l.763 |
-| «Cliente» | `activeTab === 'lista' && contratos.length > 0` | ContractsPage · l.764 |
-| «Fecha» | `activeTab === 'lista' && contratos.length > 0` | ContractsPage · l.765 |
-| «Valor Total» | `activeTab === 'lista' && contratos.length > 0` | ContractsPage · l.766 |
-| «Estado» | `activeTab === 'lista' && contratos.length > 0` | ContractsPage · l.767 |
+| «N° Contrato» | `activeTab === 'lista' && contratos.length > 0` | ContractsPage · l.761 |
+| «Cliente» | `activeTab === 'lista' && contratos.length > 0` | ContractsPage · l.762 |
+| «Fecha» | `activeTab === 'lista' && contratos.length > 0` | ContractsPage · l.763 |
+| «Valor Total» | `activeTab === 'lista' && contratos.length > 0` | ContractsPage · l.764 |
+| «Estado» | `activeTab === 'lista' && contratos.length > 0` | ContractsPage · l.765 |
 
 **Pop-ups** (2)
 
 | Name or title | How | Opens when | Texts passed to it | Where |
 |---|---|---|---|---|
-| «Eliminar Contrato» | written in this file | `deleteModalContrato` |  | ContractsPage · l.1018 |
-| `ContractDetailsModal` | component | `{!!selectedContrato}` |  | ContractsPage · l.1061 |
+| «Eliminar Contrato» | written in this file | `deleteModalContrato` |  | ContractsPage · l.1016 |
+| `ContractDetailsModal` | component | `{!!selectedContrato}` |  | ContractsPage · l.1059 |
 
-**Toasts** (29)
+**Toasts** (30)
 
 | Kind | Text | When | Where |
 |---|---|---|---|
-| success | «Creando contrato para: {decodeURIComponent(school_n…}» | `cliente_id && typeof cliente_id === 'string' && school_name && typeof school_name === 'string'` | checkSession · l.207 |
-| success | «Datos de la licitacion cargados. Complete los campos del contrato.» | `tab === 'nuevo' && licitacion_id && typeof licitacion_id === 'string' && handledLicitacionIdRef.current !== licitacion_id && licRes.ok && lic` | checkSession · l.238 |
-| error | «No se pudo cargar datos de la licitacion» | `tab === 'nuevo' && licitacion_id && typeof licitacion_id === 'string' && handledLicitacionIdRef.current !== licitacion_id` | checkSession · l.242 |
-| error | «Error al actualizar la lista de contratos:» |  | loadContratos · l.275 |
-| error | «Error al eliminar el contrato:» |  | handleDeleteContract · l.375 |
-| success | «Contrato marcado como firmado.» |  | handleMarkSigned · l.391 |
-| error | «Error al marcar el contrato como firmado:» |  | handleMarkSigned · l.395 |
-| success | «Documento firmado guardado. El contrato sigue en borrador hasta que se active.» | `contrato.estado === 'borrador'` | handleUploadContract · l.440 |
-| error | «Error al subir el contrato:» |  | handleUploadContract · l.446 |
-| success | «Contrato activado. Recuerda subir el documento firmado cuando el cliente lo envíe.» |  | handleActivateWithoutDocument · l.470 |
-| error | «Error al activar el contrato:» |  | handleActivateWithoutDocument · l.475 |
-| success | «Contrato {newCashFlowStatus ? 'inclui…} flujo de caja exitosamente.» |  | handleToggleCashFlow · l.498 |
-| error | «Error al actualizar el flujo de caja:» |  | handleToggleCashFlow · l.501 |
-| error | «Tipo de archivo no válido. Use PDF, JPG o PNG.» | `!validTypes.includes(file.type)` | handleInvoiceUpload · l.510 |
-| error | «El archivo es demasiado grande. Máximo 10MB.» | `file.size > maxSize` | handleInvoiceUpload · l.516 |
-| success | «Factura subida exitosamente: {file.name}» |  | handleInvoiceUpload · l.539 |
-| error | «Error al subir la factura:» |  | handleInvoiceUpload · l.546 |
-| success | «Cuota marcada como {!currentStatus ? 'pagada' :…}» |  | handleTogglePaymentStatus · l.565 |
-| error | «Error al actualizar el estado de pago:» |  | handleTogglePaymentStatus · l.572 |
-| error | «No se encontró la factura» | `!cuota?.factura_url` | handleInvoiceDelete · l.587 |
-| success | «Factura eliminada exitosamente» |  | handleInvoiceDelete · l.621 |
-| error | «Error al eliminar la factura:» |  | handleInvoiceDelete · l.628 |
-| error | «Contrato creado pero error al vincular con licitacion: {err.error \|\| 'Error descono…}. Contacte al administrador.» | `activeTab === 'nuevo' && activeLicitacionId && contratoId && !linkRes.ok` | ContractsPage · l.925 |
-| plain | «Esta licitación ya tenía un contrato: se abrió el contrato existente. Los cambios de este formulario no se guardaron; edite el contrato desde Gestión. / El contrato existente no tiene cuotas registradas: revíselo antes de continuar.» | `activeTab === 'nuevo' && activeLicitacionId && contratoId && !(!linkRes.ok) && reuse?.reused` | ContractsPage · l.929 |
-| success | «Contrato generado y vinculado a la licitacion exitosamente» | `activeTab === 'nuevo' && activeLicitacionId && contratoId && !(!linkRes.ok) && !(reuse?.reused)` | ContractsPage · l.937 |
-| error | «Contrato creado pero no se pudo vincular con la licitacion. Contacte al administrador.» | `activeTab === 'nuevo' && activeLicitacionId && contratoId` | ContractsPage · l.948 |
+| success | «Creando contrato para: {decodeURIComponent(school_n…}» | `cliente_id && typeof cliente_id === 'string' && school_name && typeof school_name === 'string'` | checkSession · l.209 |
+| success | «Datos de la licitacion cargados. Complete los campos del contrato.» | `tab === 'nuevo' && licitacion_id && typeof licitacion_id === 'string' && handledLicitacionIdRef.current !== licitacion_id && licRes.ok && lic` | checkSession · l.240 |
+| error | «No se pudo cargar datos de la licitacion» | `tab === 'nuevo' && licitacion_id && typeof licitacion_id === 'string' && handledLicitacionIdRef.current !== licitacion_id` | checkSession · l.244 |
+| error | «Error al actualizar la lista de contratos:» |  | loadContratos · l.277 |
+| error | «Error al eliminar el contrato:» |  | handleDeleteContract · l.377 |
+| success | «Contrato marcado como firmado.» |  | handleMarkSigned · l.393 |
+| error | «Error al marcar el contrato como firmado:» |  | handleMarkSigned · l.397 |
+| success | «Documento firmado guardado. El contrato sigue en borrador hasta que se active.» | `contrato.estado === 'borrador'` | handleUploadContract · l.438 |
+| error | «Error al subir el contrato:» |  | handleUploadContract · l.444 |
+| success | «Contrato activado. Recuerda subir el documento firmado cuando el cliente lo envíe.» |  | handleActivateWithoutDocument · l.468 |
+| error | «Error al activar el contrato:» |  | handleActivateWithoutDocument · l.473 |
+| success | «Contrato {newCashFlowStatus ? 'inclui…} flujo de caja exitosamente.» |  | handleToggleCashFlow · l.496 |
+| error | «Error al actualizar el flujo de caja:» |  | handleToggleCashFlow · l.499 |
+| error | «Tipo de archivo no válido. Use PDF, JPG o PNG.» | `!validTypes.includes(file.type)` | handleInvoiceUpload · l.508 |
+| error | «El archivo es demasiado grande. Máximo 10MB.» | `file.size > maxSize` | handleInvoiceUpload · l.514 |
+| success | «Factura subida exitosamente: {file.name}» |  | handleInvoiceUpload · l.537 |
+| error | «Error al subir la factura:» |  | handleInvoiceUpload · l.544 |
+| success | «Cuota marcada como {!currentStatus ? 'pagada' :…}» |  | handleTogglePaymentStatus · l.563 |
+| error | «Error al actualizar el estado de pago:» |  | handleTogglePaymentStatus · l.570 |
+| error | «No se encontró la factura» | `!cuota?.factura_url` | handleInvoiceDelete · l.585 |
+| success | «Factura eliminada exitosamente» |  | handleInvoiceDelete · l.619 |
+| error | «Error al eliminar la factura:» |  | handleInvoiceDelete · l.626 |
+| error | «Contrato creado pero error al vincular con licitacion: {err.error \|\| 'Error descono…}. Contacte al administrador.» | `activeTab === 'nuevo' && activeLicitacionId && contratoId && !linkRes.ok` | ContractsPage · l.923 |
+| plain | «Esta licitación ya tenía un contrato: se abrió el contrato existente. Los cambios de este formulario no se guardaron; edite el contrato desde Gestión. / El contrato existente no tiene cuotas registradas: revíselo antes de continuar.» | `activeTab === 'nuevo' && activeLicitacionId && contratoId && !(!linkRes.ok) && reuse?.reused` | ContractsPage · l.927 |
+| success | «Contrato generado y vinculado a la licitacion exitosamente» | `activeTab === 'nuevo' && activeLicitacionId && contratoId && !(!linkRes.ok) && !(reuse?.reused)` | ContractsPage · l.935 |
+| error | «Contrato creado pero no se pudo vincular con la licitacion. Contacte al administrador.» | `activeTab === 'nuevo' && activeLicitacionId && contratoId` | ContractsPage · l.946 |
+| error | «{m}» | `target.kind === 'original'` | ContractsPage · l.1089 |
 | error | «Este contrato fue importado y no tiene el documento original cargado. Use "Subir contrato" para adjuntarlo.» | `!(target.kind === 'original') && target.kind === 'missing'` | ContractsPage · l.1091 |
-| plain | «No se pudo guardar el PDF original; podrá adjuntarlo luego con "Subir contrato".» | `showPDFImporter && sourceFile` | ContractsPage · l.1125 |
-| success | «Datos extraídos del PDF. Complete la información faltante.» | `showPDFImporter` | ContractsPage · l.1131 |
+| plain | «No se pudo guardar el PDF original; podrá adjuntarlo luego con "Subir contrato".» | `showPDFImporter && sourceFile` | ContractsPage · l.1122 |
+| success | «Datos extraídos del PDF. Complete la información faltante.» | `showPDFImporter` | ContractsPage · l.1128 |
 
-**Moves to another page from code** (7)
+**Moves to another page from code** (6)
 
 | Goes to | How | When | Where |
 |---|---|---|---|
-| `/login` | `router.push` | `!session?.user` | checkSession · l.160 |
-| `/dashboard` | `router.push` | `!profile \|\| userRole !== 'admin'` | checkSession · l.175 |
-| `/login` | `router.push` |  | checkSession · l.250 |
-| `/login` | `router.push` |  | handleLogout · l.325 |
-| `/contracts` | `router.replace` | `activeTab === 'nuevo' && activeLicitacionId && contratoId && !(!linkRes.ok)` | ContractsPage · l.941 |
-| `{target.url}` | `window.open` | `target.kind === 'original'` | ContractsPage · l.1089 |
+| `/login` | `router.push` | `!session?.user` | checkSession · l.162 |
+| `/dashboard` | `router.push` | `!profile \|\| userRole !== 'admin'` | checkSession · l.177 |
+| `/login` | `router.push` |  | checkSession · l.252 |
+| `/login` | `router.push` |  | handleLogout · l.327 |
+| `/contracts` | `router.replace` | `activeTab === 'nuevo' && activeLicitacionId && contratoId && !(!linkRes.ok)` | ContractsPage · l.939 |
 | `/contract-print/[*]` | `window.open` | `!(target.kind === 'original') && !(target.kind === 'missing')` | ContractsPage · l.1094 |
 
 **Access checks in the code** (1)
 
 | Line of code | Where |
 |---|---|
-| `userRole = await getUserPrimaryRole(session.user.id)` | checkSession · l.173 |
+| `userRole = await getUserPrimaryRole(session.user.id)` | checkSession · l.175 |
 
 **Pieces placed here, with the texts and settings handed to them** (8)
 
 | Piece | Texts and settings | Shown when | Hook | Where |
 |---|---|---|---|---|
-| `MainLayout` |  |  |  | ContractsPage · l.656 |
-| `ResponsiveFunctionalPageHeader` | title: Contratos · subtitle: Gestión de contratos, anexos y flujo de caja · searchPlaceholder: Buscar por número, cliente... · primaryAction: Nuevo Contrato | `(activeTab === 'lista' \|\| activeTab === 'flujo')` |  | ContractsPage · l.666 |
-| `ContractForm` |  | `activeTab === 'nuevo'` |  | ContractsPage · l.904 |
-| `ContractForm` |  | `activeTab === 'editar' && editingContrato` |  | ContractsPage · l.969 |
-| `AnnexForm` |  | `activeTab === 'nuevo-anexo'` |  | ContractsPage · l.986 |
-| `AnnexForm` |  | `activeTab === 'editar-anexo' && editingAnexo` |  | ContractsPage · l.997 |
-| `CashFlowView` |  | `activeTab === 'flujo'` |  | ContractsPage · l.1013 |
+| `MainLayout` |  |  |  | ContractsPage · l.654 |
+| `ResponsiveFunctionalPageHeader` | title: Contratos · subtitle: Gestión de contratos, anexos y flujo de caja · searchPlaceholder: Buscar por número, cliente... · primaryAction: Nuevo Contrato | `(activeTab === 'lista' \|\| activeTab === 'flujo')` |  | ContractsPage · l.664 |
+| `ContractForm` |  | `activeTab === 'nuevo'` |  | ContractsPage · l.902 |
+| `ContractForm` |  | `activeTab === 'editar' && editingContrato` |  | ContractsPage · l.967 |
+| `AnnexForm` |  | `activeTab === 'nuevo-anexo'` |  | ContractsPage · l.984 |
+| `AnnexForm` |  | `activeTab === 'editar-anexo' && editingAnexo` |  | ContractsPage · l.995 |
+| `CashFlowView` |  | `activeTab === 'flujo'` |  | ContractsPage · l.1011 |
 | `ContractPDFImporter` |  | `showPDFImporter` |  | ContractsPage · l.1105 |
 
 **Texts kept in lists and helpers in the code (labels, options, status names)** (1)
 
 | Name | Texts | Where |
 |---|---|---|
-| `formatCurrency()` | «UF {amount.toLocaleString('es-C…}» | formatCurrency · l.332 |
+| `formatCurrency()` | «UF {amount.toLocaleString('es-C…}» | formatCurrency · l.334 |
 
 **Other texts written in the code (safety net: not tied to an element by the script)** (2)
 
 | Text | Where |
 |---|---|
-| «Ver Licitacion» | ContractsPage · l.857 |
-| «Error desconocido» | ContractsPage · l.925 |
+| «Ver Licitacion» | ContractsPage · l.855 |
+| «Error desconocido» | ContractsPage · l.923 |
 
 **Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (8)
 
 | Kind | What | Where |
 |---|---|---|
-| listener | `window.addEventListener('openPDFImporterFromForm')` | ContractsPage · l.148 |
-| storage | `localStorage: rememberMe` | handleLogout · l.323 |
-| storage | `sessionStorage: sessionOnly` | handleLogout · l.324 |
+| listener | `window.addEventListener('openPDFImporterFromForm')` | ContractsPage · l.150 |
+| storage | `localStorage: rememberMe` | handleLogout · l.325 |
+| storage | `sessionStorage: sessionOnly` | handleLogout · l.326 |
 | address value | `?cliente_id` | l.1 |
 | address value | `?contrato_id` | l.1 |
 | address value | `?licitacion_id` | l.1 |
@@ -853,30 +857,30 @@ File `pages/contracts.tsx` · 1140 lines · frame: MainLayout
 
 **Values shown from data** (4)
 
-- `{contrato.clientes.nombre_legal}` — ContractsPage · l.800, when `activeTab === 'lista' && contratos.length > 0 && filteredContratos.length > 0 && each filteredContratos`
-- `{formatDate(contrato.fecha_contrato)}` — ContractsPage · l.811, when `activeTab === 'lista' && contratos.length > 0 && filteredContratos.length > 0 && each filteredContratos`
-- `{formatCurrency(contrato.precio_tota…}` — ContractsPage · l.816, when `activeTab === 'lista' && contratos.length > 0 && filteredContratos.length > 0 && each filteredContratos`
-- `{deleteModalContrato.numero_contrato}` — ContractsPage · l.1034, when `deleteModalContrato`
+- `{contrato.clientes.nombre_legal}` — ContractsPage · l.798, when `activeTab === 'lista' && contratos.length > 0 && filteredContratos.length > 0 && each filteredContratos`
+- `{formatDate(contrato.fecha_contrato)}` — ContractsPage · l.809, when `activeTab === 'lista' && contratos.length > 0 && filteredContratos.length > 0 && each filteredContratos`
+- `{formatCurrency(contrato.precio_tota…}` — ContractsPage · l.814, when `activeTab === 'lista' && contratos.length > 0 && filteredContratos.length > 0 && each filteredContratos`
+- `{deleteModalContrato.numero_contrato}` — ContractsPage · l.1032, when `deleteModalContrato`
 
 **Other texts on screen** (15)
 
-- «Cargando...» — ContractsPage · l.649, when `loading`
-- «{contrato.descripcion_manual} / Contrato Manual / {contrato.clientes.nombre_fantasia}» — ContractsPage · l.801, when `activeTab === 'lista' && contratos.length > 0 && filteredContratos.length > 0 && each filteredContratos`
-- «Activo / Borrador / Pendiente» — ContractsPage · l.822, when `activeTab === 'lista' && contratos.length > 0 && filteredContratos.length > 0 && each filteredContratos`
-- «FIRMA PENDIENTE» — ContractsPage · l.833, when `contratos.length > 0 && filteredContratos.length > 0 && each filteredContratos && isFirmaPendiente(contrato)`
-- «En Flujo» — ContractsPage · l.838, when `contratos.length > 0 && filteredContratos.length > 0 && each filteredContratos && contrato.incluir_en_flujo`
-- «No hay contratos activos con firma pendiente» — ContractsPage · l.871, when `activeTab === 'lista' && contratos.length > 0 && !(filteredContratos.length > 0) && showFirmaPendiente`
-- «que coincidan con &quot;» — ContractsPage · l.872, when `contratos.length > 0 && !(filteredContratos.length > 0) && showFirmaPendiente && searchQuery`
-- «&quot;» — ContractsPage · l.872, when `contratos.length > 0 && !(filteredContratos.length > 0) && showFirmaPendiente && searchQuery`
-- «. Desactiva el filtro &quot;Firma pendiente&quot; para ver todos los contratos.» — ContractsPage · l.873, when `activeTab === 'lista' && contratos.length > 0 && !(filteredContratos.length > 0) && showFirmaPendiente`
-- «No se encontraron contratos para &quot;» — ContractsPage · l.877, when `activeTab === 'lista' && contratos.length > 0 && !(filteredContratos.length > 0) && !(showFirmaPendiente)`
-- «&quot;. Prueba con otro número de contrato, cliente o programa.» — ContractsPage · l.877, when `activeTab === 'lista' && contratos.length > 0 && !(filteredContratos.length > 0) && !(showFirmaPendiente)`
-- «Comienza creando tu primer contrato» — ContractsPage · l.890, when `activeTab === 'lista' && !(contratos.length > 0)`
-- «Esta acción no se puede deshacer» — ContractsPage · l.1027, when `deleteModalContrato`
-- «¿Estás seguro de que deseas eliminar el contrato» — ContractsPage · l.1033, when `deleteModalContrato`
-- «Se eliminarán también todas las cuotas asociadas a este contrato.» — ContractsPage · l.1037, when `deleteModalContrato`
+- «Cargando...» — ContractsPage · l.647, when `loading`
+- «{contrato.descripcion_manual} / Contrato Manual / {contrato.clientes.nombre_fantasia}» — ContractsPage · l.799, when `activeTab === 'lista' && contratos.length > 0 && filteredContratos.length > 0 && each filteredContratos`
+- «Activo / Borrador / Pendiente» — ContractsPage · l.820, when `activeTab === 'lista' && contratos.length > 0 && filteredContratos.length > 0 && each filteredContratos`
+- «FIRMA PENDIENTE» — ContractsPage · l.831, when `contratos.length > 0 && filteredContratos.length > 0 && each filteredContratos && isFirmaPendiente(contrato)`
+- «En Flujo» — ContractsPage · l.836, when `contratos.length > 0 && filteredContratos.length > 0 && each filteredContratos && contrato.incluir_en_flujo`
+- «No hay contratos activos con firma pendiente» — ContractsPage · l.869, when `activeTab === 'lista' && contratos.length > 0 && !(filteredContratos.length > 0) && showFirmaPendiente`
+- «que coincidan con &quot;» — ContractsPage · l.870, when `contratos.length > 0 && !(filteredContratos.length > 0) && showFirmaPendiente && searchQuery`
+- «&quot;» — ContractsPage · l.870, when `contratos.length > 0 && !(filteredContratos.length > 0) && showFirmaPendiente && searchQuery`
+- «. Desactiva el filtro &quot;Firma pendiente&quot; para ver todos los contratos.» — ContractsPage · l.871, when `activeTab === 'lista' && contratos.length > 0 && !(filteredContratos.length > 0) && showFirmaPendiente`
+- «No se encontraron contratos para &quot;» — ContractsPage · l.875, when `activeTab === 'lista' && contratos.length > 0 && !(filteredContratos.length > 0) && !(showFirmaPendiente)`
+- «&quot;. Prueba con otro número de contrato, cliente o programa.» — ContractsPage · l.875, when `activeTab === 'lista' && contratos.length > 0 && !(filteredContratos.length > 0) && !(showFirmaPendiente)`
+- «Comienza creando tu primer contrato» — ContractsPage · l.888, when `activeTab === 'lista' && !(contratos.length > 0)`
+- «Esta acción no se puede deshacer» — ContractsPage · l.1025, when `deleteModalContrato`
+- «¿Estás seguro de que deseas eliminar el contrato» — ContractsPage · l.1031, when `deleteModalContrato`
+- «Se eliminarán también todas las cuotas asociadas a este contrato.» — ContractsPage · l.1035, when `deleteModalContrato`
 
-**Reads and writes the database directly:** `bucket:{INVOICES_BUCKET}` (remove), `bucket:contracts` (getPublicUrl, upload), `bucket:facturas` (upload), `table:clientes` (select), `table:contratos` (delete, select, update), `table:cuotas` (delete, select, update), `table:profiles` (select), `table:programas` (select)
+**Reads and writes the database directly:** `bucket:{CONTRACTS_BUCKET}` (upload), `bucket:{INVOICES_BUCKET}` (remove), `bucket:facturas` (upload), `table:clientes` (select), `table:contratos` (delete, select, update), `table:cuotas` (delete, select, update), `table:profiles` (select), `table:programas` (select)
 
 ### Pieces it uses (each is listed once, under "Pieces" below)
 
@@ -893,6 +897,7 @@ File `pages/contracts.tsx` · 1140 lines · frame: MainLayout
 - `lib/contract-template.ts`
 - `lib/contracts/cuotas-math.ts`
 - `lib/contracts/extractionError.ts`
+- `lib/contracts/open-contract.ts`
 - `lib/contracts/open-invoice.ts`
 - `lib/uf-service.ts`
 - `lib/utils/reconcileCuotas.ts`
@@ -908,10 +913,11 @@ File `pages/contracts.tsx` · 1140 lines · frame: MainLayout
 | `/api/contracts/[id]/hours/allocate` | DELETE, POST | `components/contracts/HourAllocationPanel.tsx:139`, `components/contracts/HourAllocationPanel.tsx:164` |
 | `/api/contracts/[id]/hours/ledger/csv` | ? | `components/contracts/HourAllocationPanel.tsx:430` |
 | `/api/contracts/[id]/hours/reallocate` | PATCH | `components/contracts/ReallocationModal.tsx:67` |
+| `/api/contracts/contract-link` | ? | `lib/contracts/open-contract.ts:16` |
 | `/api/contracts/extract-pdf` | POST | `components/contracts/ContractPDFImporter.tsx:133` |
 | `/api/contracts/invoice-link` | ? | `lib/contracts/open-invoice.ts:15` |
-| `/api/licitaciones/[id]` | GET | `pages/contracts.tsx:223` |
-| `/api/licitaciones/[id]/generate-contract` | POST | `pages/contracts.tsx:916` |
+| `/api/licitaciones/[id]` | GET | `pages/contracts.tsx:225` |
+| `/api/licitaciones/[id]/generate-contract` | POST | `pages/contracts.tsx:914` |
 | `/api/uf-value` | GET | `lib/uf-service.ts:396` |
 
 ## /quote/[id]
@@ -2653,6 +2659,32 @@ Used by: `/contracts`
 |---|---|
 | «Error al procesar el PDF» | extractionErrorMessage · l.21 |
 
+### lib/contracts/open-contract.ts
+
+Used by: `/contract-print/[id]`, `/contracts`
+
+**Toasts** (3)
+
+| Kind | Text | When | Where |
+|---|---|---|---|
+| error | «{CONTRACT_POPUP_BLOCKED}» | `!tab` | openContractDocumentInNewTab · l.34 |
+| error | «{CONTRACT_OPEN_FAILED}» | `!url` | openContractDocumentInNewTab · l.41 |
+| error | «{CONTRACT_OPEN_FAILED}» | `!url` | downloadContractDocument · l.57 |
+
+**Moves to another page from code** (2)
+
+| Goes to | How | When | Where |
+|---|---|---|---|
+|  | `window.open` |  | openContractDocumentInNewTab · l.32 |
+| `{url}` | `window.location.assign` |  | downloadContractDocument · l.60 |
+
+**Texts kept in lists and helpers in the code (labels, options, status names)** (2)
+
+| Name | Texts | Where |
+|---|---|---|
+| `CONTRACT_OPEN_FAILED` | «No se pudo abrir el documento del contrato.» | l.9 |
+| `CONTRACT_POPUP_BLOCKED` | «El navegador bloqueó la ventana. Permite las ventanas emergentes para ver el documento.» | l.10 |
+
 ### lib/contracts/open-invoice.ts
 
 Used by: `/contracts`
@@ -2755,6 +2787,7 @@ Used by: `/admin/clients`, `/contracts`
 | `/api/contracts/[id]/hours/ledger/csv` | `pages/api/contracts/[id]/hours/ledger/csv.ts` | GET | `/contracts` | `__tests__/api/hour-tracking/ledger-csv.test.ts`, `components/contracts/HourAllocationPanel.tsx` |
 | `/api/contracts/[id]/hours/ledger` | `pages/api/contracts/[id]/hours/ledger/index.ts` | GET, POST | **no screen** | `__tests__/api/hour-tracking/ledger-json.test.ts` |
 | `/api/contracts/[id]/hours/reallocate` | `pages/api/contracts/[id]/hours/reallocate.ts` | PATCH | `/contracts` | `__tests__/api/hour-tracking/reallocation.test.ts`, `components/contracts/ReallocationModal.tsx`, `supabase/tests/150-reallocate-hours.sql` |
+| `/api/contracts/contract-link` | `pages/api/contracts/contract-link.ts` | GET | `/contract-print/[id]`, `/contracts` | `__tests__/api/contracts/contract-link.test.ts`, `__tests__/lib/contracts/open-contract.test.ts`, `__tests__/pages/contract-print-original.test.tsx`, `__tests__/pages/contracts-activation.test.tsx`, `lib/contracts/open-contract.ts` |
 | `/api/contracts/extract-pdf` | `pages/api/contracts/extract-pdf.ts` | POST | `/contracts` | `__tests__/api/contracts/extract-pdf.test.ts`, `__tests__/api/forged-session-sweep.test.ts`, `__tests__/components/contracts/ContractPDFImporter.size-limit.test.tsx`, `components/contracts/ContractPDFImporter.tsx` |
 | `/api/contracts/invoice-link` | `pages/api/contracts/invoice-link.ts` | GET | `/contracts` | `__tests__/api/contracts/invoice-link.test.ts`, `__tests__/components/contracts/CashFlowView.invoice-link.test.tsx`, `__tests__/components/contracts/ContractDetailsModal.invoice-link.test.tsx`, `__tests__/lib/contracts/open-invoice.test.ts`, `lib/contracts/open-invoice.ts` +2 |
 | `/api/quotes/[id]` | `pages/api/quotes/[id].ts` | DELETE, GET, PUT | `/admin/quotes`, `/admin/quotes/[id]/edit`, `/quote/[id]` | `__tests__/api/admin/assignment-matrix-quotes-forged-session.test.ts`, `__tests__/api/quotes/public-quote-fields.test.ts`, `__tests__/api/quotes/update-groups.test.ts`, `__tests__/api/quotes/valid-until.test.ts`, `pages/admin/quotes/[id]/edit.tsx` +4 |

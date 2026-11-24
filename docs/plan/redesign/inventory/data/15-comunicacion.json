@@ -4,10 +4,333 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "a908cc8b50d6d63408cd0f40fb401cf0030b72e0",
-  "date": "2026-11-25T13:27:34-03:00"
+  "commit": "02daebb57999c7fb9c7912a4f31b0438904e2e30",
+  "date": "2026-11-25T13:51:38-03:00"
  },
  "screens": [
+  {
+   "file": "pages/admin/correos/vista-previa.tsx",
+   "route": "/admin/correos/vista-previa",
+   "lines": 191,
+   "marks": {},
+   "frame": "MainLayout",
+   "server": "getServerSideProps",
+   "reach": {
+    "menu": [],
+    "middleware": {
+     "rule": "the /admin rule",
+     "signedOut": "sent to /login",
+     "passwordChangeHold": true
+    },
+    "roles": {
+     "admin": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "equipo_directivo": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "lider_generacion": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "lider_comunidad": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "supervisor_de_red": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "community_manager": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "docente": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "encargado_licitacion": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     }
+    },
+    "inPage": [
+     {
+      "line": 21,
+      "text": "server redirect → /login?next=[*]  (when !viewer)"
+     },
+     {
+      "line": 28,
+      "text": "if (!(await isGlobalAdmin(service, viewer.id))) { return { redirect: { destination: '/dashboard', permanent: false } }; }"
+     },
+     {
+      "line": 29,
+      "text": "server redirect → /dashboard  (when !(await isGlobalAdmin(service, viewer.id)))"
+     }
+    ],
+    "linkedFrom": [],
+    "qaScenarios": {},
+    "tests": {
+     "e2eCi": [],
+     "e2e": [],
+     "unit": []
+    }
+   },
+   "rows": [
+    {
+     "kind": "nav",
+     "line": 21,
+     "in": "getServerSideProps",
+     "when": "!viewer",
+     "text": "/login?next=[*]",
+     "via": "server redirect"
+    },
+    {
+     "kind": "nav",
+     "line": 26,
+     "in": "getServerSideProps",
+     "when": "verdict !== 'allowed'",
+     "text": "{forcedChangeRedirectPath(verdict)}",
+     "via": "server redirect"
+    },
+    {
+     "kind": "access",
+     "line": 28,
+     "in": "getServerSideProps",
+     "text": "if (!(await isGlobalAdmin(service, viewer.id))) { return { redirect: { destination: '/dashboard', permanent: false } }; }",
+     "via": "isGlobalAdmin"
+    },
+    {
+     "kind": "nav",
+     "line": 29,
+     "in": "getServerSideProps",
+     "when": "!(await isGlobalAdmin(service, viewer.id))",
+     "text": "/dashboard",
+     "via": "server redirect"
+    },
+    {
+     "kind": "list",
+     "line": 36,
+     "text": "WIDTHS",
+     "items": [
+      "Escritorio",
+      "Teléfono"
+     ]
+    },
+    {
+     "kind": "piece",
+     "line": 125,
+     "in": "CorreosVistaPrevia",
+     "text": "pageTitle: Vista previa de correos · breadcrumbs: Administración / Correos / Vista previa",
+     "tag": "MainLayout"
+    },
+    {
+     "kind": "hook",
+     "line": 130,
+     "in": "CorreosVistaPrevia",
+     "text": "testid=correos-vista-previa",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "piece",
+     "line": 131,
+     "in": "CorreosVistaPrevia",
+     "text": "eyebrow: Correos · title: Vista previa del correo · description: Así se ve un correo de ejemplo con la marca de la Fundación. Puedes enviarte una prueba a tu propia dirección.",
+     "tag": "PageHeader"
+    },
+    {
+     "kind": "button",
+     "line": 136,
+     "in": "CorreosVistaPrevia",
+     "text": "Enviarme una prueba",
+     "action": "{sendTest}",
+     "hook": {
+      "testid": "correos-enviar-prueba"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 143,
+     "in": "CorreosVistaPrevia",
+     "when": "outcome",
+     "text": "",
+     "tag": "Notice",
+     "hook": {
+      "testid": "correos-resultado"
+     }
+    },
+    {
+     "kind": "value",
+     "line": 143,
+     "in": "CorreosVistaPrevia",
+     "when": "outcome",
+     "text": "{outcome.text}"
+    },
+    {
+     "kind": "text",
+     "line": 148,
+     "in": "CorreosVistaPrevia",
+     "text": "Ancho de la vista previa",
+     "attr": "aria-label"
+    },
+    {
+     "kind": "hook",
+     "line": 148,
+     "in": "CorreosVistaPrevia",
+     "text": "role=group",
+     "type": "role",
+     "tag": "div",
+     "aria": "Ancho de la vista previa"
+    },
+    {
+     "kind": "button",
+     "line": 150,
+     "in": "CorreosVistaPrevia",
+     "when": "each (Object.keys(WIDTHS) as WidthKey[])",
+     "text": "{WIDTHS[key].label}",
+     "action": "{() => setWidth(key)}",
+     "hook": {
+      "testid": "correos-ancho-{key}"
+     }
+    },
+    {
+     "kind": "text",
+     "line": 161,
+     "in": "CorreosVistaPrevia",
+     "text": "{frameWidth} px"
+    },
+    {
+     "kind": "text",
+     "line": 166,
+     "in": "CorreosVistaPrevia",
+     "when": "preview",
+     "text": "Asunto:"
+    },
+    {
+     "kind": "piece",
+     "line": 172,
+     "in": "CorreosVistaPrevia",
+     "when": "loadError",
+     "text": "tone: error · title: No se pudo mostrar el correo.",
+     "tag": "Notice"
+    },
+    {
+     "kind": "text",
+     "line": 173,
+     "in": "CorreosVistaPrevia",
+     "when": "loadError",
+     "text": "Vuelve a cargar la página en un momento."
+    },
+    {
+     "kind": "media",
+     "line": 176,
+     "in": "CorreosVistaPrevia",
+     "when": "!(loadError) && preview",
+     "text": "iframe · Correo de ejemplo",
+     "hook": {
+      "testid": "correos-marco"
+     },
+     "title": "Correo de ejemplo"
+    },
+    {
+     "kind": "piece",
+     "line": 184,
+     "in": "CorreosVistaPrevia",
+     "when": "!(loadError) && !(preview)",
+     "text": "label: Cargando el correo de ejemplo",
+     "tag": "LoadingBlock"
+    },
+    {
+     "kind": "string",
+     "line": 54,
+     "in": "describeSend",
+     "text": "Prueba enviada."
+    },
+    {
+     "kind": "string",
+     "line": 54,
+     "in": "describeSend",
+     "text": "La enviamos a tu dirección{body.to ? `, ${body.to}` : …}. Revisa tu bandeja de entrada."
+    },
+    {
+     "kind": "string",
+     "line": 59,
+     "in": "describeSend",
+     "text": "No se envió."
+    },
+    {
+     "kind": "string",
+     "line": 60,
+     "in": "describeSend",
+     "text": "El servicio de correo no está configurado en este entorno, así que no salió ningún mensaje."
+    },
+    {
+     "kind": "string",
+     "line": 68,
+     "in": "describeSend",
+     "text": "Tu cuenta está vinculada a un colegio de prueba, y a esas cuentas no les enviamos correos reales."
+    },
+    {
+     "kind": "string",
+     "line": 72,
+     "in": "describeSend",
+     "text": "Tu cuenta no tiene una dirección de correo registrada."
+    },
+    {
+     "kind": "string",
+     "line": 77,
+     "in": "describeSend",
+     "text": "El servicio de correo no aceptó el mensaje o no pudimos comprobar tu cuenta. Inténtalo de nuevo más tarde."
+    },
+    {
+     "kind": "string",
+     "line": 80,
+     "in": "describeSend",
+     "text": "Tu sesión terminó. Vuelve a iniciar sesión."
+    },
+    {
+     "kind": "string",
+     "line": 81,
+     "in": "describeSend",
+     "text": "Solo un administrador puede enviar la prueba."
+    },
+    {
+     "kind": "string",
+     "line": 82,
+     "in": "describeSend",
+     "text": "Algo falló al enviar la prueba. Inténtalo de nuevo más tarde."
+    }
+   ],
+   "db": [],
+   "pieces": [
+    "components/ui/kit/Button.tsx",
+    "components/ui/kit/Field.tsx",
+    "components/ui/kit/Loading.tsx",
+    "components/ui/kit/Notice.tsx",
+    "components/ui/kit/PageHeader.tsx",
+    "lib/api-auth.ts",
+    "lib/auth/forced-password-change.ts",
+    "types/roles.ts",
+    "utils/roleUtils.ts"
+   ],
+   "api": [
+    {
+     "file": "pages/api/admin/correos/vista-previa.ts",
+     "route": "/api/admin/correos/vista-previa",
+     "methods": [],
+     "from": [
+      "pages/admin/correos/vista-previa.tsx:34"
+     ]
+    }
+   ]
+  },
   {
    "file": "pages/admin/events.tsx",
    "route": "/admin/events",
@@ -1300,6 +1623,236 @@
   }
  ],
  "pieces": {
+  "components/ui/kit/Button.tsx": {
+   "usedBy": [
+    "/admin/correos/vista-previa"
+   ],
+   "lines": 178,
+   "rows": [
+    {
+     "kind": "piece",
+     "line": 120,
+     "when": "loading",
+     "text": "",
+     "tag": "SpinnerMark"
+    },
+    {
+     "kind": "link",
+     "line": 131,
+     "when": "typeof rest.href === 'string' && inert",
+     "text": "{content}",
+     "target": ""
+    },
+    {
+     "kind": "link",
+     "line": 145,
+     "when": "typeof rest.href === 'string' && href.startsWith('/')",
+     "text": "{content}",
+     "target": "{href}",
+     "action": "{onClick}"
+    },
+    {
+     "kind": "link",
+     "line": 151,
+     "when": "typeof rest.href === 'string'",
+     "text": "{content}",
+     "target": "{href}",
+     "action": "{onClick}"
+    },
+    {
+     "kind": "button",
+     "line": 159,
+     "text": "{content}",
+     "action": "{(event) => { if (loading) { // Not clickable while it works; also keeps a submi…}"
+    }
+   ],
+   "db": []
+  },
+  "components/ui/kit/Field.tsx": {
+   "usedBy": [
+    "/admin/correos/vista-previa"
+   ],
+   "lines": 396,
+   "rows": [
+    {
+     "kind": "piece",
+     "line": 264,
+     "text": "aria-hidden: true",
+     "tag": "Search"
+    },
+    {
+     "kind": "field",
+     "line": 268,
+     "text": "",
+     "type": "{type}"
+    }
+   ],
+   "db": []
+  },
+  "components/ui/kit/Loading.tsx": {
+   "usedBy": [
+    "/admin/correos/vista-previa"
+   ],
+   "lines": 109,
+   "rows": [
+    {
+     "kind": "hook",
+     "line": 94,
+     "text": "role=status",
+     "type": "role",
+     "tag": "div"
+    },
+    {
+     "kind": "value",
+     "line": 105,
+     "text": "{label}"
+    }
+   ],
+   "db": []
+  },
+  "components/ui/kit/Notice.tsx": {
+   "usedBy": [
+    "/admin/correos/vista-previa"
+   ],
+   "lines": 76,
+   "rows": [
+    {
+     "kind": "value",
+     "line": 68,
+     "when": "title",
+     "text": "{title}"
+    }
+   ],
+   "db": []
+  },
+  "components/ui/kit/PageHeader.tsx": {
+   "usedBy": [
+    "/admin/correos/vista-previa"
+   ],
+   "lines": 128,
+   "rows": [
+    {
+     "kind": "value",
+     "line": 78,
+     "when": "eyebrow",
+     "text": "{eyebrow}"
+    },
+    {
+     "kind": "value",
+     "line": 88,
+     "when": "icon",
+     "text": "{icon}"
+    },
+    {
+     "kind": "heading",
+     "line": 93,
+     "text": "{title}",
+     "level": 1
+    },
+    {
+     "kind": "value",
+     "line": 94,
+     "when": "description",
+     "text": "{description}"
+    },
+    {
+     "kind": "piece",
+     "line": 100,
+     "when": "hasActions && onSearchChange",
+     "text": "",
+     "tag": "SearchInput",
+     "aria": "{searchLabel}"
+    },
+    {
+     "kind": "button",
+     "line": 110,
+     "when": "hasActions && secondaryAction",
+     "text": "{secondaryAction.icon} {secondaryAction.label}",
+     "action": "{secondaryAction.onClick}",
+     "hook": {
+      "testid": "{secondaryAction['data-testid']}"
+     }
+    },
+    {
+     "kind": "button",
+     "line": 116,
+     "when": "hasActions && primaryAction",
+     "text": "{primaryAction.icon} {primaryAction.label}",
+     "action": "{primaryAction.onClick}",
+     "hook": {
+      "testid": "{primaryAction['data-testid']}"
+     }
+    },
+    {
+     "kind": "value",
+     "line": 124,
+     "when": "children",
+     "text": "{children}"
+    },
+    {
+     "kind": "string",
+     "line": 59,
+     "in": "PageHeader",
+     "text": "Buscar..."
+    },
+    {
+     "kind": "string",
+     "line": 60,
+     "in": "PageHeader",
+     "text": "Buscar"
+    }
+   ],
+   "db": []
+  },
+  "lib/api-auth.ts": {
+   "usedBy": [
+    "/admin/correos/vista-previa"
+   ],
+   "lines": 551,
+   "rows": [
+    {
+     "kind": "message",
+     "line": 113,
+     "in": "createServiceRoleClient",
+     "when": "!supabaseUrl || !serviceRoleKey",
+     "text": "Server configuration error",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "message",
+     "line": 125,
+     "in": "createServiceRoleClient",
+     "text": "Failed to initialize admin connection",
+     "via": "throw (shown by whoever catches it)"
+    }
+   ],
+   "db": [
+    {
+     "what": "table:profiles",
+     "ops": [
+      "select"
+     ]
+    }
+   ]
+  },
+  "lib/auth/forced-password-change.ts": {
+   "usedBy": [
+    "/admin/correos/vista-previa"
+   ],
+   "lines": 284,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 254,
+     "in": "verdictFromProfile",
+     "text": "verdictFromProfile()",
+     "items": [
+      "required / allowed"
+     ]
+    }
+   ],
+   "db": []
+  },
   "src/components/TipTapEditor.tsx": {
    "usedBy": [
     "/admin/news"
@@ -1546,6 +2099,7 @@
   },
   "types/roles.ts": {
    "usedBy": [
+    "/admin/correos/vista-previa",
     "/admin/events",
     "/admin/news"
    ],
@@ -1688,6 +2242,7 @@
   },
   "utils/roleUtils.ts": {
    "usedBy": [
+    "/admin/correos/vista-previa",
     "/admin/events",
     "/admin/news"
    ],
@@ -1795,6 +2350,22 @@
   }
  },
  "api": [
+  {
+   "file": "pages/api/admin/correos/vista-previa.ts",
+   "route": "/api/admin/correos/vista-previa",
+   "methods": [
+    "GET",
+    "POST"
+   ],
+   "guards": [],
+   "calledBy": [
+    "/admin/correos/vista-previa"
+   ],
+   "referencedIn": [
+    "__tests__/correos/vista-previa-api.test.ts",
+    "pages/admin/correos/vista-previa.tsx"
+   ]
+  },
   {
    "file": "pages/api/admin/news.ts",
    "route": "/api/admin/news",

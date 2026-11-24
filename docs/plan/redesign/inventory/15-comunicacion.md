@@ -1,16 +1,140 @@
 # Comunicación (news and events)
 
 Area `15-comunicacion`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `a908cc8b5` (2026-11-25).
+Read from commit `02daebb57` (2026-11-25).
 
-2 screen files, 4 API files, 6 pieces.
+3 screen files, 5 API files, 13 pieces.
 
 ## Screens
 
 | Address | File | Lines | Menu | Marks |
 |---|---|---|---|---|
+| `/admin/correos/vista-previa` | `pages/admin/correos/vista-previa.tsx` | 191 | — |  |
 | `/admin/events` | `pages/admin/events.tsx` | 580 | Comunicación › Eventos |  |
 | `/admin/news` | `pages/admin/news.tsx` | 655 | Comunicación › Noticias |  |
+
+## /admin/correos/vista-previa
+
+File `pages/admin/correos/vista-previa.tsx` · 191 lines · frame: MainLayout · getServerSideProps
+
+### Who reaches it
+
+- Menu: no entry.
+- Middleware: the /admin rule. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
+- In the page:
+  - l.21 `server redirect → /login?next=[*]  (when !viewer)`
+  - l.28 `if (!(await isGlobalAdmin(service, viewer.id))) { return { redirect: { destination: '/dashboard', permanent: false } }; }`
+  - l.29 `server redirect → /dashboard  (when !(await isGlobalAdmin(service, viewer.id)))`
+- Linked from: nothing in the code (reached by typing the address, or from outside)
+- Tests: no browser test that CI runs.
+
+| Role | Sees it in the menu | Middleware |
+|---|---|---|
+| admin | — | pass |
+| consultor | — | sent to /dashboard |
+| equipo_directivo | — | sent to /dashboard |
+| lider_generacion | — | sent to /dashboard |
+| lider_comunidad | — | sent to /dashboard |
+| supervisor_de_red | — | sent to /dashboard |
+| community_manager | — | sent to /dashboard |
+| docente | — | sent to /dashboard |
+| encargado_licitacion | — | sent to /dashboard |
+
+### What the page file itself draws
+
+**Buttons** (2)
+
+| Text | Does | Shown when | Disabled when | Hook | Where |
+|---|---|---|---|---|---|
+| «Enviarme una prueba» | `{sendTest}` |  |  | `testid=correos-enviar-prueba` | CorreosVistaPrevia · l.136 |
+| «{WIDTHS[key].label}» | `{() => setWidth(key)}` | `each (Object.keys(WIDTHS) as WidthKey[])` |  | `testid=correos-ancho-{key}` | CorreosVistaPrevia · l.150 |
+
+**Embedded media** (1)
+
+| What | Shown when | Hook | Where |
+|---|---|---|---|
+| iframe · Correo de ejemplo | `!(loadError) && preview` | `testid=correos-marco` | CorreosVistaPrevia · l.176 |
+
+**Moves to another page from code** (3)
+
+| Goes to | How | When | Where |
+|---|---|---|---|
+| `/login?next=[*]` | `server redirect` | `!viewer` | getServerSideProps · l.21 |
+| `{forcedChangeRedirectPath(verdict)}` | `server redirect` | `verdict !== 'allowed'` | getServerSideProps · l.26 |
+| `/dashboard` | `server redirect` | `!(await isGlobalAdmin(service, viewer.id))` | getServerSideProps · l.29 |
+
+**Access checks in the code** (1)
+
+| Line of code | Where |
+|---|---|
+| `if (!(await isGlobalAdmin(service, viewer.id))) { return { redirect: { destination: '/dashboard', permanent: false } }; }` | getServerSideProps · l.28 |
+
+**Pieces placed here, with the texts and settings handed to them** (5)
+
+| Piece | Texts and settings | Shown when | Hook | Where |
+|---|---|---|---|---|
+| `MainLayout` | pageTitle: Vista previa de correos · breadcrumbs: Administración / Correos / Vista previa |  |  | CorreosVistaPrevia · l.125 |
+| `PageHeader` | eyebrow: Correos · title: Vista previa del correo · description: Así se ve un correo de ejemplo con la marca de la Fundación. Puedes enviarte una prueba a tu propia dirección. |  |  | CorreosVistaPrevia · l.131 |
+| `Notice` |  | `outcome` | `testid=correos-resultado` | CorreosVistaPrevia · l.143 |
+| `Notice` | tone: error · title: No se pudo mostrar el correo. | `loadError` |  | CorreosVistaPrevia · l.172 |
+| `LoadingBlock` | label: Cargando el correo de ejemplo | `!(loadError) && !(preview)` |  | CorreosVistaPrevia · l.184 |
+
+**Texts kept in lists and helpers in the code (labels, options, status names)** (1)
+
+| Name | Texts | Where |
+|---|---|---|
+| `WIDTHS` | «Escritorio», «Teléfono» | l.36 |
+
+**Other texts written in the code (safety net: not tied to an element by the script)** (10)
+
+| Text | Where |
+|---|---|
+| «Prueba enviada.» | describeSend · l.54 |
+| «La enviamos a tu dirección{body.to ? `, ${body.to}` : …}. Revisa tu bandeja de entrada.» | describeSend · l.54 |
+| «No se envió.» | describeSend · l.59 |
+| «El servicio de correo no está configurado en este entorno, así que no salió ningún mensaje.» | describeSend · l.60 |
+| «Tu cuenta está vinculada a un colegio de prueba, y a esas cuentas no les enviamos correos reales.» | describeSend · l.68 |
+| «Tu cuenta no tiene una dirección de correo registrada.» | describeSend · l.72 |
+| «El servicio de correo no aceptó el mensaje o no pudimos comprobar tu cuenta. Inténtalo de nuevo más tarde.» | describeSend · l.77 |
+| «Tu sesión terminó. Vuelve a iniciar sesión.» | describeSend · l.80 |
+| «Solo un administrador puede enviar la prueba.» | describeSend · l.81 |
+| «Algo falló al enviar la prueba. Inténtalo de nuevo más tarde.» | describeSend · l.82 |
+
+**Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (2)
+
+| Kind | What | Where |
+|---|---|---|
+| mark | `testid=correos-vista-previa` | CorreosVistaPrevia · l.130 |
+| role | `role=group` | CorreosVistaPrevia · l.148 |
+
+**Values shown from data** (1)
+
+- `{outcome.text}` — CorreosVistaPrevia · l.143, when `outcome`
+
+**Other texts on screen** (4)
+
+- «Ancho de la vista previa» (aria-label) — CorreosVistaPrevia · l.148
+- «{frameWidth} px» — CorreosVistaPrevia · l.161
+- «Asunto:» — CorreosVistaPrevia · l.166, when `preview`
+- «Vuelve a cargar la página en un momento.» — CorreosVistaPrevia · l.173, when `loadError`
+
+### Pieces it uses (each is listed once, under "Pieces" below)
+
+- `components/ui/kit/Button.tsx`
+- `components/ui/kit/Field.tsx`
+- `components/ui/kit/Loading.tsx`
+- `components/ui/kit/Notice.tsx`
+- `components/ui/kit/PageHeader.tsx`
+- `lib/api-auth.ts`
+- `lib/auth/forced-password-change.ts`
+- `types/roles.ts`
+- `utils/roleUtils.ts`
+
+### API addresses it calls
+
+| Address | Method | Called from |
+|---|---|---|
+| `/api/admin/correos/vista-previa` | ? | `pages/admin/correos/vista-previa.tsx:34` |
 
 ## /admin/events
 
@@ -364,6 +488,128 @@ File `pages/admin/news.tsx` · 655 lines · frame: MainLayout
 
 Components and helpers the screens above draw from. Each is listed once.
 
+### components/ui/kit/Button.tsx
+
+Used by: `/admin/correos/vista-previa`
+
+**Buttons** (1)
+
+| Text | Does | Shown when | Disabled when | Hook | Where |
+|---|---|---|---|---|---|
+| «{content}» | `{(event) => { if (loading) { // Not clickable while it works; also keeps a submi…}` |  |  |  | l.159 |
+
+**Links** (3)
+
+| Text | Goes to | Shown when | Hook | Where |
+|---|---|---|---|---|
+| «{content}» |  | `typeof rest.href === 'string' && inert` |  | l.131 |
+| «{content}» | `{href}` | `typeof rest.href === 'string' && href.startsWith('/')` |  | l.145 |
+| «{content}» | `{href}` | `typeof rest.href === 'string'` |  | l.151 |
+
+**Pieces placed here, with the texts and settings handed to them** (1)
+
+| Piece | Texts and settings | Shown when | Hook | Where |
+|---|---|---|---|---|
+| `SpinnerMark` |  | `loading` |  | l.120 |
+
+### components/ui/kit/Field.tsx
+
+Used by: `/admin/correos/vista-previa`
+
+**Fields** (1)
+
+| Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
+|---|---|---|---|---|---|---|
+|  | {type} |  |  |  |  | l.268 |
+
+**Pieces placed here, with the texts and settings handed to them** (1)
+
+| Piece | Texts and settings | Shown when | Hook | Where |
+|---|---|---|---|---|
+| `Search` | aria-hidden: true |  |  | l.264 |
+
+### components/ui/kit/Loading.tsx
+
+Used by: `/admin/correos/vista-previa`
+
+**Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (1)
+
+| Kind | What | Where |
+|---|---|---|
+| role | `role=status` | l.94 |
+
+**Values shown from data** (1)
+
+- `{label}` — l.105
+
+### components/ui/kit/Notice.tsx
+
+Used by: `/admin/correos/vista-previa`
+
+**Values shown from data** (1)
+
+- `{title}` — l.68, when `title`
+
+### components/ui/kit/PageHeader.tsx
+
+Used by: `/admin/correos/vista-previa`
+
+**Titles** (1)
+
+| Text | Level | Shown when | Where |
+|---|---|---|---|
+| «{title}» | h1 |  | l.93 |
+
+**Buttons** (2)
+
+| Text | Does | Shown when | Disabled when | Hook | Where |
+|---|---|---|---|---|---|
+| «{secondaryAction.icon} {secondaryAction.label}» | `{secondaryAction.onClick}` | `hasActions && secondaryAction` |  | `testid={secondaryAction['data-testid']}` | l.110 |
+| «{primaryAction.icon} {primaryAction.label}» | `{primaryAction.onClick}` | `hasActions && primaryAction` |  | `testid={primaryAction['data-testid']}` | l.116 |
+
+**Pieces placed here, with the texts and settings handed to them** (1)
+
+| Piece | Texts and settings | Shown when | Hook | Where |
+|---|---|---|---|---|
+| `SearchInput` |  | `hasActions && onSearchChange` |  | l.100 |
+
+**Other texts written in the code (safety net: not tied to an element by the script)** (2)
+
+| Text | Where |
+|---|---|
+| «Buscar...» | PageHeader · l.59 |
+| «Buscar» | PageHeader · l.60 |
+
+**Values shown from data** (4)
+
+- `{eyebrow}` — l.78, when `eyebrow`
+- `{icon}` — l.88, when `icon`
+- `{description}` — l.94, when `description`
+- `{children}` — l.124, when `children`
+
+### lib/api-auth.ts
+
+Used by: `/admin/correos/vista-previa`
+
+**Messages set on the page** (2)
+
+| Text | Set by | When | Where |
+|---|---|---|---|
+| «Server configuration error» | `throw (shown by whoever catches it)` | `!supabaseUrl \|\| !serviceRoleKey` | createServiceRoleClient · l.113 |
+| «Failed to initialize admin connection» | `throw (shown by whoever catches it)` |  | createServiceRoleClient · l.125 |
+
+**Reads and writes the database directly:** `table:profiles` (select)
+
+### lib/auth/forced-password-change.ts
+
+Used by: `/admin/correos/vista-previa`
+
+**Texts kept in lists and helpers in the code (labels, options, status names)** (1)
+
+| Name | Texts | Where |
+|---|---|---|
+| `verdictFromProfile()` | «required / allowed» | verdictFromProfile · l.254 |
+
 ### src/components/TipTapEditor.tsx
 
 Used by: `/admin/news`
@@ -434,7 +680,7 @@ Used by: `/admin/news`
 
 ### types/roles.ts
 
-Used by: `/admin/events`, `/admin/news`
+Used by: `/admin/correos/vista-previa`, `/admin/events`, `/admin/news`
 
 **Texts kept in lists and helpers in the code (labels, options, status names)** (3)
 
@@ -477,7 +723,7 @@ Used by: `/admin/events`
 
 ### utils/roleUtils.ts
 
-Used by: `/admin/events`, `/admin/news`
+Used by: `/admin/correos/vista-previa`, `/admin/events`, `/admin/news`
 
 **Access checks in the code** (7)
 
@@ -503,6 +749,7 @@ Used by: `/admin/news`
 
 | Address | File | Methods | Screens that call it | Also named in |
 |---|---|---|---|---|
+| `/api/admin/correos/vista-previa` | `pages/api/admin/correos/vista-previa.ts` | GET, POST | `/admin/correos/vista-previa` | `__tests__/correos/vista-previa-api.test.ts`, `pages/admin/correos/vista-previa.tsx` |
 | `/api/admin/news` | `pages/api/admin/news.ts` | DELETE, GET, POST, PUT | `/admin/news` | `pages/admin/news.tsx` |
 | `/api/news/[slug]` | `pages/api/news/[slug].ts` | GET | **no screen** |  |
 | `/api/news` | `pages/api/news/index.ts` | GET | `/`, `/dashboard`, `/noticias`, `/noticias/[slug]` | `__tests__/helpers/panelFakes.tsx`, `__tests__/pages/dashboard.clasico.test.tsx`, `__tests__/pages/dashboard.nuevo.test.tsx`, `__tests__/pages/dashboard.samePanel.test.tsx`, `components/site/news.ts` +3 |

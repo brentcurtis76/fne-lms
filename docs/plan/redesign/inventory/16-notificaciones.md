@@ -1,7 +1,7 @@
 # Notificaciones
 
 Area `16-notificaciones`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `a908cc8b5` (2026-11-25).
+Read from commit `02daebb57` (2026-11-25).
 
 6 screen files, 10 API files, 20 pieces.
 

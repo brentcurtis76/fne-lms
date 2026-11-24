@@ -4,8 +4,8 @@
  "note": "Course system: the Course Review session owns this area's structure and its own checklist (docs/planning/courses/inventory.md, not yet on main). This file is the redesign's list of what is on screen today.",
  "routesOnly": false,
  "readFrom": {
-  "commit": "a908cc8b50d6d63408cd0f40fb401cf0030b72e0",
-  "date": "2026-11-25T13:27:34-03:00"
+  "commit": "02daebb57999c7fb9c7912a4f31b0438904e2e30",
+  "date": "2026-11-25T13:51:38-03:00"
  },
  "screens": [
   {

@@ -1,7 +1,7 @@
 # Acceso (sign-in, sign-up, passwords)
 
 Area `01-acceso`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `a908cc8b5` (2026-11-25).
+Read from commit `02daebb57` (2026-11-25).
 
 7 screen files, 13 API files, 7 pieces.
 
@@ -189,7 +189,7 @@ File `pages/login.tsx` · 627 lines · frame: none
 - Menu: no entry.
 - Middleware: not covered. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: no.
 - In the page: no access check found by the script.
-- Linked from: `components/DynamicFavicon.tsx:13`, `components/Footer.tsx:122`, `components/auth/AuthWrapper.tsx:133`, `components/auth/AuthWrapper.tsx:19`, `components/auth/ProtectedRoute.tsx:31`, `components/layout/Header.tsx:96`, `components/layout/MainLayout.tsx:298`, `components/qa/QAFloatingWidget.tsx:137`, `components/qa/QAFloatingWidget.tsx:832`, `components/sessions/JoinMeetingButton.tsx:377`, `components/site/SiteLayout.tsx:129`, `components/site/SiteLayout.tsx:134` and 258 more
+- Linked from: `components/DynamicFavicon.tsx:13`, `components/Footer.tsx:122`, `components/auth/AuthWrapper.tsx:133`, `components/auth/AuthWrapper.tsx:19`, `components/auth/ProtectedRoute.tsx:31`, `components/layout/Header.tsx:96`, `components/layout/MainLayout.tsx:298`, `components/qa/QAFloatingWidget.tsx:137`, `components/qa/QAFloatingWidget.tsx:832`, `components/sessions/JoinMeetingButton.tsx:377`, `components/site/SiteLayout.tsx:129`, `components/site/SiteLayout.tsx:134` and 259 more
 - Tests: browser tests that CI runs: `tests/e2e/auth-cookie-identity.spec.ts`, `tests/e2e/auth-lifecycle.spec.ts`, `tests/e2e/login-resilience.spec.ts`, `tests/e2e/look-frame.spec.ts`, `tests/e2e/look-kit.spec.ts`, `tests/e2e/look-panel.spec.ts`, `tests/e2e/look-sessions.spec.ts`, `tests/e2e/look-switch.spec.ts`, `tests/e2e/notification-preferences-api.spec.ts`, `tests/e2e/notification-settings.spec.ts`, `tests/e2e/pasantias-leads-admin.spec.ts`, `tests/e2e/smoke.spec.ts`; browser tests CI skips: `tests/e2e/assessment-frequency-validation.spec.ts`, `tests/e2e/context-questions/admin-ui.spec.ts`, `tests/e2e/due-reminders.spec.ts`, `tests/e2e/feedback-notify-admins.spec.ts`, `tests/e2e/flows/proposal-admin-visibility.spec.ts`, `tests/e2e/flows/proposal-buckets.spec.ts`, `tests/e2e/flows/proposal-config.spec.ts`, `tests/e2e/flows/proposal-consultant-crud.spec.ts`, `tests/e2e/flows/proposal-document-library.spec.ts`, `tests/e2e/flows/proposal-versioning.spec.ts`, `tests/e2e/meeting-agreements-tasks.spec.ts`, `tests/e2e/meeting-finalize-email-outcome.spec.ts`, `tests/e2e/messaging-notifications.spec.ts`, `tests/e2e/notification-bounce.spec.ts`, `tests/e2e/notification-catalog-links.spec.ts`, `tests/e2e/notification-dispatch.spec.ts`, `tests/e2e/notification-insert-boundary.spec.ts`, `tests/e2e/notification-mail-mirror.spec.ts`, `tests/e2e/notification-occurrence-idempotency.spec.ts`, `tests/e2e/notification-preference-compat.spec.ts`, `tests/e2e/proc-pilot-journey.spec.ts`, `tests/e2e/reservation.spec.ts`, `tests/e2e/sentry-replay-disabled.spec.ts`, `tests/e2e/session-reminders.spec.ts`, `tests/qa/auth-redirects.spec.ts`, `tests/qa/mobile-sidebar.spec.ts`, `tests/qa/qa-system.spec.ts`; unit tests of the page: `__tests__/components/LoginPage.passwordRecovery.test.tsx`, `__tests__/components/LoginPage.sessionProvider.test.tsx`, `__tests__/components/LoginPage.signIn.test.tsx`.
 
 | Role | Sees it in the menu | Middleware |

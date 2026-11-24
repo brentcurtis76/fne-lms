@@ -1,11 +1,11 @@
 # Screens and their tests
 
-Written by `scripts/redesign/inventory.mjs` from commit `a908cc8b5`. For phase 3 (the safety net). A browser test is counted for a screen when the test file names the screen's address; that is weaker than "the test checks the screen". CI runs 32 of 73 browser test files (`scripts/ci/e2e-mandatory.mjs`).
+Written by `scripts/redesign/inventory.mjs` from commit `02daebb57`. For phase 3 (the safety net). A browser test is counted for a screen when the test file names the screen's address; that is weaker than "the test checks the screen". CI runs 32 of 73 browser test files (`scripts/ci/e2e-mandatory.mjs`).
 
-- 152 screens with an address.
+- 153 screens with an address.
 - 39 are named by a browser test that CI runs.
 - 55 are named only by tests CI skips, or have only unit tests.
-- 58 have no test at all.
+- 59 have no test at all.
 
 ## No test at all
 
@@ -53,6 +53,7 @@ Written by `scripts/redesign/inventory.mjs` from commit `a908cc8b5`. For phase 3
 | 13-reportes | `/detailed-reports` | `pages/detailed-reports.tsx` |
 | 13-reportes | `/reporte-horas` | `pages/reporte-horas.tsx` |
 | 14-personas | `/admin/role-management` | `pages/admin/role-management.tsx` |
+| 15-comunicacion | `/admin/correos/vista-previa` | `pages/admin/correos/vista-previa.tsx` |
 | 15-comunicacion | `/admin/events` | `pages/admin/events.tsx` |
 | 17-horas-gastos | `/admin/consultant-earnings` | `pages/admin/consultant-earnings.tsx` |
 | 17-horas-gastos | `/admin/consultant-rates` | `pages/admin/consultant-rates.tsx` |

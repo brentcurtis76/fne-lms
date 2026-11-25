@@ -152,3 +152,68 @@ describe('F23f GES-3.30 the summary files headline approved money', () => {
     expect(rec.tables[0].foot).toEqual([['TOTAL APROBADO', '', '', '', '$0']]);
   });
 });
+
+describe('F23f send-back 1: amounts are added as numbers and a missing amount shows zero', () => {
+  const MIXED = [report('a1', 'approved', 100000), report('a2', 'approved', '50000' as any)];
+  const MISSING = [report('a1', 'approved', 100000), report('a2', 'approved', undefined), report('s1', 'submitted', null as any)];
+
+  it('Excel: a string amount is summed with a number amount (headline, state line, foot)', async () => {
+    await ExpenseReportExporter.exportMultipleReportsToExcel(MIXED);
+    const rows = rec.sheets[0];
+    expect(rows[3]).toEqual(['Monto aprobado:', '$150.000']);
+    expect(rows[4]).toEqual(['Aprobado', '2 reportes', '$150.000']);
+    expect(rows[rows.length - 1]).toEqual(['TOTAL APROBADO', '', '', '', '', '150000']);
+  });
+
+  it('PDF: a string amount is summed with a number amount (headline, state line, foot)', async () => {
+    await ExpenseReportExporter.exportMultipleReportsToPDF(MIXED);
+    expect(rec.texts).toContain('Monto aprobado: $150.000');
+    expect(rec.texts).toContain('Aprobado: 2 reportes · $150.000');
+    expect(rec.tables[0].foot).toEqual([['TOTAL APROBADO', '', '', '', '$150.000']]);
+  });
+
+  it('Excel: undefined and null amounts do not throw, their rows show 0, totals are right', async () => {
+    await ExpenseReportExporter.exportMultipleReportsToExcel(MISSING);
+    const rows = rec.sheets[0];
+    expect(rows[3]).toEqual(['Monto aprobado:', '$100.000']);
+    expect(rows[5]).toEqual(['Enviado', '1 reporte', '$0']);
+    expect(rows.slice(11, 14).map(r => r[5])).toEqual(['100000', '0', '0']);
+    expect(rows[rows.length - 1]).toEqual(['TOTAL APROBADO', '', '', '', '', '100000']);
+  });
+
+  it('PDF: undefined and null amounts do not throw, their rows show $0, totals are right', async () => {
+    await ExpenseReportExporter.exportMultipleReportsToPDF(MISSING);
+    expect(rec.texts).toContain('Monto aprobado: $100.000');
+    expect(rec.texts).toContain('Enviado: 1 reporte · $0');
+    expect(rec.tables[0].body.map(r => r[4])).toEqual(['$100.000', '$0', '$0']);
+    expect(rec.tables[0].foot).toEqual([['TOTAL APROBADO', '', '', '', '$100.000']]);
+  });
+
+  it('Excel: an empty list does not throw; approved $0 and the four state lines', async () => {
+    await ExpenseReportExporter.exportMultipleReportsToExcel([]);
+    const rows = rec.sheets[0];
+    expect(rows[2]).toEqual(['Total de reportes:', 0]);
+    expect(rows[3]).toEqual(['Monto aprobado:', '$0']);
+    expect(rows.slice(4, 8)).toEqual([
+      ['Aprobado', '0 reportes', '$0'],
+      ['Enviado', '0 reportes', '$0'],
+      ['Borrador', '0 reportes', '$0'],
+      ['Rechazado', '0 reportes', '$0'],
+    ]);
+    expect(rows[rows.length - 1]).toEqual(['TOTAL APROBADO', '', '', '', '', '0']);
+  });
+
+  it('PDF: an empty list does not throw; approved $0 and the four state lines', async () => {
+    await ExpenseReportExporter.exportMultipleReportsToPDF([]);
+    expect(rec.texts).toContain('Monto aprobado: $0');
+    const i = rec.texts.indexOf('Monto aprobado: $0');
+    expect(rec.texts.slice(i + 1, i + 5)).toEqual([
+      'Aprobado: 0 reportes · $0',
+      'Enviado: 0 reportes · $0',
+      'Borrador: 0 reportes · $0',
+      'Rechazado: 0 reportes · $0',
+    ]);
+    expect(rec.tables[0].body).toHaveLength(0);
+    expect(rec.tables[0].foot).toEqual([['TOTAL APROBADO', '', '', '', '$0']]);
+  });
+});

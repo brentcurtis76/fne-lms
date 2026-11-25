@@ -151,10 +151,23 @@ export class ExpenseReportExporter {
       return {
         label: this.getStatusText(status),
         count: ofState.length,
-        total: ofState.reduce((sum, report) => sum + (report.total_amount || 0), 0)
+        total: ofState.reduce((sum, report) => sum + this.amountOf(report), 0)
       };
     });
     return { reportsCount: reports.length, approvedTotal: lines[0].total, lines };
+  }
+
+  /**
+   * The amount of a report as a number for the multi-report summary: a number
+   * or a numeric string counts as its value; missing, null or not finite counts 0.
+   */
+  private static amountOf(report: ExpenseReport): number {
+    const raw: unknown = report.total_amount;
+    if (raw == null) return 0;
+    if (typeof raw === 'string' && raw.trim() === '') return 0;
+    if (typeof raw !== 'number' && typeof raw !== 'string') return 0;
+    const value = Number(raw);
+    return Number.isFinite(value) ? value : 0;
   }
 
   private static reportsCountText(count: number): string {
@@ -543,7 +556,7 @@ export class ExpenseReportExporter {
       `${this.formatDay(report.start_date)} - ${this.formatDay(report.end_date)}`,
       this.getStatusText(report.status),
       `${report.profiles?.first_name} ${report.profiles?.last_name}`,
-      this.formatCurrency(report.total_amount)
+      this.formatCurrency(this.amountOf(report))
     ]);
     
     autoTable(doc, {
@@ -629,7 +642,7 @@ export class ExpenseReportExporter {
         this.getStatusText(report.status),
         `${report.profiles?.first_name} ${report.profiles?.last_name}`,
         report.profiles?.email || '',
-        report.total_amount.toString()
+        this.amountOf(report).toString()
       ]);
     });
     

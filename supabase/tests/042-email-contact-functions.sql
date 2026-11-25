@@ -41,7 +41,7 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap;
 
-SELECT plan(164);
+SELECT plan(176);
 
 \set actor '''00000000-0000-0000-0000-0000000042aa'''
 -- Inside dollar-quoted bodies the literal uuids are used:
@@ -639,6 +639,99 @@ SELECT is(
   (SELECT reason || '|' || (erased_at IS NOT NULL)::text FROM public.email_suppression WHERE email_hash = pg_temp.fp('rebotada@example.test')),
   'bounce|true',
   'E1: erasing an address already blocked for a bounce keeps the reason and adds the erased mark');
+
+-- E3: the consent notice version is free text an admin may type (by hand, CSV):
+-- here it quotes an invented address. Erasure leaves the fixed marker 'erased'
+-- where the basis is consent_form (the table rule needs a value) and NULL
+-- under any other basis, on the contact and on every membership.
+SELECT pg_temp.as_service();
+INSERT INTO results VALUES ('e3-consent-setup', public.email_add_contacts(
+  '[{"email":"consentida.prueba@example.test", "first_name":"Coral"}]',
+  ARRAY['42000000-0000-4000-8000-0000000000a1'::uuid, '42000000-0000-4000-8000-0000000000a4'::uuid],
+  'manual', 'consent_form', 'Firmó el formulario en papel (prueba)', now(),
+  'v1 — consentida.prueba@example.test', '00000000-0000-0000-0000-0000000042aa'::uuid));
+INSERT INTO results VALUES ('e3-other-setup', public.email_add_contacts(
+  '[{"email":"interes.prueba@example.test", "first_name":"Iris"}]',
+  ARRAY['42000000-0000-4000-8000-0000000000a1'::uuid, '42000000-0000-4000-8000-0000000000a4'::uuid],
+  'csv_import', 'customer_relationship', 'Archivo de prueba: clientes', now(),
+  'v1 — interes.prueba@example.test', '00000000-0000-0000-0000-0000000042aa'::uuid));
+RESET ROLE;
+CREATE TEMP TABLE e3 AS
+SELECT CASE c.email_normalized WHEN 'consentida.prueba@example.test' THEN 'consent' ELSE 'other' END AS k, c.id
+  FROM public.email_contacts c
+ WHERE c.email_normalized IN ('consentida.prueba@example.test', 'interes.prueba@example.test');
+GRANT SELECT ON e3 TO service_role;
+
+CREATE OR REPLACE FUNCTION pg_temp.e3_notices(p_k text) RETURNS text LANGUAGE sql AS $$
+  SELECT (SELECT c.legal_basis || ':' || coalesce(c.consent_notice_version, '<null>')
+            FROM public.email_contacts c JOIN e3 USING (id) WHERE e3.k = p_k)
+         || ' / ' ||
+         (SELECT string_agg(m.legal_basis || ':' || coalesce(m.consent_notice_version, '<null>'), '; ' ORDER BY m.list_id)
+            FROM public.email_list_members m JOIN e3 ON e3.id = m.contact_id WHERE e3.k = p_k);
+$$;
+CREATE OR REPLACE FUNCTION pg_temp.e3_text(p_k text) RETURNS text LANGUAGE sql AS $$
+  SELECT (SELECT row_to_json(c)::text FROM public.email_contacts c JOIN e3 USING (id) WHERE e3.k = p_k)
+         || ' ' ||
+         (SELECT string_agg(row_to_json(m)::text, ' ') FROM public.email_list_members m JOIN e3 ON e3.id = m.contact_id WHERE e3.k = p_k);
+$$;
+
+SELECT is(pg_temp.e3_notices('consent'),
+  'consent_form:v1 — consentida.prueba@example.test / consent_form:v1 — consentida.prueba@example.test; consent_form:v1 — consentida.prueba@example.test',
+  'E3: before erasure the typed notice version (quoting the address) is on the consent contact and both memberships');
+SELECT is(pg_temp.e3_notices('other'),
+  'customer_relationship:v1 — interes.prueba@example.test / customer_relationship:v1 — interes.prueba@example.test; customer_relationship:v1 — interes.prueba@example.test',
+  'E3: … and on the customer-relationship contact and both its memberships');
+
+SELECT pg_temp.as_service();
+INSERT INTO results SELECT 'e3-consent', public.email_erase_contact(id, '00000000-0000-0000-0000-0000000042aa') FROM e3 WHERE k = 'consent';
+INSERT INTO results SELECT 'e3-other', public.email_erase_contact(id, '00000000-0000-0000-0000-0000000042aa') FROM e3 WHERE k = 'other';
+RESET ROLE;
+SELECT pg_temp.note_blocks();
+
+SELECT is((SELECT r - 'contact_id' FROM results WHERE k = 'e3-consent'),
+  '{"erased":true,"already_erased":false,"sends_cleared":0,"memberships_ended":2}'::jsonb,
+  'E3: erasing the consent contact reports what it did');
+SELECT is(pg_temp.e3_notices('consent'),
+  'consent_form:erased / consent_form:erased; consent_form:erased',
+  'E3: consent_form basis: the notice version is the marker erased on the contact and both memberships; the basis stays');
+SELECT ok(strpos(lower(pg_temp.e3_text('consent')), 'consentida.prueba') = 0,
+  'E3: the address text appears in no column of the consent contact or its memberships');
+SELECT is((SELECT r - 'contact_id' FROM results WHERE k = 'e3-other'),
+  '{"erased":true,"already_erased":false,"sends_cleared":0,"memberships_ended":2}'::jsonb,
+  'E3: erasing the customer-relationship contact reports what it did');
+SELECT is(pg_temp.e3_notices('other'),
+  'customer_relationship:<null> / customer_relationship:<null>; customer_relationship:<null>',
+  'E3: any other basis: the notice version is NULL on the contact and both memberships; the basis stays');
+SELECT ok(strpos(lower(pg_temp.e3_text('other')), 'interes.prueba') = 0,
+  'E3: the address text appears in no column of that contact or its memberships');
+
+CREATE TEMP TABLE e3_before AS SELECT k, pg_temp.e3_text(k) AS snapshot FROM e3;
+SELECT pg_temp.as_service();
+INSERT INTO results SELECT 'e3-' || k || '-again', public.email_erase_contact(id, '00000000-0000-0000-0000-0000000042aa') FROM e3;
+RESET ROLE;
+SELECT is(
+  (SELECT jsonb_object_agg(k, r - 'contact_id') FROM results WHERE k IN ('e3-consent-again', 'e3-other-again')),
+  '{"e3-consent-again": {"erased":false,"already_erased":true,"sends_cleared":0,"memberships_ended":0},
+    "e3-other-again":   {"erased":false,"already_erased":true,"sends_cleared":0,"memberships_ended":0}}'::jsonb,
+  'E3: a second erase of either contact raises nothing and reports nothing done');
+SELECT is((SELECT count(*)::int FROM e3_before b WHERE b.snapshot IS DISTINCT FROM pg_temp.e3_text(b.k)), 0,
+  'E3: a second erase changes no column of either contact or their memberships');
+
+-- An erasure made before this rule left the typed notice version behind: a
+-- repeat call cleans it (and only it), counting the memberships it touched.
+UPDATE public.email_contacts SET consent_notice_version = 'v1 — consentida.prueba@example.test'
+ WHERE id = (SELECT id FROM e3 WHERE k = 'consent');
+UPDATE public.email_list_members SET consent_notice_version = 'v1 — consentida.prueba@example.test'
+ WHERE contact_id = (SELECT id FROM e3 WHERE k = 'consent');
+SELECT pg_temp.as_service();
+INSERT INTO results SELECT 'e3-leftover', public.email_erase_contact(id, '00000000-0000-0000-0000-0000000042aa') FROM e3 WHERE k = 'consent';
+RESET ROLE;
+SELECT is((SELECT r - 'contact_id' FROM results WHERE k = 'e3-leftover'),
+  '{"erased":false,"already_erased":true,"sends_cleared":0,"memberships_ended":2}'::jsonb,
+  'E3: a repeat call on a contact whose notice version was left behind raises nothing and counts the memberships it cleaned');
+SELECT is(pg_temp.e3_notices('consent') || ' | ' || (strpos(lower(pg_temp.e3_text('consent')), 'consentida.prueba') = 0)::text,
+  'consent_form:erased / consent_form:erased; consent_form:erased | true',
+  'E3: … and the leftover notice version is the marker erased again everywhere');
 
 -- =============================================================================
 -- 7. [I1] 12,000 invented rows, one call

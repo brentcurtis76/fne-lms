@@ -303,6 +303,26 @@ export async function getMeetingDetails(meetingId: string): Promise<MeetingWithD
 }
 
 /**
+ * EC-R16: a draft is seen only by the people named on it, so the database
+ * refuses (row level security, 42501, on the updated row) a save that would
+ * turn a meeting into a draft for someone who would then not see it. That
+ * refusal is told to the person in these words instead of the database's.
+ */
+export const DRAFT_SAVE_NOT_NAMED_MESSAGE =
+  'Solo las personas nombradas en la reunión (quien la creó, facilitador/a, secretario/a o coeditores) pueden guardarla como borrador.';
+
+function draftSaveNotNamedRefusal(error: any, wantedStatus: unknown) {
+  if (
+    wantedStatus === 'borrador' &&
+    error?.code === '42501' &&
+    /row-level security/i.test(String(error?.message ?? ''))
+  ) {
+    return { code: '42501', message: DRAFT_SAVE_NOT_NAMED_MESSAGE, draftNotNamed: true };
+  }
+  return null;
+}
+
+/**
  * Update an existing meeting.
  *
  * EC-R11: with `expectedVersion` the write is optimistic: it only reaches the
@@ -356,7 +376,7 @@ export async function updateMeeting(
 
       if (writeError) {
         console.error('Error updating meeting:', writeError);
-        return { success: false, error: writeError };
+        return { success: false, error: draftSaveNotNamedRefusal(writeError, updates.status) ?? writeError };
       }
       if (written) {
         return { success: true, version: (written as { version?: number }).version ?? expectedVersion + 1 };
@@ -410,7 +430,7 @@ export async function updateMeeting(
 
     if (error) {
       console.error('Error updating meeting:', error);
-      return { success: false, error };
+      return { success: false, error: draftSaveNotNamedRefusal(error, updates.status) ?? error };
     }
 
     return { success: true };

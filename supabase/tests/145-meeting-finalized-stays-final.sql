@@ -153,6 +153,8 @@ UPDATE public.community_meetings
    SET finalized_at = '2026-11-10 12:00:00+00', finalized_by = pg_temp.uid('creator'),
        finalize_audience = 'community', finalize_with_access = true
  WHERE id IN (SELECT id FROM mt WHERE left(k, 1) IN ('M', 'T'));
+-- EC-R16 (20261125101000): an un-named consultor no longer reaches a draft, so the consultor is named facilitator of its drafts.
+UPDATE public.community_meetings SET facilitator_id = pg_temp.uid('consultor') WHERE id IN (pg_temp.mid('D_consultor'), pg_temp.mid('T_consultor'), pg_temp.mid('L_consultor'));
 
 -- ---------------------------------------------------------------------------
 -- 0. Catalog

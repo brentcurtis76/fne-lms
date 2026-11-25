@@ -235,7 +235,8 @@ SELECT policies_are('public', 'meeting_attachments', ARRAY[
 SELECT policies_are('public', 'community_meetings', ARRAY[
   'Community leaders and admins can create meetings', 'Community members can create meetings', 'Community members can view meetings',
   'Community members can delete meetings', 'Meeting creators and authorized users can delete meetings', 'Meeting editors can update meetings',
-  'forced_password_change_guard', 'Meeting updates require a verified meeting editor'], 'community_meetings: one restrictive UPDATE added');
+  'forced_password_change_guard', 'Meeting updates require a verified meeting editor', 'Drafts are seen only by the people named on them'],
+  'community_meetings: one restrictive UPDATE added (SM-H8), one restrictive SELECT on drafts added (EC-R16, 20261125101000)');
 SELECT ok((SELECT polcmd = 'd' AND pg_get_expr(polqual, polrelid) LIKE '%can_delete_meeting%' FROM pg_policy
   WHERE polrelid = 'public.community_meetings'::regclass AND polname = 'Community members can delete meetings'),
   'community_meetings: the former any-member DELETE policy now uses can_delete_meeting');

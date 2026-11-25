@@ -21,9 +21,12 @@
 --   email_erase_contact(contact id, actor) -> jsonb
 --       Fingerprint into the block list (reason 'manual', erased_at set: see
 --       20261124200100), then the contact made anonymous (address, names,
---       organisation, note, tags, token emptied), its address and error text
---       removed from every send row, every membership ended. The row is NOT deleted.
---       A second call changes nothing.
+--       organisation, note, tags, token emptied; the consent notice version
+--       becomes the fixed marker 'erased' where the basis is consent_form, NULL
+--       otherwise), its address and error text removed from every send row,
+--       every membership ended (token and note emptied, notice version marked
+--       the same way). The row is NOT deleted. A second call changes nothing
+--       (it only cleans a notice version an earlier erasure left behind).
 --
 -- No function here deletes a row, lifts a block (no UPDATE or DELETE of an
 -- existing email_suppression row beyond stamping erased_at once), deletes a
@@ -425,39 +428,50 @@ BEGIN
      AND (email IS NOT NULL OR error IS NOT NULL);
   GET DIAGNOSTICS v_sends = ROW_COUNT;
 
-  -- 3. Every membership ends; its token and its free-text note go.
+  -- 3. Every membership ends; its token and its free-text note go. The
+  --    consent notice version is free text an admin may have typed: it becomes
+  --    the fixed marker 'erased' where the basis is consent_form (the table
+  --    rule demands a value there) and NULL otherwise.
   UPDATE public.email_list_members m
-     SET unsubscribed_by    = CASE WHEN m.state = 'unsubscribed' THEN m.unsubscribed_by ELSE 'admin' END,
-         unsubscribed_at    = CASE WHEN m.state = 'unsubscribed' THEN coalesce(m.unsubscribed_at, v_now) ELSE v_now END,
-         state              = 'unsubscribed',
-         confirmation_token = NULL,
-         basis_note         = NULL
+     SET unsubscribed_by        = CASE WHEN m.state = 'unsubscribed' THEN m.unsubscribed_by ELSE 'admin' END,
+         unsubscribed_at        = CASE WHEN m.state = 'unsubscribed' THEN coalesce(m.unsubscribed_at, v_now) ELSE v_now END,
+         state                  = 'unsubscribed',
+         confirmation_token     = NULL,
+         basis_note             = NULL,
+         consent_notice_version = CASE WHEN m.legal_basis = 'consent_form' THEN 'erased' END
    WHERE m.contact_id = p_contact_id
-     AND (m.state <> 'unsubscribed' OR m.confirmation_token IS NOT NULL OR m.basis_note IS NOT NULL);
+     AND (m.state <> 'unsubscribed' OR m.confirmation_token IS NOT NULL OR m.basis_note IS NOT NULL
+          OR m.consent_notice_version IS DISTINCT FROM CASE WHEN m.legal_basis = 'consent_form' THEN 'erased' END);
   GET DIAGNOSTICS v_members = ROW_COUNT;
 
   -- 4. The contact becomes anonymous (the shape email_contacts_identity_shape_check
   --    demands) and suppressed; the row stays. Every column that can hold free
   --    text or personal data is emptied: address, names, organisation, the
-  --    basis note, the tags (text[] NOT NULL, so '{}') and the token. What
-  --    stays holds no personal data: id, source, legal_basis and
-  --    consent_notice_version (fixed codes / a notice label), imported_by (the
+  --    basis note, the tags (text[] NOT NULL, so '{}'), the token, and the
+  --    consent notice version (free text an admin may have typed): the fixed
+  --    marker 'erased' where legal_basis is consent_form (the table rule
+  --    demands a value there), NULL otherwise. What stays holds no personal
+  --    data: id, source and legal_basis (fixed codes), imported_by (the
   --    admin), the timestamps and the suppression reason code.
-  IF v_contact.anonymized_at IS NULL THEN
-    UPDATE public.email_contacts
-       SET email              = NULL,
-           email_normalized   = NULL,
-           first_name         = NULL,
-           last_name          = NULL,
-           organization       = NULL,
-           basis_note         = NULL,
-           tags               = '{}'::text[],
-           unsubscribe_token  = NULL,
-           anonymized_at      = v_now,
-           suppressed_at      = coalesce(suppressed_at, v_now),
-           suppression_reason = coalesce(suppression_reason, 'manual')
-     WHERE id = p_contact_id;
-  END IF;
+  --    A contact already anonymous is touched only when an earlier erasure
+  --    left its notice version behind; anonymized_at and the suppression
+  --    fields then keep their first values.
+  UPDATE public.email_contacts
+     SET email                  = NULL,
+         email_normalized       = NULL,
+         first_name             = NULL,
+         last_name              = NULL,
+         organization           = NULL,
+         basis_note             = NULL,
+         tags                   = '{}'::text[],
+         unsubscribe_token      = NULL,
+         consent_notice_version = CASE WHEN legal_basis = 'consent_form' THEN 'erased' END,
+         anonymized_at          = coalesce(anonymized_at, v_now),
+         suppressed_at          = coalesce(suppressed_at, v_now),
+         suppression_reason     = coalesce(suppression_reason, 'manual')
+   WHERE id = p_contact_id
+     AND (anonymized_at IS NULL
+          OR consent_notice_version IS DISTINCT FROM CASE WHEN legal_basis = 'consent_form' THEN 'erased' END);
 
   RETURN jsonb_build_object(
     'contact_id', p_contact_id,
@@ -473,4 +487,4 @@ REVOKE ALL ON FUNCTION public.email_erase_contact(uuid, uuid) FROM PUBLIC, anon,
 GRANT EXECUTE ON FUNCTION public.email_erase_contact(uuid, uuid) TO service_role;
 
 COMMENT ON FUNCTION public.email_erase_contact(uuid, uuid) IS
-  'Correos: erases a person. Writes the address fingerprint into email_suppression (reason manual, erased_at/erased_by set; an existing block keeps its reason and gains erased_at), makes the contact anonymous and suppressed (address, names, organisation, basis note, unsubscribe token NULL; tags empty; anonymized_at set), NULLs email and error on every send row of the contact, and ends every membership (unsubscribed, token and note NULL). The row is not deleted; a second call changes nothing; an unknown id raises contact_not_found. Service role only.';
+  'Correos: erases a person. Writes the address fingerprint into email_suppression (reason manual, erased_at/erased_by set; an existing block keeps its reason and gains erased_at), makes the contact anonymous and suppressed (address, names, organisation, basis note, unsubscribe token NULL; tags empty; consent notice version set to the fixed marker erased where legal_basis is consent_form, NULL otherwise; anonymized_at set), NULLs email and error on every send row of the contact, and ends every membership (unsubscribed, token and note NULL, consent notice version marked the same way). No text anyone typed survives; source, legal_basis, ids and timestamps stay. The row is not deleted; a second call changes nothing (it only cleans a notice version an earlier erasure left behind); an unknown id raises contact_not_found. Service role only.';

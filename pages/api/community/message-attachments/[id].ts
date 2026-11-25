@@ -3,7 +3,7 @@
  *
  * F26b (EC-F3): the one way to show, open or download a message's attached
  * file. Without `download=1` it answers a 302 redirect to the file signed for
- * five minutes, cached privately for four (the `src` of a picture, a PDF, a
+ * five minutes, never stored by the browser (the `src` of a picture, a PDF, a
  * video or an audio, and the «open in a new tab» address); with `download=1`
  * it answers JSON `{ url, expiresIn }` whose link asks the store to save the
  * file under its own name (file_name).
@@ -31,7 +31,10 @@ const NOT_FOUND = { error: 'Archivo no encontrado' };
 const SERVER_ERROR = { error: 'Error interno del servidor' };
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  res.setHeader('Cache-Control', 'no-store');
+  // Send-back 1: no answer of this route (the redirect included) may be
+  // stored or reused by a browser or anything between, or the next person in
+  // the same browser would get the previous person's file.
+  res.setHeader('Cache-Control', 'private, no-store');
   if (req.method !== 'GET') {
     res.setHeader('Allow', 'GET');
     return res.status(405).json({ error: 'Método no permitido' });
@@ -88,7 +91,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(200).json({ url: link.toString(), expiresIn: FILE_LINK_SECONDS });
     }
 
-    res.setHeader('Cache-Control', 'private, max-age=240');
     return res.redirect(302, signed.signedUrl);
   } catch (error) {
     console.error('[message-attachment-link] unexpected error:', error instanceof Error ? error.name : 'unknown');

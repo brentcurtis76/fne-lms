@@ -3,7 +3,7 @@
  *
  * F26b (EC-F2): the one way to show or download a feed post's file (a picture
  * or a document). Without `download=1` it answers a 302 redirect to the file
- * signed for five minutes, cached privately for four (the `src` of a picture,
+ * signed for five minutes, never stored by the browser (the `src` of a picture,
  * a plain link); with `download=1` it answers JSON `{ url, expiresIn }` whose
  * link asks the store to save the file under its own name.
  *
@@ -28,7 +28,10 @@ const NOT_FOUND = { error: 'Archivo no encontrado' };
 const SERVER_ERROR = { error: 'Error interno del servidor' };
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  res.setHeader('Cache-Control', 'no-store');
+  // Send-back 1: no answer of this route (the redirect included) may be
+  // stored or reused by a browser or anything between, or the next person in
+  // the same browser would get the previous person's file.
+  res.setHeader('Cache-Control', 'private, no-store');
   if (req.method !== 'GET') {
     res.setHeader('Allow', 'GET');
     return res.status(405).json({ error: 'Método no permitido' });
@@ -87,7 +90,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(200).json({ url: link.toString(), expiresIn: FILE_LINK_SECONDS });
     }
 
-    res.setHeader('Cache-Control', 'private, max-age=240');
     return res.redirect(302, signed.signedUrl);
   } catch (error) {
     console.error('[post-media-link] unexpected error:', error instanceof Error ? error.name : 'unknown');

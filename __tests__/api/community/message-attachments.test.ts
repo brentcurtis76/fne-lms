@@ -187,7 +187,7 @@ describe('GET /api/community/message-attachments/[id] — who gets the file', ()
     neverSigned();
   });
 
-  it('a new row with the key → 302 to the signed link of exactly that key in message-attachments, 300 s, cached privately for 240 s', async () => {
+  it('a new row with the key → 302 to the signed link of exactly that key in message-attachments, 300 s, never stored by a browser or a cache', async () => {
     signedIn(MEMBER_A);
     const { status, redirect, res } = await call(A_NEW);
     expect(status).toBe(302);
@@ -195,7 +195,7 @@ describe('GET /api/community/message-attachments/[id] — who gets the file', ()
     expect(mockStorageFrom).toHaveBeenCalledTimes(1);
     expect(mockStorageFrom).toHaveBeenCalledWith('message-attachments');
     expect(mockCreateSignedUrl).toHaveBeenCalledWith('message-attachments', `${WS_A}/${MSG_A}/1700000000000_ab12.pdf`, 300);
-    expect(res.getHeader('Cache-Control')).toBe('private, max-age=240');
+    expect(res.getHeader('Cache-Control')).toBe('private, no-store');
     expect(db.reads).toEqual(['message_attachments']);
     expect(db.selects).toEqual(['id, message_id, storage_path, file_name, is_active']);
   });
@@ -239,7 +239,7 @@ describe('GET /api/community/message-attachments/[id] — the answer', () => {
     expect(link.pathname).toBe(`/storage/v1/object/sign/message-attachments/${WS_A}/${MSG_A}/1700000000000_ab12.pdf`);
     expect(link.searchParams.get('token')).toBe('fresh-300');
     expect(link.searchParams.get('download')).toBe('Acta de reunión.pdf');
-    expect(res.getHeader('Cache-Control')).toBe('no-store');
+    expect(res.getHeader('Cache-Control')).toBe('private, no-store');
   });
 
   it('a signing error → the same 404', async () => {
@@ -276,5 +276,50 @@ describe('GET /api/community/message-attachments/[id] — the answer', () => {
     expect(printed).not.toContain('token');
     log.mockRestore();
     error.mockRestore();
+  });
+});
+
+// F26b send-back 1, point 2: a browser reused Líder A's redirect for Miembro B
+// and for a signed-out visitor in the same browser. No answer of this route
+// may be stored or reused by a browser or by anything between: the redirect
+// and every refusal carry exactly `Cache-Control: private, no-store`.
+describe('GET /api/community/message-attachments/[id] — no answer is stored (send-back 1)', () => {
+  const NO_STORE = 'private, no-store';
+
+  it('the 302 to the signed link', async () => {
+    signedIn(MEMBER_A);
+    const { status, res } = await call(A_NEW);
+    expect(status).toBe(302);
+    expect(res.getHeader('Cache-Control')).toBe(NO_STORE);
+  });
+
+  it('the 401 of a signed-out visitor', async () => {
+    mockRequireVerifiedCaller.mockResolvedValue({ user: null, status: 401, body: { error: 'No autorizado' } });
+    const { status, res } = await call(A_NEW);
+    expect(status).toBe(401);
+    expect(res.getHeader('Cache-Control')).toBe(NO_STORE);
+  });
+
+  it('the 404 of a person who may not see the file, of an unknown row and of a malformed id', async () => {
+    signedIn(MEMBER_A);
+    for (const id of [A_OF_B, UNKNOWN, 'not-a-uuid']) {
+      const { status, res } = await call(id);
+      expect(status, id).toBe(404);
+      expect(res.getHeader('Cache-Control'), id).toBe(NO_STORE);
+    }
+  });
+
+  it('the 404 of a signing error, the 405 and the download JSON', async () => {
+    signedIn(MEMBER_A);
+    mockCreateSignedUrl.mockResolvedValueOnce({ data: null, error: { message: 'Object not found' } });
+    const refused = await call(A_NEW);
+    expect(refused.status).toBe(404);
+    expect(refused.res.getHeader('Cache-Control')).toBe(NO_STORE);
+    const wrongMethod = await call(A_NEW, {}, 'POST');
+    expect(wrongMethod.status).toBe(405);
+    expect(wrongMethod.res.getHeader('Cache-Control')).toBe(NO_STORE);
+    const download = await call(A_NEW, { download: '1' });
+    expect(download.status).toBe(200);
+    expect(download.res.getHeader('Cache-Control')).toBe(NO_STORE);
   });
 });

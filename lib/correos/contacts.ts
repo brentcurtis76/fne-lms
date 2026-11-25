@@ -9,14 +9,17 @@
 import { createHash } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Reason } from './reason';
-import { ilikeAny, normalizeAddress } from './address';
+import { cleanCell, containsAny, normalizeAddress, trimHidden } from './address';
 import { databaseCode, databaseErrorMessage, isUniqueViolation, LIST_MESSAGES } from './messages';
 
 export const PAGE_SIZE = 25;
 export const MAX_LIST_NAME = 200;
 export const MAX_LIST_DESCRIPTION = 1000;
 
-/** The same digest as `public.email_address_fingerprint`: SHA-256 hex of lower(trim(address)) in UTF-8. */
+/**
+ * The digest `email_add_contacts` stores and checks: SHA-256 hex, in UTF-8, of the address trimmed of the hidden
+ * characters (`email_hidden_chars()`) and in lower case, i.e. `email_address_fingerprint` of the cleaned address.
+ */
 export function addressFingerprint(address: string): string {
   return createHash('sha256').update(normalizeAddress(address), 'utf8').digest('hex');
 }
@@ -186,10 +189,26 @@ const COUNT_KEYS: (keyof AddCounts)[] = [
   'total', 'accepted', 'duplicate', 'blocked', 'left', 'invalid', 'contacts_created', 'memberships_created',
 ];
 
+/**
+ * A row cleaned the way the database cleans it (hidden characters off both ends of every cell; an empty name or
+ * organisation is null), whatever way it was built (by hand, CSV, users, pasantías). The database does the same
+ * again and stays the authority; this keeps what is sent equal to what is stored.
+ */
+export function cleanRow(row: ContactRowInput): ContactRowInput {
+  const cleaned: ContactRowInput = { email: typeof row.email === 'string' ? trimHidden(row.email) : row.email };
+  // Only the cells the row has: a cell left out stays left out.
+  if (row.first_name !== undefined) cleaned.first_name = cleanCell(row.first_name);
+  if (row.last_name !== undefined) cleaned.last_name = cleanCell(row.last_name);
+  if (row.organization !== undefined) cleaned.organization = cleanCell(row.organization);
+  if (row.basis_recorded_at !== undefined) cleaned.basis_recorded_at = row.basis_recorded_at;
+  if (row.consent_notice_version !== undefined) cleaned.consent_notice_version = row.consent_notice_version;
+  return cleaned;
+}
+
 /** One call of `email_add_contacts` for all the rows. */
 export async function addContacts(db: SupabaseClient, args: AddContactsArgs): Promise<{ ok: true; counts: AddCounts } | Failure> {
   const { data, error } = await db.rpc('email_add_contacts', {
-    p_rows: args.rows,
+    p_rows: args.rows.map(cleanRow),
     p_list_ids: args.listIds,
     p_source: args.source,
     p_legal_basis: args.reason.legal_basis,
@@ -239,7 +258,7 @@ export async function searchContacts(
     .from('email_contacts')
     .select('id, email, first_name, last_name, organization, created_at, suppressed_at', { count: 'exact' })
     .is('anonymized_at', null);
-  if (term) query = query.or(ilikeAny(CONTACT_SEARCH_COLUMNS, term));
+  if (term) query = query.or(containsAny(CONTACT_SEARCH_COLUMNS, term));
   const { data, error, count } = await query.order('created_at', { ascending: false }).range(from, from + PAGE_SIZE - 1);
   if (error) return fail(500, 'No se pudo buscar. Inténtalo de nuevo en un momento.');
   const items = ((data ?? []) as Array<ContactListItem & { suppressed_at: string | null }>).map(({ suppressed_at, ...rest }) => ({

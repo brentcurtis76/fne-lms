@@ -6,7 +6,16 @@ import { AddResult } from '../../../components/correos/AddResult';
 import { CorreosNav } from '../../../components/correos/CorreosNav';
 import { CsvFilePicker, type PickedFile } from '../../../components/correos/CsvFilePicker';
 import { ListPicker } from '../../../components/correos/ListPicker';
-import { EMPTY_REASON, ReasonFields, reasonBody, reasonComplete, type ReasonValue } from '../../../components/correos/ReasonFields';
+import {
+  EMPTY_REASON,
+  ReasonFields,
+  firstReasonControl,
+  focusControl,
+  reasonBody,
+  reasonComplete,
+  reasonMessage,
+  type ReasonValue,
+} from '../../../components/correos/ReasonFields';
 import { callApi, failureText } from '../../../components/correos/api';
 import type { AddCounts } from '../../../lib/correos/contacts';
 import { correosAdminPage } from '../../../lib/correos-host/page-guard';
@@ -25,6 +34,7 @@ export default function CorreosImportar() {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [counts, setCounts] = useState<AddCounts | null>(null);
+  const [showReasonErrors, setShowReasonErrors] = useState(false);
 
   const ready = Boolean(file) && listIds.length > 0 && reasonComplete(reason);
 
@@ -33,7 +43,13 @@ export default function CorreosImportar() {
     setError(null);
     if (!file) return setError('Elige un archivo.');
     if (listIds.length === 0) return setError('Elige al menos una lista.');
-    if (!reasonComplete(reason)) return setError('Indica de dónde viene el permiso y escribe la nota. Vale para todo el archivo.');
+    const missing = reasonMessage(reason);
+    if (missing) {
+      setShowReasonErrors(true);
+      setError(`${missing} Vale para todo el archivo.`);
+      focusControl(firstReasonControl(reason, 'correos-importar'));
+      return;
+    }
     setSending(true);
     setCounts(null);
     const answer = await callApi<{ counts: AddCounts }>('/api/admin/correos/importar', {
@@ -44,6 +60,7 @@ export default function CorreosImportar() {
     if (answer.status === 200 && answer.body) {
       setCounts(answer.body.counts);
       setFile(null);
+      setShowReasonErrors(false);
     } else if (answer.status === 413) {
       setError('El archivo es demasiado grande (más de 8 MB). No se importó nada: divídelo en archivos más pequeños.');
     } else setError(failureText(answer));
@@ -81,6 +98,7 @@ export default function CorreosImportar() {
                   value={reason}
                   onChange={setReason}
                   basisHelp="Vale para todas las personas del archivo. Se guarda junto a cada una, con la fecha de hoy y tu nombre."
+                  showErrors={showReasonErrors}
                 />
                 {error ? (
                   <Notice tone="error" title="No se importó nada." data-testid="correos-importar-error">

@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Notice } from '../ui/kit';
 import type { AddCounts } from '../../lib/correos/contacts';
+import { countOf, formatCount, NOUNS, type Noun } from '../../lib/correos/labels';
 
 const ROWS: { key: keyof AddCounts; label: string; testId: string }[] = [
   { key: 'accepted', label: 'Agregadas', testId: 'aceptadas' },
@@ -10,16 +11,35 @@ const ROWS: { key: keyof AddCounts; label: string; testId: string }[] = [
   { key: 'invalid', label: 'Direcciones mal escritas', testId: 'invalidas' },
 ];
 
-const fmt = (value: number) => value.toLocaleString('es-CL');
+const fmt = formatCount;
 
-/** The result of bringing people in: each count, and that they add up to the total. */
-export function AddResult({ counts, noun = 'filas' }: { counts: AddCounts; noun?: string }) {
+/**
+ * The result of bringing people in: each count, and that they add up to the total. When it appears it is
+ * scrolled into view and takes the focus (it is a status region, so a screen reader reads it out): the button
+ * that started the work was at the foot of the form, far below.
+ */
+export function AddResult({ counts, noun = NOUNS.fila }: { counts: AddCounts; noun?: Noun }) {
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const element = box.current;
+    if (!element) return;
+    if (typeof element.scrollIntoView === 'function') element.scrollIntoView({ block: 'start' });
+    element.focus({ preventScroll: true });
+  }, []);
   const sum = counts.accepted + counts.duplicate + counts.blocked + counts.left + counts.invalid;
   const adds = sum === counts.total;
   return (
-    <div className="flex flex-col gap-3" data-testid="correos-resultado">
+    <div
+      ref={box}
+      tabIndex={-1}
+      role="status"
+      aria-live="polite"
+      className="flex flex-col gap-3 scroll-mt-6 focus:outline-none"
+      data-testid="correos-resultado"
+    >
       <Notice tone={counts.accepted > 0 ? 'success' : 'neutral'} title="Listo.">
-        Se revisaron {fmt(counts.total)} {noun}. Se agregaron {fmt(counts.accepted)}.
+        {counts.total === 1 ? 'Se revisó' : 'Se revisaron'} {countOf(counts.total, noun)}.{' '}
+        {counts.accepted === 1 ? 'Se agregó' : 'Se agregaron'} {fmt(counts.accepted)}.
       </Notice>
       <dl className="divide-y divide-gray-200 rounded-lg border border-gray-200 bg-white nuevo:border-brand_primary/[0.12]">
         {ROWS.map((row) => (

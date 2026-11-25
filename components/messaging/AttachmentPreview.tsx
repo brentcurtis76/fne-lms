@@ -78,11 +78,13 @@ export default function AttachmentPreview({
     onDownload(attachment);
   };
 
+  // F26b: every file opens through the attachment route (five-minute links
+  // for the conversation's readers), never through the stored value.
+  const fileRoute = `/api/community/message-attachments/${attachment.id}`;
+
   // Handle external link open
   const handleExternalOpen = () => {
-    if (attachment.storage_path) {
-      window.open(attachment.storage_path, '_blank');
-    }
+    window.open(fileRoute, '_blank', 'noopener,noreferrer');
   };
 
   // Handle reply to message
@@ -189,7 +191,7 @@ export default function AttachmentPreview({
           {/* Image container */}
           <div className="flex-1 flex items-center justify-center p-4 overflow-auto">
             <img
-              src={attachment.storage_path}
+              src={fileRoute}
               alt={attachment.file_name}
               className="max-w-none transition-transform duration-200"
               style={{
@@ -208,7 +210,7 @@ export default function AttachmentPreview({
       return (
         <div className="flex-1 bg-gray-100">
           <iframe
-            src={`${attachment.storage_path}#view=FitH`}
+            src={`${fileRoute}#view=FitH`}
             className="w-full h-full border-0"
             title={attachment.file_name}
             onLoad={() => setLoading(false)}
@@ -228,7 +230,7 @@ export default function AttachmentPreview({
             onLoadedData={() => setLoading(false)}
             onError={() => setPreviewError('Error al cargar el video')}
           >
-            <source src={attachment.storage_path} type={attachment.mime_type} />
+            <source src={fileRoute} type={attachment.mime_type} />
             Tu navegador no soporta la reproducción de videos.
           </video>
         </div>
@@ -252,7 +254,7 @@ export default function AttachmentPreview({
               onLoadedData={() => setLoading(false)}
               onError={() => setPreviewError('Error al cargar el audio')}
             >
-              <source src={attachment.storage_path} type={attachment.mime_type} />
+              <source src={fileRoute} type={attachment.mime_type} />
               Tu navegador no soporta la reproducción de audio.
             </audio>
           </div>

@@ -63,4 +63,29 @@ describe('EC-M7 MessageCard', () => {
     fireEvent.click(control);
     expect(onDownloadAttachment).toHaveBeenCalledWith(PDF);
   });
+
+  it('F26b: an image attachment is shown through /api/community/message-attachments/<attachment id>, never the stored value', () => {
+    const IMAGE = {
+      id: 'att-2',
+      message_id: 'm1',
+      file_name: 'foto.png',
+      mime_type: 'image/png',
+      file_size: 900,
+      storage_path: 'https://example.invalid/storage/v1/object/public/message-attachments/ws-1/m1/foto.png',
+    };
+    const onPreviewAttachment = vi.fn();
+    const utils = render(
+      <MessageCard
+        message={{ ...MESSAGE, attachments: [IMAGE] }}
+        currentUserId="user-1"
+        permissions={PERMISSIONS}
+        onPreviewAttachment={onPreviewAttachment}
+      />
+    );
+    const img = utils.getByAltText('foto.png') as HTMLImageElement;
+    expect(img.getAttribute('src')).toBe('/api/community/message-attachments/att-2');
+    expect(utils.container.innerHTML).not.toContain('example.invalid');
+    fireEvent.click(img);
+    expect(onPreviewAttachment).toHaveBeenCalledWith(IMAGE);
+  });
 });

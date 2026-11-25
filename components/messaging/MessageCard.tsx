@@ -243,7 +243,7 @@ const MessageCard: React.FC<MessageCardProps> = ({
                     .map((attachment) => (
                       <div key={attachment.id} className="relative group max-w-sm">
                         <img
-                          src={attachment.storage_path}
+                          src={`/api/community/message-attachments/${attachment.id}`}
                           alt={attachment.file_name}
                           className="max-w-full max-h-80 w-auto h-auto rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
                           onClick={() => onPreviewAttachment && onPreviewAttachment(attachment)}

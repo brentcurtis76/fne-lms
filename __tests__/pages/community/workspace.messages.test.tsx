@@ -57,6 +57,8 @@ const h = vi.hoisted(() => ({
   filters: null as null | { onViewChange: (view: 'messages' | 'threads') => void },
   /** What a read of one message_threads row answers (null: no row). */
   threadRow: null as null | Record<string, unknown>,
+  /** F26b: the browser has no session (getSession answers none). */
+  noSession: false,
   /** More threads the list answers, listed before the workspace's own one. */
   extraThreads: [] as any[],
 }));
@@ -181,7 +183,11 @@ function recordingClient() {
       table = name;
       return chain;
     },
-    auth: { getSession: async () => ({ data: { session: { access_token: 'synthetic-token', user: { id: 'user-1' } } } }) },
+    auth: {
+      getSession: async () => ({
+        data: { session: h.noSession ? null : { access_token: 'synthetic-token', user: { id: 'user-1' } } },
+      }),
+    },
     storage: { from: () => ({ remove: async () => ({ data: null, error: null }) }) },
   };
 }
@@ -382,6 +388,7 @@ beforeEach(() => {
   h.sendMessage = vi.fn();
   h.filters = null;
   h.threadRow = null;
+  h.noSession = false;
   h.extraThreads = [];
   vi.spyOn(console, 'error').mockImplementation(() => undefined);
   global.fetch = vi.fn(async () => new Response(JSON.stringify({ members: [] }), { status: 200 })) as any;
@@ -392,32 +399,84 @@ afterEach(() => {
 });
 
 describe('EC-M7 attachments of a message can be opened or downloaded', () => {
-  it('every message card gets the download action, and a PDF goes through /api/storage/download', async () => {
-    const pdf = {
-      id: 'att-1',
-      message_id: 'm1',
-      file_name: 'acta.pdf',
-      mime_type: 'application/pdf',
-      file_size: 1200,
-      storage_path: 'https://example.invalid/storage/v1/object/public/message-attachments/ws-A/m1/acta.pdf',
-    };
-    h.messages = [message('m1', THREAD_A.id, { attachments: [pdf] })];
+  // F26b (EC-F3), changed on purpose: the download asks the attachment route
+  // for a five-minute link and sends this window to it; never the stored value.
+  const PDF = {
+    id: 'att-1',
+    message_id: 'm1',
+    file_name: 'acta.pdf',
+    mime_type: 'application/pdf',
+    file_size: 1200,
+    storage_path: 'https://example.invalid/storage/v1/object/public/message-attachments/ws-A/m1/acta.pdf',
+  };
+  const SIGNED = 'https://storage.invalid/storage/v1/object/sign/message-attachments/ws-A/m1/acta.pdf?token=t&download=acta.pdf';
+
+  async function clickDownload(answer: () => Promise<Response>) {
+    const { toast } = await import('react-hot-toast');
+    for (const fn of [toast.error, toast.success, toast.loading, toast.dismiss]) (fn as ReturnType<typeof vi.fn>).mockClear();
+    h.messages = [message('m1', THREAD_A.id, { attachments: [PDF] })];
     const utils = render(<CommunityWorkspacePage />);
     await openThread(utils, COMMUNITY_A);
     await waitFor(() => expect(cardIds(utils)).toEqual(['m1']));
-
     expect(utils.getByTestId('message-card').getAttribute('data-can-download')).toBe('yes');
 
-    const fetchMock = vi.fn(async () => new Response(new Blob(['%PDF']), { status: 200 }));
+    const fetchMock = vi.fn(answer);
     global.fetch = fetchMock as any;
-    (window.URL as any).createObjectURL = vi.fn(() => 'blob:f11');
-    (window.URL as any).revokeObjectURL = vi.fn();
-    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
+    const assign = vi.fn();
+    vi.stubGlobal('location', { ...window.location, assign });
+    const openMock = vi.fn();
+    vi.stubGlobal('open', openMock);
     await act(async () => {
       fireEvent.click(utils.getByTestId('download-att-1'));
     });
-    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
-    expect(String((fetchMock.mock.calls[0] as unknown[])[0])).toMatch(/^\/api\/storage\/download\?url=.*&filename=acta\.pdf$/);
+    return { fetchMock, assign, openMock };
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('every message card gets the download action, and a PDF is downloaded through /api/community/message-attachments/<id>?download=1', async () => {
+    const { toast } = await import('react-hot-toast');
+    const { fetchMock, assign, openMock } = await clickDownload(
+      async () => new Response(JSON.stringify({ url: SIGNED, expiresIn: 300 }), { status: 200 })
+    );
+    await waitFor(() => expect(assign).toHaveBeenCalledWith(SIGNED));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [address, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(address).toBe('/api/community/message-attachments/att-1?download=1');
+    expect((init.headers as Record<string, string>).Authorization).toBe('Bearer synthetic-token');
+    expect(init.credentials).toBe('same-origin');
+    expect(toast.loading).toHaveBeenCalledWith('Preparando descarga...', { id: 'attachment-download' });
+    expect(toast.success).toHaveBeenCalledWith('Descarga completada');
+    expect(openMock).not.toHaveBeenCalled();
+  });
+
+  it('no session: «Tu sesión expiró…», nothing asked, nothing opened', async () => {
+    const { toast } = await import('react-hot-toast');
+    h.noSession = true;
+    const { fetchMock, assign, openMock } = await clickDownload(async () => new Response('{}', { status: 200 }));
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith('Tu sesión expiró. Vuelve a iniciar sesión para descargar el archivo.')
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(assign).not.toHaveBeenCalled();
+    expect(openMock).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['a refused answer', async () => new Response(JSON.stringify({ error: 'Archivo no encontrado' }), { status: 404 })],
+    ['an answer with no url', async () => new Response(JSON.stringify({}), { status: 200 })],
+    ['a network failure', async () => { throw new Error('offline'); }],
+  ])('%s: «No se pudo descargar el archivo…», nothing opened, never the stored value', async (_label, answer) => {
+    const { toast } = await import('react-hot-toast');
+    const { assign, openMock } = await clickDownload(answer as () => Promise<Response>);
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith('No se pudo descargar el archivo. Inténtalo de nuevo.')
+    );
+    expect(assign).not.toHaveBeenCalled();
+    expect(openMock).not.toHaveBeenCalled();
+    expect(toast.success).not.toHaveBeenCalledWith('Descarga completada');
   });
 });
 

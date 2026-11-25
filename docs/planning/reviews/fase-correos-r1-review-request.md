@@ -1,17 +1,17 @@
 # GENERA correos, release 1: the email kit's look, mailing lists and contacts, reached only by typing the address, and nobody is mailed
 
-Branch: `correos/r1`. Base: `6a336e70e` (main, 24 Nov 2026, pull request 212: the fixes' second release of 24 Nov, the contract text's version and the filler RUT refused).
+Branch: `correos/r1`. Base: `5542c952b` (main, 25 Nov 2026, pull request 213: the fixes' third release of 24 Nov, awarded tenders never deleted, the Carta's signer and contract files behind five-minute links).
 A straight line of commits on main, no merge commits: 9 commits of two phases (phase 1, the look: 2 commits; phase 2, lists and contacts: 3 commits; then 3 commits of fixes after the code reads and the looks by sight, and 1 commit that declares the list-name key with its table), and this request.
 
-- `b306dec92` correos r1 phase 1: the look (kit, GENERA brand, preview page and test send)
-- `3dc8a2e13` correos r1 phase 1 fix: no stray colours in the template or the preview page
-- `ff2e2adcb` correos r1 phase 2 (database): lists, members, settings, picture store, add and erase functions
-- `df7b09eb0` correos r1 phase 2 (screens): lists, contacts, CSV import, GENERA users, pasantías leads, erase
-- `b642ae3c5` correos: read admin route handlers by fixed name
-- `d42f973e7` correos: strip hidden characters from addresses; erase empties tags
-- `e05d81298` correos: literal search, hidden-character cleaning, pickers keep paging
-- `e902e3f62` correos: erasure empties the consent notice version
-- `bafde3987` correos: the list-name key is declared with its table (same rule, a form the release check can carry)
+- `31bc9fedd` correos r1 phase 1: the look (kit, GENERA brand, preview page and test send)
+- `7a9bc6913` correos r1 phase 1 fix: no stray colours in the template or the preview page
+- `9298935db` correos r1 phase 2 (database): lists, members, settings, picture store, add and erase functions
+- `6698733c9` correos r1 phase 2 (screens): lists, contacts, CSV import, GENERA users, pasantías leads, erase
+- `1a9e501f4` correos: read admin route handlers by fixed name
+- `88d3d374d` correos: strip hidden characters from addresses; erase empties tags
+- `5bc3bcd05` correos: literal search, hidden-character cleaning, pickers keep paging
+- `46773e1d3` correos: erasure empties the consent notice version
+- `1080232a1` correos: the list-name key is declared with its table (same rule, a form the release check can carry)
 
 ## Approved scope
 
@@ -41,13 +41,13 @@ Four migrations, add-only, all new:
 - `20261124200200_email_contact_functions.sql`: three functions, server only: `public.email_address_fingerprint(text)`, `public.email_add_contacts(...)` and `public.email_erase_contact(uuid, uuid)`. Erasure removes a person's address from the contact and from past sends, ends the memberships and empties their free-text notes; it deletes no row.
 - `20261124200300_email_lists_seed.sql`: the two day-one lists; running it again creates nothing.
 
-No function of this release deletes rows, so `.pm-publish/solo-preflight.json` declares none, and it holds no count check either, because none is needed: every unique key of this release (`email_lists_name_key`, `email_list_members_list_contact_key` and `email_list_members_confirmation_token_key`) is declared inside the `CREATE TABLE` of a table the release itself creates, so no existing row can break it, and the publisher's static check raises no flag on any of the four files. The list-name key is a constraint on a stored column (`name_norm`, which the database keeps as `lower(btrim(name))`) rather than a separate unique index, so that it can be declared with its table and keep the same rule, the same name and the same error code. Every rule survives a dump and rebuild (1,089 rules, 0 different).
+No function of this release deletes rows, so `.pm-publish/solo-preflight.json` declares none, and it holds no count check either, because none is needed: every unique key of this release (`email_lists_name_key`, `email_list_members_list_contact_key` and `email_list_members_confirmation_token_key`) is declared inside the `CREATE TABLE` of a table the release itself creates, so no existing row can break it, and the publisher's static check raises no flag on any of the four files. The list-name key is a constraint on a stored column (`name_norm`, which the database keeps as `lower(btrim(name))`) rather than a separate unique index, so that it can be declared with its table and keep the same rule, the same name and the same error code. Every rule survives a dump and rebuild (1,091 rules, 0 different).
 
 Recovery without a destructive statement: the three functions can be replaced in place, or switched off by revoking EXECUTE from the service role; the screens are reached only by address.
 
 ## Proof
 
-On `e902e3f62`: type check, lint (no warnings allowed), the pages inventory check (542 files), the browser-boundary guard and the destructive-migration check (131 migration files), each exit status 0; the whole unit suite, 817 files, 22,607 tests, none failed; the database tests on a local stand rebuilt from the branch's migrations, 115 files, PASS (the new files `041-email-lists-rls.sql` and `042-email-contact-functions.sql` among them); the rules after a rebuild, 1,089, 0 different; CI's browser list from a detached worktree, 367 passed, 34 mandatory specs ran, no skips.
+On `11ad2c0d8` (25 Nov 2026, after the rebase onto main `5542c952b`): type check, lint (no warnings allowed), the pages inventory check (543 files: 162 screen files, 381 API files), the browser-boundary guard and the destructive-migration check (133 migration files), each exit status 0; the whole unit suite, 823 files passed and 1 skipped, 22,700 tests passed and 19 skipped, none failed; the database tests on a fresh local database, 117 files, 11,276 tests, PASS (the new files `041-email-lists-rls.sql` and `042-email-contact-functions.sql` among them); the rules after a dump and rebuild, 1,091, 0 different; CI's browser list as CI runs it, 367 passed, none failed, none flaky, 34 mandatory specs ran, no skips; a code read of the rebased release by a second model, clean.
 
 The 49 regenerated files under `docs/plan/redesign/inventory/` stay in this branch on purpose: the inventory check wants every area file read from one commit, and it fails without them.
 

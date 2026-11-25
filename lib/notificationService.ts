@@ -267,18 +267,38 @@ export async function getMeetingAccessUserIds(
  *   meeting (getMeetingAccessUserIds; SM-H8 — it used to be every active
  *   member of the community, which mailed agreements and commitments to
  *   people who may not read them).
- * - `opts.onlyAttended = true`: only users with `meeting_attendees.attendance_status = 'attended'`.
+ * - `opts.onlyAttended = true`: the people ticked under «Asistentes»: every
+ *   `meeting_attendees` row of the meeting whose `attendance_status` is not
+ *   'absent' (NULL counts as ticked) (EC-R7b).
  *
  * Dedupes by user id. Keeps only users the `meeting_finalized` email
  * precedence sends to: a non-default `community` category mode decides, then
  * any legacy preference row with `email_enabled = false` suppresses, then the
  * catalog default. If either preference read fails, nobody is returned.
+ *
+ * EC-R7b: the returned list also carries `unaddressed`, a NON-enumerable
+ * property (so equality, JSON and iteration of the list are unchanged): the
+ * ids of the people in the audience the function could give no e-mail
+ * address (no profile row, or a missing, null or empty e-mail). Nobody is
+ * mailed because of it; the finalize route records them as not reached.
  */
+export type CommunityRecipients = Array<{ id: string; email: string; name: string }> & {
+  readonly unaddressed?: string[];
+};
+
+function withUnaddressed(
+  list: Array<{ id: string; email: string; name: string }>,
+  unaddressed: string[]
+): CommunityRecipients {
+  Object.defineProperty(list, 'unaddressed', { value: unaddressed, enumerable: false });
+  return list;
+}
+
 export async function getCommunityRecipients(
   supabase: SupabaseClient,
   meetingId: string,
   opts: { onlyAttended: boolean }
-): Promise<Array<{ id: string; email: string; name: string }>> {
+): Promise<CommunityRecipients> {
   const { data: meeting, error: meetingErr } = await supabase
     .from('community_meetings')
     .select(
@@ -299,13 +319,12 @@ export async function getCommunityRecipients(
   const userIdSet = new Set<string>();
 
   if (opts.onlyAttended) {
-    const { data: attendedRows } = await supabase
+    const { data: attendeeRows } = await supabase
       .from('meeting_attendees')
-      .select('user_id')
-      .eq('meeting_id', meetingId)
-      .eq('attendance_status', 'attended');
-    for (const row of attendedRows || []) {
-      if (row.user_id) userIdSet.add(row.user_id as string);
+      .select('user_id, attendance_status')
+      .eq('meeting_id', meetingId);
+    for (const row of attendeeRows || []) {
+      if (row.user_id && row.attendance_status !== 'absent') userIdSet.add(row.user_id as string);
     }
   } else {
     if (!communityId) return [];
@@ -326,6 +345,11 @@ export async function getCommunityRecipients(
     .select('id, email, first_name, last_name, name')
     .in('id', userIds);
 
+  const addressedIds = new Set(
+    (profiles || []).filter((p: any) => typeof p.email === 'string' && p.email.length > 0).map((p: any) => p.id as string)
+  );
+  const unaddressed = userIds.filter((id) => !addressedIds.has(id));
+
   let preferenceReads;
   try {
     preferenceReads = await Promise.all([
@@ -345,7 +369,7 @@ export async function getCommunityRecipients(
 
   if (!preferenceReads || preferenceReads[0].error || preferenceReads[1].error) {
     console.error('Meeting summary email suppressed', { status: 'preference_unavailable' });
-    return [];
+    return withUnaddressed([], unaddressed);
   }
   const [{ data: prefs }, { data: categoryPrefs }] = preferenceReads;
 
@@ -372,7 +396,7 @@ export async function getCommunityRecipients(
     const name = profileName(p as any, p.email as string);
     recipients.push({ id: p.id as string, email: p.email as string, name });
   }
-  return recipients;
+  return withUnaddressed(recipients, unaddressed);
 }
 
 /**

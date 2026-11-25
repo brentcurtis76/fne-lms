@@ -81,6 +81,8 @@ type BuildClientOpts = {
   updateResult?: any; // row returned by the atomic update (null => already finalized)
   commitments?: any[];
   school?: any;
+  // EC-R7b: what the outcome upsert answers, or 'throws'.
+  outcomeResult?: { data: unknown; error: unknown } | 'throws';
 };
 
 function buildClient({
@@ -89,7 +91,11 @@ function buildClient({
   updateResult,
   commitments = [],
   school = { id: 1, tenant_kind: 'client', internal_zoom_testing_enabled: false },
+  outcomeResult = { data: null, error: null },
 }: BuildClientOpts) {
+  const outcomeUpsert = vi.fn(() =>
+    outcomeResult === 'throws' ? Promise.reject(new Error('outcome store down')) : Promise.resolve(outcomeResult),
+  );
   const updateMaybeSingle = vi.fn().mockResolvedValue({
     data: updateResult === undefined ? { id: MEETING_ID, finalized_at: new Date().toISOString() } : updateResult,
     error: null,
@@ -126,8 +132,10 @@ function buildClient({
 
   return {
     __meetingUpdateFn: meetingUpdateFn,
+    __outcomeUpsert: outcomeUpsert,
     from: vi.fn((table: string) => {
       if (table === 'community_meetings') return makeMeetingSelect();
+      if (table === 'meeting_summary_outcomes') return { upsert: outcomeUpsert };
       if (table === 'meeting_attendees') {
         return {
           select: vi.fn().mockReturnValue({
@@ -466,9 +474,9 @@ describe('/api/meetings/[id]/finalize', () => {
     }
 
     it('refuses with 409 no_attendance and changes nothing, sends nothing, notifies nobody', async () => {
+      // EC-R7b: only an 'absent' row is not ticked; an 'invited' row would be.
       const { m, client, res } = await finalizeAttended({
         attendees: [
-          { user_id: 'u1', role: 'participant', attendance_status: 'invited', user_profile: null },
           { user_id: 'u2', role: 'participant', attendance_status: 'absent', user_profile: null },
         ],
       });
@@ -477,6 +485,30 @@ describe('/api/meetings/[id]/finalize', () => {
       expect((client as any).__meetingUpdateFn).not.toHaveBeenCalled();
       expect(m.sendMeetingSummary).not.toHaveBeenCalled();
       expect(m.triggerNotification).not.toHaveBeenCalled();
+    });
+
+    it('EC-R7b: finalises with one ticked (invited) attendee: no 409, «asistió» marks and bells follow the ticked rows', async () => {
+      const { m, client, res } = await finalizeAttended({
+        attendees: [
+          { user_id: 'u1', role: 'participant', attendance_status: 'invited', user_profile: null },
+          { user_id: 'u2', role: 'participant', attendance_status: null, user_profile: null },
+          { user_id: 'u3', role: 'participant', attendance_status: 'attended', user_profile: null },
+          { user_id: 'u4', role: 'participant', attendance_status: 'absent', user_profile: null },
+        ],
+      });
+      expect(res._getStatusCode()).toBe(200);
+      expect((client as any).__meetingUpdateFn).toHaveBeenCalledTimes(1);
+      const templateData = (m.sendMeetingSummary as any).mock.calls[0][0];
+      expect(templateData.attendees.map((a: any) => a.attended)).toEqual([true, true, true, false]);
+      expect(m.triggerNotification).toHaveBeenCalledWith('meeting_finalized', expect.objectContaining({
+        audience: 'attended',
+        recipient_ids: ['u1', 'u2', 'u3'],
+      }));
+    });
+
+    it('EC-R7b: the refusal text names «Asistentes»', async () => {
+      const { res } = await finalizeAttended({ attendees: [] });
+      expect(JSON.parse(res._getData())).toEqual({ error: 'Nadie está marcado en «Asistentes»', code: 'no_attendance' });
     });
 
     it('refuses as well when the meeting has no attendee rows at all', async () => {
@@ -822,6 +854,89 @@ describe('/api/meetings/[id]/finalize', () => {
       });
       expect((m.sendMeetingSummary as any).mock.calls[0][2]).toMatchObject({ kind: 'refuse' });
       expect(data).toMatchObject({ ok: true, sent: 0, summary_email_sent: false, summary_email_error: 'tenant_scope_refused' });
+    });
+  });
+
+  describe('EC-R7b: the route stores once whom the summary reached', () => {
+    async function finalizeStoring(opts: {
+      recipients?: any[];
+      send?: { sent: number; failed: number; errors: unknown[] } | Error;
+      recipientsThrow?: boolean;
+      outcomeResult?: { data: unknown; error: unknown } | 'throws';
+    }) {
+      const m = await loadMocks();
+      (m.getApiUser as any).mockResolvedValue({ user: { id: USER_ID }, error: null });
+      (m.getUserRoles as any).mockResolvedValue([]);
+      (m.getHighestRole as any).mockReturnValue('admin');
+      (m.canFinalizeMeeting as any).mockReturnValue(true);
+      if (opts.recipientsThrow) (m.getCommunityRecipients as any).mockRejectedValue(new Error('meeting_not_found'));
+      else (m.getCommunityRecipients as any).mockResolvedValue(opts.recipients ?? []);
+      if (opts.send instanceof Error) (m.sendMeetingSummary as any).mockRejectedValue(opts.send);
+      else (m.sendMeetingSummary as any).mockResolvedValue(opts.send ?? { sent: 0, failed: 0, errors: [] });
+      const client = buildClient({ meetingRow, outcomeResult: opts.outcomeResult });
+      (m.createServiceRoleClient as any).mockReturnValue(client);
+      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const { req, res } = createMocks({ method: 'POST', query: { id: MEETING_ID }, body: { audience: 'with_access' } });
+      await handler(req as any, res as any);
+      const logged = JSON.stringify(consoleError.mock.calls);
+      consoleError.mockRestore();
+      return { m, client: client as any, res, logged };
+    }
+
+    const twoRecipients = [
+      { id: 'u1', email: 'u1@example.com', name: 'U1' },
+      { id: 'u2', email: 'bad@example.com', name: 'U2' },
+    ];
+    const oneOfTwoFails = { sent: 1, failed: 1, errors: [{ email: 'bad@example.com', error: 'provider_rejected' }] };
+
+    it('one of two recipients failing: sent_to holds the reached one, not_sent_to the other, inserted once', async () => {
+      const { client, res } = await finalizeStoring({ recipients: twoRecipients, send: oneOfTwoFails });
+      expect(res._getStatusCode()).toBe(200);
+      expect(client.__outcomeUpsert).toHaveBeenCalledTimes(1);
+      expect(client.__outcomeUpsert).toHaveBeenCalledWith(
+        { meeting_id: MEETING_ID, sent_to: ['u1'], not_sent_to: ['u2'] },
+        { onConflict: 'meeting_id', ignoreDuplicates: true },
+      );
+      // The meeting itself is still updated exactly once.
+      expect(client.__meetingUpdateFn).toHaveBeenCalledTimes(1);
+    });
+
+    it('a thrown send stores every recipient in not_sent_to', async () => {
+      const { client } = await finalizeStoring({ recipients: twoRecipients, send: new Error('resend_outage') });
+      expect(client.__outcomeUpsert).toHaveBeenCalledWith(
+        { meeting_id: MEETING_ID, sent_to: [], not_sent_to: ['u1', 'u2'] },
+        { onConflict: 'meeting_id', ignoreDuplicates: true },
+      );
+    });
+
+    it('a failed preparation stores both lists empty', async () => {
+      const { client } = await finalizeStoring({ recipientsThrow: true });
+      expect(client.__outcomeUpsert).toHaveBeenCalledWith(
+        { meeting_id: MEETING_ID, sent_to: [], not_sent_to: [] },
+        { onConflict: 'meeting_id', ignoreDuplicates: true },
+      );
+    });
+
+    it('no recipients stores both lists empty', async () => {
+      const { client } = await finalizeStoring({ recipients: [] });
+      expect(client.__outcomeUpsert).toHaveBeenCalledWith(
+        { meeting_id: MEETING_ID, sent_to: [], not_sent_to: [] },
+        { onConflict: 'meeting_id', ignoreDuplicates: true },
+      );
+    });
+
+    it.each([
+      ['answers an error', { data: null, error: { code: '42P01', message: 'relation u1@example.com missing' } }],
+      ['throws', 'throws'],
+    ] as const)('a store that %s still answers 200 with the same body and logs only the meeting id and a code', async (_label, outcomeResult) => {
+      const ok = await finalizeStoring({ recipients: twoRecipients, send: oneOfTwoFails });
+      const broken = await finalizeStoring({ recipients: twoRecipients, send: oneOfTwoFails, outcomeResult: outcomeResult as any });
+      expect(broken.res._getStatusCode()).toBe(200);
+      expect(JSON.parse(broken.res._getData())).toEqual(JSON.parse(ok.res._getData()));
+      expect(broken.logged).toContain('summary outcome');
+      expect(broken.logged).toContain(MEETING_ID);
+      expect(broken.logged).not.toContain('u1@example.com');
+      expect(broken.logged).not.toContain('outcome store down');
     });
   });
 

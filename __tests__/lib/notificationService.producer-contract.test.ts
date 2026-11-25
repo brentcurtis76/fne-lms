@@ -30,6 +30,8 @@ const db = vi.hoisted(() => ({
   roles: {} as Record<string, Array<Record<string, unknown>>>,
   emails: {} as Record<string, string | null>,
   modes: {} as Record<string, string>,
+  // EC-R7b: what the finalize route stores in meeting_summary_outcomes.
+  outcomes: [] as Array<Record<string, any>>,
 }));
 
 // SM-H8: the routes also ask the database whether the caller is a verified
@@ -42,6 +44,10 @@ vi.mock('@supabase/supabase-js', () => {
   const answer = (table: string, op: string, columns: string | undefined, payload: any, filters: unknown[][]) => {
     const eq = (column: string) => filters.find(([c]) => c === column)?.[1];
     const inList = (filters.find(([, v]) => Array.isArray(v))?.[1] ?? null) as string[] | null;
+    if (table === 'meeting_summary_outcomes' && op === 'upsert') {
+      db.outcomes.push(payload);
+      return { data: null, error: null };
+    }
     if (table === 'community_meetings') {
       if (op === 'update') {
         if (!db.meeting || db.meeting.finalized_at) return { data: null, error: null };
@@ -112,6 +118,7 @@ vi.mock('@supabase/supabase-js', () => {
       select: (c?: string) => ((columns = op === 'select' ? c : columns), builder),
       insert: (p: unknown) => ((op = 'insert'), (payload = p), builder),
       update: (p: unknown) => ((op = 'update'), (payload = p), builder),
+      upsert: (p: unknown) => ((op = 'upsert'), (payload = p), builder),
       eq: (column: string, value: unknown) => (filters.push([column, value]), builder),
       in: (column: string, values: unknown[]) => (filters.push([column, values]), builder),
       is: () => builder,
@@ -427,6 +434,76 @@ describe('D2/D3 · the real finalize route picks bell recipients from the audien
       roles: { [LEADER]: role('lider_comunidad'), [OUTSIDER]: role('docente', '0b7c2c1e-5d1a-4c6e-9f00-0000000000c2') },
       emails: { [BYSTANDER]: 'miembro@qa.local.test', [LEADER]: 'lider@qa.local.test', [EMAIL_OFF]: 'sin-correo@qa.local.test', [MAILED]: 'asistente@qa.local.test', [ABSENT]: 'ausente@qa.local.test' },
       modes: { [EMAIL_OFF]: 'off', [MAILED]: 'immediate', [ABSENT]: 'digest' },
+      outcomes: [],
+    });
+  });
+
+  describe('EC-R7b send-back 1: a person in the audience without an e-mail address is stored as not reached', () => {
+    const ANA = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+    const BRUNO = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+    const tickAnaAndBruno = (brunoEmail: string | null) => {
+      db.attendees = [
+        { user_id: ANA, attendance_status: 'invited' },
+        { user_id: BRUNO, attendance_status: 'invited' },
+      ];
+      db.emails = { ...db.emails, [ANA]: 'ana@qa.local.test', [BRUNO]: brunoEmail };
+    };
+
+    it.each([null, ''])('«Solo los asistentes»: Ana reached, Bruno (e-mail %j) not reached, nobody mails Bruno', async (brunoEmail) => {
+      tickAnaAndBruno(brunoEmail);
+      const { status } = await post('attended');
+      expect(status).toBe(200);
+      expect(summaryIds()).toEqual([ANA]);
+      expect(db.outcomes).toEqual([{ meeting_id: MEETING_ID, sent_to: [ANA], not_sent_to: [BRUNO] }]);
+    });
+
+    it('«Solo los asistentes»: the send to Ana fails too, so both are not reached, each once', async () => {
+      tickAnaAndBruno(null);
+      route.summary.mockImplementation(async (_data: unknown, recipients: Array<{ email: string }>) => ({
+        sent: 0, failed: recipients.length, errors: recipients.map((r) => ({ email: r.email, error: 'provider_rejected' })),
+      }));
+      const { status } = await post('attended');
+      expect(status).toBe(200);
+      expect(db.outcomes).toHaveLength(1);
+      expect(db.outcomes[0].sent_to).toEqual([]);
+      expect([...db.outcomes[0].not_sent_to].sort()).toEqual([ANA, BRUNO].sort());
+    });
+
+    it('«Solo los asistentes»: a thrown send also stores the person without an address as not reached', async () => {
+      tickAnaAndBruno(null);
+      route.summary.mockRejectedValue(new Error('provider_down'));
+      const { status } = await post('attended');
+      expect(status).toBe(200);
+      expect(db.outcomes[0].sent_to).toEqual([]);
+      expect([...db.outcomes[0].not_sent_to].sort()).toEqual([ANA, BRUNO].sort());
+    });
+
+    it('nobody in the audience has an address: nothing is mailed, all are not reached, finalising succeeds', async () => {
+      db.attendees = [
+        { user_id: ANA, attendance_status: 'invited' },
+        { user_id: BRUNO, attendance_status: 'attended' },
+      ];
+      db.emails = { ...db.emails, [ANA]: null, [BRUNO]: '' };
+      const { status, body } = await post('attended');
+      expect(status).toBe(200);
+      expect(body.data).toMatchObject({ ok: true, recipients_count: 0, sent: 0, summary_email_sent: false, summary_email_error: 'no_recipients' });
+      expect(summaryIds()).toEqual([]);
+      expect(sends).toEqual([]);
+      expect(db.meeting).toMatchObject({ status: 'completada' });
+      expect(db.outcomes).toHaveLength(1);
+      expect(db.outcomes[0].sent_to).toEqual([]);
+      expect([...db.outcomes[0].not_sent_to].sort()).toEqual([ANA, BRUNO].sort());
+    });
+
+    it('the people with access: the participant without an address is not reached; the one who chose no e-mail is in neither list', async () => {
+      const { status } = await post('with_access');
+      expect(status).toBe(200);
+      expect(db.outcomes).toHaveLength(1);
+      const { sent_to, not_sent_to } = db.outcomes[0];
+      expect([...sent_to].sort()).toEqual([LEADER, MAILED, ABSENT].sort());
+      expect(not_sent_to).toEqual([NO_EMAIL]);
+      expect([...sent_to, ...not_sent_to]).not.toContain(EMAIL_OFF);
+      expect(new Set([...sent_to, ...not_sent_to]).size).toBe(sent_to.length + not_sent_to.length);
     });
   });
 

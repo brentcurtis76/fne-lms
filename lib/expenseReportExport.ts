@@ -135,6 +135,45 @@ export class ExpenseReportExporter {
     }
   }
 
+  /**
+   * GES-3.30: the summary of several reports headlines approved money only,
+   * with one line per state (Aprobado, Enviado, Borrador, Rechazado), each
+   * present even with no reports. A missing total counts 0.
+   */
+  static summaryByStatus(reports: ExpenseReport[]): {
+    reportsCount: number;
+    approvedTotal: number;
+    lines: { label: string; count: number; total: number }[];
+  } {
+    const order: ExpenseReport['status'][] = ['approved', 'submitted', 'draft', 'rejected'];
+    const lines = order.map(status => {
+      const ofState = reports.filter(report => report.status === status);
+      return {
+        label: this.getStatusText(status),
+        count: ofState.length,
+        total: ofState.reduce((sum, report) => sum + this.amountOf(report), 0)
+      };
+    });
+    return { reportsCount: reports.length, approvedTotal: lines[0].total, lines };
+  }
+
+  /**
+   * The amount of a report as a number for the multi-report summary: a number
+   * or a numeric string counts as its value; missing, null or not finite counts 0.
+   */
+  private static amountOf(report: ExpenseReport): number {
+    const raw: unknown = report.total_amount;
+    if (raw == null) return 0;
+    if (typeof raw === 'string' && raw.trim() === '') return 0;
+    if (typeof raw !== 'number' && typeof raw !== 'string') return 0;
+    const value = Number(raw);
+    return Number.isFinite(value) ? value : 0;
+  }
+
+  private static reportsCountText(count: number): string {
+    return `${count} ${count === 1 ? 'reporte' : 'reportes'}`;
+  }
+
   static async exportToPDF(report: ExpenseReport): Promise<void> {
     // Dynamic import for client-side only
     const { default: jsPDF } = await import('jspdf');
@@ -498,10 +537,18 @@ export class ExpenseReportExporter {
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
     
-    const totalAmount = reports.reduce((sum, report) => sum + report.total_amount, 0);
-    doc.text(`Total de reportes: ${reports.length}`, 14, 40);
-    doc.text(`Monto total: ${this.formatCurrency(totalAmount)}`, 14, 46);
-    doc.text(`Fecha de generación: ${new Date().toLocaleDateString('es-CL')}`, 14, 52);
+    const summary = this.summaryByStatus(reports);
+    doc.text(`Total de reportes: ${summary.reportsCount}`, 14, 40);
+    doc.text(`Monto aprobado: ${this.formatCurrency(summary.approvedTotal)}`, 14, 46);
+    summary.lines.forEach((line, index) => {
+      doc.text(
+        `${line.label}: ${this.reportsCountText(line.count)} · ${this.formatCurrency(line.total)}`,
+        14,
+        52 + index * 6
+      );
+    });
+    const linesOffset = summary.lines.length * 6;
+    doc.text(`Fecha de generación: ${new Date().toLocaleDateString('es-CL')}`, 14, 52 + linesOffset);
     
     // Reports table
     const tableData = reports.map(report => [
@@ -509,13 +556,13 @@ export class ExpenseReportExporter {
       `${this.formatDay(report.start_date)} - ${this.formatDay(report.end_date)}`,
       this.getStatusText(report.status),
       `${report.profiles?.first_name} ${report.profiles?.last_name}`,
-      this.formatCurrency(report.total_amount)
+      this.formatCurrency(this.amountOf(report))
     ]);
     
     autoTable(doc, {
       head: [['Nombre del Reporte', 'Período', 'Estado', 'Enviado por', 'Total']],
       body: tableData,
-      startY: 60,
+      startY: 60 + linesOffset,
       styles: {
         fontSize: 8,
         cellPadding: 2,
@@ -536,11 +583,11 @@ export class ExpenseReportExporter {
         4: { cellWidth: 30, halign: 'right' }
       },
       foot: [[
-        'TOTAL GENERAL',
+        'TOTAL APROBADO',
         '',
         '',
         '',
-        this.formatCurrency(totalAmount)
+        this.formatCurrency(summary.approvedTotal)
       ]],
       footStyles: {
         fillColor: navyBlue,
@@ -572,12 +619,17 @@ export class ExpenseReportExporter {
     const wb = XLSX.utils.book_new();
     
     // Summary sheet
-    const totalAmount = reports.reduce((sum, report) => sum + report.total_amount, 0);
-    const summaryData = [
+    const summary = this.summaryByStatus(reports);
+    const summaryData: (string | number)[][] = [
       ['RESUMEN DE REPORTES DE GASTOS'],
       [''],
-      ['Total de reportes:', reports.length],
-      ['Monto total:', this.formatCurrency(totalAmount)],
+      ['Total de reportes:', summary.reportsCount],
+      ['Monto aprobado:', this.formatCurrency(summary.approvedTotal)],
+      ...summary.lines.map(line => [
+        line.label,
+        this.reportsCountText(line.count),
+        this.formatCurrency(line.total)
+      ]),
       ['Fecha de generación:', new Date().toLocaleDateString('es-CL')],
       [''],
       ['Nombre del Reporte', 'Período', 'Estado', 'Enviado por', 'Email', 'Total (CLP)']
@@ -590,17 +642,17 @@ export class ExpenseReportExporter {
         this.getStatusText(report.status),
         `${report.profiles?.first_name} ${report.profiles?.last_name}`,
         report.profiles?.email || '',
-        report.total_amount.toString()
+        this.amountOf(report).toString()
       ]);
     });
     
     summaryData.push([
-      'TOTAL GENERAL',
+      'TOTAL APROBADO',
       '',
       '',
       '',
       '',
-      totalAmount.toString()
+      summary.approvedTotal.toString()
     ]);
     
     const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);

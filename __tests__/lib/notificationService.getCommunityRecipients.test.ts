@@ -215,10 +215,10 @@ describe('getCommunityRecipients', () => {
     consoleError.mockRestore();
   });
 
-  it('onlyAttended:true reads meeting_attendees filtered by attendance_status=attended', async () => {
+  it('onlyAttended:true reads every meeting_attendees row of the meeting with its attendance_status (EC-R7b)', async () => {
     const { client, calls } = createFakeSupabase({
       community_meetings: meetingRow(),
-      meeting_attendees: { data: [{ user_id: 'u1' }] },
+      meeting_attendees: { data: [{ user_id: 'u1', attendance_status: 'invited' }] },
       profiles: {
         data: [
           { id: 'u1', email: 'u1@test.cl', first_name: 'One', last_name: 'User' },
@@ -236,13 +236,57 @@ describe('getCommunityRecipients', () => {
     // Attendee path is used, community-role path is NOT.
     const attendeesCall = calls.find((c) => c.table === 'meeting_attendees');
     expect(attendeesCall).toBeDefined();
-    expect(attendeesCall!.filters).toEqual(
-      expect.arrayContaining([
-        ['eq', 'meeting_id', MEETING_ID],
-        ['eq', 'attendance_status', 'attended'],
-      ])
-    );
+    // EC-R7b: the status is filtered in code (not 'absent'), not in the query.
+    expect(attendeesCall!.filters).toEqual([['eq', 'meeting_id', MEETING_ID]]);
     expect(calls.some((c) => c.table === 'user_roles')).toBe(false);
+  });
+
+  it('EC-R7b: onlyAttended:true reaches every ticked attendee (invited, NULL, attended) and leaves out only absent', async () => {
+    const { client, calls } = createFakeSupabase({
+      community_meetings: meetingRow(),
+      meeting_attendees: {
+        data: [
+          { user_id: 'u1', attendance_status: 'invited' },
+          { user_id: 'u2', attendance_status: null },
+          { user_id: 'u3', attendance_status: 'attended' },
+          { user_id: 'u4', attendance_status: 'absent' },
+        ],
+      },
+      profiles: {
+        data: ['u1', 'u2', 'u3'].map((id) => ({ id, email: `${id}@test.cl`, first_name: id, last_name: 'Sintetico' })),
+      },
+      user_notification_preferences: { data: [] },
+    });
+
+    const recipients = await getCommunityRecipients(client, MEETING_ID, { onlyAttended: true });
+
+    // The fake does not filter by in(): the ids looked up are the proof.
+    const profilesCall = calls.find((c) => c.table === 'profiles');
+    expect(profilesCall?.filters).toEqual([['in', 'id', ['u1', 'u2', 'u3']]]);
+    expect(recipients.map((r) => r.id).sort()).toEqual(['u1', 'u2', 'u3']);
+  });
+
+  it('EC-R7b send-back 1: carries, out of sight of equality, the audience members it could give no address', async () => {
+    const { client } = createFakeSupabase({
+      community_meetings: meetingRow(),
+      meeting_attendees: {
+        data: ['u1', 'u2', 'u3', 'u4'].map((user_id) => ({ user_id, attendance_status: 'invited' })),
+      },
+      // u2 has a null e-mail, u3 an empty one, u4 no profile row at all.
+      profiles: {
+        data: [
+          { id: 'u1', email: 'u1@test.cl', first_name: 'One', last_name: 'User' },
+          { id: 'u2', email: null, first_name: 'Two', last_name: 'User' },
+          { id: 'u3', email: '', first_name: 'Three', last_name: 'User' },
+        ],
+      },
+      user_notification_preferences: { data: [] },
+    });
+    const recipients = await getCommunityRecipients(client, MEETING_ID, { onlyAttended: true });
+    // What every caller gets is unchanged.
+    expect(recipients).toEqual([{ id: 'u1', email: 'u1@test.cl', name: 'One User' }]);
+    expect(JSON.stringify(recipients)).toBe('[{"id":"u1","email":"u1@test.cl","name":"One User"}]');
+    expect(recipients.unaddressed).toEqual(['u2', 'u3', 'u4']);
   });
 
   it('returns an empty list without throwing when user_roles is empty', async () => {

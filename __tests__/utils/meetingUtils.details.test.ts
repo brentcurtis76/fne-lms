@@ -10,6 +10,7 @@ const state: {
   rows: Record<string, Row[]>;
   selects: Record<string, unknown[]>;
   rpc: ReturnType<typeof vi.fn>;
+  outcomeError?: unknown;
 } = { rows: {}, selects: {}, rpc: vi.fn() };
 
 function builder(table: string) {
@@ -22,6 +23,10 @@ function builder(table: string) {
     eq: () => chain,
     order: () => chain,
     single: () => Promise.resolve({ data: (state.rows[table] ?? [])[0] ?? null, error: null }),
+    maybeSingle: () =>
+      table === 'meeting_summary_outcomes' && state.outcomeError
+        ? Promise.resolve({ data: null, error: state.outcomeError })
+        : Promise.resolve({ data: (state.rows[table] ?? [])[0] ?? null, error: null }),
     then: (onFul: (value: unknown) => unknown, onRej?: (reason: unknown) => unknown) =>
       Promise.resolve(result()).then(onFul, onRej),
   };
@@ -50,6 +55,7 @@ const UNKNOWN = '44444444-4444-4444-8444-444444444444';
 
 beforeEach(() => {
   state.selects = {};
+  state.outcomeError = undefined;
   state.rows = {
     community_meetings: [{ id: 'm1', title: 'Reunión sintética', status: 'completada' }],
     meeting_agreements: [],
@@ -107,6 +113,34 @@ describe('getMeetingDetails — names from profile cards (EC-R4/R5)', () => {
     const details = await getMeetingDetails('m1');
     expect(details!.attendees.map((a) => [a.user_id, a.role])).toEqual([[ANA, 'participant'], [UNKNOWN, 'facilitator']]);
     expect(details!.attendees.every((a) => a.user_profile === undefined)).toBe(true);
+    consoleError.mockRestore();
+  });
+});
+
+describe('getMeetingDetails — whom the summary reached (EC-R7b)', () => {
+  it('returns summary_outcome with names from the same single card call; a person without a card is «Usuario»', async () => {
+    state.rows.meeting_summary_outcomes = [{ meeting_id: 'm1', sent_to: [ANA, BRUNO], not_sent_to: [UNKNOWN] }];
+    const details = await getMeetingDetails('m1');
+    expect(state.rpc).toHaveBeenCalledTimes(1);
+    expect(details!.summary_outcome).toEqual({
+      sent_to: [{ id: ANA, name: 'Ana Uno' }, { id: BRUNO, name: 'Bruno Dos' }],
+      not_sent_to: [{ id: UNKNOWN, name: 'Usuario' }],
+    });
+  });
+
+  it('no stored row gives summary_outcome null', async () => {
+    const details = await getMeetingDetails('m1');
+    expect(details).not.toBeNull();
+    expect(details!.summary_outcome).toBeNull();
+  });
+
+  it('a failed outcome read gives summary_outcome null and still returns the meeting', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    state.rows.meeting_summary_outcomes = [{ meeting_id: 'm1', sent_to: [ANA], not_sent_to: [] }];
+    state.outcomeError = { code: '42501', message: 'denied' };
+    const details = await getMeetingDetails('m1');
+    expect(details).not.toBeNull();
+    expect(details!.summary_outcome).toBeNull();
     consoleError.mockRestore();
   });
 });

@@ -120,20 +120,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       )
       .eq('meeting_id', id);
 
-    // EC-R7: «Solo los asistentes» while nobody is marked as having attended
-    // would reach nobody, and finalising cannot be undone, so it is refused
-    // before anything changes. A meeting that already carries finalized_at
-    // skips this and keeps answering meeting_already_finalized below.
+    // EC-R7b: «Solo los asistentes» are the people ticked under «Asistentes»:
+    // every attendee row whose attendance_status is not 'absent' (NULL counts).
+    const isTicked = (a: any) => a.attendance_status !== 'absent';
+
+    // EC-R7: «Solo los asistentes» while nobody is ticked would reach nobody,
+    // and finalising cannot be undone, so it is refused before anything
+    // changes. A meeting that already carries finalized_at skips this and
+    // keeps answering meeting_already_finalized below.
     if (
       audience === 'attended' &&
       !meeting.finalized_at &&
-      !(attendeesRich || []).some((a: any) => a.attendance_status === 'attended')
+      !(attendeesRich || []).some(isTicked)
     ) {
       return sendMeetingError(
         res,
         409,
         'no_attendance',
-        'Nadie está marcado como asistente',
+        'Nadie está marcado en «Asistentes»',
       );
     }
 
@@ -304,7 +308,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         audience,
         attendees: (attendeesRich || []).map((a: any) => ({
           name: profileName(a.user_profile, 'Asistente'),
-          attended: a.attendance_status === 'attended',
+          attended: isTicked(a),
           role: a.role,
         })),
         // Legacy plain summary/notes fallback: most autosave-written meetings
@@ -346,6 +350,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     let sent = 0;
     let failed = 0;
     let errorsPreview: unknown[] = [];
+    // EC-R7b: whom the summary reached. Stays null when nothing was sent (no
+    // preparation) and when the send threw.
+    let sendErrors: Array<{ email?: unknown }> | null = null;
+    let sendThrew = false;
     if (!prepared) {
       summaryEmailSent = false;
       summaryEmailError = 'lookup_failed';
@@ -356,6 +364,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         sent = result.sent;
         failed = result.failed;
         errorsPreview = result.errors;
+        sendErrors = Array.isArray(result.errors) ? result.errors : [];
         summaryEmailSent = failed === 0;
         if (emailAuthorization.kind === 'suppressed_qa') {
           summaryEmailSent = false;
@@ -376,6 +385,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           summaryEmailError = allNotConfigured ? 'mail_not_configured' : 'provider_failed';
         }
       } catch (emailErr: any) {
+        sendThrew = true;
         summaryEmailSent = false;
         summaryEmailError = emailErr?.message || 'email_dispatch_failed';
         console.error('[meetings-finalize] summary email dispatch failed:', {
@@ -383,6 +393,54 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           error: summaryEmailError,
         });
       }
+    }
+
+    // EC-R7b: store once whom the summary reached and whom it did not, for the
+    // band of the finalised meeting. A recipient counts as reached when the
+    // send did not report a failure for their address. Best effort: the
+    // meeting is already final, so a failure here is logged (meeting id and
+    // error code only) and changes nothing in the answer.
+    try {
+      const sentTo: string[] = [];
+      let notSentTo: string[] = [];
+      if (prepared && sendThrew) {
+        notSentTo = recipients.map((r) => r.id);
+      } else if (prepared && sendErrors) {
+        const failedEmails = new Set(sendErrors.map((e) => e?.email));
+        for (const r of recipients) {
+          if (r.email && !failedEmails.has(r.email)) sentTo.push(r.id);
+          else notSentTo.push(r.id);
+        }
+      }
+      // Send-back 1: the people in the audience the resolver could give no
+      // address were never mailed: they are not reached. Each id once, in
+      // one list only.
+      if (prepared) {
+        const listed = new Set([...sentTo, ...notSentTo]);
+        for (const unaddressedId of prepared.recipients.unaddressed ?? []) {
+          if (!listed.has(unaddressedId)) {
+            listed.add(unaddressedId);
+            notSentTo.push(unaddressedId);
+          }
+        }
+      }
+      const { error: outcomeError } = await serviceClient
+        .from('meeting_summary_outcomes')
+        .upsert(
+          { meeting_id: id, sent_to: sentTo, not_sent_to: notSentTo },
+          { onConflict: 'meeting_id', ignoreDuplicates: true },
+        );
+      if (outcomeError) {
+        console.error('[meetings-finalize] storing the summary outcome failed:', {
+          meeting_id: id,
+          code: (outcomeError as any)?.code ?? 'unknown',
+        });
+      }
+    } catch (outcomeErr: any) {
+      console.error('[meetings-finalize] storing the summary outcome failed:', {
+        meeting_id: id,
+        code: outcomeErr?.code ?? 'exception',
+      });
     }
 
     // Fire in-app notification event. Do not await in a way that blocks on failure.
@@ -393,7 +451,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       let bellRecipientIds: string[] = [];
       if (audience === 'attended') {
         bellRecipientIds = (attendeesRich || [])
-          .filter((a: any) => a.attendance_status === 'attended')
+          .filter(isTicked)
           .map((a: any) => a.user_id);
       } else if (workspace?.community_id) {
         // SM-H8: the people with access to the meeting, not the whole community.

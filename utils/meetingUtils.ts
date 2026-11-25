@@ -26,6 +26,7 @@ import { daysUntilDueDate } from '../lib/meetings/meeting-time';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { fetchProfileCards } from '../lib/profile-cards';
 import type { ProfileCard } from '../lib/profile-cards';
+import { profileName } from '../lib/utils/profile-name';
 import type { SaveProblem } from '../lib/meetings/meeting-save';
 import {
   applyMeetingDiffs,
@@ -227,10 +228,31 @@ export async function getMeetingDetails(meetingId: string): Promise<MeetingWithD
       .select('*')
       .eq('meeting_id', meetingId);
 
+    // EC-R7b: whom the summary e-mail reached, stored once by the finalize
+    // route. No row (finalised before it was stored) or a failed read: null.
+    let outcomeRow: { sent_to?: string[] | null; not_sent_to?: string[] | null } | null = null;
+    try {
+      const { data: outcome, error: outcomeError } = await supabase
+        .from('meeting_summary_outcomes')
+        .select('sent_to, not_sent_to')
+        .eq('meeting_id', meetingId)
+        .maybeSingle();
+      if (outcomeError) {
+        console.error('Error fetching meeting summary outcome:', (outcomeError as { code?: string })?.code ?? 'unknown');
+      } else {
+        outcomeRow = outcome ?? null;
+      }
+    } catch (outcomeErr) {
+      console.error('Error fetching meeting summary outcome:', (outcomeErr as { code?: string })?.code ?? 'exception');
+    }
+    const outcomeSentTo: string[] = Array.isArray(outcomeRow?.sent_to) ? outcomeRow!.sent_to : [];
+    const outcomeNotSentTo: string[] = Array.isArray(outcomeRow?.not_sent_to) ? outcomeRow!.not_sent_to : [];
+
     // Names of participants, of the people in charge, and of the meeting's
-    // author, facilitator, secretary and finaliser (N154) come from profile
-    // cards (other people's `profiles` rows are not readable): one call for
-    // everyone. A participant without a card gets no profile.
+    // author, facilitator, secretary and finaliser (N154), and of the people
+    // the summary was sent to (EC-R7b), come from profile cards (other
+    // people's `profiles` rows are not readable): one call for everyone. A
+    // participant without a card gets no profile.
     const cards = await fetchProfileCards(supabase, [
       ...(attendees || []).map((attendee: { user_id?: string | null }) => attendee.user_id),
       ...(tasks || []).map((task: { assigned_to?: string | null }) => task.assigned_to),
@@ -239,8 +261,14 @@ export async function getMeetingDetails(meetingId: string): Promise<MeetingWithD
       meeting.facilitator_id,
       meeting.secretary_id,
       meeting.finalized_by,
+      ...outcomeSentTo,
+      ...outcomeNotSentTo,
     ]);
     const cardFor = (id: string | null | undefined): ProfileCard | undefined => (id ? cards.get(id) : undefined);
+    const namedPerson = (id: string) => {
+      const card = cards.get(id);
+      return { id, name: profileName({ first_name: card?.first_name, last_name: card?.last_name }, 'Usuario') };
+    };
 
     // Combine all data
     const meetingWithDetails: MeetingWithDetails = {
@@ -262,6 +290,9 @@ export async function getMeetingDetails(meetingId: string): Promise<MeetingWithD
         ...attendee,
         user_profile: cardFor(attendee.user_id),
       })),
+      summary_outcome: outcomeRow
+        ? { sent_to: outcomeSentTo.map(namedPerson), not_sent_to: outcomeNotSentTo.map(namedPerson) }
+        : null,
     };
 
     return meetingWithDetails;

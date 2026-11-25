@@ -1,3 +1,31 @@
 {
-  "checks": []
+  "checks": [
+    {
+      "path": "supabase/migrations/20261124200100_email_lists_and_members.sql",
+      "line": 55,
+      "code": "UNIQUE_INDEX",
+      "fn": "duplicate_count",
+      "table": "public.email_lists",
+      "columns": ["name"],
+      "label": "Mailing lists that share a name (must be none when the unique name key email_lists_name_key is added; the table is new in this release)"
+    },
+    {
+      "path": "supabase/migrations/20261124200100_email_lists_and_members.sql",
+      "line": 86,
+      "code": "ADD_CONSTRAINT",
+      "fn": "duplicate_count",
+      "table": "public.email_list_members",
+      "columns": ["list_id", "contact_id"],
+      "label": "People on the same list more than once (must be none when email_list_members_list_contact_key is added; the table is new in this release)"
+    },
+    {
+      "path": "supabase/migrations/20261124200100_email_lists_and_members.sql",
+      "line": 87,
+      "code": "ADD_CONSTRAINT",
+      "fn": "duplicate_count",
+      "table": "public.email_list_members",
+      "columns": ["confirmation_token"],
+      "label": "Memberships that share a confirmation token (must be none when email_list_members_confirmation_token_key is added; the table is new in this release)"
+    }
+  ]
 }

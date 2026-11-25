@@ -1,0 +1,71 @@
+# GENERA correos, release 1: the email kit's look, mailing lists and contacts, reached only by typing the address, and nobody is mailed
+
+Branch: `correos/r1`. Base: `6a336e70e` (main, 24 Nov 2026, pull request 212: the fixes' second release of 24 Nov, the contract text's version and the filler RUT refused).
+A straight line of commits on main, no merge commits: 8 commits of two phases (phase 1, the look: 2 commits; phase 2, lists and contacts: 3 commits; then 3 commits of fixes after the code reads and the looks by sight), and this request.
+
+- `b306dec92` correos r1 phase 1: the look (kit, GENERA brand, preview page and test send)
+- `3dc8a2e13` correos r1 phase 1 fix: no stray colours in the template or the preview page
+- `ff2e2adcb` correos r1 phase 2 (database): lists, members, settings, picture store, add and erase functions
+- `df7b09eb0` correos r1 phase 2 (screens): lists, contacts, CSV import, GENERA users, pasantías leads, erase
+- `b642ae3c5` correos: read admin route handlers by fixed name
+- `d42f973e7` correos: strip hidden characters from addresses; erase empties tags
+- `e05d81298` correos: literal search, hidden-character cleaning, pickers keep paging
+- `e902e3f62` correos: erasure empties the consent notice version
+
+## Approved scope
+
+The owner approved the correos plan on 24 Nov 2026 ("i approve"). It has five releases; this is the first, phases 1 and 2. Its rule on screen: nothing new, unless an admin types the address. Nothing in release 1 mails anybody but the admin's own test send; the signup page, unsubscribe, campaigns and reports come in releases 2 and 3.
+
+## What changes
+
+**For everyone**
+- Nothing looks different. There is no menu entry, no public page and no email to anybody.
+
+**For an admin who types one of these addresses by hand**
+- `/admin/correos/vista-previa`: a sample email in GENERA's look (logo, accent colour, font, button, legal footer), and «send me a test», which goes through today's sender to the admin's own address only.
+- `/admin/correos/listas`: the mailing lists (create, rename, describe, public or not, archive). The two day-one lists, «Boletín general» (public) and «Directivos» (not public), are created by the release. A list is never deleted; archiving retires it.
+- `/admin/correos/contactos`: search, add one person, see a person's lists and state, and «erase this person».
+- `/admin/correos/importar`: a CSV import. The admin states, for the whole file, where the permission to mail came from; the result shows accepted, duplicates, blocked and bad addresses.
+- `/admin/correos/usuarios`: add GENERA users to a list.
+- `/admin/correos/pasantias`: add pasantías leads, only those who ticked the box.
+
+**The email kit**
+- `lib/correos/` is the kit: one base template driven by a brand file (GENERA's is the first), with the styles inline in the HTML. The kit imports nothing of GENERA; GENERA's side lives in `lib/correos-host/`. The screens use the redesign's kit `components/ui/kit/` without changing it.
+
+## Database
+
+Four migrations, add-only, all new:
+- `20261124200000_email_campaign_images_store.sql`: a picture store `email-campaign-images` (public reading, 5 MB, png, jpeg, gif and webp only) and three restrictive storage rules, so that only the server writes into it.
+- `20261124200100_email_lists_and_members.sql`: three new tables (`public.email_lists`, `public.email_list_members`, `public.email_settings` with one row, a daily limit of 500) and two new columns on `public.email_suppression` (`erased_at`, `erased_by`). Admins read; only the server writes, and DELETE and TRUNCATE are revoked on the new tables even from the service role.
+- `20261124200200_email_contact_functions.sql`: three functions, server only: `public.email_address_fingerprint(text)`, `public.email_add_contacts(...)` and `public.email_erase_contact(uuid, uuid)`. Erasure removes a person's address from the contact and from past sends, ends the memberships and empties their free-text notes; it deletes no row.
+- `20261124200300_email_lists_seed.sql`: the two day-one lists; running it again creates nothing.
+
+No function of this release deletes rows, so `.pm-publish/solo-preflight.json` declares none. It holds one count check for each new unique key: `email_lists_name_key` (names compared as `lower(btrim(name))`; the count is taken on `name`), `email_list_members_list_contact_key` (`list_id`, `contact_id`) and `email_list_members_confirmation_token_key` (`confirmation_token`, empty tokens not counted). None of the keys is a partial index. All three tables are created by this release, so before it Production holds none of their rows. Every rule survives a dump and rebuild (1,089 rules, 0 different).
+
+Recovery without a destructive statement: the three functions can be replaced in place, or switched off by revoking EXECUTE from the service role; the screens are reached only by address.
+
+## Proof
+
+On `e902e3f62`: type check, lint (no warnings allowed), the pages inventory check (542 files), the browser-boundary guard and the destructive-migration check (131 migration files), each exit status 0; the whole unit suite, 817 files, 22,607 tests, none failed; the database tests on a local stand rebuilt from the branch's migrations, 115 files, PASS (the new files `041-email-lists-rls.sql` and `042-email-contact-functions.sql` among them); the rules after a rebuild, 1,089, 0 different; CI's browser list from a detached worktree, 367 passed, 34 mandatory specs ran, no skips.
+
+The 49 regenerated files under `docs/plan/redesign/inventory/` stay in this branch on purpose: the inventory check wants every area file read from one commit, and it fails without them.
+
+**No blind test by the third model this time.** The rules of this work ask for a blind test by a third model before every release. It was started and was cut off in round 1 by its provider's content filter, and it was not repeated. In its place stand three reads of the whole branch by a second model (the third came back clean) and two looks by sight in a real browser. That is not the independent test the rules name.
+
+## What a reviewer should look at first
+
+1. `email_add_contacts`: who may call it, that a blocked address cannot come back by any of the four ways in, that a person who left by their own choice is not re-subscribed by an import, and that a lead who did not tick the box cannot be added.
+2. `email_erase_contact`: what it empties, and that it deletes nothing.
+3. The rules of the three new tables and of the picture store: a non-admin and a visitor read and write nothing.
+4. `lib/correos/`: it imports nothing of GENERA.
+5. The search on the contacts screen: what the admin types is matched literally.
+
+## Known and left for later (release 2)
+
+In the people pickers a slow earlier search answer can replace a newer one; on the import screen the button stays disabled without saying why; after adding people the first line of the result sits under the top bar; there are small display faults at phone width.
+
+No credentials, no personal data in tests (invented people only), no Production action by any agent.
+
+## Used by sight
+
+Twice, in a real browser on invented local data. The faults the first look and the code reads found were fixed in the last three commits; the second look passed every must-fix, and two small faults it found are among those left for later.

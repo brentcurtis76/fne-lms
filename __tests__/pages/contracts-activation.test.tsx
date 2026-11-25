@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 // Next.js pages use the automatic JSX runtime and don't import React, but
 // vitest's esbuild transform here is classic — provide the global it expects.
@@ -29,6 +29,8 @@ let currentClient: any;
 
 function createFakeSupabase() {
   const updates: Array<{ table: string; payload: Row; id: any }> = [];
+  const uploads: Array<{ bucket: string; name: string }> = [];
+  const getPublicUrl = vi.fn(() => ({ data: { publicUrl: 'https://storage.test/signed.pdf' } }));
 
   const makeChain = (table: string) => {
     const ctx: { op: 'select' | 'update'; payload?: Row; id?: any; single?: boolean } = { op: 'select' };
@@ -78,13 +80,18 @@ function createFakeSupabase() {
       getSession: async () => ({ data: { session: { user: { id: 'admin-1', email: 'admin@fne.cl' } } } }),
     },
     storage: {
-      from: () => ({
-        upload: async () => ({ data: { path: 'x' }, error: null }),
-        getPublicUrl: () => ({ data: { publicUrl: 'https://storage.test/signed.pdf' } }),
+      from: (bucket: string) => ({
+        upload: async (name: string) => {
+          uploads.push({ bucket, name });
+          return { data: { path: name }, error: null };
+        },
+        getPublicUrl,
       }),
     },
     from: (table: string) => makeChain(table),
     __updates: updates,
+    __uploads: uploads,
+    __getPublicUrl: getPublicUrl,
   };
 }
 
@@ -102,10 +109,23 @@ vi.mock('../../components/layout/MainLayout', () => ({
 vi.mock('../../components/layout/FunctionalPageHeader', () => ({
   ResponsiveFunctionalPageHeader: ({ children }: any) => <div>{children}</div>,
 }));
-vi.mock('../../components/contracts/ContractForm', () => ({ default: () => null }));
+// F26: the form and the importer render nothing; their props are kept so the
+// importer's hand-over to the form can be read.
+const captured = vi.hoisted(() => ({ form: null as any, importer: null as any }));
+vi.mock('../../components/contracts/ContractForm', () => ({
+  default: (props: any) => {
+    captured.form = props;
+    return null;
+  },
+}));
 vi.mock('../../components/contracts/AnnexForm', () => ({ default: () => null }));
 vi.mock('../../components/contracts/CashFlowView', () => ({ default: () => null }));
-vi.mock('../../components/contracts/ContractPDFImporter', () => ({ default: () => null }));
+vi.mock('../../components/contracts/ContractPDFImporter', () => ({
+  default: (props: any) => {
+    captured.importer = props;
+    return null;
+  },
+}));
 vi.mock('../../components/contracts/HourAllocationPanel', () => ({ default: () => null }));
 
 import ContractsPage from '../../pages/contracts';
@@ -219,7 +239,7 @@ describe('Contracts page — activation writes', () => {
     await waitFor(() => expect(client.__updates).toHaveLength(1));
     expect(client.__updates[0].payload).toEqual({
       firmado: true,
-      contrato_url: 'https://storage.test/signed.pdf',
+      contrato_url: expect.stringMatching(/^contrato_c1_\d+\.pdf$/),
       estado: 'activo',
       incluir_en_flujo: true,
     });
@@ -235,7 +255,7 @@ describe('Contracts page — activation writes', () => {
     await waitFor(() => expect(client.__updates).toHaveLength(1));
     expect(client.__updates[0].payload).toEqual({
       firmado: true,
-      contrato_url: 'https://storage.test/signed.pdf',
+      contrato_url: expect.stringMatching(/^contrato_c1_\d+\.pdf$/),
     });
     expect(state.contratos[0].estado).toBe('borrador');
     expect(state.contratos[0].incluir_en_flujo).toBe(false);
@@ -243,7 +263,13 @@ describe('Contracts page — activation writes', () => {
 
   it('F21 send-back S: a draft upload says the document was saved and the contract stays a draft, and shows the file', async () => {
     const user = userEvent.setup();
-    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+    // F26: the document opens through the five-minute link route: a tab is
+    // reserved during the click and sent to the route's answer.
+    const SIGNED = 'https://storage.test/storage/v1/object/sign/contracts/x.pdf?token=fresh';
+    const tab = { opener: {} as unknown, location: { href: '' }, close: vi.fn() };
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => tab as any);
+    const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({ url: SIGNED, expiresIn: 300 }) }));
+    vi.stubGlobal('fetch', fetchMock);
     await renderPage([makeContrato({ estado: 'borrador', incluir_en_flujo: false })]);
 
     await openContractModal(user, 'C-001');
@@ -260,9 +286,12 @@ describe('Contracts page — activation writes', () => {
     expect(stored).toHaveTextContent('Documento firmado guardado. El contrato sigue en borrador hasta que se active.');
     expect(screen.queryByTestId('signed-doc-upload-input')).not.toBeInTheDocument();
     await user.click(screen.getByTestId('draft-signed-doc-open'));
-    expect(openSpy).toHaveBeenCalledWith('https://storage.test/signed.pdf', '_blank');
+    expect(openSpy).toHaveBeenCalledWith('', '_blank');
+    await waitFor(() => expect(tab.location.href).toBe(SIGNED));
+    expect(fetchMock).toHaveBeenCalledWith('/api/contracts/contract-link?contratoId=c1', { credentials: 'same-origin' });
     expect(state.contratos[0].estado).toBe('borrador');
     openSpy.mockRestore();
+    vi.unstubAllGlobals();
   });
 
   it('a late upload on an active opted-out contract preserves incluir_en_flujo=false', async () => {
@@ -277,7 +306,7 @@ describe('Contracts page — activation writes', () => {
     await waitFor(() => expect(client.__updates).toHaveLength(1));
     expect(client.__updates[0].payload).toEqual({
       firmado: true,
-      contrato_url: 'https://storage.test/signed.pdf',
+      contrato_url: expect.stringMatching(/^contrato_c1_\d+\.pdf$/),
     });
     expect(client.__updates[0].payload).not.toHaveProperty('estado');
     expect(client.__updates[0].payload).not.toHaveProperty('incluir_en_flujo');
@@ -306,6 +335,27 @@ describe('Contracts page — activation writes', () => {
       id: 'c1',
       payload: { firmado: true },
     });
+  });
+
+  it('F26: the PDF importer keeps the source file under a new name and hands the NAME to the form (no public address)', async () => {
+    captured.form = null;
+    captured.importer = null;
+    const user = userEvent.setup();
+    const client = await renderPage([makeContrato()]);
+
+    await user.click(screen.getByText('Importar PDF'));
+    await waitFor(() => expect(captured.importer).not.toBeNull());
+    const source = new File(['pdf'], 'Contrato Origen.PDF', { type: 'application/pdf' });
+    await act(async () => {
+      await captured.importer.onExtract({ contract: { numero_contrato: 'C-IMP-1' } }, source);
+    });
+
+    await waitFor(() => expect(captured.form?.extractedData?.contrato_url).toBeTruthy());
+    const stored = captured.form.extractedData.contrato_url;
+    expect(stored).toMatch(/^importado_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_\d+\.pdf$/);
+    expect(captured.form.extractedData.contract).toEqual({ numero_contrato: 'C-IMP-1' });
+    expect(client.__uploads).toEqual([{ bucket: 'contracts', name: stored }]);
+    expect(client.__getPublicUrl).not.toHaveBeenCalled();
   });
 
   it('the firma-pendiente filter stays recoverable when its count reaches zero', async () => {

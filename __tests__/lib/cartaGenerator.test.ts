@@ -73,3 +73,30 @@ describe('Carta de adjudicación — accents (LIC-B6)', () => {
     expect(xml).toContain('[teléfono coordinador]');
   });
 });
+
+describe('Carta de adjudicación — the signer (LIC-B7)', () => {
+  function withSchool(school: Partial<CartaDocumentData['school']>): CartaDocumentData {
+    const base = carta();
+    return { ...base, school: { ...base.school, ...school } };
+  }
+
+  it('is signed by the legal representative with the sostenedor’s legal name, never «Director(a)»', async () => {
+    const xml = await documentText(
+      withSchool({ director_nombre: 'Representante Inventado', sostenedor_nombre_legal: 'Sostenedor Inventado SpA' })
+    );
+    const nombre = xml.indexOf('Representante Inventado');
+    const cargo = xml.indexOf('Representante legal');
+    const sostenedor = xml.indexOf('Sostenedor Inventado SpA');
+    expect(nombre).toBeGreaterThan(-1);
+    expect(cargo).toBeGreaterThan(nombre);
+    expect(sostenedor).toBeGreaterThan(cargo);
+    expect(xml).not.toContain('Director(a)');
+  });
+
+  it('writes the placeholders when the representative and the legal name are empty', async () => {
+    const xml = await documentText(withSchool({ director_nombre: null, sostenedor_nombre_legal: null }));
+    expect(xml).toContain('[nombre representante legal]');
+    expect(xml).toContain('[nombre legal del sostenedor]');
+    expect(xml).not.toContain('Director(a)');
+  });
+});

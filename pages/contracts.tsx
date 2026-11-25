@@ -20,6 +20,8 @@ import { contractMatchesSearch } from '../lib/utils/contract-search';
 import { resolveContractPdfTarget } from '../lib/utils/contract-pdf-target';
 import { isFirmaPendiente } from '../lib/utils/contract-status';
 import { INVOICES_BUCKET, invoiceObjectName, invoiceUploadColumns, invoiceUploadObjectName } from '../lib/contracts/invoice-path';
+import { CONTRACTS_BUCKET } from '../lib/contracts/contract-path';
+import { openContractDocumentInNewTab } from '../lib/contracts/open-contract';
 
 interface Programa {
   id: string;
@@ -400,20 +402,16 @@ export default function ContractsPage() {
     try {
       setUploadingContrato(contrato.id);
       
-      // Upload file to Supabase Storage
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${contrato.numero_contrato}_${Date.now()}.${fileExt}`;
-      
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('contracts')
+      // Upload file to Supabase Storage. F26 (N146): the file's NAME is
+      // stored, never a public address; it opens through a five-minute link
+      // (/api/contracts/contract-link).
+      const fileName = invoiceUploadObjectName('contrato', contrato.id, file.name, Date.now());
+
+      const { error: uploadError } = await supabase.storage
+        .from(CONTRACTS_BUCKET)
         .upload(fileName, file);
 
       if (uploadError) throw uploadError;
-
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('contracts')
-        .getPublicUrl(fileName);
 
       // Uploading the signed document confirms the signature. It also
       // activates the contract (into the cash flow) when it isn't active yet;
@@ -427,7 +425,7 @@ export default function ContractsPage() {
         .from('contratos')
         .update({
           firmado: true,
-          contrato_url: publicUrl,
+          contrato_url: fileName,
           ...(activating ? { estado: 'activo', incluir_en_flujo: true } : {})
         })
         .eq('id', contrato.id);
@@ -1085,8 +1083,10 @@ export default function ContractsPage() {
               onGeneratePDF={(contrato) => {
                 const target = resolveContractPdfTarget(contrato);
                 if (target.kind === 'original') {
-                  // Imported / manually-uploaded contract: serve the original document.
-                  window.open(target.url, '_blank');
+                  // Imported / manually-uploaded contract: serve the original
+                  // document through a five-minute link (F26, N146). Called
+                  // first: the tab is reserved during the click.
+                  void openContractDocumentInNewTab(contrato.id, (m) => toast.error(m));
                 } else if (target.kind === 'missing') {
                   toast.error('Este contrato fue importado y no tiene el documento original cargado. Use "Subir contrato" para adjuntarlo.');
                 } else {
@@ -1105,21 +1105,18 @@ export default function ContractsPage() {
               <ContractPDFImporter
                 onExtract={async (data, sourceFile) => {
                   // Persist the uploaded source PDF so the contract can later be
-                  // downloaded as its original document (reuses handleUploadContract's
-                  // bucket + public-URL pattern). Failure here is non-fatal.
+                  // downloaded as its original document (the store and naming of
+                  // handleUploadContract; the NAME is stored, F26). Failure here is
+                  // non-fatal.
                   let dataWithUrl: any = data;
                   if (sourceFile) {
                     try {
-                      const fileExt = sourceFile.name.split('.').pop();
-                      const fileName = `${data.contract?.numero_contrato || 'import'}_${Date.now()}.${fileExt}`;
+                      const fileName = invoiceUploadObjectName('importado', crypto.randomUUID(), sourceFile.name, Date.now());
                       const { error: uploadError } = await supabase.storage
-                        .from('contracts')
+                        .from(CONTRACTS_BUCKET)
                         .upload(fileName, sourceFile);
                       if (uploadError) throw uploadError;
-                      const { data: { publicUrl } } = supabase.storage
-                        .from('contracts')
-                        .getPublicUrl(fileName);
-                      dataWithUrl = { ...data, contrato_url: publicUrl };
+                      dataWithUrl = { ...data, contrato_url: fileName };
                     } catch (uploadErr) {
                       console.error('Error uploading source PDF:', uploadErr);
                       toast('No se pudo guardar el PDF original; podrá adjuntarlo luego con "Subir contrato".', { icon: '⚠️' });

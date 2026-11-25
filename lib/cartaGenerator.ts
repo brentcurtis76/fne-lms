@@ -42,6 +42,8 @@ export interface CartaDocumentData {
     name: string;
     ciudad?: string | null;
     director_nombre?: string | null;
+    /** The sostenedor's legal name (clientes.nombre_legal); printed under «Representante legal». */
+    sostenedor_nombre_legal?: string | null;
   };
   fechaEmision: string; // YYYY-MM-DD
 }
@@ -93,7 +95,8 @@ export async function generateCartaDocument(data: CartaDocumentData): Promise<Bu
   const coordinadorNombre = licitacion.contacto_coordinacion_nombre || '[nombre coordinador]';
   const coordinadorEmail = licitacion.contacto_coordinacion_email || '[correo coordinador]';
   const coordinadorTelefono = licitacion.contacto_coordinacion_telefono || '[teléfono coordinador]';
-  const directorNombre = school.director_nombre || '[nombre director]';
+  const directorNombre = school.director_nombre || '[nombre representante legal]';
+  const sostenedorNombreLegal = school.sostenedor_nombre_legal || '[nombre legal del sostenedor]';
   const fechaOferta = formatDate(licitacion.fecha_oferta_ganadora);
 
   const doc = new Document({
@@ -184,7 +187,11 @@ export async function generateCartaDocument(data: CartaDocumentData): Promise<Bu
             spacing: { after: 60 },
           }),
           new Paragraph({
-            children: [new TextRun({ text: `Director(a) del ${school.name}`, size: 20, color: '555555' })],
+            children: [new TextRun({ text: 'Representante legal', size: 20, color: '555555' })],
+            spacing: { after: 60 },
+          }),
+          new Paragraph({
+            children: [new TextRun({ text: sostenedorNombreLegal, size: 20, color: '555555' })],
             spacing: { after: 120 },
           }),
         ],

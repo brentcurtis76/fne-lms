@@ -14,6 +14,7 @@ import ProposalConfigPanel from '@/components/licitaciones/ProposalConfigPanel';
 import ArchiveView from '@/components/licitaciones/ArchiveView';
 import { buildPublicacionText, isPublicacionConfirmada } from '@/lib/licitaciones/publicacionText';
 import { formatMonto } from '@/lib/licitaciones/formato';
+import { puedeEliminarLicitacion } from '@/lib/licitaciones/estados';
 
 // ============================================================
 // STEPPER DEFINITION
@@ -514,7 +515,9 @@ export default function LicitacionDetailPage() {
           </div>
           <div className="flex items-center gap-3">
             <EstadoBadge estado={licitacion.estado} />
-            {isAdmin && (
+            {/* esHistorica is always false: Brent keeps every closed tender, archive records included
+                (20 Nov, "Never deleted either"); the route's remaining exception goes in a later change. */}
+            {isAdmin && puedeEliminarLicitacion(licitacion.estado, false) && (
               <button
                 onClick={() => {
                   if (window.confirm(

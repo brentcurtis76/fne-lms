@@ -219,10 +219,30 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
                             <> por {profileName(nameOnly(meeting.finalized_by_profile), 'Usuario')}</>
                           )}
                         </p>
-                        {meeting.finalize_audience && (
-                          <p className="text-emerald-700 mt-0.5">
-                            Resumen enviado a {audienceProseLabel(meeting.finalize_audience, meeting.finalize_with_access)}.
-                          </p>
+                        {/* EC-R7b: whom the summary reached, as stored by the finalize route;
+                            a meeting finalised before that was stored only says to whom it was addressed. */}
+                        {meeting.summary_outcome ? (
+                          <>
+                            {meeting.summary_outcome.sent_to.length > 0 && (
+                              <p className="text-emerald-700 mt-0.5">
+                                Resumen enviado por correo a: {meeting.summary_outcome.sent_to.map((person) => person.name).join(', ')}.
+                              </p>
+                            )}
+                            {meeting.summary_outcome.not_sent_to.length > 0 && (
+                              <p className="text-emerald-700 mt-0.5">
+                                No se pudo enviar a: {meeting.summary_outcome.not_sent_to.map((person) => person.name).join(', ')}.
+                              </p>
+                            )}
+                            {meeting.summary_outcome.sent_to.length === 0 && meeting.summary_outcome.not_sent_to.length === 0 && (
+                              <p className="text-emerald-700 mt-0.5">El resumen no se envió por correo a nadie.</p>
+                            )}
+                          </>
+                        ) : (
+                          meeting.finalize_audience && (
+                            <p className="text-emerald-700 mt-0.5">
+                              Resumen dirigido a {audienceProseLabel(meeting.finalize_audience, meeting.finalize_with_access)}.
+                            </p>
+                          )
                         )}
                       </div>
                     </div>

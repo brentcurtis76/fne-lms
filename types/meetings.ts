@@ -220,6 +220,13 @@ export interface MeetingWithDetails extends CommunityMeeting {
     first_name: string;
     last_name: string;
   } | null;
+  // EC-R7b: whom the finalize route's summary e-mail reached and whom it did
+  // not (names from profile cards, «Usuario» without one). null when nothing
+  // was stored (meetings finalised before it was recorded) or the read failed.
+  summary_outcome?: {
+    sent_to: { id: string; name: string }[];
+    not_sent_to: { id: string; name: string }[];
+  } | null;
 }
 
 // Meeting creation/update input

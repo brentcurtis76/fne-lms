@@ -192,4 +192,67 @@ describe('MeetingDetailsModal — post-finalize banner', () => {
     expect(btn.disabled).toBe(true);
     expect(btn.getAttribute('title')).toBe('Disponible próximamente');
   });
+
+  describe('EC-R7b: the band names whom the summary reached', () => {
+    const finalised = (overrides: Partial<MeetingWithDetails>) =>
+      baseMeeting({
+        status: 'completada',
+        finalized_at: '2026-11-25T12:00:00Z',
+        finalize_audience: 'community',
+        finalize_with_access: true,
+        ...overrides,
+      });
+
+    it('an outcome with one reached and one not reached shows both lines and no "dirigido a" line', async () => {
+      getMeetingDetails.mockResolvedValue(
+        finalised({
+          summary_outcome: {
+            sent_to: [{ id: 'u-1', name: 'Ana Uno' }],
+            not_sent_to: [{ id: 'u-3', name: 'Carla Tres' }],
+          },
+        }),
+      );
+      const { findByText, queryByText } = render(<MeetingDetailsModal isOpen onClose={() => {}} meetingId="mtg-1" />);
+      await findByText('Resumen enviado por correo a: Ana Uno.');
+      await findByText('No se pudo enviar a: Carla Tres.');
+      expect(queryByText(/Resumen dirigido a/)).toBeNull();
+      expect(queryByText(/Finalizada el/)).not.toBeNull();
+    });
+
+    it('every reached name, joined by «, »', async () => {
+      getMeetingDetails.mockResolvedValue(
+        finalised({
+          summary_outcome: {
+            sent_to: [{ id: 'u-1', name: 'Ana Uno' }, { id: 'u-2', name: 'Bruno Dos' }],
+            not_sent_to: [],
+          },
+        }),
+      );
+      const { findByText, queryByText } = render(<MeetingDetailsModal isOpen onClose={() => {}} meetingId="mtg-1" />);
+      await findByText('Resumen enviado por correo a: Ana Uno, Bruno Dos.');
+      expect(queryByText(/No se pudo enviar a/)).toBeNull();
+    });
+
+    it('only people not reached: only the "No se pudo" line', async () => {
+      getMeetingDetails.mockResolvedValue(
+        finalised({ summary_outcome: { sent_to: [], not_sent_to: [{ id: 'u-3', name: 'Usuario' }] } }),
+      );
+      const { findByText, queryByText } = render(<MeetingDetailsModal isOpen onClose={() => {}} meetingId="mtg-1" />);
+      await findByText('No se pudo enviar a: Usuario.');
+      expect(queryByText(/Resumen enviado por correo a/)).toBeNull();
+    });
+
+    it('a stored outcome with nobody in either list says it was sent to nobody', async () => {
+      getMeetingDetails.mockResolvedValue(finalised({ summary_outcome: { sent_to: [], not_sent_to: [] } }));
+      const { findByText, queryByText } = render(<MeetingDetailsModal isOpen onClose={() => {}} meetingId="mtg-1" />);
+      await findByText('El resumen no se envió por correo a nadie.');
+      expect(queryByText(/Resumen dirigido a/)).toBeNull();
+    });
+
+    it('no stored outcome (finalised before this release): «Resumen dirigido a …»', async () => {
+      getMeetingDetails.mockResolvedValue(finalised({ summary_outcome: null }));
+      const { findByText } = render(<MeetingDetailsModal isOpen onClose={() => {}} meetingId="mtg-1" />);
+      await findByText('Resumen dirigido a las personas con acceso a la reunión.');
+    });
+  });
 });

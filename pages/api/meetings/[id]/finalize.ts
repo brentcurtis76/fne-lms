@@ -350,6 +350,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     let sent = 0;
     let failed = 0;
     let errorsPreview: unknown[] = [];
+    // EC-R7b: whom the summary reached. Stays null when nothing was sent (no
+    // preparation) and when the send threw.
+    let sendErrors: Array<{ email?: unknown }> | null = null;
+    let sendThrew = false;
     if (!prepared) {
       summaryEmailSent = false;
       summaryEmailError = 'lookup_failed';
@@ -360,6 +364,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         sent = result.sent;
         failed = result.failed;
         errorsPreview = result.errors;
+        sendErrors = Array.isArray(result.errors) ? result.errors : [];
         summaryEmailSent = failed === 0;
         if (emailAuthorization.kind === 'suppressed_qa') {
           summaryEmailSent = false;
@@ -380,6 +385,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           summaryEmailError = allNotConfigured ? 'mail_not_configured' : 'provider_failed';
         }
       } catch (emailErr: any) {
+        sendThrew = true;
         summaryEmailSent = false;
         summaryEmailError = emailErr?.message || 'email_dispatch_failed';
         console.error('[meetings-finalize] summary email dispatch failed:', {
@@ -387,6 +393,42 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           error: summaryEmailError,
         });
       }
+    }
+
+    // EC-R7b: store once whom the summary reached and whom it did not, for the
+    // band of the finalised meeting. A recipient counts as reached when the
+    // send did not report a failure for their address. Best effort: the
+    // meeting is already final, so a failure here is logged (meeting id and
+    // error code only) and changes nothing in the answer.
+    try {
+      const sentTo: string[] = [];
+      let notSentTo: string[] = [];
+      if (prepared && sendThrew) {
+        notSentTo = recipients.map((r) => r.id);
+      } else if (prepared && sendErrors) {
+        const failedEmails = new Set(sendErrors.map((e) => e?.email));
+        for (const r of recipients) {
+          if (r.email && !failedEmails.has(r.email)) sentTo.push(r.id);
+          else notSentTo.push(r.id);
+        }
+      }
+      const { error: outcomeError } = await serviceClient
+        .from('meeting_summary_outcomes')
+        .upsert(
+          { meeting_id: id, sent_to: sentTo, not_sent_to: notSentTo },
+          { onConflict: 'meeting_id', ignoreDuplicates: true },
+        );
+      if (outcomeError) {
+        console.error('[meetings-finalize] storing the summary outcome failed:', {
+          meeting_id: id,
+          code: (outcomeError as any)?.code ?? 'unknown',
+        });
+      }
+    } catch (outcomeErr: any) {
+      console.error('[meetings-finalize] storing the summary outcome failed:', {
+        meeting_id: id,
+        code: outcomeErr?.code ?? 'exception',
+      });
     }
 
     // Fire in-app notification event. Do not await in a way that blocks on failure.

@@ -25,7 +25,7 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap;
 
-SELECT plan(182);
+SELECT plan(190);
 
 \set admin_uid     '''00000000-0000-0000-0000-0000000041aa'''
 \set docente_uid   '''00000000-0000-0000-0000-0000000041dd'''
@@ -39,6 +39,7 @@ $$ LANGUAGE sql IMMUTABLE;
 
 CREATE OR REPLACE FUNCTION pg_temp.p2_functions() RETURNS text[] AS $$
   SELECT ARRAY[
+    'public.email_hidden_chars()',
     'public.email_address_fingerprint(text)',
     'public.email_add_contacts(jsonb, uuid[], text, text, text, timestamp with time zone, text, uuid)',
     'public.email_erase_contact(uuid, uuid)'
@@ -293,6 +294,8 @@ $$ LANGUAGE sql IMMUTABLE;
 
 CREATE OR REPLACE FUNCTION pg_temp.fn_call(f text) RETURNS text AS $$
   SELECT CASE
+    WHEN f LIKE 'public.email_hidden_chars%' THEN
+      $q$SELECT public.email_hidden_chars()$q$
     WHEN f LIKE 'public.email_address_fingerprint%' THEN
       $q$SELECT public.email_address_fingerprint('x@example.test')$q$
     WHEN f LIKE 'public.email_add_contacts%' THEN

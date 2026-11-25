@@ -1,6 +1,7 @@
 -- =============================================================================
 -- Correos release 1, phase 2 — the contact functions (pgTAP)
 --
+--   email_hidden_chars()
 --   email_address_fingerprint(text)
 --   email_add_contacts(jsonb, uuid[], text, text, text, timestamptz, text, uuid)
 --   email_erase_contact(uuid, uuid)
@@ -15,9 +16,16 @@
 --             another case and with spaces: blocked, nobody added (12 cases)
 --   B3        left one list: not re-subscribed to it by any source, counted
 --             "left"; left everything: added to nothing
---   E1        erasure: row kept, identity NULL, send rows emptied, no
---             membership subscribed, fingerprint blocked as erased, search
---             finds nothing, a second erase changes nothing
+--   H         hidden characters (U+00A0, U+200B and the rest of
+--             email_hidden_chars) around a complained, erased or left address,
+--             by every source: blocked / left exactly as the plain address; a
+--             wrapped duplicate in one call is a duplicate; one inside an
+--             address is invalid; nothing stored holds one; an older contact
+--             with a wrapped address keeps the plain one out, also after erasure
+--   E1        erasure: row kept, identity NULL, tags empty, send rows emptied
+--             (address and error text), no membership subscribed, fingerprint
+--             blocked as erased, search finds nothing, no column holds the old
+--             data, a second erase changes nothing
 --   I1        12,000 invented rows in one call: six counts exact, add up,
 --             exactly the accepted ones become new members; the same call
 --             again accepts nobody (the call's time is printed as a diag line)
@@ -33,7 +41,7 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap;
 
-SELECT plan(99);
+SELECT plan(164);
 
 \set actor '''00000000-0000-0000-0000-0000000042aa'''
 -- Inside dollar-quoted bodies the literal uuids are used:
@@ -387,6 +395,131 @@ SELECT is(
   0, 'E2: the erased person is on no list');
 
 -- =============================================================================
+-- 5b. [B1/E2/B3/H] Hidden characters: an address wrapped in non-breaking
+--     spaces (U+00A0), zero-width spaces (U+200B) or a mix of other Unicode
+--     whitespace and invisible characters is the plain address
+-- =============================================================================
+SELECT pg_temp.as_service();
+SELECT is(
+  pg_temp.add(pg_temp.one(v.pre || upper(b.addr) || v.post), b.lists, s),
+  jsonb_build_object('total', 1, 'accepted', 0, 'duplicate', 0,
+                     'blocked', CASE WHEN b.outcome = 'blocked' THEN 1 ELSE 0 END,
+                     'left',    CASE WHEN b.outcome = 'left' THEN 1 ELSE 0 END,
+                     'invalid', 0, 'contacts_created', 0, 'memberships_created', 0),
+  'H: ' || b.kind || ' address wrapped in ' || v.name || ', by ' || s || ': ' || b.outcome || ', nobody added')
+  FROM (VALUES
+          ('complaint',           'queja@example.test',     'blocked',
+           ARRAY['42000000-0000-4000-8000-0000000000a1'::uuid, '42000000-0000-4000-8000-0000000000a2'::uuid]),
+          ('erased',              'borrada@example.test',   'blocked',
+           ARRAY['42000000-0000-4000-8000-0000000000a1'::uuid, '42000000-0000-4000-8000-0000000000a2'::uuid]),
+          ('left-everything',     'sale-todo@example.test', 'left',
+           ARRAY['42000000-0000-4000-8000-0000000000a1'::uuid, '42000000-0000-4000-8000-0000000000a2'::uuid]),
+          ('left-this-list',      'sale-una@example.test',  'left',
+           ARRAY['42000000-0000-4000-8000-0000000000a2'::uuid])
+       ) AS b(kind, addr, outcome, lists)
+  CROSS JOIN (VALUES
+          ('U+00A0', chr(160), chr(160) || chr(160)),
+          ('U+200B', chr(8203), chr(8203)),
+          ('U+3000 U+FEFF tab space / U+2060 U+202F U+0085', chr(12288) || chr(65279) || chr(9) || ' ', chr(8288) || chr(8239) || chr(133))
+       ) AS v(name, pre, post)
+  CROSS JOIN unnest(ARRAY['manual', 'csv_import', 'profiles', 'pasantia_leads']) AS s;
+RESET ROLE;
+
+SELECT is(
+  (SELECT string_agg(email_normalized, '; ' ORDER BY email_normalized) FROM public.email_contacts
+    WHERE email_normalized LIKE '%queja@example.test%' OR email_normalized LIKE '%sale-todo@example.test%'
+       OR email_normalized LIKE '%sale-una@example.test%' OR email_normalized LIKE '%borrada@example.test%'),
+  'queja@example.test; sale-todo@example.test; sale-una@example.test',
+  'H: no new contact for any wrapped variant (the erased one has none at all)');
+SELECT is(
+  (SELECT count(*)::int FROM public.email_list_members m JOIN public.email_contacts c ON c.id = m.contact_id
+    WHERE c.email_normalized = 'queja@example.test'),
+  1, 'H: the complained address got no new membership from a wrapped variant');
+SELECT is(
+  (SELECT count(*)::int FROM public.email_list_members m JOIN public.email_contacts c ON c.id = m.contact_id
+    WHERE c.email_normalized = 'sale-todo@example.test' AND m.state <> 'unsubscribed'),
+  0, 'H: the person who left everything is still on no list');
+SELECT is(
+  (SELECT m.state || '/' || m.unsubscribed_by FROM public.email_list_members m JOIN public.email_contacts c ON c.id = m.contact_id
+    WHERE c.email_normalized = 'sale-una@example.test' AND m.list_id = '42000000-0000-4000-8000-0000000000a2'),
+  'unsubscribed/person', 'H: the list they left by their own choice is still left');
+SELECT is(
+  (SELECT count(*)::int FROM public.email_list_members m
+    WHERE m.contact_id = (SELECT (r->>'contact_id')::uuid FROM results WHERE k = 'b1-erase') AND m.state <> 'unsubscribed'),
+  0, 'H: the erased person is still on no list');
+
+-- A wrapped duplicate inside one call; names and organisation trimmed the same way.
+SELECT pg_temp.as_service();
+INSERT INTO results VALUES ('h-dup', pg_temp.add(jsonb_build_array(
+    jsonb_build_object('email', chr(160) || 'Oculta.Prueba@example.test' || chr(160),
+                       'first_name', chr(8203) || 'Nora' || chr(160),
+                       'last_name', chr(12288) || 'Núñez',
+                       'organization', chr(65279) || 'Colegio Oculto' || chr(8233)),
+    jsonb_build_object('email', 'oculta.prueba@example.test'),
+    jsonb_build_object('email', chr(8203) || 'OCULTA.PRUEBA@example.test' || chr(8288))),
+  ARRAY['42000000-0000-4000-8000-0000000000a1'::uuid], 'manual'));
+-- Hidden characters INSIDE an address, or nothing but hidden characters: invalid.
+INSERT INTO results VALUES ('h-inside', pg_temp.add(jsonb_build_array(
+    jsonb_build_object('email', 'ana' || chr(160) || 'medio@example.test'),
+    jsonb_build_object('email', 'ana' || chr(8203) || 'medio@example.test'),
+    jsonb_build_object('email', 'ana.medio@example' || chr(8288) || '.test'),
+    jsonb_build_object('email', 'ana.medio@' || chr(65279) || 'example.test'),
+    jsonb_build_object('email', chr(160) || chr(8203) || chr(12288))),
+  ARRAY['42000000-0000-4000-8000-0000000000a1'::uuid], 'csv_import'));
+SELECT throws_ok($$SELECT public.email_add_contacts('[{"email":"h-nota@example.test"}]', ARRAY['42000000-0000-4000-8000-0000000000a1'::uuid],
+                   'manual', 'manual_verified', chr(160) || chr(8203), now(), NULL, '00000000-0000-0000-0000-0000000042aa')$$,
+  '22023', 'email_add_contacts: basis_note_required', 'H: a note of nothing but hidden characters is blank: raises');
+RESET ROLE;
+
+SELECT is((SELECT r FROM results WHERE k = 'h-dup'),
+  '{"total":3,"accepted":1,"duplicate":2,"blocked":0,"left":0,"invalid":0,"contacts_created":1,"memberships_created":1}'::jsonb,
+  'H: the same address wrapped in hidden characters twice in one call: one person, two duplicates');
+SELECT is(
+  (SELECT format('%s|%s|%s|%s|%s', email, email_normalized, first_name, last_name, organization)
+     FROM public.email_contacts WHERE email_normalized = 'oculta.prueba@example.test'),
+  'Oculta.Prueba@example.test|oculta.prueba@example.test|Nora|Núñez|Colegio Oculto',
+  'H: address, names and organisation stored without the hidden characters');
+SELECT is((SELECT r FROM results WHERE k = 'h-inside'),
+  '{"total":5,"accepted":0,"duplicate":0,"blocked":0,"left":0,"invalid":5,"contacts_created":0,"memberships_created":0}'::jsonb,
+  'H: U+00A0, U+200B, U+2060 or U+FEFF inside an address, or only hidden characters: invalid');
+SELECT is((SELECT count(*)::int FROM public.email_contacts WHERE email_normalized LIKE '%medio%' OR email_normalized LIKE 'h-nota%'), 0,
+  'H: nothing was stored for the invalid rows or the refused call');
+SELECT is(
+  (SELECT count(*)::int FROM public.email_contacts
+    WHERE translate(coalesce(email, '') || coalesce(email_normalized, ''), public.email_hidden_chars(), '')
+          <> coalesce(email, '') || coalesce(email_normalized, '')
+       OR first_name <> btrim(first_name, public.email_hidden_chars())
+       OR last_name <> btrim(last_name, public.email_hidden_chars())
+       OR organization <> btrim(organization, public.email_hidden_chars())),
+  0, 'H: no stored address holds a hidden character; no name or organisation starts or ends with one');
+
+-- A contact stored before the rule (the older table allows it) with its
+-- address wrapped in a zero-width space: the plain address is not added beside
+-- it, and after erasing it the plain address stays blocked.
+INSERT INTO public.email_contacts (email, email_normalized, source, legal_basis, basis_note, basis_recorded_at, subscribed_at, unsubscribed_at)
+VALUES (chr(8203) || 'legado@example.test', chr(8203) || 'legado@example.test', 'manual', 'manual_verified', 'nota de prueba',
+        now(), now(), now());
+SELECT pg_temp.as_service();
+INSERT INTO results VALUES ('h-legacy', pg_temp.add(pg_temp.one('legado@example.test'),
+  ARRAY['42000000-0000-4000-8000-0000000000a1'::uuid], 'csv_import'));
+INSERT INTO results SELECT 'h-legacy-erase', public.email_erase_contact(c.id, '00000000-0000-0000-0000-0000000042aa')
+  FROM public.email_contacts c WHERE c.email_normalized = chr(8203) || 'legado@example.test';
+INSERT INTO results VALUES ('h-legacy-after', pg_temp.add(pg_temp.one(chr(160) || 'Legado@example.test'),
+  ARRAY['42000000-0000-4000-8000-0000000000a1'::uuid], 'manual'));
+RESET ROLE;
+SELECT pg_temp.note_blocks();
+
+SELECT is((SELECT r FROM results WHERE k = 'h-legacy'),
+  '{"total":1,"accepted":0,"duplicate":0,"blocked":1,"left":0,"invalid":0,"contacts_created":0,"memberships_created":0}'::jsonb,
+  'H: an older contact holds the address wrapped in U+200B: the plain address is blocked, not added as a second person');
+SELECT is(
+  (SELECT reason || '|' || (erased_at IS NOT NULL)::text FROM public.email_suppression WHERE email_hash = pg_temp.fp('legado@example.test')),
+  'manual|true', 'H: erasing that older contact blocks the plain address too, marked erased');
+SELECT is((SELECT r FROM results WHERE k = 'h-legacy-after'),
+  '{"total":1,"accepted":0,"duplicate":0,"blocked":1,"left":0,"invalid":0,"contacts_created":0,"memberships_created":0}'::jsonb,
+  'H: after that erasure the address (wrapped in U+00A0 this time) cannot be added again');
+
+-- =============================================================================
 -- 6. [E1] Erase this person
 -- =============================================================================
 SELECT pg_temp.as_service();
@@ -405,6 +538,14 @@ INSERT INTO public.email_campaigns (id, subject) VALUES ('42000000-0000-4000-800
 INSERT INTO public.email_campaign_sends (campaign_id, contact_id, email, status)
 SELECT '42000000-0000-4000-8000-0000000000e2', c.id, c.email, 'sent' FROM public.email_contacts c
  WHERE c.email_normalized = 'borrar.prueba@example.test';
+-- Personal data in the free-text places: tags on the contact, a provider's
+-- rejection text quoting the address on one send row.
+UPDATE public.email_contacts SET tags = ARRAY['Berta Borrador', 'Borrar.Prueba@example.test', 'tel 555 0142']
+ WHERE email_normalized = 'borrar.prueba@example.test';
+UPDATE public.email_campaign_sends s SET error = 'Rechazado por el proveedor: Borrar.Prueba@example.test'
+  FROM public.email_contacts c
+ WHERE c.id = s.contact_id AND c.email_normalized = 'borrar.prueba@example.test'
+   AND s.campaign_id = '42000000-0000-4000-8000-0000000000e1';
 CREATE TEMP TABLE e1 AS SELECT id FROM public.email_contacts WHERE email_normalized = 'borrar.prueba@example.test';
 GRANT SELECT ON e1 TO service_role;
 
@@ -445,6 +586,17 @@ SELECT is(
     WHERE email ILIKE '%borrar.prueba%' OR email_normalized ILIKE '%borrar.prueba%'
        OR first_name ILIKE '%berta%' OR last_name ILIKE '%borrador%'),
   0, 'E1: a search for the old address or name finds nothing');
+SELECT is((SELECT tags FROM public.email_contacts c JOIN e1 USING (id)), '{}'::text[],
+  'E1: the tags are empty');
+SELECT is((SELECT count(*)::int FROM public.email_campaign_sends s JOIN e1 ON e1.id = s.contact_id WHERE s.error IS NOT NULL), 0,
+  'E1: the free-text error is gone from every past send row');
+SELECT ok(
+  (SELECT to_jsonb(c)::text !~* '(berta|borrador|borrar[.]prueba|555 0142)' FROM public.email_contacts c JOIN e1 USING (id))
+  AND (SELECT coalesce(string_agg(to_jsonb(m)::text, ' '), '') !~* '(berta|borrador|borrar[.]prueba|555 0142)'
+         FROM public.email_list_members m JOIN e1 ON e1.id = m.contact_id)
+  AND (SELECT coalesce(string_agg(to_jsonb(s)::text, ' '), '') !~* '(berta|borrador|borrar[.]prueba|555 0142)'
+         FROM public.email_campaign_sends s JOIN e1 ON e1.id = s.contact_id),
+  'E1: no column of the contact, its memberships or its send rows still holds the address, a name or a tag');
 
 CREATE TEMP TABLE e1_before AS
 SELECT (SELECT to_jsonb(c) FROM public.email_contacts c JOIN e1 USING (id)) AS contact,
@@ -645,7 +797,8 @@ SELECT is(
   'A3: every erased contact row still exists (no function deletes a contact)');
 SELECT is(
   (SELECT count(*)::int FROM pg_proc p
-    WHERE p.oid IN ('public.email_address_fingerprint(text)'::regprocedure,
+    WHERE p.oid IN ('public.email_hidden_chars()'::regprocedure,
+                    'public.email_address_fingerprint(text)'::regprocedure,
                     'public.email_add_contacts(jsonb, uuid[], text, text, text, timestamp with time zone, text, uuid)'::regprocedure,
                     'public.email_erase_contact(uuid, uuid)'::regprocedure)
       AND p.prosrc ~* '\mdelete\M|\mtruncate\M'),

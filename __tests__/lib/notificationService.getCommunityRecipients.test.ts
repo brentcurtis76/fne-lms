@@ -266,6 +266,29 @@ describe('getCommunityRecipients', () => {
     expect(recipients.map((r) => r.id).sort()).toEqual(['u1', 'u2', 'u3']);
   });
 
+  it('EC-R7b send-back 1: carries, out of sight of equality, the audience members it could give no address', async () => {
+    const { client } = createFakeSupabase({
+      community_meetings: meetingRow(),
+      meeting_attendees: {
+        data: ['u1', 'u2', 'u3', 'u4'].map((user_id) => ({ user_id, attendance_status: 'invited' })),
+      },
+      // u2 has a null e-mail, u3 an empty one, u4 no profile row at all.
+      profiles: {
+        data: [
+          { id: 'u1', email: 'u1@test.cl', first_name: 'One', last_name: 'User' },
+          { id: 'u2', email: null, first_name: 'Two', last_name: 'User' },
+          { id: 'u3', email: '', first_name: 'Three', last_name: 'User' },
+        ],
+      },
+      user_notification_preferences: { data: [] },
+    });
+    const recipients = await getCommunityRecipients(client, MEETING_ID, { onlyAttended: true });
+    // What every caller gets is unchanged.
+    expect(recipients).toEqual([{ id: 'u1', email: 'u1@test.cl', name: 'One User' }]);
+    expect(JSON.stringify(recipients)).toBe('[{"id":"u1","email":"u1@test.cl","name":"One User"}]');
+    expect(recipients.unaddressed).toEqual(['u2', 'u3', 'u4']);
+  });
+
   it('returns an empty list without throwing when user_roles is empty', async () => {
     const { client, calls } = createFakeSupabase({
       community_meetings: meetingRow(),

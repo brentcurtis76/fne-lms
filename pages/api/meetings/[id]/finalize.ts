@@ -412,6 +412,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           else notSentTo.push(r.id);
         }
       }
+      // Send-back 1: the people in the audience the resolver could give no
+      // address were never mailed: they are not reached. Each id once, in
+      // one list only.
+      if (prepared) {
+        const listed = new Set([...sentTo, ...notSentTo]);
+        for (const unaddressedId of prepared.recipients.unaddressed ?? []) {
+          if (!listed.has(unaddressedId)) {
+            listed.add(unaddressedId);
+            notSentTo.push(unaddressedId);
+          }
+        }
+      }
       const { error: outcomeError } = await serviceClient
         .from('meeting_summary_outcomes')
         .upsert(

@@ -219,6 +219,23 @@ describe('MeetingDetailsModal — post-finalize banner', () => {
       expect(queryByText(/Finalizada el/)).not.toBeNull();
     });
 
+    it('send-back 1: a person stored as not reached for want of an address is named under the not-reached line', async () => {
+      getMeetingDetails.mockResolvedValue(
+        finalised({
+          finalize_audience: 'attended',
+          finalize_with_access: null,
+          summary_outcome: {
+            sent_to: [{ id: 'u-1', name: 'Ana Uno' }],
+            not_sent_to: [{ id: 'u-2', name: 'Bruno Dos' }],
+          },
+        }),
+      );
+      const { findByText, queryByText } = render(<MeetingDetailsModal isOpen onClose={() => {}} meetingId="mtg-1" />);
+      await findByText('Resumen enviado por correo a: Ana Uno.');
+      await findByText('No se pudo enviar a: Bruno Dos.');
+      expect(queryByText(/Resumen enviado por correo a: .*Bruno/)).toBeNull();
+    });
+
     it('every reached name, joined by «, »', async () => {
       getMeetingDetails.mockResolvedValue(
         finalised({

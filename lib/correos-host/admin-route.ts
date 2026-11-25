@@ -26,8 +26,15 @@ export type CorreosMethodHandler = (req: NextApiRequest, res: NextApiResponse, c
 export function correosAdminRoute(name: string, handlers: Partial<Record<'GET' | 'POST' | 'PATCH', CorreosMethodHandler>>) {
   const allowed = Object.keys(handlers);
   return async function handler(req: NextApiRequest, res: NextApiResponse) {
-    const method = (req.method ?? '').toUpperCase() as 'GET' | 'POST' | 'PATCH';
-    const run = handlers[method];
+    const method = (req.method ?? '').toUpperCase();
+    // Each handler is read by its fixed name, never through a computed key: the repo-wide ledger inventory
+    // (__tests__/lib/services/ledger-hours-reader-inventory.test.ts) refuses a callable chosen dynamically
+    // and then handed the service-role client.
+    const run =
+      method === 'GET' ? handlers.GET
+        : method === 'POST' ? handlers.POST
+          : method === 'PATCH' ? handlers.PATCH
+            : undefined;
     if (!run) {
       res.setHeader('Allow', allowed.join(', '));
       return res.status(405).json({ error: 'Método no permitido' });

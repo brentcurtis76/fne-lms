@@ -1,7 +1,7 @@
 # Sitio público (nuevaeducacion.org pages; not part of the platform redesign)
 
 Area `20-sitio-publico`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `c7e27398c` (2026-11-22).
+Read from commit `a908cc8b5` (2026-11-25).
 
 Redesigned separately and live since 12 Nov 2026. Listed so that every file under pages/ has a place.
 

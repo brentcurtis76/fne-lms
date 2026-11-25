@@ -1,7 +1,7 @@
 # Sistema (configuration, support, roadmap, test and debug pages, scheduled jobs)
 
 Area `19-sistema`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `c7e27398c` (2026-11-22).
+Read from commit `a908cc8b5` (2026-11-25).
 
 4 screen files, 27 API files, 8 pieces.
 
@@ -186,7 +186,7 @@ File `pages/admin/feedback.tsx` · 557 lines · frame: MainLayout
   - l.96 `{ effectiveRole, isAdmin: isAdminUser } = await getEffectiveRoleAndStatus(supabase, session.user.id)`
   - l.103 `router.push → /dashboard  (when !isAdminUser)`
   - l.320 `router.push → /login`
-- Linked from: `components/layout/Sidebar.tsx:591`, `components/notifications/ModernNotificationCenter.tsx:307`, `components/notifications/ModernNotificationCenter.tsx:325`, `components/notifications/NotificationDropdown.tsx:136`, `components/notifications/NotificationDropdown.tsx:154`, `lib/notificationEvents.ts:397`, `lib/notifications/catalog.ts:377`, `pages/notifications.tsx:268`, `pages/notifications.tsx:286`, `utils/notificationPermissions.ts:121`, `utils/notificationPermissions.ts:164`
+- Linked from: `components/layout/Sidebar.tsx:591`, `components/notifications/ModernNotificationCenter.tsx:307`, `components/notifications/ModernNotificationCenter.tsx:325`, `components/notifications/NotificationDropdown.tsx:136`, `components/notifications/NotificationDropdown.tsx:154`, `lib/notificationEvents.ts:397`, `lib/notifications/catalog.ts:379`, `pages/notifications.tsx:268`, `pages/notifications.tsx:286`, `utils/notificationPermissions.ts:121`, `utils/notificationPermissions.ts:164`
 - Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/feedback-notify-admins.spec.ts`.
 - QA scenarios that name this address: admin 1.
 
@@ -394,7 +394,7 @@ File `pages/profile/reportes.tsx` · 239 lines · frame: MainLayout · getServer
 - Middleware: no role rule. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: yes.
 - In the page:
   - l.28 `server redirect → /login?next=[*]  (when !viewer)`
-- Linked from: `components/feedback/FeedbackModal.tsx:338`, `components/feedback/FeedbackModal.tsx:339`
+- Linked from: `components/feedback/FeedbackModal.tsx:338`, `components/feedback/FeedbackModal.tsx:339`, `lib/notificationEvents.ts:405`, `lib/notifications/catalog.ts:381`
 - Tests: no browser test that CI runs; unit tests of the page: `__tests__/pages/profile-reportes.test.tsx`.
 
 | Role | Sees it in the menu | Middleware |

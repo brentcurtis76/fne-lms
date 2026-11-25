@@ -21,6 +21,8 @@ import {
   ArrowLeft,
 } from 'lucide-react';
 import HelpButton from '../../../components/tutorials/HelpButton';
+import { useLook } from '../../../contexts/LookContext';
+import ReportsNuevo, { ReportsErrorNuevo } from '../../../components/sessions/reports-nuevo/ReportsNuevo';
 
 // Lazy-load recharts components to reduce initial bundle size.
 // Type assertions needed: recharts components have complex generics
@@ -129,6 +131,11 @@ const FNE_COLORS = {
   brand_accent: '#fbbf24',
   brand_accent_light: 'rgb(var(--color-amber-100))',
 };
+
+// The new look's breadcrumb in the top bar, by the menu each role sees (redesign 6S, release SC); today's
+// look passes none.
+const BREADCRUMBS_NUEVO_ADMIN = [{ label: 'Consultorías' }, { label: 'Reportes' }];
+const BREADCRUMBS_NUEVO_CONSULTOR = [{ label: 'Mi Trabajo' }, { label: 'Mis Reportes' }];
 
 const MODALITY_COLORS: Record<string, string> = {
   presencial: 'rgb(var(--color-serie-1, var(--color-blue-500)))',
@@ -253,6 +260,9 @@ const SessionReportsPage: React.FC = () => {
   // Responsive
   const [isMobile, setIsMobile] = useState(false);
 
+  // Release SC: which view draws the page, from the live look; while it is unknown it counts as today's.
+  const isNuevo = useLook().look === 'nuevo';
+
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
     checkMobile();
@@ -337,6 +347,26 @@ const SessionReportsPage: React.FC = () => {
   };
 
   const isAdmin = userRole === 'admin';
+  // The new look's frame: its breadcrumb once the role is known.
+  const frameNuevo = userRole
+    ? { breadcrumbs: isAdmin ? BREADCRUMBS_NUEVO_ADMIN : BREADCRUMBS_NUEVO_CONSULTOR }
+    : {};
+  const nuevoProps = {
+    isAdmin,
+    analyticsData,
+    dataLoading,
+    isMobile,
+    dateFrom,
+    onDateFromChange: setDateFrom,
+    dateTo,
+    onDateToChange: setDateTo,
+    schoolFilter,
+    onSchoolFilterChange: setSchoolFilter,
+    consultantFilter,
+    onConsultantFilterChange: setConsultantFilter,
+    charts: { BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer },
+    onOpenSession: (id: string) => router.push(`/consultor/sessions/${id}`),
+  };
 
   // ============================================================
   // LOADING STATE
@@ -367,6 +397,13 @@ const SessionReportsPage: React.FC = () => {
   // ERROR STATE
   // ============================================================
   if (error) {
+    if (isNuevo) {
+      return (
+        <MainLayout {...frameNuevo}>
+          <ReportsErrorNuevo message={error} onBack={() => router.push('/dashboard')} />
+        </MainLayout>
+      );
+    }
     return (
       <MainLayout>
         <div className="min-h-screen flex items-center justify-center">
@@ -393,6 +430,13 @@ const SessionReportsPage: React.FC = () => {
   // EMPTY STATE
   // ============================================================
   if (!dataLoading && analyticsData && analyticsData.kpis.total_sessions === 0) {
+    if (isNuevo) {
+      return (
+        <MainLayout {...frameNuevo}>
+          <ReportsNuevo mode="empty" {...nuevoProps} />
+        </MainLayout>
+      );
+    }
     return (
       <MainLayout>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -855,6 +899,14 @@ const SessionReportsPage: React.FC = () => {
   // ============================================================
   // MAIN RENDER
   // ============================================================
+  if (isNuevo) {
+    return (
+      <MainLayout {...frameNuevo}>
+        <ReportsNuevo mode="page" {...nuevoProps} />
+      </MainLayout>
+    );
+  }
+
   return (
     <MainLayout>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

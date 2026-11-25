@@ -4,8 +4,8 @@
  "note": "Gets the new values only, no individual redesign work (PLAN.md, phase 6). Its tours hang on data-tour marks.",
  "routesOnly": false,
  "readFrom": {
-  "commit": "c7e27398ca230dbbc3e581dcde19f92480491fcd",
-  "date": "2026-11-22T23:11:25-03:00"
+  "commit": "a908cc8b50d6d63408cd0f40fb401cf0030b72e0",
+  "date": "2026-11-25T13:27:34-03:00"
  },
  "screens": [
   {
@@ -4659,8 +4659,8 @@
     ],
     "linkedFrom": [
      "components/layout/Sidebar.tsx:683",
-     "lib/notificationEvents.ts:430",
-     "lib/notifications/catalog.ts:378",
+     "lib/notificationEvents.ts:438",
+     "lib/notifications/catalog.ts:382",
      "pages/admin/qa/assignments.tsx:429",
      "pages/admin/qa/assignments.tsx:430",
      "pages/admin/qa/confirm.tsx:320",
@@ -8112,7 +8112,7 @@
      }
     ],
     "linkedFrom": [
-     "lib/notifications/catalog.ts:378",
+     "lib/notifications/catalog.ts:382",
      "pages/admin/qa/index.tsx:806",
      "pages/admin/qa/index.tsx:807"
     ],
@@ -9748,8 +9748,8 @@
      "components/layout/Sidebar.tsx:676",
      "components/qa/QAFloatingWidget.tsx:749",
      "lib/auth/forced-password-change.ts:157",
-     "lib/notificationEvents.ts:454",
-     "lib/notifications/catalog.ts:376",
+     "lib/notificationEvents.ts:462",
+     "lib/notifications/catalog.ts:378",
      "middleware.ts:358",
      "pages/admin/qa/assignments.tsx:399",
      "pages/admin/qa/assignments.tsx:400",

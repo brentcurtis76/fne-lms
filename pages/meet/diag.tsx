@@ -5,6 +5,8 @@ import type { GetServerSideProps } from 'next';
 import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 import { isDiagJoinConfigured } from '../../lib/meet/diag-config';
 import { getServerSideUser } from '../../lib/api-auth';
+import { useLook } from '../../contexts/LookContext';
+import { DIAG_STATUS_NUEVO, MEET_DIAG_NUEVO, MEET_NUEVO } from '../../components/meet/meetLookNuevo';
 
 /**
  * /meet/diag — capability probe for the Zoom hardware/network protocol (Z0B).
@@ -461,6 +463,9 @@ type MeetDiagPageProps = {
 };
 
 const MeetDiagPage: React.FC<MeetDiagPageProps> = ({ joinAvailable }) => {
+  // Release SC: the new look chooses the classes of the same elements (no second tree; the SDK root
+  // stays mounted); on the server and at the first paint the look is always today's.
+  const nuevo = useLook().look === 'nuevo';
   const [probes, setProbes] = useState<Probe[]>([]);
   const [storageProbe, setStorageProbe] = useState<Probe | null>(null);
   const [meetingNumber, setMeetingNumber] = useState('');
@@ -753,46 +758,46 @@ const MeetDiagPage: React.FC<MeetDiagPageProps> = ({ joinAvailable }) => {
         <meta name="robots" content="noindex" />
       </Head>
 
-      <main className="min-h-screen bg-gray-50 px-4 py-8">
+      <main className={nuevo ? MEET_NUEVO.main : 'min-h-screen bg-gray-50 px-4 py-8'}>
         <div className="mx-auto w-full max-w-3xl">
-          <header className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+          <header className={nuevo ? MEET_NUEVO.card : 'rounded-xl border border-gray-200 bg-white p-6 shadow-sm'}>
+            <p className={nuevo ? MEET_NUEVO.eyebrow : 'text-xs font-medium uppercase tracking-wide text-gray-500'}>
               Reuniones · Diagnóstico
             </p>
-            <h1 className="mt-1 text-xl font-semibold text-brand_primary sm:text-2xl">
+            <h1 className={nuevo ? MEET_NUEVO.title : 'mt-1 text-xl font-semibold text-brand_primary sm:text-2xl'}>
               Diagnóstico del equipo
             </h1>
-            <p className="mt-3 text-sm text-gray-600">
+            <p className={nuevo ? `mt-3 ${MEET_NUEVO.text}` : 'mt-3 text-sm text-gray-600'}>
               Esta página revisa si este computador y esta red pueden sostener una videollamada
               dentro de GENERA. No inicia ninguna reunión ni graba nada.
             </p>
-            <p className="mt-2 text-sm text-gray-600">
+            <p className={nuevo ? `mt-2 ${MEET_NUEVO.text}` : 'mt-2 text-sm text-gray-600'}>
               Sigue el protocolo de la visita, presiona{' '}
               <span className="font-medium">Probar cámara y micrófono</span> y luego{' '}
               <span className="font-medium">Copiar resultados</span>.
             </p>
           </header>
 
-          <section className="mt-5 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+          <section className={nuevo ? MEET_DIAG_NUEVO.card : 'mt-5 rounded-xl border border-gray-200 bg-white p-6 shadow-sm'}>
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-base font-semibold text-gray-900">Mediciones</h2>
-              <p className="text-xs text-gray-500" data-testid="diag-summary">
+              <h2 className={nuevo ? MEET_NUEVO.sectionTitle : 'text-base font-semibold text-gray-900'}>Mediciones</h2>
+              <p className={nuevo ? MEET_DIAG_NUEVO.summary : 'text-xs text-gray-500'} data-testid="diag-summary">
                 {counts.pass ?? 0} OK · {counts.warn ?? 0} con atención · {counts.fail ?? 0} con
                 falla
               </p>
             </div>
 
             <div className="mt-4 overflow-x-auto">
-              <table className="w-full min-w-[32rem] text-left text-sm">
+              <table className={nuevo ? MEET_DIAG_NUEVO.table : 'w-full min-w-[32rem] text-left text-sm'}>
                 <thead>
-                  <tr className="border-b border-gray-200 text-xs uppercase tracking-wide text-gray-500">
-                    <th scope="col" className="py-2 pr-3 font-medium">
+                  <tr className={nuevo ? MEET_DIAG_NUEVO.headRow : 'border-b border-gray-200 text-xs uppercase tracking-wide text-gray-500'}>
+                    <th scope="col" className={nuevo ? MEET_DIAG_NUEVO.headCell : 'py-2 pr-3 font-medium'}>
                       Medición
                     </th>
-                    <th scope="col" className="py-2 pr-3 font-medium">
+                    <th scope="col" className={nuevo ? MEET_DIAG_NUEVO.headCell : 'py-2 pr-3 font-medium'}>
                       Resultado
                     </th>
-                    <th scope="col" className="py-2 font-medium">
+                    <th scope="col" className={nuevo ? MEET_DIAG_NUEVO.headCell : 'py-2 font-medium'}>
                       Estado
                     </th>
                   </tr>
@@ -801,21 +806,25 @@ const MeetDiagPage: React.FC<MeetDiagPageProps> = ({ joinAvailable }) => {
                   {allProbes.map((probe) => (
                     <tr
                       key={probe.id}
-                      className="border-b border-gray-100 align-top"
+                      className={nuevo ? MEET_DIAG_NUEVO.row : 'border-b border-gray-100 align-top'}
                       data-testid={`diag-row-${probe.id}`}
                     >
-                      <th scope="row" className="py-3 pr-3 font-medium text-gray-800">
+                      <th scope="row" className={nuevo ? MEET_DIAG_NUEVO.rowHead : 'py-3 pr-3 font-medium text-gray-800'}>
                         {probe.label}
                       </th>
-                      <td className="py-3 pr-3 text-gray-700">
+                      <td className={nuevo ? MEET_DIAG_NUEVO.cell : 'py-3 pr-3 text-gray-700'}>
                         <span className="break-words">{probe.value}</span>
                         {probe.note ? (
-                          <span className="mt-1 block text-xs text-gray-500">{probe.note}</span>
+                          <span className={nuevo ? MEET_DIAG_NUEVO.cellNote : 'mt-1 block text-xs text-gray-500'}>{probe.note}</span>
                         ) : null}
                       </td>
-                      <td className="py-3">
+                      <td className={nuevo ? MEET_DIAG_NUEVO.statusCell : 'py-3'}>
                         <span
-                          className={`inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_CLASS[probe.status]}`}
+                          className={
+                          nuevo
+                            ? `${MEET_DIAG_NUEVO.status} ${DIAG_STATUS_NUEVO[probe.status]}`
+                            : `inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_CLASS[probe.status]}`
+                        }
                         >
                           {STATUS_LABEL[probe.status]}
                         </span>
@@ -824,7 +833,7 @@ const MeetDiagPage: React.FC<MeetDiagPageProps> = ({ joinAvailable }) => {
                   ))}
                   {allProbes.length === 0 ? (
                     <tr>
-                      <td colSpan={3} className="py-4 text-sm text-gray-500">
+                      <td colSpan={3} className={nuevo ? MEET_DIAG_NUEVO.measuring : 'py-4 text-sm text-gray-500'}>
                         Midiendo…
                       </td>
                     </tr>
@@ -833,7 +842,7 @@ const MeetDiagPage: React.FC<MeetDiagPageProps> = ({ joinAvailable }) => {
               </table>
             </div>
 
-            <p className="mt-4 text-xs text-gray-500">
+            <p className={nuevo ? `mt-4 ${MEET_NUEVO.note}` : 'mt-4 text-xs text-gray-500'}>
               Referencia de equipos: <span className="font-medium">P0</span> = Windows 10 con 4 GB y
               doble núcleo, o Windows 11 con procesador i5.{' '}
               <span className="font-medium">P1</span> = Chromebook con 4 GB o tablet Android. Un
@@ -842,9 +851,9 @@ const MeetDiagPage: React.FC<MeetDiagPageProps> = ({ joinAvailable }) => {
             </p>
           </section>
 
-          <section className="mt-5 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-            <h2 className="text-base font-semibold text-gray-900">Prueba de cámara y micrófono</h2>
-            <p className="mt-2 text-sm text-gray-600">
+          <section className={nuevo ? MEET_DIAG_NUEVO.card : 'mt-5 rounded-xl border border-gray-200 bg-white p-6 shadow-sm'}>
+            <h2 className={nuevo ? MEET_NUEVO.sectionTitle : 'text-base font-semibold text-gray-900'}>Prueba de cámara y micrófono</h2>
+            <p className={nuevo ? `mt-2 ${MEET_NUEVO.text}` : 'mt-2 text-sm text-gray-600'}>
               El navegador pedirá permiso. Acepta para que la prueba sea válida. La cámara se apaga
               apenas termina la medición.
             </p>
@@ -852,35 +861,35 @@ const MeetDiagPage: React.FC<MeetDiagPageProps> = ({ joinAvailable }) => {
               type="button"
               onClick={runMediaProbe}
               data-testid="diag-media-probe-button"
-              className="mt-4 inline-flex items-center justify-center rounded-lg bg-brand_primary px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand_gray_dark focus:outline-none focus:ring-2 focus:ring-brand_accent focus:ring-offset-2"
+              className={nuevo ? `mt-4 ${MEET_NUEVO.buttonDefault}` : 'mt-4 inline-flex items-center justify-center rounded-lg bg-brand_primary px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand_gray_dark focus:outline-none focus:ring-2 focus:ring-brand_accent focus:ring-offset-2'}
             >
               Probar cámara y micrófono
             </button>
           </section>
 
           {!joinAvailable ? (
-            <section className="mt-5 rounded-xl border border-dashed border-gray-300 bg-white p-6">
-              <h2 className="text-base font-semibold text-gray-900">Prueba de conexión</h2>
-              <p className="mt-2 text-sm text-gray-600" data-testid="diag-join-placeholder">
+            <section className={nuevo ? MEET_DIAG_NUEVO.cardDashed : 'mt-5 rounded-xl border border-dashed border-gray-300 bg-white p-6'}>
+              <h2 className={nuevo ? MEET_NUEVO.sectionTitle : 'text-base font-semibold text-gray-900'}>Prueba de conexión</h2>
+              <p className={nuevo ? `mt-2 ${MEET_NUEVO.text}` : 'mt-2 text-sm text-gray-600'} data-testid="diag-join-placeholder">
                 Prueba de conexión: disponible próximamente.
               </p>
-              <p className="mt-2 text-xs text-gray-500">
+              <p className={nuevo ? `mt-2 ${MEET_NUEVO.note}` : 'mt-2 text-xs text-gray-500'}>
                 Este bloque necesita las credenciales de Zoom configuradas en el servidor. El resto
                 del diagnóstico funciona igual: continúa con la Parte A del protocolo.
               </p>
             </section>
           ) : (
-            <section className="mt-5 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-              <h2 className="text-base font-semibold text-gray-900">Prueba de conexión</h2>
-              <p className="mt-2 text-sm text-gray-600">
+            <section className={nuevo ? MEET_DIAG_NUEVO.card : 'mt-5 rounded-xl border border-gray-200 bg-white p-6 shadow-sm'}>
+              <h2 className={nuevo ? MEET_NUEVO.sectionTitle : 'text-base font-semibold text-gray-900'}>Prueba de conexión</h2>
+              <p className={nuevo ? `mt-2 ${MEET_NUEVO.text}` : 'mt-2 text-sm text-gray-600'}>
                 Escribe el número y la clave de la reunión de prueba que te pasaron, y presiona{' '}
                 <span className="font-medium">Entrar a la reunión</span>. El tiempo se mide solo y
                 queda en el bloque de resultados.
               </p>
 
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                <label className="block text-sm">
-                  <span className="font-medium text-gray-800">Número de reunión</span>
+                <label className={nuevo ? MEET_DIAG_NUEVO.field : 'block text-sm'}>
+                  <span className={nuevo ? MEET_DIAG_NUEVO.fieldLabel : 'font-medium text-gray-800'}>Número de reunión</span>
                   <input
                     type="text"
                     inputMode="numeric"
@@ -889,11 +898,11 @@ const MeetDiagPage: React.FC<MeetDiagPageProps> = ({ joinAvailable }) => {
                     onChange={(event) => setMeetingNumber(event.target.value)}
                     placeholder="Por ejemplo: 87239242778"
                     data-testid="diag-join-meeting-number"
-                    className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand_primary focus:outline-none focus:ring-1 focus:ring-brand_accent"
+                    className={nuevo ? MEET_DIAG_NUEVO.input : 'mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand_primary focus:outline-none focus:ring-1 focus:ring-brand_accent'}
                   />
                 </label>
-                <label className="block text-sm">
-                  <span className="font-medium text-gray-800">Clave de la reunión</span>
+                <label className={nuevo ? MEET_DIAG_NUEVO.field : 'block text-sm'}>
+                  <span className={nuevo ? MEET_DIAG_NUEVO.fieldLabel : 'font-medium text-gray-800'}>Clave de la reunión</span>
                   <input
                     type="text"
                     autoComplete="off"
@@ -903,7 +912,7 @@ const MeetDiagPage: React.FC<MeetDiagPageProps> = ({ joinAvailable }) => {
                     onChange={(event) => setPasscode(event.target.value)}
                     placeholder="Obligatoria — cópiala tal cual"
                     data-testid="diag-join-passcode"
-                    className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand_primary focus:outline-none focus:ring-1 focus:ring-brand_accent"
+                    className={nuevo ? MEET_DIAG_NUEVO.input : 'mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand_primary focus:outline-none focus:ring-1 focus:ring-brand_accent'}
                   />
                 </label>
               </div>
@@ -918,7 +927,7 @@ const MeetDiagPage: React.FC<MeetDiagPageProps> = ({ joinAvailable }) => {
                     passcode.trim().length === 0
                   }
                   data-testid="diag-join-button"
-                  className="inline-flex items-center justify-center rounded-lg bg-brand_primary px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand_gray_dark focus:outline-none focus:ring-2 focus:ring-brand_accent focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  className={nuevo ? MEET_NUEVO.buttonDefault : 'inline-flex items-center justify-center rounded-lg bg-brand_primary px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand_gray_dark focus:outline-none focus:ring-2 focus:ring-brand_accent focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50'}
                 >
                   {joinState === 'joining' ? 'Entrando…' : 'Entrar a la reunión'}
                 </button>
@@ -927,17 +936,17 @@ const MeetDiagPage: React.FC<MeetDiagPageProps> = ({ joinAvailable }) => {
                     type="button"
                     onClick={leaveTestJoin}
                     data-testid="diag-join-leave-button"
-                    className="inline-flex items-center justify-center rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand_accent focus:ring-offset-2"
+                    className={nuevo ? MEET_NUEVO.buttonOutline : 'inline-flex items-center justify-center rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand_accent focus:ring-offset-2'}
                   >
                     Salir de la reunión
                   </button>
                 ) : null}
-                <span className="text-sm text-gray-600" data-testid="diag-join-status">
+                <span className={nuevo ? MEET_NUEVO.text : 'text-sm text-gray-600'} data-testid="diag-join-status">
                   {joinProbe.value}
                 </span>
               </div>
 
-              <p className="mt-3 text-xs text-gray-500">
+              <p className={nuevo ? `mt-3 ${MEET_NUEVO.note}` : 'mt-3 text-xs text-gray-500'}>
                 Para la medición B2 del protocolo, entra y sal tres veces seguidas y anota si las
                 tres funcionaron. El video se abre dentro de esta misma página.
               </p>
@@ -955,9 +964,9 @@ const MeetDiagPage: React.FC<MeetDiagPageProps> = ({ joinAvailable }) => {
             </section>
           )}
 
-          <section className="mt-5 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-            <h2 className="text-base font-semibold text-gray-900">Resultados</h2>
-            <p className="mt-2 text-sm text-gray-600">
+          <section className={nuevo ? MEET_DIAG_NUEVO.card : 'mt-5 rounded-xl border border-gray-200 bg-white p-6 shadow-sm'}>
+            <h2 className={nuevo ? MEET_NUEVO.sectionTitle : 'text-base font-semibold text-gray-900'}>Resultados</h2>
+            <p className={nuevo ? `mt-2 ${MEET_NUEVO.text}` : 'mt-2 text-sm text-gray-600'}>
               Copia este bloque y pégalo en la planilla de la visita.
             </p>
             <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -965,17 +974,17 @@ const MeetDiagPage: React.FC<MeetDiagPageProps> = ({ joinAvailable }) => {
                 type="button"
                 onClick={copyReport}
                 data-testid="diag-copy-button"
-                className="inline-flex items-center justify-center rounded-lg border border-brand_primary px-4 py-2.5 text-sm font-medium text-brand_primary transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand_accent focus:ring-offset-2"
+                className={nuevo ? MEET_NUEVO.buttonOutline : 'inline-flex items-center justify-center rounded-lg border border-brand_primary px-4 py-2.5 text-sm font-medium text-brand_primary transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand_accent focus:ring-offset-2'}
               >
                 Copiar resultados
               </button>
               {copyState === 'ok' ? (
-                <span className="text-sm text-green-700" data-testid="diag-copy-ok">
+                <span className={nuevo ? MEET_DIAG_NUEVO.copyOk : 'text-sm text-green-700'} data-testid="diag-copy-ok">
                   Copiado.
                 </span>
               ) : null}
               {copyState === 'error' ? (
-                <span className="text-sm text-amber-700" data-testid="diag-copy-error">
+                <span className={nuevo ? MEET_DIAG_NUEVO.copyError : 'text-sm text-amber-700'} data-testid="diag-copy-error">
                   No se pudo copiar automáticamente. Selecciona el texto de abajo y cópialo a mano.
                 </span>
               ) : null}
@@ -986,7 +995,7 @@ const MeetDiagPage: React.FC<MeetDiagPageProps> = ({ joinAvailable }) => {
               rows={10}
               data-testid="diag-report-json"
               aria-label="Resultados en formato JSON"
-              className="mt-4 w-full rounded-lg border border-gray-200 bg-gray-50 p-3 font-mono text-xs text-gray-700"
+              className={nuevo ? MEET_DIAG_NUEVO.report : 'mt-4 w-full rounded-lg border border-gray-200 bg-gray-50 p-3 font-mono text-xs text-gray-700'}
             />
           </section>
 
@@ -994,7 +1003,7 @@ const MeetDiagPage: React.FC<MeetDiagPageProps> = ({ joinAvailable }) => {
             <Link
               href="/dashboard"
               data-testid="diag-back-link"
-              className="text-sm font-medium text-gray-600 hover:text-brand_primary"
+              className={nuevo ? MEET_NUEVO.backLink : 'text-sm font-medium text-gray-600 hover:text-brand_primary'}
             >
               Volver al inicio
             </Link>

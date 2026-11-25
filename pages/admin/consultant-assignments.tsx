@@ -9,6 +9,11 @@ import { getUserPrimaryRole } from '../../utils/roleUtils';
 
 import { ResponsiveFunctionalPageHeader } from '../../components/layout/FunctionalPageHeader';
 import { GraduationCap, Plus } from 'lucide-react';
+import { useLook } from '../../contexts/LookContext';
+import AssignmentsNuevo from '../../components/sessions/assignments-nuevo/AssignmentsNuevo';
+
+// The new look's breadcrumb in the top bar (redesign 6S, release SC); today's look passes none.
+const BREADCRUMBS_NUEVO = [{ label: 'Consultorías' }, { label: 'Asignación de Consultores' }];
 
 interface Assignment {
   id: string;
@@ -58,6 +63,8 @@ interface Assignment {
 const ConsultantAssignmentsPage: React.FC = () => {
   const router = useRouter();
   const supabase = useSupabaseClient();
+  // Release SC: which view draws the page, from the live look; while it is unknown it counts as today's.
+  const isNuevo = useLook().look === 'nuevo';
   
   // Authentication state
   const [user, setUser] = useState<any>(null);
@@ -257,7 +264,12 @@ const ConsultantAssignmentsPage: React.FC = () => {
     if (!confirm('¿Está seguro de que desea eliminar esta asignación?')) {
       return;
     }
+    await handleDeleteAssignmentConfirmed(assignmentId);
+  };
 
+  // The deletion without its question: today's handler asks the browser first; the new look asks in
+  // the kit's window and calls this on «Confirmar».
+  const handleDeleteAssignmentConfirmed = async (assignmentId: string) => {
     try {
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
@@ -394,11 +406,30 @@ const ConsultantAssignmentsPage: React.FC = () => {
       user={user} 
       currentPage="consultants"
       pageTitle=""
-      breadcrumbs={[]}
+      breadcrumbs={isNuevo ? BREADCRUMBS_NUEVO : []}
       isAdmin={isAdmin}
       onLogout={handleLogout}
       avatarUrl={avatarUrl}
     >
+      {isNuevo ? (
+        <AssignmentsNuevo
+          assignments={assignments}
+          filteredAssignments={filteredAssignments}
+          searchTerm={searchTerm}
+          onSearchChange={setSearchTerm}
+          filterType={filterType}
+          onFilterTypeChange={setFilterType}
+          filterStatus={filterStatus}
+          onFilterStatusChange={setFilterStatus}
+          assignmentTypeLabels={assignmentTypeLabels}
+          getPermissionBadges={getPermissionBadges}
+          formatDateTime={formatDateTime}
+          isAssignmentActive={isAssignmentActive}
+          onCreate={handleCreateAssignment}
+          onEdit={handleEditAssignment}
+          onDeleteConfirmed={handleDeleteAssignmentConfirmed}
+        />
+      ) : (<>
       <ResponsiveFunctionalPageHeader
         icon={<GraduationCap />}
         title="Consultorías"
@@ -590,6 +621,7 @@ const ConsultantAssignmentsPage: React.FC = () => {
           </div>
         </div>
       </div>
+      </>)}
 
       {/* Modal */}
       <ConsultantAssignmentModal

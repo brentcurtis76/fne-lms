@@ -1,7 +1,7 @@
 # Cursos (course builder, upcoming courses, learning paths, assignment matrix)
 
 Area `04-cursos`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `c7e27398c` (2026-11-22).
+Read from commit `a908cc8b5` (2026-11-25).
 
 Course system: see the note on 03-aprendizaje.
 
@@ -1007,7 +1007,7 @@ File `pages/admin/course-builder/index.tsx` · 637 lines · frame: MainLayout
   - l.109 `isAdmin = adminInMetadata \|\| hasAdminRoleInDB`
   - l.420 `router.push → /login`
   - l.452 `No tienes permiso para acceder a esta página.`
-- Linked from: `components/layout/Sidebar.tsx:248`, `lib/notifications/catalog.ts:380`, `pages/admin/course-builder/[courseId]/edit.tsx:427`, `pages/admin/course-builder/[courseId]/edit.tsx:443`, `pages/admin/course-builder/[courseId]/index.tsx:435`, `pages/admin/course-builder/[courseId]/index.tsx:487`, `pages/admin/course-builder/[courseId]/lesson/[lessonId].tsx:569`, `pages/admin/course-builder/new.tsx:205`, `pages/admin/course-builder/new.tsx:243`, `pages/admin/courses/[id]/assign.tsx:199`, `pages/admin/courses/[id]/assign.tsx:509`, `pages/admin/courses/[id]/assign.tsx:527` and 2 more
+- Linked from: `components/layout/Sidebar.tsx:248`, `lib/notifications/catalog.ts:384`, `pages/admin/course-builder/[courseId]/edit.tsx:427`, `pages/admin/course-builder/[courseId]/edit.tsx:443`, `pages/admin/course-builder/[courseId]/index.tsx:435`, `pages/admin/course-builder/[courseId]/index.tsx:487`, `pages/admin/course-builder/[courseId]/lesson/[lessonId].tsx:569`, `pages/admin/course-builder/new.tsx:205`, `pages/admin/course-builder/new.tsx:243`, `pages/admin/courses/[id]/assign.tsx:199`, `pages/admin/courses/[id]/assign.tsx:509`, `pages/admin/courses/[id]/assign.tsx:527` and 2 more
 - Tests: no browser test that CI runs.
 - QA scenarios that name this address: admin 1.
 

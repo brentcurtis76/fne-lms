@@ -8,6 +8,9 @@ import { getUserPrimaryRole } from '../../../utils/roleUtils';
 import { CheckCircle, XCircle, Clock, Calendar } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { useLook } from '../../../contexts/LookContext';
+import ApprovalsNuevo from '../../../components/sessions/admin-nuevo/ApprovalsNuevo';
+import { CRUMBS_APPROVALS } from '../../../components/sessions/admin-nuevo/adminNuevoStyles';
 
 interface EditRequestWithDetails {
   id: string;
@@ -44,6 +47,12 @@ const SessionApprovalsPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('pending');
   const [actionInProgress, setActionInProgress] = useState(false);
   const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
+
+  // Redesign 6S, release SC: the new look (an account that chose it) draws its own view of this
+  // page's state; while the look is unknown it counts as today's. The breadcrumbs go to the frame
+  // only in the new look.
+  const isNuevo = useLook().look === 'nuevo';
+  const frame = isNuevo ? { breadcrumbs: CRUMBS_APPROVALS } : {};
 
   useEffect(() => {
     initializeAuth();
@@ -292,10 +301,32 @@ const SessionApprovalsPage: React.FC = () => {
 
   if (loading) {
     return (
-      <MainLayout user={user} onLogout={handleLogout}>
+      <MainLayout user={user} onLogout={handleLogout} {...frame}>
         <div className="flex items-center justify-center min-h-screen">
           <div className="text-gray-600">Cargando...</div>
         </div>
+      </MainLayout>
+    );
+  }
+
+  // The new body only for the admin, on the same condition as the data read above (`user && isAdmin`):
+  // anyone else, while the move away is pending, sees what today's screen shows.
+  if (isNuevo && user && isAdmin) {
+    return (
+      <MainLayout user={user} onLogout={handleLogout} {...frame}>
+        <ApprovalsNuevo
+          editRequests={editRequests}
+          statusFilter={statusFilter}
+          setStatusFilter={setStatusFilter}
+          actionInProgress={actionInProgress}
+          reviewNotes={reviewNotes}
+          setReviewNotes={setReviewNotes}
+          handleApprove={handleApprove}
+          handleReject={handleReject}
+          normalizeChangesPayload={normalizeChangesPayload}
+          formatFieldLabel={formatFieldLabel}
+          formatValue={formatValue}
+        />
       </MainLayout>
     );
   }

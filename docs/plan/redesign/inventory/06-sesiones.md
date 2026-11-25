@@ -1,42 +1,42 @@
 # Sesiones y consultorías (sessions, approvals, video meetings)
 
 Area `06-sesiones`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `c7e27398c` (2026-11-22).
+Read from commit `a908cc8b5` (2026-11-25).
 
-11 screen files, 34 API files, 67 pieces.
+11 screen files, 34 API files, 75 pieces.
 
 ## Screens
 
 | Address | File | Lines | Menu | Marks |
 |---|---|---|---|---|
-| `/admin/bulk-tag-sessions` | `pages/admin/bulk-tag-sessions.tsx` | 467 | Consultorías › Clasificar Sesiones |  |
-| `/admin/consultant-assignments` | `pages/admin/consultant-assignments.tsx` | 605 | Consultorías › Asignación de Consultores |  |
-| `/admin/sessions/[id]` | `pages/admin/sessions/[id].tsx` | 1224 | — |  |
-| `/admin/sessions/approvals` | `pages/admin/sessions/approvals.tsx` | 487 | Consultorías › Aprobaciones |  |
+| `/admin/bulk-tag-sessions` | `pages/admin/bulk-tag-sessions.tsx` | 513 | Consultorías › Clasificar Sesiones |  |
+| `/admin/consultant-assignments` | `pages/admin/consultant-assignments.tsx` | 637 | Consultorías › Asignación de Consultores |  |
+| `/admin/sessions/[id]` | `pages/admin/sessions/[id].tsx` | 1322 | — |  |
+| `/admin/sessions/approvals` | `pages/admin/sessions/approvals.tsx` | 518 | Consultorías › Aprobaciones |  |
 | `/admin/sessions/create` | `pages/admin/sessions/create.tsx` | 90 | — |  |
-| `/admin/sessions` | `pages/admin/sessions/index.tsx` | 1175 | Consultorías › Sesiones |  |
+| `/admin/sessions` | `pages/admin/sessions/index.tsx` | 1261 | Consultorías › Sesiones |  |
 | `/consultor/sessions/[id]` | `pages/consultor/sessions/[id].tsx` | 170 | — |  |
 | `/consultor/sessions` | `pages/consultor/sessions/index.tsx` | 45 | Mi Trabajo › Mis Sesiones |  |
-| `/consultor/sessions/reports` | `pages/consultor/sessions/reports.tsx` | 890 | Mi Trabajo › Mis Reportes; Consultorías › Reportes |  |
-| `/meet/diag` | `pages/meet/diag.tsx` | 1038 | — | Looks like a leftover but is in use |
-| `/meet/session/[id]` | `pages/meet/session/[id].tsx` | 193 | — |  |
+| `/consultor/sessions/reports` | `pages/consultor/sessions/reports.tsx` | 942 | Mi Trabajo › Mis Reportes; Consultorías › Reportes |  |
+| `/meet/diag` | `pages/meet/diag.tsx` | 1047 | — | Looks like a leftover but is in use |
+| `/meet/session/[id]` | `pages/meet/session/[id].tsx` | 198 | — |  |
 
 ## /admin/bulk-tag-sessions
 
-File `pages/admin/bulk-tag-sessions.tsx` · 467 lines · frame: MainLayout
+File `pages/admin/bulk-tag-sessions.tsx` · 513 lines · frame: MainLayout
 
 ### Who reaches it
 
 - Menu: Consultorías › «Clasificar Sesiones» → `/admin/bulk-tag-sessions` — admin only; the group: admin or consultor (`Sidebar.tsx` l.532)
 - Middleware: the /admin rule. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page:
-  - l.104 `router.push → /login  (when !session?.user)`
-  - l.109 `role = await getUserPrimaryRole(session.user.id)`
-  - l.111 `router.push → /dashboard  (when role !== 'admin')`
-  - l.116 `router.push → /login`
-  - l.157 `router.push → /login`
+  - l.111 `router.push → /login  (when !session?.user)`
+  - l.116 `role = await getUserPrimaryRole(session.user.id)`
+  - l.118 `router.push → /dashboard  (when role !== 'admin')`
+  - l.123 `router.push → /login`
+  - l.164 `router.push → /login`
 - Linked from: `components/layout/Sidebar.tsx:534`
-- Tests: no browser test that CI runs.
+- Tests: no browser test that CI runs; unit tests of the page: `__tests__/pages/admin/bulkTag.sameRequests.test.tsx`, `__tests__/pages/admin/bulkTag.views.test.tsx`.
 - QA scenarios that name this address: admin 2, consultor 1, equipo_directivo 2.
 
 | Role | Sees it in the menu | Middleware |
@@ -57,107 +57,117 @@ File `pages/admin/bulk-tag-sessions.tsx` · 467 lines · frame: MainLayout
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «Acceso Denegado» | h1 | `!isAdmin` | BulkTagSessionsPage · l.245 |
+| «Acceso Denegado» | h1 | `!isAdmin` | BulkTagSessionsPage · l.252 |
 
 **Buttons** (4)
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «[icon ChevronLeft]» · aria «Página anterior» | `{() => { setSelectedIds(new Set()); setPage((p) => Math.max(1, p - 1)); }}` | `totalPages > 1` | `{page === 1}` |  | BulkTagSessionsPage · l.403 |
-| «[icon ChevronRight]» · aria «Página siguiente» | `{() => { setSelectedIds(new Set()); setPage((p) => Math.min(totalPages, p + 1));…}` | `totalPages > 1` | `{page === totalPages}` |  | BulkTagSessionsPage · l.411 |
-| «Clasificando... / Clasificar Seleccionadas» | `{handleBulkTag}` | `selectedIds.size > 0` | `{saving \|\| !selectedHourTypeKey}` |  | BulkTagSessionsPage · l.444 |
-| «Deseleccionar» | `{() => setSelectedIds(new Set())}` | `selectedIds.size > 0` |  |  | BulkTagSessionsPage · l.453 |
+| «[icon ChevronLeft]» · aria «Página anterior» | `{() => { setSelectedIds(new Set()); setPage((p) => Math.max(1, p - 1)); }}` | `totalPages > 1` | `{page === 1}` |  | BulkTagSessionsPage · l.449 |
+| «[icon ChevronRight]» · aria «Página siguiente» | `{() => { setSelectedIds(new Set()); setPage((p) => Math.min(totalPages, p + 1));…}` | `totalPages > 1` | `{page === totalPages}` |  | BulkTagSessionsPage · l.457 |
+| «Clasificando... / Clasificar Seleccionadas» | `{handleBulkTag}` | `selectedIds.size > 0` | `{saving \|\| !selectedHourTypeKey}` |  | BulkTagSessionsPage · l.490 |
+| «Deseleccionar» | `{() => setSelectedIds(new Set())}` | `selectedIds.size > 0` |  |  | BulkTagSessionsPage · l.499 |
 
 **Fields** (6)
 
 | Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
 |---|---|---|---|---|---|---|
-| «Fecha desde» | date |  |  |  | `id=filter-date-from (id used by code)` | BulkTagSessionsPage · l.283 |
-| «Fecha hasta» | date |  |  |  | `id=filter-date-to (id used by code)` | BulkTagSessionsPage · l.293 |
-| «Colegio» | select |  | «Todos los colegios», «(lista) {s.name}» |  | `id=filter-school (id used by code)` | BulkTagSessionsPage · l.303 |
-| «Seleccionar todas las sesiones» | checkbox |  |  |  |  | BulkTagSessionsPage · l.330 |
-| «{`Seleccionar sesión ${session.title}`}» | checkbox |  |  | `!(sessions.length === 0) && each sessions` |  | BulkTagSessionsPage · l.359 |
-| «Tipo de hora para clasificación» | select |  | «Seleccione tipo de hora», «(lista) {ht.display_name}» | `selectedIds.size > 0` |  | BulkTagSessionsPage · l.431 |
+| «Fecha desde» | date |  |  |  | `id=filter-date-from (id used by code)` | BulkTagSessionsPage · l.329 |
+| «Fecha hasta» | date |  |  |  | `id=filter-date-to (id used by code)` | BulkTagSessionsPage · l.339 |
+| «Colegio» | select |  | «Todos los colegios», «(lista) {s.name}» |  | `id=filter-school (id used by code)` | BulkTagSessionsPage · l.349 |
+| «Seleccionar todas las sesiones» | checkbox |  |  |  |  | BulkTagSessionsPage · l.376 |
+| «{`Seleccionar sesión ${session.title}`}» | checkbox |  |  | `!(sessions.length === 0) && each sessions` |  | BulkTagSessionsPage · l.405 |
+| «Tipo de hora para clasificación» | select |  | «Seleccione tipo de hora», «(lista) {ht.display_name}» | `selectedIds.size > 0` |  | BulkTagSessionsPage · l.477 |
 
 **Table columns** (5)
 
 | Text | Shown when | Where |
 |---|---|---|
-| «Fecha» |  | BulkTagSessionsPage · l.338 |
-| «Título» |  | BulkTagSessionsPage · l.339 |
-| «Colegio» |  | BulkTagSessionsPage · l.340 |
-| «Consultor» |  | BulkTagSessionsPage · l.341 |
-| «Estado» |  | BulkTagSessionsPage · l.342 |
+| «Fecha» |  | BulkTagSessionsPage · l.384 |
+| «Título» |  | BulkTagSessionsPage · l.385 |
+| «Colegio» |  | BulkTagSessionsPage · l.386 |
+| «Consultor» |  | BulkTagSessionsPage · l.387 |
+| «Estado» |  | BulkTagSessionsPage · l.388 |
 
 **Toasts** (7)
 
 | Kind | Text | When | Where |
 |---|---|---|---|
-| error | «Error al cargar sesiones» | `!res.ok` | BulkTagSessionsPage · l.82 |
-| error | «Error de red al cargar sesiones» |  | BulkTagSessionsPage · l.88 |
-| error | «Debe seleccionar al menos una sesión» | `selectedIds.size === 0` | handleBulkTag · l.179 |
-| error | «Debe seleccionar un tipo de hora» | `!selectedHourTypeKey` | handleBulkTag · l.183 |
-| error | «Error al clasificar sesiones» | `!res.ok` | handleBulkTag · l.200 |
-| success | «Sesiones clasificadas correctamente» |  | handleBulkTag · l.204 |
-| error | «Error de red al clasificar sesiones» |  | handleBulkTag · l.208 |
+| error | «Error al cargar sesiones» | `!res.ok` | BulkTagSessionsPage · l.89 |
+| error | «Error de red al cargar sesiones» |  | BulkTagSessionsPage · l.95 |
+| error | «Debe seleccionar al menos una sesión» | `selectedIds.size === 0` | handleBulkTag · l.186 |
+| error | «Debe seleccionar un tipo de hora» | `!selectedHourTypeKey` | handleBulkTag · l.190 |
+| error | «Error al clasificar sesiones» | `!res.ok` | handleBulkTag · l.207 |
+| success | «Sesiones clasificadas correctamente» |  | handleBulkTag · l.211 |
+| error | «Error de red al clasificar sesiones» |  | handleBulkTag · l.215 |
 
 **Moves to another page from code** (4)
 
 | Goes to | How | When | Where |
 |---|---|---|---|
-| `/login` | `router.push` | `!session?.user` | initAuth · l.104 |
-| `/dashboard` | `router.push` | `role !== 'admin'` | initAuth · l.111 |
-| `/login` | `router.push` |  | initAuth · l.116 |
-| `/login` | `router.push` |  | handleLogout · l.157 |
+| `/login` | `router.push` | `!session?.user` | initAuth · l.111 |
+| `/dashboard` | `router.push` | `role !== 'admin'` | initAuth · l.118 |
+| `/login` | `router.push` |  | initAuth · l.123 |
+| `/login` | `router.push` |  | handleLogout · l.164 |
 
 **Access checks in the code** (1)
 
 | Line of code | Where |
 |---|---|
-| `role = await getUserPrimaryRole(session.user.id)` | initAuth · l.109 |
+| `role = await getUserPrimaryRole(session.user.id)` | initAuth · l.116 |
 
 **Draws nothing when** (1)
 
 | Condition | Where |
 |---|---|
-| `!res.ok` | BulkTagSessionsPage · l.125 |
+| `!res.ok` | BulkTagSessionsPage · l.132 |
 
-**Pieces placed here, with the texts and settings handed to them** (3)
+**Pieces placed here, with the texts and settings handed to them** (5)
 
 | Piece | Texts and settings | Shown when | Hook | Where |
 |---|---|---|---|---|
-| `MainLayout` |  |  |  | BulkTagSessionsPage · l.253 |
-| `ResponsiveFunctionalPageHeader` | title: Clasificar Sesiones · subtitle: Asignar tipo de hora a sesiones históricas sin clasificar |  |  | BulkTagSessionsPage · l.261 |
-| `Info` | aria-hidden: true |  |  | BulkTagSessionsPage · l.270 |
+| `MainLayout` |  | `isNuevo` |  | BulkTagSessionsPage · l.261 |
+| `BulkTagNuevo` |  | `isNuevo` |  | BulkTagSessionsPage · l.269 |
+| `MainLayout` |  |  |  | BulkTagSessionsPage · l.299 |
+| `ResponsiveFunctionalPageHeader` | title: Clasificar Sesiones · subtitle: Asignar tipo de hora a sesiones históricas sin clasificar |  |  | BulkTagSessionsPage · l.307 |
+| `Info` | aria-hidden: true |  |  | BulkTagSessionsPage · l.316 |
 
 **Values shown from data** (5)
 
-- `{formatDate(session.scheduled_date)}` — BulkTagSessionsPage · l.367, when `!(sessions.length === 0) && each sessions`
-- `{session.title}` — BulkTagSessionsPage · l.370, when `!(sessions.length === 0) && each sessions`
-- `{session.schools?.name} / —` — BulkTagSessionsPage · l.373, when `!(sessions.length === 0) && each sessions`
-- `{getFacilitatorName(session)}` — BulkTagSessionsPage · l.376, when `!(sessions.length === 0) && each sessions`
-- `{badge.label}` — BulkTagSessionsPage · l.383, when `!(sessions.length === 0) && each sessions`
+- `{formatDate(session.scheduled_date)}` — BulkTagSessionsPage · l.413, when `!(sessions.length === 0) && each sessions`
+- `{session.title}` — BulkTagSessionsPage · l.416, when `!(sessions.length === 0) && each sessions`
+- `{session.schools?.name} / —` — BulkTagSessionsPage · l.419, when `!(sessions.length === 0) && each sessions`
+- `{getFacilitatorName(session)}` — BulkTagSessionsPage · l.422, when `!(sessions.length === 0) && each sessions`
+- `{badge.label}` — BulkTagSessionsPage · l.429, when `!(sessions.length === 0) && each sessions`
 
 **Other texts on screen** (12)
 
-- «No tiene permisos para acceder a esta página.» — BulkTagSessionsPage · l.246, when `!isAdmin`
-- «Las sesiones clasificadas aquí aparecerán en reportes pero» — BulkTagSessionsPage · l.271
-- «NO» — BulkTagSessionsPage · l.271
-- «afectarán los saldos de horas del contrato.» — BulkTagSessionsPage · l.271
-- «Filtros» — BulkTagSessionsPage · l.278
-- «Fecha desde» (label) — BulkTagSessionsPage · l.282
-- «Fecha hasta» (label) — BulkTagSessionsPage · l.292
-- «Colegio» (label) — BulkTagSessionsPage · l.302
-- «{total} sesión(es) sin clasificar» — BulkTagSessionsPage · l.321
-- «No hay sesiones sin clasificar con los filtros actuales» — BulkTagSessionsPage · l.349, when `sessions.length === 0`
-- «Página {page} de {totalPages}» — BulkTagSessionsPage · l.399, when `totalPages > 1`
-- «{selectedIds.size} sesión(es) seleccionada(s)» — BulkTagSessionsPage · l.427, when `selectedIds.size > 0`
+- «No tiene permisos para acceder a esta página.» — BulkTagSessionsPage · l.253, when `!isAdmin`
+- «Las sesiones clasificadas aquí aparecerán en reportes pero» — BulkTagSessionsPage · l.317
+- «NO» — BulkTagSessionsPage · l.317
+- «afectarán los saldos de horas del contrato.» — BulkTagSessionsPage · l.317
+- «Filtros» — BulkTagSessionsPage · l.324
+- «Fecha desde» (label) — BulkTagSessionsPage · l.328
+- «Fecha hasta» (label) — BulkTagSessionsPage · l.338
+- «Colegio» (label) — BulkTagSessionsPage · l.348
+- «{total} sesión(es) sin clasificar» — BulkTagSessionsPage · l.367
+- «No hay sesiones sin clasificar con los filtros actuales» — BulkTagSessionsPage · l.395, when `sessions.length === 0`
+- «Página {page} de {totalPages}» — BulkTagSessionsPage · l.445, when `totalPages > 1`
+- «{selectedIds.size} sesión(es) seleccionada(s)» — BulkTagSessionsPage · l.473, when `selectedIds.size > 0`
 
 **Reads and writes the database directly:** `table:schools` (select)
 
 ### Pieces it uses (each is listed once, under "Pieces" below)
 
 - `components/layout/FunctionalPageHeader.tsx`
+- `components/sessions/admin-nuevo/BulkTagNuevo.tsx`
+- `components/sessions/admin-nuevo/adminNuevoStyles.ts`
+- `components/ui/kit/Button.tsx`
+- `components/ui/kit/Card.tsx`
+- `components/ui/kit/Field.tsx`
+- `components/ui/kit/Notice.tsx`
+- `components/ui/kit/PageHeader.tsx`
+- `components/ui/kit/Table.tsx`
 - `lib/utils/session-ui-helpers.tsx`
 - `types/roles.ts`
 - `utils/roleUtils.ts`
@@ -166,25 +176,25 @@ File `pages/admin/bulk-tag-sessions.tsx` · 467 lines · frame: MainLayout
 
 | Address | Method | Called from |
 |---|---|---|
-| `/api/admin/bulk-tag-sessions` | GET, PATCH | `pages/admin/bulk-tag-sessions.tsx:189`, `pages/admin/bulk-tag-sessions.tsx:79` |
-| `/api/hour-types` | GET | `pages/admin/bulk-tag-sessions.tsx:124` |
+| `/api/admin/bulk-tag-sessions` | GET, PATCH | `pages/admin/bulk-tag-sessions.tsx:196`, `pages/admin/bulk-tag-sessions.tsx:86` |
+| `/api/hour-types` | GET | `pages/admin/bulk-tag-sessions.tsx:131` |
 
 ## /admin/consultant-assignments
 
-File `pages/admin/consultant-assignments.tsx` · 605 lines · frame: MainLayout
+File `pages/admin/consultant-assignments.tsx` · 637 lines · frame: MainLayout
 
 ### Who reaches it
 
 - Menu: Consultorías › «Asignación de Consultores» → `/admin/consultant-assignments` — admin only; permission: assign_consultants_all; the group: admin or consultor (`Sidebar.tsx` l.477)
 - Middleware: the /admin rule. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page:
-  - l.110 `router.push → /login  (when !session?.user)`
-  - l.122 `userRole = await getUserPrimaryRole(session.user.id)`
-  - l.127 `router.push → /dashboard  (when profileData && !isAdminUser)`
-  - l.137 `router.push → /login`
-  - l.147 `router.push → /login`
+  - l.117 `router.push → /login  (when !session?.user)`
+  - l.129 `userRole = await getUserPrimaryRole(session.user.id)`
+  - l.134 `router.push → /dashboard  (when profileData && !isAdminUser)`
+  - l.144 `router.push → /login`
+  - l.154 `router.push → /login`
 - Linked from: `components/layout/Sidebar.tsx:479`, `middleware.ts:224`
-- Tests: no browser test that CI runs.
+- Tests: no browser test that CI runs; unit tests of the page: `__tests__/pages/admin/consultantAssignments.clasico.test.tsx`, `__tests__/pages/admin/consultantAssignments.nuevo.test.tsx`, `__tests__/pages/admin/consultantAssignments.sameRequests.test.tsx`.
 - QA scenarios that name this address: admin 3, community_manager 2, consultor 2, equipo_directivo 1, lider_generacion 1, supervisor_de_red 1.
 
 | Role | Sees it in the menu | Middleware |
@@ -205,135 +215,137 @@ File `pages/admin/consultant-assignments.tsx` · 605 lines · frame: MainLayout
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «Acceso Denegado» | h1 | `!isAdmin` | ConsultantAssignmentsPage · l.383 |
+| «Acceso Denegado» | h1 | `!isAdmin` | ConsultantAssignmentsPage · l.395 |
 
 **Buttons** (2)
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «Editar» | `{() => handleEditAssignment(assignment)}` | `!(filteredAssignments.length === 0) && each filteredAssignments` |  |  | ConsultantAssignmentsPage · l.571 |
-| «Eliminar» | `{() => handleDeleteAssignment(assignment.id)}` | `!(filteredAssignments.length === 0) && each filteredAssignments` |  |  | ConsultantAssignmentsPage · l.577 |
+| «Editar» | `{() => handleEditAssignment(assignment)}` | `!(isNuevo) && !(filteredAssignments.length === 0) && each filteredAssignments` |  |  | ConsultantAssignmentsPage · l.602 |
+| «Eliminar» | `{() => handleDeleteAssignment(assignment.id)}` | `!(isNuevo) && !(filteredAssignments.length === 0) && each filteredAssignments` |  |  | ConsultantAssignmentsPage · l.608 |
 
 **Fields** (2)
 
 | Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
 |---|---|---|---|---|---|---|
-|  | select |  | «Todos los tipos», «Completa», «Monitoreo», «Mentoría», «Evaluación», «Apoyo» |  |  | ConsultantAssignmentsPage · l.420 |
-|  | select |  | «Todas las asignaciones», «Solo activas», «Solo inactivas» |  |  | ConsultantAssignmentsPage · l.432 |
+|  | select |  | «Todos los tipos», «Completa», «Monitoreo», «Mentoría», «Evaluación», «Apoyo» | `!(isNuevo)` |  | ConsultantAssignmentsPage · l.451 |
+|  | select |  | «Todas las asignaciones», «Solo activas», «Solo inactivas» | `!(isNuevo)` |  | ConsultantAssignmentsPage · l.463 |
 
 **Table columns** (7)
 
 | Text | Shown when | Where |
 |---|---|---|
-| «Consultor» |  | ConsultantAssignmentsPage · l.476 |
-| «Estudiante» |  | ConsultantAssignmentsPage · l.477 |
-| «Tipo» |  | ConsultantAssignmentsPage · l.478 |
-| «Permisos» |  | ConsultantAssignmentsPage · l.479 |
-| «Duración» |  | ConsultantAssignmentsPage · l.480 |
-| «Estado» |  | ConsultantAssignmentsPage · l.481 |
-| «Acciones» |  | ConsultantAssignmentsPage · l.482 |
+| «Consultor» | `!(isNuevo)` | ConsultantAssignmentsPage · l.507 |
+| «Estudiante» | `!(isNuevo)` | ConsultantAssignmentsPage · l.508 |
+| «Tipo» | `!(isNuevo)` | ConsultantAssignmentsPage · l.509 |
+| «Permisos» | `!(isNuevo)` | ConsultantAssignmentsPage · l.510 |
+| «Duración» | `!(isNuevo)` | ConsultantAssignmentsPage · l.511 |
+| «Estado» | `!(isNuevo)` | ConsultantAssignmentsPage · l.512 |
+| «Acciones» | `!(isNuevo)` | ConsultantAssignmentsPage · l.513 |
 
 **Pop-ups** (1)
 
 | Name or title | How | Opens when | Texts passed to it | Where |
 |---|---|---|---|---|
-| `ConsultantAssignmentModal` | component | `{isModalOpen}` |  | ConsultantAssignmentsPage · l.595 |
+| `ConsultantAssignmentModal` | component | `{isModalOpen}` |  | ConsultantAssignmentsPage · l.627 |
 
 **Browser confirm()** (1)
 
 | Question | When | Where |
 |---|---|---|
-| «¿Está seguro de que desea eliminar esta asignación?» |  | handleDeleteAssignment · l.257 |
+| «¿Está seguro de que desea eliminar esta asignación?» |  | handleDeleteAssignment · l.264 |
 
 **Toasts** (5)
 
 | Kind | Text | When | Where |
 |---|---|---|---|
-| error | «Error de autenticación» | `sessionError \|\| !session?.access_token` | fetchAssignments · l.156 |
-| error | «Error al cargar asignaciones» |  | fetchAssignments · l.252 |
-| error | «Error de autenticación» | `sessionError \|\| !session?.access_token` | handleDeleteAssignment · l.265 |
-| success | «Asignación eliminada exitosamente» |  | handleDeleteAssignment · l.281 |
-| error | «Error al eliminar asignación» |  | handleDeleteAssignment · l.285 |
+| error | «Error de autenticación» | `sessionError \|\| !session?.access_token` | fetchAssignments · l.163 |
+| error | «Error al cargar asignaciones» |  | fetchAssignments · l.259 |
+| error | «Error de autenticación» | `sessionError \|\| !session?.access_token` | handleDeleteAssignmentConfirmed · l.277 |
+| success | «Asignación eliminada exitosamente» |  | handleDeleteAssignmentConfirmed · l.293 |
+| error | «Error al eliminar asignación» |  | handleDeleteAssignmentConfirmed · l.297 |
 
 **Messages set on the page** (2)
 
 | Text | Set by | When | Where |
 |---|---|---|---|
-| «Failed to fetch assignments» | `throw (shown by whoever catches it)` | `!response.ok` | fetchAssignments · l.168 |
-| «Failed to delete assignment» | `throw (shown by whoever catches it)` | `!response.ok` | handleDeleteAssignment · l.278 |
+| «Failed to fetch assignments» | `throw (shown by whoever catches it)` | `!response.ok` | fetchAssignments · l.175 |
+| «Failed to delete assignment» | `throw (shown by whoever catches it)` | `!response.ok` | handleDeleteAssignmentConfirmed · l.290 |
 
 **Moves to another page from code** (4)
 
 | Goes to | How | When | Where |
 |---|---|---|---|
-| `/login` | `router.push` | `!session?.user` | initializeAuth · l.110 |
-| `/dashboard` | `router.push` | `profileData && !isAdminUser` | initializeAuth · l.127 |
-| `/login` | `router.push` |  | initializeAuth · l.137 |
-| `/login` | `router.push` |  | handleLogout · l.147 |
+| `/login` | `router.push` | `!session?.user` | initializeAuth · l.117 |
+| `/dashboard` | `router.push` | `profileData && !isAdminUser` | initializeAuth · l.134 |
+| `/login` | `router.push` |  | initializeAuth · l.144 |
+| `/login` | `router.push` |  | handleLogout · l.154 |
 
 **Access checks in the code** (1)
 
 | Line of code | Where |
 |---|---|
-| `userRole = await getUserPrimaryRole(session.user.id)` | initializeAuth · l.122 |
+| `userRole = await getUserPrimaryRole(session.user.id)` | initializeAuth · l.129 |
 
-**Pieces placed here, with the texts and settings handed to them** (2)
+**Pieces placed here, with the texts and settings handed to them** (3)
 
 | Piece | Texts and settings | Shown when | Hook | Where |
 |---|---|---|---|---|
-| `MainLayout` |  |  |  | ConsultantAssignmentsPage · l.393 |
-| `ResponsiveFunctionalPageHeader` | title: Consultorías · subtitle: Gestión de asignaciones consultor-estudiante para seguimiento y mentorías · searchPlaceholder: Buscar por nombre o email... · primaryAction: Nueva Asignación |  |  | ConsultantAssignmentsPage · l.402 |
+| `MainLayout` |  |  |  | ConsultantAssignmentsPage · l.405 |
+| `AssignmentsNuevo` |  | `isNuevo` |  | ConsultantAssignmentsPage · l.415 |
+| `ResponsiveFunctionalPageHeader` | title: Consultorías · subtitle: Gestión de asignaciones consultor-estudiante para seguimiento y mentorías · searchPlaceholder: Buscar por nombre o email... · primaryAction: Nueva Asignación | `!(isNuevo)` |  | ConsultantAssignmentsPage · l.433 |
 
-**Texts kept in lists and helpers in the code (labels, options, status names)** (2)
+**Texts kept in lists and helpers in the code (labels, options, status names)** (3)
 
 | Name | Texts | Where |
 |---|---|---|
-| `assignmentTypeLabels` | «Monitoreo», «Mentoría», «Evaluación», «Apoyo», «Completa» | ConsultantAssignmentsPage · l.79 |
-| `formatDateTime()` | «Sin límite» | formatDateTime · l.348 |
+| `BREADCRUMBS_NUEVO` | «Consultorías», «Asignación de Consultores» | l.16 |
+| `assignmentTypeLabels` | «Monitoreo», «Mentoría», «Evaluación», «Apoyo», «Completa» | ConsultantAssignmentsPage · l.86 |
+| `formatDateTime()` | «Sin límite» | formatDateTime · l.360 |
 
 **Other texts written in the code (safety net: not tied to an element by the script)** (5)
 
 | Text | Where |
 |---|---|
-| «Bearer {session.access_token}» | ConsultantAssignmentsPage · l.162 |
-| «Progreso» | ConsultantAssignmentsPage · l.341 |
-| «Asignar» | ConsultantAssignmentsPage · l.342 |
-| «Mensajes» | ConsultantAssignmentsPage · l.343 |
-| «Sin límite» | ConsultantAssignmentsPage · l.348 |
+| «Bearer {session.access_token}» | ConsultantAssignmentsPage · l.169 |
+| «Progreso» | ConsultantAssignmentsPage · l.353 |
+| «Asignar» | ConsultantAssignmentsPage · l.354 |
+| «Mensajes» | ConsultantAssignmentsPage · l.355 |
+| «Sin límite» | ConsultantAssignmentsPage · l.360 |
 
 **Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (2)
 
 | Kind | What | Where |
 |---|---|---|
-| storage | `localStorage: rememberMe` | handleLogout · l.145 |
-| storage | `sessionStorage: sessionOnly` | handleLogout · l.146 |
+| storage | `localStorage: rememberMe` | handleLogout · l.152 |
+| storage | `sessionStorage: sessionOnly` | handleLogout · l.153 |
 
 **Values shown from data** (8)
 
-- `{assignments.filter(a => a.is_active…}` — ConsultantAssignmentsPage · l.446
-- `{assignments.filter(a => a.assignmen…}` — ConsultantAssignmentsPage · l.452
-- `{new Set(assignments.map(a => a.cons…}` — ConsultantAssignmentsPage · l.458
-- `{assignments.reduce((total, a) => to…}` — ConsultantAssignmentsPage · l.464
-- `{assignment.student.first_name} {assignment.student.last_name}` — ConsultantAssignmentsPage · l.512, when `!(filteredAssignments.length === 0) && each filteredAssignments && assignment.student`
-- `{assignment.student.email}` — ConsultantAssignmentsPage · l.515, when `!(filteredAssignments.length === 0) && each filteredAssignments && assignment.student`
-- `{assignmentTypeLabels[assignment.ass…} / {assignment.assignment_type}` — ConsultantAssignmentsPage · l.536, when `!(filteredAssignments.length === 0) && each filteredAssignments`
-- `{permission}` — ConsultantAssignmentsPage · l.545, when `!(filteredAssignments.length === 0) && each filteredAssignments && each getPermissionBadges(assignment)`
+- `{assignments.filter(a => a.is_active…}` — ConsultantAssignmentsPage · l.477, when `!(isNuevo)`
+- `{assignments.filter(a => a.assignmen…}` — ConsultantAssignmentsPage · l.483, when `!(isNuevo)`
+- `{new Set(assignments.map(a => a.cons…}` — ConsultantAssignmentsPage · l.489, when `!(isNuevo)`
+- `{assignments.reduce((total, a) => to…}` — ConsultantAssignmentsPage · l.495, when `!(isNuevo)`
+- `{assignment.student.first_name} {assignment.student.last_name}` — ConsultantAssignmentsPage · l.543, when `!(isNuevo) && !(filteredAssignments.length === 0) && each filteredAssignments && assignment.student`
+- `{assignment.student.email}` — ConsultantAssignmentsPage · l.546, when `!(isNuevo) && !(filteredAssignments.length === 0) && each filteredAssignments && assignment.student`
+- `{assignmentTypeLabels[assignment.ass…} / {assignment.assignment_type}` — ConsultantAssignmentsPage · l.567, when `!(isNuevo) && !(filteredAssignments.length === 0) && each filteredAssignments`
+- `{permission}` — ConsultantAssignmentsPage · l.576, when `!(isNuevo) && !(filteredAssignments.length === 0) && each filteredAssignments && each getPermissionBadges(assignment)`
 
 **Other texts on screen** (13)
 
-- «No tiene permisos para acceder a esta página.» — ConsultantAssignmentsPage · l.384, when `!isAdmin`
-- «Asignaciones Activas» — ConsultantAssignmentsPage · l.449
-- «Completas» — ConsultantAssignmentsPage · l.455
-- «Consultores Únicos» — ConsultantAssignmentsPage · l.461
-- «Estudiantes Afectados» — ConsultantAssignmentsPage · l.467
-- «No se encontraron asignaciones que coincidan con los filtros. / No hay asignaciones creadas aún.» — ConsultantAssignmentsPage · l.488, when `filteredAssignments.length === 0`
-- «{`${assignment.consultant?.first_nam…} / Sin nombre» — ConsultantAssignmentsPage · l.500, when `!(filteredAssignments.length === 0) && each filteredAssignments`
-- «{assignment.consultant?.email} / Sin email» — ConsultantAssignmentsPage · l.505, when `!(filteredAssignments.length === 0) && each filteredAssignments`
-- «Comunidad: {assignment.community.name} / Generación: {assignment.generation.name} / Escuela: {assignment.school.name} / Asignación Grupal» — ConsultantAssignmentsPage · l.523, when `!(filteredAssignments.length === 0) && each filteredAssignments && !(assignment.student)`
-- «{assignment.affected_students_count} estudiante s afectado s» — ConsultantAssignmentsPage · l.528, when `!(filteredAssignments.length === 0) && each filteredAssignments && !(assignment.student)`
-- «Inicio: {formatDateTime(assignment.starts_at)}» — ConsultantAssignmentsPage · l.556, when `!(filteredAssignments.length === 0) && each filteredAssignments`
-- «Fin: {formatDateTime(assignment.ends_at)}» — ConsultantAssignmentsPage · l.557, when `!(filteredAssignments.length === 0) && each filteredAssignments`
-- «Activa / Inactiva» — ConsultantAssignmentsPage · l.561, when `!(filteredAssignments.length === 0) && each filteredAssignments`
+- «No tiene permisos para acceder a esta página.» — ConsultantAssignmentsPage · l.396, when `!isAdmin`
+- «Asignaciones Activas» — ConsultantAssignmentsPage · l.480, when `!(isNuevo)`
+- «Completas» — ConsultantAssignmentsPage · l.486, when `!(isNuevo)`
+- «Consultores Únicos» — ConsultantAssignmentsPage · l.492, when `!(isNuevo)`
+- «Estudiantes Afectados» — ConsultantAssignmentsPage · l.498, when `!(isNuevo)`
+- «No se encontraron asignaciones que coincidan con los filtros. / No hay asignaciones creadas aún.» — ConsultantAssignmentsPage · l.519, when `!(isNuevo) && filteredAssignments.length === 0`
+- «{`${assignment.consultant?.first_nam…} / Sin nombre» — ConsultantAssignmentsPage · l.531, when `!(isNuevo) && !(filteredAssignments.length === 0) && each filteredAssignments`
+- «{assignment.consultant?.email} / Sin email» — ConsultantAssignmentsPage · l.536, when `!(isNuevo) && !(filteredAssignments.length === 0) && each filteredAssignments`
+- «Comunidad: {assignment.community.name} / Generación: {assignment.generation.name} / Escuela: {assignment.school.name} / Asignación Grupal» — ConsultantAssignmentsPage · l.554, when `!(isNuevo) && !(filteredAssignments.length === 0) && each filteredAssignments && !(assignment.student)`
+- «{assignment.affected_students_count} estudiante s afectado s» — ConsultantAssignmentsPage · l.559, when `!(isNuevo) && !(filteredAssignments.length === 0) && each filteredAssignments && !(assignment.student)`
+- «Inicio: {formatDateTime(assignment.starts_at)}» — ConsultantAssignmentsPage · l.587, when `!(isNuevo) && !(filteredAssignments.length === 0) && each filteredAssignments`
+- «Fin: {formatDateTime(assignment.ends_at)}» — ConsultantAssignmentsPage · l.588, when `!(isNuevo) && !(filteredAssignments.length === 0) && each filteredAssignments`
+- «Activa / Inactiva» — ConsultantAssignmentsPage · l.592, when `!(isNuevo) && !(filteredAssignments.length === 0) && each filteredAssignments`
 
 **Reads and writes the database directly:** `table:generations` (select), `table:growth_communities` (select), `table:profiles` (select), `table:schools` (select), `table:user_roles` (select)
 
@@ -341,6 +353,14 @@ File `pages/admin/consultant-assignments.tsx` · 605 lines · frame: MainLayout
 
 - `components/ConsultantAssignmentModal.tsx`
 - `components/layout/FunctionalPageHeader.tsx`
+- `components/sessions/assignments-nuevo/AssignmentsNuevo.tsx`
+- `components/ui/kit/Button.tsx`
+- `components/ui/kit/Card.tsx`
+- `components/ui/kit/ConfirmDialog.tsx`
+- `components/ui/kit/Dialog.tsx`
+- `components/ui/kit/Field.tsx`
+- `components/ui/kit/PageHeader.tsx`
+- `components/ui/kit/Table.tsx`
 - `types/roles.ts`
 - `utils/roleUtils.ts`
 
@@ -349,24 +369,24 @@ File `pages/admin/consultant-assignments.tsx` · 605 lines · frame: MainLayout
 | Address | Method | Called from |
 |---|---|---|
 | `/api/admin/consultant-assignment-users` | GET | `components/ConsultantAssignmentModal.tsx:100` |
-| `/api/admin/consultant-assignments` | DELETE, GET | `components/ConsultantAssignmentModal.tsx:586`, `pages/admin/consultant-assignments.tsx:160`, `pages/admin/consultant-assignments.tsx:269` |
+| `/api/admin/consultant-assignments` | DELETE, GET | `components/ConsultantAssignmentModal.tsx:586`, `pages/admin/consultant-assignments.tsx:167`, `pages/admin/consultant-assignments.tsx:281` |
 
 ## /admin/sessions/[id]
 
-File `pages/admin/sessions/[id].tsx` · 1224 lines · frame: MainLayout
+File `pages/admin/sessions/[id].tsx` · 1322 lines · frame: MainLayout
 
 ### Who reaches it
 
 - Menu: no entry.
 - Middleware: the /admin rule. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page:
-  - l.240 `router.push → /login  (when !session?.user)`
-  - l.245 `userRole = await getUserPrimaryRole(session.user.id)`
-  - l.250 `router.push → /dashboard  (when !isAdminUser)`
-  - l.255 `router.push → /login`
-  - l.413 `router.push → /login`
-- Linked from: `hooks/useSessionCreate.ts:585`, `hooks/useSessionCreate.ts:718`, `pages/admin/sessions/index.tsx:314`
-- Tests: browser tests that CI runs: `tests/e2e/look-sessions.spec.ts`.
+  - l.263 `router.push → /login  (when !session?.user)`
+  - l.268 `userRole = await getUserPrimaryRole(session.user.id)`
+  - l.273 `router.push → /dashboard  (when !isAdminUser)`
+  - l.278 `router.push → /login`
+  - l.450 `router.push → /login`
+- Linked from: `hooks/useSessionCreate.ts:585`, `hooks/useSessionCreate.ts:718`, `pages/admin/sessions/index.tsx:329`
+- Tests: browser tests that CI runs: `tests/e2e/look-sessions.spec.ts`; unit tests of the page: `__tests__/pages/admin/sessions/adminDetail.latch.test.tsx`, `__tests__/pages/admin/sessions/adminDetail.question.test.tsx`, `__tests__/pages/admin/sessions/adminDetail.sameRequests.test.tsx`, `__tests__/pages/admin/sessions/adminDetail.views.test.tsx`.
 
 | Role | Sees it in the menu | Middleware |
 |---|---|---|
@@ -386,238 +406,241 @@ File `pages/admin/sessions/[id].tsx` · 1224 lines · frame: MainLayout
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «Acceso Denegado» | h1 | `!isAdmin` | SessionDetailPage · l.666 |
-| «Título» | h3 |  | SessionDetailPage · l.904 |
-| «Modalidad» | h3 |  | SessionDetailPage · l.909 |
-| «Fecha» | h3 |  | SessionDetailPage · l.914 |
-| «Horario» | h3 |  | SessionDetailPage · l.919 |
-| «Ubicación» | h3 | `session.location` | SessionDetailPage · l.928 |
-| «Reunión Zoom» | h3 | `session.is_zoom_managed && managedMeetingIsUnavailable(managedMeetingStatus)` | SessionDetailPage · l.935 |
-| «Reunión Zoom» | h3 | `!(session.is_zoom_managed && managedMeetingIsUnavailable(managedMeetingStatus)) && session.is_zoom_managed && !managedMeetingIsReady(managedMeetingStatus)` | SessionDetailPage · l.942 |
-| «Enlace de reunión» | h3 | `!(session.is_zoom_managed && managedMeetingIsUnavailable(managedMeetingStatus)) && !(session.is_zoom_managed && !managedMeetingIsReady(managedMeetingStatus)) && session.has_meeting && session.join_path` | SessionDetailPage · l.951 |
-| «Descripción» | h3 | `session.description` | SessionDetailPage · l.966 |
-| «Objetivos» | h3 | `session.objectives` | SessionDetailPage · l.973 |
-| «Razón de cancelación» | h3 | `session.cancellation_reason` | SessionDetailPage · l.980 |
-| «Consultores» | h3 |  | SessionDetailPage · l.989 |
-| «Consultores actuales» | h4 | `!(!editingFacilitators)` | SessionDetailPage · l.1035 |
-| «Añadir consultor» | h4 | `!(!editingFacilitators)` | SessionDetailPage · l.1081 |
-| «Cancelar Sesión» | h2 | `showCancelModal` | SessionDetailPage · l.1144 |
-| «Cancelar Sesiones Futuras de la Serie» | h2 | `showSeriesCancelModal` | SessionDetailPage · l.1186 |
+| «Acceso Denegado» | h1 | `!isAdmin` | SessionDetailPage · l.703 |
+| «Título» | h3 |  | SessionDetailPage · l.1001 |
+| «Modalidad» | h3 |  | SessionDetailPage · l.1006 |
+| «Fecha» | h3 |  | SessionDetailPage · l.1011 |
+| «Horario» | h3 |  | SessionDetailPage · l.1016 |
+| «Ubicación» | h3 | `session.location` | SessionDetailPage · l.1025 |
+| «Reunión Zoom» | h3 | `session.is_zoom_managed && managedMeetingIsUnavailable(managedMeetingStatus)` | SessionDetailPage · l.1032 |
+| «Reunión Zoom» | h3 | `!(session.is_zoom_managed && managedMeetingIsUnavailable(managedMeetingStatus)) && session.is_zoom_managed && !managedMeetingIsReady(managedMeetingStatus)` | SessionDetailPage · l.1039 |
+| «Enlace de reunión» | h3 | `!(session.is_zoom_managed && managedMeetingIsUnavailable(managedMeetingStatus)) && !(session.is_zoom_managed && !managedMeetingIsReady(managedMeetingStatus)) && session.has_meeting && session.join_path` | SessionDetailPage · l.1048 |
+| «Descripción» | h3 | `session.description` | SessionDetailPage · l.1063 |
+| «Objetivos» | h3 | `session.objectives` | SessionDetailPage · l.1070 |
+| «Razón de cancelación» | h3 | `session.cancellation_reason` | SessionDetailPage · l.1077 |
+| «Consultores» | h3 |  | SessionDetailPage · l.1086 |
+| «Consultores actuales» | h4 | `!(!editingFacilitators)` | SessionDetailPage · l.1132 |
+| «Añadir consultor» | h4 | `!(!editingFacilitators)` | SessionDetailPage · l.1178 |
+| «Cancelar Sesión» | h2 | `showCancelModal` | SessionDetailPage · l.1242 |
+| «Cancelar Sesiones Futuras de la Serie» | h2 | `showSeriesCancelModal` | SessionDetailPage · l.1284 |
 
 **Buttons** (13)
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «Ver todas las sesiones de la serie» · aria «{showSeriesPanel ? "Ocultar sesiones de la serie" : "Ver todas las sesiones de l…}» | `{() => setShowSeriesPanel(!showSeriesPanel)}` | `session.recurrence_group_id && session.session_number` |  |  | SessionDetailPage · l.721 |
-| «Ver» | `{() => router.push('/admin/sessions/${s.id}')}` | `showSeriesPanel && !(seriesLoading) && !(seriesSessions.length === 0) && each seriesSessions` |  |  | SessionDetailPage · l.794 |
-| «Cancelar sesiones futuras» | `{() => setShowSeriesCancelModal(true)}` | `session.recurrence_group_id && session.session_number && showSeriesPanel && !(seriesLoading)` | `{actionInProgress}` |  | SessionDetailPage · l.809 |
-| «Aprobar» | `{handleApprove}` | `(session.status === 'borrador' \|\| session.status === 'pendiente_aprobacion')` | `{actionInProgress}` |  | SessionDetailPage · l.854 |
-| «Cancelar» | `{() => setShowCancelModal(true)}` | `session.status !== 'completada' && session.status !== 'cancelada'` | `{actionInProgress}` |  | SessionDetailPage · l.889 |
-| «Editar consultores» | `{() => handleStartEditFacilitators()}` | `session.status !== 'completada' && session.status !== 'cancelada' && !editingFacilitators` |  |  | SessionDetailPage · l.991 |
-| «Quitar» | `{() => handleRemoveEditFacilitator(facilitator.user_id)}` | `!(!editingFacilitators) && editFacilitators.length > 0 && each editFacilitators` |  |  | SessionDetailPage · l.1063 |
-| «Cancelar» | `{() => handleCancelEditFacilitators()}` | `!(!editingFacilitators)` | `{savingFacilitators}` |  | SessionDetailPage · l.1111 |
-| «Guardando... / Guardar» | `{() => handleSaveFacilitators()}` | `!(!editingFacilitators)` | `{savingFacilitators \|\| editFacilitators.length === 0}` |  | SessionDetailPage · l.1118 |
-| «Cerrar» | `{() => setShowCancelModal(false)}` | `showCancelModal` | `{actionInProgress}` |  | SessionDetailPage · l.1158 |
-| «Confirmar Cancelación» | `{handleCancelSubmit}` | `showCancelModal` | `{actionInProgress \|\| !cancellationReason.trim()}` |  | SessionDetailPage · l.1165 |
-| «Cerrar» | `{() => setShowSeriesCancelModal(false)}` | `showSeriesCancelModal` | `{actionInProgress}` |  | SessionDetailPage · l.1201 |
-| «Confirmar Cancelación de Serie» | `{handleSeriesCancelSubmit}` | `showSeriesCancelModal` | `{actionInProgress \|\| !seriesCancellationReason.trim()}` |  | SessionDetailPage · l.1208 |
+| «Ver todas las sesiones de la serie» · aria «{showSeriesPanel ? "Ocultar sesiones de la serie" : "Ver todas las sesiones de l…}» | `{() => setShowSeriesPanel(!showSeriesPanel)}` | `session.recurrence_group_id && session.session_number` |  |  | SessionDetailPage · l.818 |
+| «Ver» | `{() => router.push('/admin/sessions/${s.id}')}` | `showSeriesPanel && !(seriesLoading) && !(seriesSessions.length === 0) && each seriesSessions` |  |  | SessionDetailPage · l.891 |
+| «Cancelar sesiones futuras» | `{() => setShowSeriesCancelModal(true)}` | `session.recurrence_group_id && session.session_number && showSeriesPanel && !(seriesLoading)` | `{actionInProgress}` |  | SessionDetailPage · l.906 |
+| «Aprobar» | `{handleApprove}` | `(session.status === 'borrador' \|\| session.status === 'pendiente_aprobacion')` | `{actionInProgress}` |  | SessionDetailPage · l.951 |
+| «Cancelar» | `{() => setShowCancelModal(true)}` | `session.status !== 'completada' && session.status !== 'cancelada'` | `{actionInProgress}` |  | SessionDetailPage · l.986 |
+| «Editar consultores» | `{() => handleStartEditFacilitators()}` | `session.status !== 'completada' && session.status !== 'cancelada' && !editingFacilitators` |  |  | SessionDetailPage · l.1088 |
+| «Quitar» | `{() => handleRemoveEditFacilitator(facilitator.user_id)}` | `!(!editingFacilitators) && editFacilitators.length > 0 && each editFacilitators` |  |  | SessionDetailPage · l.1160 |
+| «Cancelar» | `{() => handleCancelEditFacilitators()}` | `!(!editingFacilitators)` | `{savingFacilitators}` |  | SessionDetailPage · l.1208 |
+| «Guardando... / Guardar» | `{() => handleSaveFacilitators()}` | `!(!editingFacilitators)` | `{savingFacilitators \|\| editFacilitators.length === 0}` |  | SessionDetailPage · l.1215 |
+| «Cerrar» | `{() => setShowCancelModal(false)}` | `showCancelModal` | `{actionInProgress}` |  | SessionDetailPage · l.1256 |
+| «Confirmar Cancelación» | `{handleCancelSubmit}` | `showCancelModal` | `{actionInProgress \|\| !cancellationReason.trim()}` |  | SessionDetailPage · l.1263 |
+| «Cerrar» | `{() => setShowSeriesCancelModal(false)}` | `showSeriesCancelModal` | `{actionInProgress}` |  | SessionDetailPage · l.1299 |
+| «Confirmar Cancelación de Serie» | `{handleSeriesCancelSubmit}` | `showSeriesCancelModal` | `{actionInProgress \|\| !seriesCancellationReason.trim()}` |  | SessionDetailPage · l.1306 |
 
 **Links** (4)
 
 | Text | Goes to | Shown when | Hook | Where |
 |---|---|---|---|---|
-| «Agregar al Calendario» | `/api/sessions/[*]/ical` | `(['programada', 'en_progreso', 'pendiente_informe'] as string[]).includes(session.status)` |  | SessionDetailPage · l.831 |
-| «Exportar Serie» | `/api/sessions/series/[*]/ical` | `session.recurrence_group_id` |  | SessionDetailPage · l.843 |
-| «Ir a Zoom» | `{buildSessionJoinPath(session.id)}` | `session.status === 'en_progreso' && session.is_zoom_managed === true && managedMeetingIsReady(managedMeetingStatus)` | `testid=session-zoom-entry-button` | SessionDetailPage · l.878 |
-| «Unirse a la reunión Zoom / Abrir reunión» | `{session.join_path}` | `!(session.is_zoom_managed && managedMeetingIsUnavailable(managedMeetingStatus)) && !(session.is_zoom_managed && !managedMeetingIsReady(managedMeetingStatus)) && session.has_meeting && session.join_path` | `testid=session-join-link` | SessionDetailPage · l.954 |
+| «Agregar al Calendario» | `/api/sessions/[*]/ical` | `(['programada', 'en_progreso', 'pendiente_informe'] as string[]).includes(session.status)` |  | SessionDetailPage · l.928 |
+| «Exportar Serie» | `/api/sessions/series/[*]/ical` | `session.recurrence_group_id` |  | SessionDetailPage · l.940 |
+| «Ir a Zoom» | `{buildSessionJoinPath(session.id)}` | `session.status === 'en_progreso' && session.is_zoom_managed === true && managedMeetingIsReady(managedMeetingStatus)` | `testid=session-zoom-entry-button` | SessionDetailPage · l.975 |
+| «Unirse a la reunión Zoom / Abrir reunión» | `{session.join_path}` | `!(session.is_zoom_managed && managedMeetingIsUnavailable(managedMeetingStatus)) && !(session.is_zoom_managed && !managedMeetingIsReady(managedMeetingStatus)) && session.has_meeting && session.join_path` | `testid=session-join-link` | SessionDetailPage · l.1051 |
 
 **Fields** (4)
 
 | Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
 |---|---|---|---|---|---|---|
-| «Consultor principal» | checkbox |  |  | `!(!editingFacilitators) && editFacilitators.length > 0 && each editFacilitators` |  | SessionDetailPage · l.1055 |
-|  | select | disabled: `{availableConsultants.length === 0}` | «Seleccionar consultor...», «(lista) {consultant.first_name} {consultant.last_name} ( {consultant.email} )» | `!(!editingFacilitators) && !(loadingConsultants)` |  | SessionDetailPage · l.1088 |
-| «Razón de cancelación...» | textarea | «Razón de cancelación...» |  | `showCancelModal` |  | SessionDetailPage · l.1150 |
-| «Razón de cancelación...» | textarea | «Razón de cancelación...» |  | `showSeriesCancelModal` |  | SessionDetailPage · l.1193 |
+| «Consultor principal» | checkbox |  |  | `!(!editingFacilitators) && editFacilitators.length > 0 && each editFacilitators` |  | SessionDetailPage · l.1152 |
+|  | select | disabled: `{availableConsultants.length === 0}` | «Seleccionar consultor...», «(lista) {consultant.first_name} {consultant.last_name} ( {consultant.email} )» | `!(!editingFacilitators) && !(loadingConsultants)` |  | SessionDetailPage · l.1185 |
+| «Razón de cancelación...» | textarea | «Razón de cancelación...» |  | `showCancelModal` |  | SessionDetailPage · l.1248 |
+| «Razón de cancelación...» | textarea | «Razón de cancelación...» |  | `showSeriesCancelModal` |  | SessionDetailPage · l.1291 |
 
 **Pop-ups** (4)
 
 | Name or title | How | Opens when | Texts passed to it | Where |
 |---|---|---|---|---|
-| «Cancelar Sesión» | written in this file | `showCancelModal` |  | SessionDetailPage · l.1137 |
-| «Cancelar Sesión» | written in this file | `showCancelModal` |  | SessionDetailPage · l.1138 |
-| «Cancelar Sesiones Futuras de la Serie» | written in this file | `showSeriesCancelModal` |  | SessionDetailPage · l.1179 |
-| «Cancelar Sesiones Futuras de la Serie» | written in this file | `showSeriesCancelModal` |  | SessionDetailPage · l.1180 |
+| «Cancelar Sesión» | written in this file | `showCancelModal` |  | SessionDetailPage · l.1235 |
+| «Cancelar Sesión» | written in this file | `showCancelModal` |  | SessionDetailPage · l.1236 |
+| «Cancelar Sesiones Futuras de la Serie» | written in this file | `showSeriesCancelModal` |  | SessionDetailPage · l.1277 |
+| «Cancelar Sesiones Futuras de la Serie» | written in this file | `showSeriesCancelModal` |  | SessionDetailPage · l.1278 |
 
 **Browser confirm()** (2)
 
 | Question | When | Where |
 |---|---|---|
-| «¿Está seguro que desea aprobar esta sesión?» |  | handleApprove · l.301 |
-| «¿Está seguro que desea iniciar esta sesión?» |  | handleStartSession · l.339 |
+| «¿Está seguro que desea aprobar esta sesión?» |  | handleApprove · l.324 |
+| «¿Está seguro que desea iniciar esta sesión?» |  | handleStartSession · l.369 |
 
 **Toasts** (24)
 
 | Kind | Text | When | Where |
 |---|---|---|---|
-| error | «Error de autenticación» | `!authSession?.access_token` | fetchSession · l.267 |
-| error | «Error al cargar sesión» |  | fetchSession · l.294 |
-| error | «Error de autenticación» | `!authSession?.access_token` | handleApprove · l.309 |
-| success | «Sesión aprobada exitosamente» |  | handleApprove · l.326 |
-| error | «Error al aprobar sesión» |  | handleApprove · l.330 |
-| error | «Error de autenticación» | `!authSession?.access_token` | handleStartSession · l.347 |
-| success | «{message}» |  | handleStartSession · l.358 |
-| error | «{message}» |  | handleStartSession · l.359 |
-| error | «Error al iniciar sesión» |  | handleStartSession · l.363 |
-| error | «Debe ingresar una razón de cancelación» | `!cancellationReason.trim()` | handleCancelSubmit · l.371 |
-| error | «Error de autenticación» | `!authSession?.access_token` | handleCancelSubmit · l.381 |
-| success | «Sesión cancelada exitosamente» |  | handleCancelSubmit · l.399 |
-| error | «Error al cancelar sesión» |  | handleCancelSubmit · l.405 |
-| error | «Error de autenticación» | `!authSession?.access_token` | fetchSeriesData · l.423 |
-| error | «Error al cargar serie» | `error instanceof Error` | fetchSeriesData · l.445 |
-| error | «Debe ingresar una razón de cancelación» | `!seriesCancellationReason.trim()` | handleSeriesCancelSubmit · l.454 |
-| error | «Error de autenticación» | `!authSession?.access_token` | handleSeriesCancelSubmit · l.466 |
-| success | «{message}» |  | handleSeriesCancelSubmit · l.492 |
-| error | «Error al cancelar serie» | `error instanceof Error` | handleSeriesCancelSubmit · l.504 |
-| error | «Error de autenticación» | `!authSession?.access_token` | handleStartEditFacilitators · l.550 |
-| error | «Error al cargar consultores» | `error instanceof Error` | handleStartEditFacilitators · l.572 |
-| error | «Error de autenticación» | `!authSession?.access_token` | handleSaveFacilitators · l.619 |
-| success | «Consultores actualizados exitosamente» |  | handleSaveFacilitators · l.639 |
-| error | «Error al guardar consultores» | `error instanceof Error` | handleSaveFacilitators · l.647 |
+| error | «Error de autenticación» | `!authSession?.access_token` | fetchSession · l.290 |
+| error | «Error al cargar sesión» |  | fetchSession · l.317 |
+| error | «Error de autenticación» | `!authSession?.access_token` | handleApproveConfirmed · l.339 |
+| success | «Sesión aprobada exitosamente» |  | handleApproveConfirmed · l.356 |
+| error | «Error al aprobar sesión» |  | handleApproveConfirmed · l.360 |
+| error | «Error de autenticación» | `!authSession?.access_token` | handleStartSessionConfirmed · l.384 |
+| success | «{message}» |  | handleStartSessionConfirmed · l.395 |
+| error | «{message}» |  | handleStartSessionConfirmed · l.396 |
+| error | «Error al iniciar sesión» |  | handleStartSessionConfirmed · l.400 |
+| error | «Debe ingresar una razón de cancelación» | `!cancellationReason.trim()` | handleCancelSubmit · l.408 |
+| error | «Error de autenticación» | `!authSession?.access_token` | handleCancelSubmit · l.418 |
+| success | «Sesión cancelada exitosamente» |  | handleCancelSubmit · l.436 |
+| error | «Error al cancelar sesión» |  | handleCancelSubmit · l.442 |
+| error | «Error de autenticación» | `!authSession?.access_token` | fetchSeriesData · l.460 |
+| error | «Error al cargar serie» | `error instanceof Error` | fetchSeriesData · l.482 |
+| error | «Debe ingresar una razón de cancelación» | `!seriesCancellationReason.trim()` | handleSeriesCancelSubmit · l.491 |
+| error | «Error de autenticación» | `!authSession?.access_token` | handleSeriesCancelSubmit · l.503 |
+| success | «{message}» |  | handleSeriesCancelSubmit · l.529 |
+| error | «Error al cancelar serie» | `error instanceof Error` | handleSeriesCancelSubmit · l.541 |
+| error | «Error de autenticación» | `!authSession?.access_token` | handleStartEditFacilitators · l.587 |
+| error | «Error al cargar consultores» | `error instanceof Error` | handleStartEditFacilitators · l.609 |
+| error | «Error de autenticación» | `!authSession?.access_token` | handleSaveFacilitators · l.656 |
+| success | «Consultores actualizados exitosamente» |  | handleSaveFacilitators · l.676 |
+| error | «Error al guardar consultores» | `error instanceof Error` | handleSaveFacilitators · l.684 |
 
 **Messages set on the page** (7)
 
 | Text | Set by | When | Where |
 |---|---|---|---|
-| «Error al cargar sesión» | `throw (shown by whoever catches it)` | `!response.ok` | fetchSession · l.279 |
-| «Error al aprobar sesión» | `throw (shown by whoever catches it)` | `!response.ok` | handleApprove · l.323 |
-| «Error al cancelar sesión» | `throw (shown by whoever catches it)` | `!response.ok` | handleCancelSubmit · l.396 |
-| «Error al cargar serie» | `throw (shown by whoever catches it)` | `!response.ok` | fetchSeriesData · l.435 |
-| «Error al cancelar serie» | `throw (shown by whoever catches it)` | `!response.ok` | handleSeriesCancelSubmit · l.484 |
-| «Error al cargar consultores» | `throw (shown by whoever catches it)` | `!response.ok` | handleStartEditFacilitators · l.563 |
-| «Error al guardar consultores» | `throw (shown by whoever catches it)` | `!response.ok` | handleSaveFacilitators · l.636 |
+| «Error al cargar sesión» | `throw (shown by whoever catches it)` | `!response.ok` | fetchSession · l.302 |
+| «Error al aprobar sesión» | `throw (shown by whoever catches it)` | `!response.ok` | handleApproveConfirmed · l.353 |
+| «Error al cancelar sesión» | `throw (shown by whoever catches it)` | `!response.ok` | handleCancelSubmit · l.433 |
+| «Error al cargar serie» | `throw (shown by whoever catches it)` | `!response.ok` | fetchSeriesData · l.472 |
+| «Error al cancelar serie» | `throw (shown by whoever catches it)` | `!response.ok` | handleSeriesCancelSubmit · l.521 |
+| «Error al cargar consultores» | `throw (shown by whoever catches it)` | `!response.ok` | handleStartEditFacilitators · l.600 |
+| «Error al guardar consultores» | `throw (shown by whoever catches it)` | `!response.ok` | handleSaveFacilitators · l.673 |
 
 **Downloads and printing** (2)
 
 | How | When | Where |
 |---|---|---|
-| `<a download> Agregar al Calendario` | `(['programada', 'en_progreso', 'pendiente_informe'] as string[]).includes(session.status)` | SessionDetailPage · l.831 |
-| `<a download> Exportar Serie` | `session.recurrence_group_id` | SessionDetailPage · l.843 |
+| `<a download> Agregar al Calendario` | `(['programada', 'en_progreso', 'pendiente_informe'] as string[]).includes(session.status)` | SessionDetailPage · l.928 |
+| `<a download> Exportar Serie` | `session.recurrence_group_id` | SessionDetailPage · l.940 |
 
-**Moves to another page from code** (6)
+**Moves to another page from code** (7)
 
 | Goes to | How | When | Where |
 |---|---|---|---|
-| `/login` | `router.push` | `!session?.user` | initializeAuth · l.240 |
-| `/dashboard` | `router.push` | `!isAdminUser` | initializeAuth · l.250 |
-| `/login` | `router.push` |  | initializeAuth · l.255 |
-| `{path}` | `router.push` |  | handleStartSession · l.356 |
-| `/login` | `router.push` |  | handleLogout · l.413 |
-| `/admin/sessions/[*]` | `router.push` | `showSeriesPanel && !(seriesLoading) && !(seriesSessions.length === 0) && each seriesSessions` | SessionDetailPage · l.795 |
+| `/login` | `router.push` | `!session?.user` | initializeAuth · l.263 |
+| `/dashboard` | `router.push` | `!isAdminUser` | initializeAuth · l.273 |
+| `/login` | `router.push` |  | initializeAuth · l.278 |
+| `{path}` | `router.push` |  | handleStartSessionConfirmed · l.393 |
+| `/login` | `router.push` |  | handleLogout · l.450 |
+| `/admin/sessions/[*]` | `router.push` | `isNuevo` | SessionDetailPage · l.780 |
+| `/admin/sessions/[*]` | `router.push` | `showSeriesPanel && !(seriesLoading) && !(seriesSessions.length === 0) && each seriesSessions` | SessionDetailPage · l.892 |
 
 **Access checks in the code** (1)
 
 | Line of code | Where |
 |---|---|
-| `userRole = await getUserPrimaryRole(session.user.id)` | initializeAuth · l.245 |
+| `userRole = await getUserPrimaryRole(session.user.id)` | initializeAuth · l.268 |
 
 **Draws nothing when** (5)
 
 | Condition | Where |
 |---|---|
-| `!session \|\| !managedMeetingNeedsPolling( session.status, session.is_zoom_managed === true, managedMeetingStatus )` | SessionDetailPage · l.127 |
-| `!showCancelModal` | SessionDetailPage · l.144 |
-| `!modal` | SessionDetailPage · l.153 |
-| `!showSeriesCancelModal` | SessionDetailPage · l.190 |
-| `!modal` | SessionDetailPage · l.199 |
+| `!session \|\| !managedMeetingNeedsPolling( session.status, session.is_zoom_managed === true, managedMeetingStatus )` | SessionDetailPage · l.149 |
+| `!showCancelModal \|\| isNuevo` | SessionDetailPage · l.167 |
+| `!modal` | SessionDetailPage · l.176 |
+| `!showSeriesCancelModal \|\| isNuevo` | SessionDetailPage · l.213 |
+| `!modal` | SessionDetailPage · l.222 |
 
-**Pieces placed here, with the texts and settings handed to them** (6)
+**Pieces placed here, with the texts and settings handed to them** (8)
 
 | Piece | Texts and settings | Shown when | Hook | Where |
 |---|---|---|---|---|
-| `MainLayout` |  | `!session` |  | SessionDetailPage · l.675 |
-| `MainLayout` |  |  |  | SessionDetailPage · l.693 |
-| `ResponsiveFunctionalPageHeader` | title: Detalle de Sesión |  |  | SessionDetailPage · l.701 |
-| `SessionStartControl` |  | `session.status === 'programada'` |  | SessionDetailPage · l.865 |
-| `Link2` | aria-hidden: true | `session.status === 'en_progreso' && session.is_zoom_managed === true && managedMeetingIsReady(managedMeetingStatus)` |  | SessionDetailPage · l.883 |
-| `HoursComparisonPanel` |  |  |  | SessionDetailPage · l.1132 |
+| `MainLayout` |  | `!session` |  | SessionDetailPage · l.712 |
+| `HoursComparisonPanel` |  | `hoursHost` |  | SessionDetailPage · l.730 |
+| `MainLayout` |  | `isNuevo` |  | SessionDetailPage · l.734 |
+| `AdminSessionDetailNuevo` |  | `isNuevo` |  | SessionDetailPage · l.743 |
+| `MainLayout` |  |  |  | SessionDetailPage · l.789 |
+| `ResponsiveFunctionalPageHeader` | title: Detalle de Sesión |  |  | SessionDetailPage · l.798 |
+| `SessionStartControl` |  | `session.status === 'programada'` |  | SessionDetailPage · l.962 |
+| `Link2` | aria-hidden: true | `session.status === 'en_progreso' && session.is_zoom_managed === true && managedMeetingIsReady(managedMeetingStatus)` |  | SessionDetailPage · l.980 |
 
 **Texts kept in lists and helpers in the code (labels, options, status names)** (2)
 
 | Name | Texts | Where |
 |---|---|---|
-| `message` | «1 sesión cancelada exitosamente / {count} sesiones canceladas exitosamente» | handleSeriesCancelSubmit · l.489 |
-| `label` | «Borradores / s» | SessionDetailPage · l.750 |
+| `message` | «1 sesión cancelada exitosamente / {count} sesiones canceladas exitosamente» | handleSeriesCancelSubmit · l.526 |
+| `label` | «Borradores / s» | SessionDetailPage · l.847 |
 
 **Other texts written in the code (safety net: not tied to an element by the script)** (1)
 
 | Text | Where |
 |---|---|
-| «Bearer {authSession.access_token}» | SessionDetailPage · l.273 |
+| «Bearer {authSession.access_token}» | SessionDetailPage · l.296 |
 
 **Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (19)
 
 | Kind | What | Where |
 |---|---|---|
-| timer | `setInterval(…, 3000)` | SessionDetailPage · l.135 |
-| lookup | `querySelector([role="dialog"])` | SessionDetailPage · l.152 |
-| lookup | `querySelectorAll(button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"]))` | SessionDetailPage · l.155 |
-| focus | `lastElement.focus()` | handleTab · l.166 |
-| focus | `firstElement.focus()` | handleTab · l.171 |
-| focus | `firstElement.focus()` | SessionDetailPage · l.177 |
-| listener | `document.addEventListener('keydown')` | SessionDetailPage · l.179 |
-| listener | `document.addEventListener('keydown')` | SessionDetailPage · l.180 |
-| lookup | `querySelector([role="dialog"][aria-labelledby="series-cancel-modal-title"])` | SessionDetailPage · l.198 |
-| lookup | `querySelectorAll(button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"]))` | SessionDetailPage · l.201 |
-| focus | `lastElement.focus()` | handleTab · l.212 |
-| focus | `firstElement.focus()` | handleTab · l.217 |
-| focus | `firstElement.focus()` | SessionDetailPage · l.223 |
-| listener | `document.addEventListener('keydown')` | SessionDetailPage · l.225 |
-| listener | `document.addEventListener('keydown')` | SessionDetailPage · l.226 |
-| role | `role=region` | SessionDetailPage · l.735 |
-| role | `role=alert` | SessionDetailPage · l.936 |
-| role | `role=status` | SessionDetailPage · l.943 |
+| timer | `setInterval(…, 3000)` | SessionDetailPage · l.157 |
+| lookup | `querySelector([role="dialog"])` | SessionDetailPage · l.175 |
+| lookup | `querySelectorAll(button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"]))` | SessionDetailPage · l.178 |
+| focus | `lastElement.focus()` | handleTab · l.189 |
+| focus | `firstElement.focus()` | handleTab · l.194 |
+| focus | `firstElement.focus()` | SessionDetailPage · l.200 |
+| listener | `document.addEventListener('keydown')` | SessionDetailPage · l.202 |
+| listener | `document.addEventListener('keydown')` | SessionDetailPage · l.203 |
+| lookup | `querySelector([role="dialog"][aria-labelledby="series-cancel-modal-title"])` | SessionDetailPage · l.221 |
+| lookup | `querySelectorAll(button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"]))` | SessionDetailPage · l.224 |
+| focus | `lastElement.focus()` | handleTab · l.235 |
+| focus | `firstElement.focus()` | handleTab · l.240 |
+| focus | `firstElement.focus()` | SessionDetailPage · l.246 |
+| listener | `document.addEventListener('keydown')` | SessionDetailPage · l.248 |
+| listener | `document.addEventListener('keydown')` | SessionDetailPage · l.249 |
+| role | `role=region` | SessionDetailPage · l.832 |
+| role | `role=alert` | SessionDetailPage · l.1033 |
+| role | `role=status` | SessionDetailPage · l.1040 |
 | address value | `[id] (part of the address)` | l.1 |
 
 **Values shown from data** (16)
 
-- `{badge.label}` — getStatusBadge · l.514
-- `{count} {label}` — SessionDetailPage · l.754, when `showSeriesPanel && !(seriesLoading) && seriesStats && each (Object.entries(seriesStats) as [SessionStatus, n…`
-- `{format(new Date(s.session_date + 'T…}` — SessionDetailPage · l.785, when `showSeriesPanel && !(seriesLoading) && !(seriesSessions.length === 0) && each seriesSessions`
-- `{s.start_time.substring(0, 5)} - {s.end_time.substring(0, 5)}` — SessionDetailPage · l.788, when `showSeriesPanel && !(seriesLoading) && !(seriesSessions.length === 0) && each seriesSessions`
-- `{getStatusBadge(session.status)}` — SessionDetailPage · l.827
-- `{session.title}` — SessionDetailPage · l.905
-- `{session.modality}` — SessionDetailPage · l.910
-- `{formatDate(session.session_date)}` — SessionDetailPage · l.915
-- `{session.location}` — SessionDetailPage · l.929, when `session.location`
-- `{session.description}` — SessionDetailPage · l.967, when `session.description`
-- `{session.objectives}` — SessionDetailPage · l.974, when `session.objectives`
-- `{session.cancellation_reason}` — SessionDetailPage · l.981, when `session.cancellation_reason`
-- `{displayName}` — SessionDetailPage · l.1015, when `!editingFacilitators && session.facilitators.length > 0 && each session.facilitators`
-- `{facilitator.facilitator_role.replac…}` — SessionDetailPage · l.1022, when `!editingFacilitators && session.facilitators.length > 0 && each session.facilitators`
-- `{displayName}` — SessionDetailPage · l.1050, when `!(!editingFacilitators) && editFacilitators.length > 0 && each editFacilitators`
-- `{consultant.email}` — SessionDetailPage · l.1051, when `!(!editingFacilitators) && editFacilitators.length > 0 && each editFacilitators && consultant`
+- `{badge.label}` — getStatusBadge · l.551
+- `{count} {label}` — SessionDetailPage · l.851, when `showSeriesPanel && !(seriesLoading) && seriesStats && each (Object.entries(seriesStats) as [SessionStatus, n…`
+- `{format(new Date(s.session_date + 'T…}` — SessionDetailPage · l.882, when `showSeriesPanel && !(seriesLoading) && !(seriesSessions.length === 0) && each seriesSessions`
+- `{s.start_time.substring(0, 5)} - {s.end_time.substring(0, 5)}` — SessionDetailPage · l.885, when `showSeriesPanel && !(seriesLoading) && !(seriesSessions.length === 0) && each seriesSessions`
+- `{getStatusBadge(session.status)}` — SessionDetailPage · l.924
+- `{session.title}` — SessionDetailPage · l.1002
+- `{session.modality}` — SessionDetailPage · l.1007
+- `{formatDate(session.session_date)}` — SessionDetailPage · l.1012
+- `{session.location}` — SessionDetailPage · l.1026, when `session.location`
+- `{session.description}` — SessionDetailPage · l.1064, when `session.description`
+- `{session.objectives}` — SessionDetailPage · l.1071, when `session.objectives`
+- `{session.cancellation_reason}` — SessionDetailPage · l.1078, when `session.cancellation_reason`
+- `{displayName}` — SessionDetailPage · l.1112, when `!editingFacilitators && session.facilitators.length > 0 && each session.facilitators`
+- `{facilitator.facilitator_role.replac…}` — SessionDetailPage · l.1119, when `!editingFacilitators && session.facilitators.length > 0 && each session.facilitators`
+- `{displayName}` — SessionDetailPage · l.1147, when `!(!editingFacilitators) && editFacilitators.length > 0 && each editFacilitators`
+- `{consultant.email}` — SessionDetailPage · l.1148, when `!(!editingFacilitators) && editFacilitators.length > 0 && each editFacilitators && consultant`
 
 **Other texts on screen** (18)
 
-- «No tiene permisos para acceder a esta página.» — SessionDetailPage · l.667, when `!isAdmin`
-- «Cargando sesión...» — SessionDetailPage · l.685, when `!session`
-- «Serie de sesiones — Sesión {session.session_number} [de {seriesTotalSessions}]» — SessionDetailPage · l.716, when `session.recurrence_group_id && session.session_number`
-- «Sesiones de la serie» (aria-label) — SessionDetailPage · l.735, when `session.recurrence_group_id && session.session_number && showSeriesPanel`
-- «No se encontraron sesiones en esta serie.» — SessionDetailPage · l.765, when `session.recurrence_group_id && session.session_number && showSeriesPanel && !(seriesLoading) && seriesSessions.length === 0`
-- «Sesión {s.session_number}» — SessionDetailPage · l.777, when `showSeriesPanel && !(seriesLoading) && !(seriesSessions.length === 0) && each seriesSessions`
-- «Actual» — SessionDetailPage · l.782, when `!(seriesLoading) && !(seriesSessions.length === 0) && each seriesSessions && s.id === session.id`
-- «(hora Chile)» — SessionDetailPage · l.922
-- «min)» — SessionDetailPage · l.922
-- «La reunión terminó o fue cancelada. Cancela o reprograma la sesión.» — SessionDetailPage · l.937, when `session.is_zoom_managed && managedMeetingIsUnavailable(managedMeetingStatus)`
-- «No se pudo verificar el estado de Zoom. Reintentando… / Preparando la reunión Zoom…» — SessionDetailPage · l.943, when `!(session.is_zoom_managed && managedMeetingIsUnavailable(managedMeetingStatus)) && session.is_zoom_managed && !managedMeetingIsReady(managedMeetingStatus)`
-- «Consultor principal» — SessionDetailPage · l.1018, when `!editingFacilitators && session.facilitators.length > 0 && each session.facilitators && facilitator.is_lead`
-- «Sin consultores asignados» — SessionDetailPage · l.1030, when `!editingFacilitators && !(session.facilitators.length > 0)`
-- «Consultor principal» (label) — SessionDetailPage · l.1054, when `!(!editingFacilitators) && editFacilitators.length > 0 && each editFacilitators`
-- «No hay consultores añadidos» — SessionDetailPage · l.1075, when `!(!editingFacilitators) && !(editFacilitators.length > 0)`
-- «Cargando consultores...» — SessionDetailPage · l.1085, when `!(!editingFacilitators) && loadingConsultants`
-- «Por favor, ingrese la razón de la cancelación:» — SessionDetailPage · l.1148, when `showCancelModal`
-- «Esto cancelará todas las sesiones futuras de esta serie que aún no estén completadas o canceladas. Por favor, ingrese la razón de la cancelación:» — SessionDetailPage · l.1190, when `showSeriesCancelModal`
+- «No tiene permisos para acceder a esta página.» — SessionDetailPage · l.704, when `!isAdmin`
+- «Cargando sesión...» — SessionDetailPage · l.722, when `!session`
+- «Serie de sesiones — Sesión {session.session_number} [de {seriesTotalSessions}]» — SessionDetailPage · l.813, when `session.recurrence_group_id && session.session_number`
+- «Sesiones de la serie» (aria-label) — SessionDetailPage · l.832, when `session.recurrence_group_id && session.session_number && showSeriesPanel`
+- «No se encontraron sesiones en esta serie.» — SessionDetailPage · l.862, when `session.recurrence_group_id && session.session_number && showSeriesPanel && !(seriesLoading) && seriesSessions.length === 0`
+- «Sesión {s.session_number}» — SessionDetailPage · l.874, when `showSeriesPanel && !(seriesLoading) && !(seriesSessions.length === 0) && each seriesSessions`
+- «Actual» — SessionDetailPage · l.879, when `!(seriesLoading) && !(seriesSessions.length === 0) && each seriesSessions && s.id === session.id`
+- «(hora Chile)» — SessionDetailPage · l.1019
+- «min)» — SessionDetailPage · l.1019
+- «La reunión terminó o fue cancelada. Cancela o reprograma la sesión.» — SessionDetailPage · l.1034, when `session.is_zoom_managed && managedMeetingIsUnavailable(managedMeetingStatus)`
+- «No se pudo verificar el estado de Zoom. Reintentando… / Preparando la reunión Zoom…» — SessionDetailPage · l.1040, when `!(session.is_zoom_managed && managedMeetingIsUnavailable(managedMeetingStatus)) && session.is_zoom_managed && !managedMeetingIsReady(managedMeetingStatus)`
+- «Consultor principal» — SessionDetailPage · l.1115, when `!editingFacilitators && session.facilitators.length > 0 && each session.facilitators && facilitator.is_lead`
+- «Sin consultores asignados» — SessionDetailPage · l.1127, when `!editingFacilitators && !(session.facilitators.length > 0)`
+- «Consultor principal» (label) — SessionDetailPage · l.1151, when `!(!editingFacilitators) && editFacilitators.length > 0 && each editFacilitators`
+- «No hay consultores añadidos» — SessionDetailPage · l.1172, when `!(!editingFacilitators) && !(editFacilitators.length > 0)`
+- «Cargando consultores...» — SessionDetailPage · l.1182, when `!(!editingFacilitators) && loadingConsultants`
+- «Por favor, ingrese la razón de la cancelación:» — SessionDetailPage · l.1246, when `showCancelModal`
+- «Esto cancelará todas las sesiones futuras de esta serie que aún no estén completadas o canceladas. Por favor, ingrese la razón de la cancelación:» — SessionDetailPage · l.1288, when `showSeriesCancelModal`
 
 **Reads and writes the database directly:** `table:session_meetings_public` (select)
 
@@ -626,6 +649,15 @@ File `pages/admin/sessions/[id].tsx` · 1224 lines · frame: MainLayout
 - `components/layout/FunctionalPageHeader.tsx`
 - `components/sessions/HoursComparisonPanel.tsx`
 - `components/sessions/SessionStartControl.tsx`
+- `components/sessions/admin-nuevo/AdminSessionDetailNuevo.tsx`
+- `components/sessions/admin-nuevo/adminNuevoStyles.ts`
+- `components/ui/kit/Button.tsx`
+- `components/ui/kit/Card.tsx`
+- `components/ui/kit/ConfirmDialog.tsx`
+- `components/ui/kit/Dialog.tsx`
+- `components/ui/kit/Field.tsx`
+- `components/ui/kit/Loading.tsx`
+- `components/ui/kit/PageHeader.tsx`
 - `lib/utils/session-start-workflow.ts`
 - `lib/utils/session-ui-helpers.tsx`
 - `types/roles.ts`
@@ -635,34 +667,34 @@ File `pages/admin/sessions/[id].tsx` · 1224 lines · frame: MainLayout
 
 | Address | Method | Called from |
 |---|---|---|
-| `/api/admin/consultants` | GET | `pages/admin/sessions/[id].tsx:555` |
+| `/api/admin/consultants` | GET | `pages/admin/sessions/[id].tsx:592` |
 | `/api/admin/sessions/[id]/hour-override` | POST | `components/sessions/HoursComparisonPanel.tsx:93` |
 | `/api/admin/sessions/[id]/hours-comparison` | GET | `components/sessions/HoursComparisonPanel.tsx:58` |
-| `/api/sessions/[id]` | GET, PUT | `lib/utils/session-start-workflow.ts:38`, `pages/admin/sessions/[id].tsx:271` |
-| `/api/sessions/[id]/approve` | POST | `pages/admin/sessions/[id].tsx:313` |
-| `/api/sessions/[id]/cancel` | POST | `pages/admin/sessions/[id].tsx:385` |
-| `/api/sessions/[id]/facilitators` | PUT | `pages/admin/sessions/[id].tsx:623` |
-| `/api/sessions/[id]/ical` | ? | `pages/admin/sessions/[id].tsx:832` |
-| `/api/sessions/series/[groupId]` | GET | `pages/admin/sessions/[id].tsx:427` |
-| `/api/sessions/series/[groupId]/cancel` | POST | `pages/admin/sessions/[id].tsx:470` |
-| `/api/sessions/series/[groupId]/ical` | ? | `pages/admin/sessions/[id].tsx:844` |
+| `/api/sessions/[id]` | GET, PUT | `lib/utils/session-start-workflow.ts:38`, `pages/admin/sessions/[id].tsx:294` |
+| `/api/sessions/[id]/approve` | POST | `pages/admin/sessions/[id].tsx:343` |
+| `/api/sessions/[id]/cancel` | POST | `pages/admin/sessions/[id].tsx:422` |
+| `/api/sessions/[id]/facilitators` | PUT | `pages/admin/sessions/[id].tsx:660` |
+| `/api/sessions/[id]/ical` | ? | `components/sessions/admin-nuevo/AdminSessionDetailNuevo.tsx:490`, `pages/admin/sessions/[id].tsx:929` |
+| `/api/sessions/series/[groupId]` | GET | `pages/admin/sessions/[id].tsx:464` |
+| `/api/sessions/series/[groupId]/cancel` | POST | `pages/admin/sessions/[id].tsx:507` |
+| `/api/sessions/series/[groupId]/ical` | ? | `components/sessions/admin-nuevo/AdminSessionDetailNuevo.tsx:498`, `pages/admin/sessions/[id].tsx:941` |
 
 ## /admin/sessions/approvals
 
-File `pages/admin/sessions/approvals.tsx` · 487 lines · frame: MainLayout
+File `pages/admin/sessions/approvals.tsx` · 518 lines · frame: MainLayout
 
 ### Who reaches it
 
 - Menu: Consultorías › «Aprobaciones» → `/admin/sessions/approvals` — admin only; the group: admin or consultor (`Sidebar.tsx` l.500)
 - Middleware: the /admin rule. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page:
-  - l.64 `router.push → /login  (when !session?.user)`
-  - l.69 `userRole = await getUserPrimaryRole(session.user.id)`
-  - l.74 `router.push → /dashboard  (when !isAdminUser)`
-  - l.79 `router.push → /login`
-  - l.117 `router.push → /login`
-- Linked from: `components/layout/Sidebar.tsx:502`, `lib/notificationEvents.ts:552`, `lib/notifications/catalog.ts:354`
-- Tests: no browser test that CI runs.
+  - l.73 `router.push → /login  (when !session?.user)`
+  - l.78 `userRole = await getUserPrimaryRole(session.user.id)`
+  - l.83 `router.push → /dashboard  (when !isAdminUser)`
+  - l.88 `router.push → /login`
+  - l.126 `router.push → /login`
+- Linked from: `components/layout/Sidebar.tsx:502`, `lib/notificationEvents.ts:560`, `lib/notifications/catalog.ts:356`
+- Tests: no browser test that CI runs; unit tests of the page: `__tests__/pages/admin/sessions/approvals.adminOnly.test.tsx`, `__tests__/pages/admin/sessions/approvals.sameRequests.test.tsx`, `__tests__/pages/admin/sessions/approvals.views.test.tsx`.
 - QA scenarios that name this address: admin 6, consultor 2, lider_comunidad 1, director 1, supervisor 1, docente 1.
 
 | Role | Sees it in the menu | Middleware |
@@ -683,111 +715,121 @@ File `pages/admin/sessions/approvals.tsx` · 487 lines · frame: MainLayout
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «Aprobaciones de Sesiones» | h1 |  | SessionApprovalsPage · l.308 |
-| «{request.consultor_sessions?.title} / Sesión sin título» | h3 | `!(editRequests.length === 0) && each editRequests` | SessionApprovalsPage · l.362 |
-| «Cambios propuestos:» | h4 | `!(editRequests.length === 0) && each editRequests` | SessionApprovalsPage · l.404 |
-| «Razón:» | h4 | `!(editRequests.length === 0) && each editRequests && request.reason` | SessionApprovalsPage · l.433 |
+| «Aprobaciones de Sesiones» | h1 |  | SessionApprovalsPage · l.339 |
+| «{request.consultor_sessions?.title} / Sesión sin título» | h3 | `!(editRequests.length === 0) && each editRequests` | SessionApprovalsPage · l.393 |
+| «Cambios propuestos:» | h4 | `!(editRequests.length === 0) && each editRequests` | SessionApprovalsPage · l.435 |
+| «Razón:» | h4 | `!(editRequests.length === 0) && each editRequests && request.reason` | SessionApprovalsPage · l.464 |
 
 **Buttons** (3)
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «{tab.label}» | `{() => setStatusFilter(tab.id as StatusFilter)}` | `each [ { id: 'pending', label: 'Pendientes', icon: Clo…` |  |  | SessionApprovalsPage · l.325 |
-| «Rechazar» | `{() => handleReject(request.id)}` | `!(editRequests.length === 0) && each editRequests && request.status === 'pending'` | `{actionInProgress}` |  | SessionApprovalsPage · l.459 |
-| «Aprobar» | `{() => handleApprove(request.id)}` | `!(editRequests.length === 0) && each editRequests && request.status === 'pending'` | `{actionInProgress}` |  | SessionApprovalsPage · l.467 |
+| «{tab.label}» | `{() => setStatusFilter(tab.id as StatusFilter)}` | `each [ { id: 'pending', label: 'Pendientes', icon: Clo…` |  |  | SessionApprovalsPage · l.356 |
+| «Rechazar» | `{() => handleReject(request.id)}` | `!(editRequests.length === 0) && each editRequests && request.status === 'pending'` | `{actionInProgress}` |  | SessionApprovalsPage · l.490 |
+| «Aprobar» | `{() => handleApprove(request.id)}` | `!(editRequests.length === 0) && each editRequests && request.status === 'pending'` | `{actionInProgress}` |  | SessionApprovalsPage · l.498 |
 
 **Fields** (1)
 
 | Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
 |---|---|---|---|---|---|---|
-| «Notas (opcional para aprobar, requerido para rechazar)» | textarea | «Ingrese notas para el consultor...» |  | `!(editRequests.length === 0) && each editRequests && request.status === 'pending'` |  | SessionApprovalsPage · l.444 |
+| «Notas (opcional para aprobar, requerido para rechazar)» | textarea | «Ingrese notas para el consultor...» |  | `!(editRequests.length === 0) && each editRequests && request.status === 'pending'` |  | SessionApprovalsPage · l.475 |
 
 **Toasts** (9)
 
 | Kind | Text | When | Where |
 |---|---|---|---|
-| error | «Error de autenticación» | `!authSession?.access_token` | fetchEditRequests · l.91 |
-| error | «{errorMessage}» |  | fetchEditRequests · l.111 |
-| error | «Error de autenticación» | `!authSession?.access_token` | handleApprove · l.129 |
-| success | «Solicitud aprobada correctamente» |  | handleApprove · l.150 |
-| error | «{errorMessage}» |  | handleApprove · l.160 |
-| error | «Por favor ingrese una razón para el rechazo» | `!notes \|\| !notes.trim()` | handleReject · l.171 |
-| error | «Error de autenticación» | `!authSession?.access_token` | handleReject · l.181 |
-| success | «Solicitud rechazada correctamente» |  | handleReject · l.202 |
-| error | «{errorMessage}» |  | handleReject · l.212 |
+| error | «Error de autenticación» | `!authSession?.access_token` | fetchEditRequests · l.100 |
+| error | «{errorMessage}» |  | fetchEditRequests · l.120 |
+| error | «Error de autenticación» | `!authSession?.access_token` | handleApprove · l.138 |
+| success | «Solicitud aprobada correctamente» |  | handleApprove · l.159 |
+| error | «{errorMessage}» |  | handleApprove · l.169 |
+| error | «Por favor ingrese una razón para el rechazo» | `!notes \|\| !notes.trim()` | handleReject · l.180 |
+| error | «Error de autenticación» | `!authSession?.access_token` | handleReject · l.190 |
+| success | «Solicitud rechazada correctamente» |  | handleReject · l.211 |
+| error | «{errorMessage}» |  | handleReject · l.221 |
 
 **Messages set on the page** (3)
 
 | Text | Set by | When | Where |
 |---|---|---|---|
-| «Error al cargar solicitudes de cambio» | `throw (shown by whoever catches it)` | `!response.ok` | fetchEditRequests · l.103 |
-| «Error al aprobar solicitud» | `throw (shown by whoever catches it)` | `!response.ok` | handleApprove · l.147 |
-| «Error al rechazar solicitud» | `throw (shown by whoever catches it)` | `!response.ok` | handleReject · l.199 |
+| «Error al cargar solicitudes de cambio» | `throw (shown by whoever catches it)` | `!response.ok` | fetchEditRequests · l.112 |
+| «Error al aprobar solicitud» | `throw (shown by whoever catches it)` | `!response.ok` | handleApprove · l.156 |
+| «Error al rechazar solicitud» | `throw (shown by whoever catches it)` | `!response.ok` | handleReject · l.208 |
 
 **Moves to another page from code** (4)
 
 | Goes to | How | When | Where |
 |---|---|---|---|
-| `/login` | `router.push` | `!session?.user` | initializeAuth · l.64 |
-| `/dashboard` | `router.push` | `!isAdminUser` | initializeAuth · l.74 |
-| `/login` | `router.push` |  | initializeAuth · l.79 |
-| `/login` | `router.push` |  | handleLogout · l.117 |
+| `/login` | `router.push` | `!session?.user` | initializeAuth · l.73 |
+| `/dashboard` | `router.push` | `!isAdminUser` | initializeAuth · l.83 |
+| `/login` | `router.push` |  | initializeAuth · l.88 |
+| `/login` | `router.push` |  | handleLogout · l.126 |
 
 **Access checks in the code** (1)
 
 | Line of code | Where |
 |---|---|
-| `userRole = await getUserPrimaryRole(session.user.id)` | initializeAuth · l.69 |
+| `userRole = await getUserPrimaryRole(session.user.id)` | initializeAuth · l.78 |
 
-**Pieces placed here, with the texts and settings handed to them** (2)
+**Pieces placed here, with the texts and settings handed to them** (4)
 
 | Piece | Texts and settings | Shown when | Hook | Where |
 |---|---|---|---|---|
-| `MainLayout` |  | `loading` |  | SessionApprovalsPage · l.295 |
-| `MainLayout` |  |  |  | SessionApprovalsPage · l.304 |
+| `MainLayout` |  | `loading` |  | SessionApprovalsPage · l.304 |
+| `MainLayout` |  | `isNuevo && user && isAdmin` |  | SessionApprovalsPage · l.316 |
+| `ApprovalsNuevo` |  | `isNuevo && user && isAdmin` |  | SessionApprovalsPage · l.317 |
+| `MainLayout` |  |  |  | SessionApprovalsPage · l.335 |
 
 **Texts kept in lists and helpers in the code (labels, options, status names)** (6)
 
 | Name | Texts | Where |
 |---|---|---|
-| `errorMessage` | «Error al cargar solicitudes de cambio» | fetchEditRequests · l.110 |
-| `errorMessage` | «Error al aprobar solicitud» | handleApprove · l.159 |
-| `errorMessage` | «Error al rechazar solicitud» | handleReject · l.211 |
-| `labels` | «Fecha», «Hora de inicio», «Hora de término», «Modalidad», «Comunidad de crecimiento», «Escuela» | formatFieldLabel · l.219 |
-| `modalityLabels` | «Presencial», «En línea», «Híbrida» | formatValue · l.282 |
-| `formatValue()` | «No definido» | formatValue · l.271 |
+| `errorMessage` | «Error al cargar solicitudes de cambio» | fetchEditRequests · l.119 |
+| `errorMessage` | «Error al aprobar solicitud» | handleApprove · l.168 |
+| `errorMessage` | «Error al rechazar solicitud» | handleReject · l.220 |
+| `labels` | «Fecha», «Hora de inicio», «Hora de término», «Modalidad», «Comunidad de crecimiento», «Escuela» | formatFieldLabel · l.228 |
+| `modalityLabels` | «Presencial», «En línea», «Híbrida» | formatValue · l.291 |
+| `formatValue()` | «No definido» | formatValue · l.280 |
 
 **Other texts written in the code (safety net: not tied to an element by the script)** (5)
 
 | Text | Where |
 |---|---|
-| «Bearer {authSession.access_token}» | SessionApprovalsPage · l.97 |
-| «Pendientes» | SessionApprovalsPage · l.318 |
-| «Aprobadas» | SessionApprovalsPage · l.319 |
-| «Rechazadas» | SessionApprovalsPage · l.320 |
-| «Todas» | SessionApprovalsPage · l.321 |
+| «Bearer {authSession.access_token}» | SessionApprovalsPage · l.106 |
+| «Pendientes» | SessionApprovalsPage · l.349 |
+| «Aprobadas» | SessionApprovalsPage · l.350 |
+| «Rechazadas» | SessionApprovalsPage · l.351 |
+| «Todas» | SessionApprovalsPage · l.352 |
 
 **Values shown from data** (5)
 
-- `{format(parseISO(request.created_at)…}` — SessionApprovalsPage · l.382, when `!(editRequests.length === 0) && each editRequests`
-- `{formatFieldLabel(field)} :` — SessionApprovalsPage · l.417, when `!(editRequests.length === 0) && each editRequests && each Object.keys(parsedChanges)`
-- `{formatValue(field, change.old)}` — SessionApprovalsPage · l.419, when `!(editRequests.length === 0) && each editRequests && each Object.keys(parsedChanges)`
-- `{formatValue(field, change.new)}` — SessionApprovalsPage · l.421, when `!(editRequests.length === 0) && each editRequests && each Object.keys(parsedChanges)`
-- `{request.reason}` — SessionApprovalsPage · l.434, when `!(editRequests.length === 0) && each editRequests && request.reason`
+- `{format(parseISO(request.created_at)…}` — SessionApprovalsPage · l.413, when `!(editRequests.length === 0) && each editRequests`
+- `{formatFieldLabel(field)} :` — SessionApprovalsPage · l.448, when `!(editRequests.length === 0) && each editRequests && each Object.keys(parsedChanges)`
+- `{formatValue(field, change.old)}` — SessionApprovalsPage · l.450, when `!(editRequests.length === 0) && each editRequests && each Object.keys(parsedChanges)`
+- `{formatValue(field, change.new)}` — SessionApprovalsPage · l.452, when `!(editRequests.length === 0) && each editRequests && each Object.keys(parsedChanges)`
+- `{request.reason}` — SessionApprovalsPage · l.465, when `!(editRequests.length === 0) && each editRequests && request.reason`
 
 **Other texts on screen** (8)
 
-- «Cargando...» — SessionApprovalsPage · l.297, when `loading`
-- «Revise y apruebe o rechace solicitudes de cambio de sesiones de consultores» — SessionApprovalsPage · l.310
-- «No hay solicitudes pendientes / No hay solicitudes aprobadas / No hay solicitudes rechazadas / No hay solicitudes de cambio» — SessionApprovalsPage · l.346, when `editRequests.length === 0`
-- «Fecha de sesión: {format(parseISO(request.consultor_s…} / N/A» — SessionApprovalsPage · l.366, when `!(editRequests.length === 0) && each editRequests`
-- «Solicitado por: {request.profiles.first_name} {request.profiles.last_name} / Usuario desconocido» — SessionApprovalsPage · l.375, when `!(editRequests.length === 0) && each editRequests`
-- «Pendiente / Aprobada / Rechazada» — SessionApprovalsPage · l.385, when `!(editRequests.length === 0) && each editRequests`
-- «Formato de cambios inválido» — SessionApprovalsPage · l.410, when `!(editRequests.length === 0) && each editRequests && Object.keys(parsedChanges).length === 0`
-- «Notas (opcional para aprobar, requerido para rechazar)» (label) — SessionApprovalsPage · l.441, when `!(editRequests.length === 0) && each editRequests && request.status === 'pending'`
+- «Cargando...» — SessionApprovalsPage · l.306, when `loading`
+- «Revise y apruebe o rechace solicitudes de cambio de sesiones de consultores» — SessionApprovalsPage · l.341
+- «No hay solicitudes pendientes / No hay solicitudes aprobadas / No hay solicitudes rechazadas / No hay solicitudes de cambio» — SessionApprovalsPage · l.377, when `editRequests.length === 0`
+- «Fecha de sesión: {format(parseISO(request.consultor_s…} / N/A» — SessionApprovalsPage · l.397, when `!(editRequests.length === 0) && each editRequests`
+- «Solicitado por: {request.profiles.first_name} {request.profiles.last_name} / Usuario desconocido» — SessionApprovalsPage · l.406, when `!(editRequests.length === 0) && each editRequests`
+- «Pendiente / Aprobada / Rechazada» — SessionApprovalsPage · l.416, when `!(editRequests.length === 0) && each editRequests`
+- «Formato de cambios inválido» — SessionApprovalsPage · l.441, when `!(editRequests.length === 0) && each editRequests && Object.keys(parsedChanges).length === 0`
+- «Notas (opcional para aprobar, requerido para rechazar)» (label) — SessionApprovalsPage · l.472, when `!(editRequests.length === 0) && each editRequests && request.status === 'pending'`
 
 ### Pieces it uses (each is listed once, under "Pieces" below)
 
+- `components/sessions/admin-nuevo/ApprovalsNuevo.tsx`
+- `components/sessions/admin-nuevo/adminNuevoStyles.ts`
+- `components/ui/kit/Button.tsx`
+- `components/ui/kit/Card.tsx`
+- `components/ui/kit/EmptyState.tsx`
+- `components/ui/kit/Field.tsx`
+- `components/ui/kit/PageHeader.tsx`
+- `components/ui/kit/Tabs.tsx`
 - `types/roles.ts`
 - `utils/roleUtils.ts`
 
@@ -795,8 +837,8 @@ File `pages/admin/sessions/approvals.tsx` · 487 lines · frame: MainLayout
 
 | Address | Method | Called from |
 |---|---|---|
-| `/api/sessions/edit-requests` | GET | `pages/admin/sessions/approvals.tsx:95` |
-| `/api/sessions/edit-requests/[eid]` | PUT | `pages/admin/sessions/approvals.tsx:133`, `pages/admin/sessions/approvals.tsx:185` |
+| `/api/sessions/edit-requests` | GET | `pages/admin/sessions/approvals.tsx:104` |
+| `/api/sessions/edit-requests/[eid]` | PUT | `pages/admin/sessions/approvals.tsx:142`, `pages/admin/sessions/approvals.tsx:194` |
 
 ## /admin/sessions/create
 
@@ -807,7 +849,7 @@ File `pages/admin/sessions/create.tsx` · 90 lines · frame: MainLayout
 - Menu: no entry.
 - Middleware: the /admin rule. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page: no access check found by the script.
-- Linked from: `pages/admin/sessions/index.tsx:564`
+- Linked from: `pages/admin/sessions/index.tsx:522`, `pages/admin/sessions/index.tsx:643`
 - Tests: browser tests that CI runs: `tests/e2e/look-sessions.spec.ts`; browser tests CI skips: `tests/e2e/reservation.spec.ts`; unit tests of the page: `__tests__/pages/admin/sessions/create-earliest-date.test.tsx`, `__tests__/pages/admin/sessions/create-timezone.test.tsx`, `__tests__/pages/admin/sessions/create-zoom-managed.test.tsx`, `__tests__/pages/admin/sessions/create.clasico.test.tsx`, `__tests__/pages/admin/sessions/create.nuevo.test.tsx`, `__tests__/pages/admin/sessions/create.sameForm.test.tsx`.
 - QA scenarios that name this address: consultor 1, lider_comunidad 1, director 1, supervisor 1, docente 1.
 
@@ -920,20 +962,20 @@ File `pages/admin/sessions/create.tsx` · 90 lines · frame: MainLayout
 
 ## /admin/sessions
 
-File `pages/admin/sessions/index.tsx` · 1175 lines · frame: MainLayout
+File `pages/admin/sessions/index.tsx` · 1261 lines · frame: MainLayout
 
 ### Who reaches it
 
 - Menu: Consultorías › «Sesiones» → `/admin/sessions` — admin only; the group: admin or consultor (`Sidebar.tsx` l.492)
 - Middleware: the /admin rule. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page:
-  - l.162 `router.push → /login  (when !session?.user)`
-  - l.167 `userRole = await getUserPrimaryRole(session.user.id)`
-  - l.172 `router.push → /dashboard  (when !isAdminUser)`
-  - l.177 `router.push → /login`
-  - l.403 `router.push → /login`
-- Linked from: `components/layout/Sidebar.tsx:494`, `components/sessions/SessionCreateNuevo.tsx:534`, `hooks/useSessionCreate.ts:582`, `hooks/useSessionCreate.ts:696`, `pages/admin/sessions/create.tsx:10`
-- Tests: no browser test that CI runs.
+  - l.177 `router.push → /login  (when !session?.user)`
+  - l.182 `userRole = await getUserPrimaryRole(session.user.id)`
+  - l.187 `router.push → /dashboard  (when !isAdminUser)`
+  - l.192 `router.push → /login`
+  - l.418 `router.push → /login`
+- Linked from: `components/layout/Sidebar.tsx:494`, `components/sessions/SessionCreateNuevo.tsx:534`, `components/sessions/admin-nuevo/adminNuevoStyles.ts:10`, `hooks/useSessionCreate.ts:582`, `hooks/useSessionCreate.ts:696`, `pages/admin/sessions/create.tsx:10`
+- Tests: no browser test that CI runs; unit tests of the page: `__tests__/pages/admin/sessions/adminList.ledgerRead.test.tsx`, `__tests__/pages/admin/sessions/adminList.sameRequests.test.tsx`, `__tests__/pages/admin/sessions/adminList.views.test.tsx`.
 - QA scenarios that name this address: admin 5, consultor 4, lider_comunidad 6, director 1, supervisor 1, docente 1.
 
 | Role | Sees it in the menu | Middleware |
@@ -954,160 +996,165 @@ File `pages/admin/sessions/index.tsx` · 1175 lines · frame: MainLayout
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «Acceso Denegado» | h1 | `!isAdmin` | SessionsPage · l.483 |
-| «Cancelar Sesión» | h2 | `showCancelModal` | SessionsPage · l.686 |
-| «{format(currentDate, 'MMMM yyyy', { …}» | h3 |  | MonthView · l.942 |
-| «{format(weekStart, 'dd MMM', { local…} - {format(weekEnd, 'dd MMM yyyy', { lo…}» | h3 |  | WeekView · l.1063 |
-| «{format(day, 'EEEE, dd MMMM', { loca…}» | h4 | `each weekDays` · screen size: `md:hidden` | WeekView · l.1082 |
-| «{format(day, 'EEEE, dd MMMM', { loca…}» | h4 | `each weekDays` · screen size: `hidden md:block` | WeekView · l.1130 |
+| «Acceso Denegado» | h1 | `!isAdmin` | SessionsPage · l.498 |
+| «Cancelar Sesión» | h2 | `showCancelModal` | clasicoView · l.766 |
+| «{format(currentDate, 'MMMM yyyy', { …}» | h3 |  | MonthView · l.1028 |
+| «{format(weekStart, 'dd MMM', { local…} - {format(weekEnd, 'dd MMM yyyy', { lo…}» | h3 |  | WeekView · l.1149 |
+| «{format(day, 'EEEE, dd MMMM', { loca…}» | h4 | `each weekDays` · screen size: `md:hidden` | WeekView · l.1168 |
+| «{format(day, 'EEEE, dd MMMM', { loca…}» | h4 | `each weekDays` · screen size: `hidden md:block` | WeekView · l.1216 |
 
 **Buttons** (16)
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «Lista» | `{() => setViewMode('list')}` |  |  |  | SessionsPage · l.527 |
-| «Mes» | `{() => setViewMode('month')}` |  |  |  | SessionsPage · l.538 |
-| «Semana» | `{() => setViewMode('week')}` |  |  |  | SessionsPage · l.549 |
-| «Nueva Sesión» | `{() => router.push('/admin/sessions/create')}` |  |  |  | SessionsPage · l.563 |
-| «Cerrar» | `{() => { setShowCancelModal(false); setCancellationReason(''); setSelectedSessio…}` | `showCancelModal` | `{actionInProgress}` |  | SessionsPage · l.700 |
-| «Confirmar Cancelación» | `{handleCancelSubmit}` | `showCancelModal` | `{actionInProgress \|\| !cancellationReason.trim()}` |  | SessionsPage · l.711 |
-| «[icon MoreVertical]» | `{(e) => { e.stopPropagation(); setDropdownOpen(dropdownOpen === session.id ? nul…}` | `!(sessions.length === 0) && each sessions` |  |  | ListView · l.858 |
-| «Ver detalle» | `{(e) => { e.stopPropagation(); handleViewSession(session.id); setDropdownOpen(nu…}` | `!(sessions.length === 0) && each sessions && dropdownOpen === session.id` |  |  | ListView · l.869 |
-| «Aprobar» | `{(e) => { e.stopPropagation(); handleApprove(session.id); setDropdownOpen(null);…}` | `!(sessions.length === 0) && each sessions && dropdownOpen === session.id && ((session.status === 'borrador' \|\| session.status === 'pendiente_aprobacion'))` |  |  | ListView · l.881 |
-| «Cancelar» | `{(e) => { e.stopPropagation(); handleCancelClick(session.id); setDropdownOpen(nu…}` | `!(sessions.length === 0) && each sessions && dropdownOpen === session.id && session.status !== 'completada' && session.status !== 'cancelada'` |  |  | ListView · l.894 |
-| «[icon ChevronLeft]» | `{() => setCurrentDate(addMonths(currentDate, -1))}` |  |  |  | MonthView · l.936 |
-| «[icon ChevronRight]» | `{() => setCurrentDate(addMonths(currentDate, 1))}` |  |  |  | MonthView · l.945 |
-| «{formatTime(session.start_time)} {session.title}» · tooltip «{session.title}» | `{() => handleViewSession(session.id)}` | `each days && each daySessions.slice(0, 2)` · screen size: `hidden md:grid` |  |  | MonthView · l.1004 |
-| «+ {daySessions.length - 2} más» | `{() => { // Set filter to show only this day's sessions handleFilterChange('date…}` | `each days && daySessions.length > 2` · screen size: `hidden md:grid` |  |  | MonthView · l.1020 |
-| «[icon ChevronLeft]» | `{() => setCurrentDate(addWeeks(currentDate, -1))}` |  |  |  | WeekView · l.1057 |
-| «[icon ChevronRight]» | `{() => setCurrentDate(addWeeks(currentDate, 1))}` |  |  |  | WeekView · l.1066 |
+| «Lista» | `{() => setViewMode('list')}` |  |  |  | clasicoView · l.606 |
+| «Mes» | `{() => setViewMode('month')}` |  |  |  | clasicoView · l.617 |
+| «Semana» | `{() => setViewMode('week')}` |  |  |  | clasicoView · l.628 |
+| «Nueva Sesión» | `{() => router.push('/admin/sessions/create')}` |  |  |  | clasicoView · l.642 |
+| «Cerrar» | `{() => { setShowCancelModal(false); setCancellationReason(''); setSelectedSessio…}` | `showCancelModal` | `{actionInProgress}` |  | clasicoView · l.780 |
+| «Confirmar Cancelación» | `{handleCancelSubmit}` | `showCancelModal` | `{actionInProgress \|\| !cancellationReason.trim()}` |  | clasicoView · l.791 |
+| «[icon MoreVertical]» | `{(e) => { e.stopPropagation(); setDropdownOpen(dropdownOpen === session.id ? nul…}` | `!(sessions.length === 0) && each sessions` |  |  | ListView · l.944 |
+| «Ver detalle» | `{(e) => { e.stopPropagation(); handleViewSession(session.id); setDropdownOpen(nu…}` | `!(sessions.length === 0) && each sessions && dropdownOpen === session.id` |  |  | ListView · l.955 |
+| «Aprobar» | `{(e) => { e.stopPropagation(); handleApprove(session.id); setDropdownOpen(null);…}` | `!(sessions.length === 0) && each sessions && dropdownOpen === session.id && ((session.status === 'borrador' \|\| session.status === 'pendiente_aprobacion'))` |  |  | ListView · l.967 |
+| «Cancelar» | `{(e) => { e.stopPropagation(); handleCancelClick(session.id); setDropdownOpen(nu…}` | `!(sessions.length === 0) && each sessions && dropdownOpen === session.id && session.status !== 'completada' && session.status !== 'cancelada'` |  |  | ListView · l.980 |
+| «[icon ChevronLeft]» | `{() => setCurrentDate(addMonths(currentDate, -1))}` |  |  |  | MonthView · l.1022 |
+| «[icon ChevronRight]» | `{() => setCurrentDate(addMonths(currentDate, 1))}` |  |  |  | MonthView · l.1031 |
+| «{formatTime(session.start_time)} {session.title}» · tooltip «{session.title}» | `{() => handleViewSession(session.id)}` | `each days && each daySessions.slice(0, 2)` · screen size: `hidden md:grid` |  |  | MonthView · l.1090 |
+| «+ {daySessions.length - 2} más» | `{() => { // Set filter to show only this day's sessions handleFilterChange('date…}` | `each days && daySessions.length > 2` · screen size: `hidden md:grid` |  |  | MonthView · l.1106 |
+| «[icon ChevronLeft]» | `{() => setCurrentDate(addWeeks(currentDate, -1))}` |  |  |  | WeekView · l.1143 |
+| «[icon ChevronRight]» | `{() => setCurrentDate(addWeeks(currentDate, 1))}` |  |  |  | WeekView · l.1152 |
 
 **Links** (1)
 
 | Text | Goes to | Shown when | Hook | Where |
 |---|---|---|---|---|
-| «Exportar Calendario» | `/api/sessions/ical?[*]` | `sessions.length > 0` |  | SessionsPage · l.580 |
+| «Exportar Calendario» | `/api/sessions/ical?[*]` | `sessions.length > 0` |  | clasicoView · l.659 |
 
 **Other things that react to a click** (4)
 
 | Element | Text | Does | Shown when | Where |
 |---|---|---|---|---|
-| `tr` | «{formatDateShort(session.session_dat…} {formatTime(session.start_time)} - {formatTime(session.end_time)} (Chile) {sessi…» | `{() => handleViewSession(session.id)}` | `!(sessions.length === 0) && each sessions` | ListView · l.813 |
-| `div` | «{session.title} {getStatusBadge(session.status)} {formatDateShort(session.session_dat…} • {formatTime(session.start_tim…» | `{() => handleViewSession(session.id)}` | `!(sessions.length === 0) && each sessions` · screen size: `md:hidden` | MonthView · l.959 |
-| `div` | «{session.title} [{getSeriesInfo(session)}] {formatTime(session.start_time)} - {formatTime(session.end_time)} (Chile) \| …» | `{() => handleViewSession(session.id)}` | `each weekDays && !(daySessions.length === 0) && each daySessions` · screen size: `md:hidden` | WeekView · l.1090 |
-| `div` | «{session.title} [{getSeriesInfo(session)}] {formatTime(session.start_time)} - {formatTime(session.end_time)} (Chile) \| …» | `{() => handleViewSession(session.id)}` | `each weekDays && !(daySessions.length === 0) && each daySessions` · screen size: `hidden md:block` | WeekView · l.1138 |
+| `tr` | «{formatDateShort(session.session_dat…} {formatTime(session.start_time)} - {formatTime(session.end_time)} (Chile) {sessi…» | `{() => handleViewSession(session.id)}` | `!(sessions.length === 0) && each sessions` | ListView · l.899 |
+| `div` | «{session.title} {getStatusBadge(session.status)} {formatDateShort(session.session_dat…} • {formatTime(session.start_tim…» | `{() => handleViewSession(session.id)}` | `!(sessions.length === 0) && each sessions` · screen size: `md:hidden` | MonthView · l.1045 |
+| `div` | «{session.title} [{getSeriesInfo(session)}] {formatTime(session.start_time)} - {formatTime(session.end_time)} (Chile) \| …» | `{() => handleViewSession(session.id)}` | `each weekDays && !(daySessions.length === 0) && each daySessions` · screen size: `md:hidden` | WeekView · l.1176 |
+| `div` | «{session.title} [{getSeriesInfo(session)}] {formatTime(session.start_time)} - {formatTime(session.end_time)} (Chile) \| …» | `{() => handleViewSession(session.id)}` | `each weekDays && !(daySessions.length === 0) && each daySessions` · screen size: `hidden md:block` | WeekView · l.1224 |
 
 **Fields** (7)
 
 | Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
 |---|---|---|---|---|---|---|
-|  | select |  | «Todos los colegios», «(lista) {school.name}» |  |  | SessionsPage · l.593 |
-|  | select |  | «Todas las comunidades», «(lista) {community.name}» |  |  | SessionsPage · l.606 |
-|  | select |  | «Todos los consultores», «(lista) {consultant.first_name} {consultant.last_name}» |  |  | SessionsPage · l.619 |
-|  | select |  | «Todos los estados», «Borrador», «Pendiente Aprobación», «Programada», «En Progreso», «Pendiente Informe», «Completada», «Cancelada» |  |  | SessionsPage · l.632 |
-| «Desde» | date | «Desde» |  | `viewMode === 'list'` |  | SessionsPage · l.649 |
-| «Hasta» | date | «Hasta» |  | `viewMode === 'list'` |  | SessionsPage · l.657 |
-| «Razón de cancelación...» | textarea | «Razón de cancelación...» |  | `showCancelModal` |  | SessionsPage · l.692 |
+|  | select |  | «Todos los colegios», «(lista) {school.name}» |  |  | clasicoView · l.672 |
+|  | select |  | «Todas las comunidades», «(lista) {community.name}» |  |  | clasicoView · l.685 |
+|  | select |  | «Todos los consultores», «(lista) {consultant.first_name} {consultant.last_name}» |  |  | clasicoView · l.698 |
+|  | select |  | «Todos los estados», «Borrador», «Pendiente Aprobación», «Programada», «En Progreso», «Pendiente Informe», «Completada», «Cancelada» |  |  | clasicoView · l.711 |
+| «Desde» | date | «Desde» |  | `viewMode === 'list'` |  | clasicoView · l.728 |
+| «Hasta» | date | «Hasta» |  | `viewMode === 'list'` |  | clasicoView · l.736 |
+| «Razón de cancelación...» | textarea | «Razón de cancelación...» |  | `showCancelModal` |  | clasicoView · l.772 |
 
 **Table columns** (9)
 
 | Text | Shown when | Where |
 |---|---|---|
-| «Fecha» |  | ListView · l.793 |
-| «Hora» |  | ListView · l.794 |
-| «Título» |  | ListView · l.795 |
-| «Colegio» |  | ListView · l.796 |
-| «Comunidad» |  | ListView · l.797 |
-| «Consultor(es)» |  | ListView · l.798 |
-| «Estado» |  | ListView · l.799 |
-| «Serie» |  | ListView · l.800 |
-| «Acciones» |  | ListView · l.801 |
+| «Fecha» |  | ListView · l.879 |
+| «Hora» |  | ListView · l.880 |
+| «Título» |  | ListView · l.881 |
+| «Colegio» |  | ListView · l.882 |
+| «Comunidad» |  | ListView · l.883 |
+| «Consultor(es)» |  | ListView · l.884 |
+| «Estado» |  | ListView · l.885 |
+| «Serie» |  | ListView · l.886 |
+| «Acciones» |  | ListView · l.887 |
 
 **Pop-ups** (2)
 
 | Name or title | How | Opens when | Texts passed to it | Where |
 |---|---|---|---|---|
-| «Cancelar Sesión» | written in this file | `showCancelModal` |  | SessionsPage · l.680 |
-| «Cancelar Sesión» | written in this file | `showCancelModal` |  | SessionsPage · l.681 |
+| «Cancelar Sesión» | written in this file | `showCancelModal` |  | clasicoView · l.760 |
+| «Cancelar Sesión» | written in this file | `showCancelModal` |  | clasicoView · l.761 |
 
 **Toasts** (8)
 
 | Kind | Text | When | Where |
 |---|---|---|---|
-| error | «Error al cargar sesiones» |  | fetchSessions · l.304 |
-| error | «Error de autenticación» | `!authSession?.access_token` | handleApprove · l.324 |
-| success | «Sesión aprobada exitosamente» |  | handleApprove · l.341 |
-| error | «Error al aprobar sesión» |  | handleApprove · l.346 |
-| error | «Debe ingresar una razón de cancelación» | `!selectedSessionId \|\| !cancellationReason.trim()` | handleCancelSubmit · l.359 |
-| error | «Error de autenticación» | `!authSession?.access_token` | handleCancelSubmit · l.369 |
-| success | «Sesión cancelada exitosamente» |  | handleCancelSubmit · l.387 |
-| error | «Error al cancelar sesión» |  | handleCancelSubmit · l.395 |
+| error | «Error al cargar sesiones» |  | fetchSessions · l.319 |
+| error | «Error de autenticación» | `!authSession?.access_token` | handleApprove · l.339 |
+| success | «Sesión aprobada exitosamente» |  | handleApprove · l.356 |
+| error | «Error al aprobar sesión» |  | handleApprove · l.361 |
+| error | «Debe ingresar una razón de cancelación» | `!selectedSessionId \|\| !cancellationReason.trim()` | handleCancelSubmit · l.374 |
+| error | «Error de autenticación» | `!authSession?.access_token` | handleCancelSubmit · l.384 |
+| success | «Sesión cancelada exitosamente» |  | handleCancelSubmit · l.402 |
+| error | «Error al cancelar sesión» |  | handleCancelSubmit · l.410 |
 
 **Messages set on the page** (3)
 
 | Text | Set by | When | Where |
 |---|---|---|---|
-| «Error al cargar sesiones» | `throw (shown by whoever catches it)` | `!response.ok` | fetchSessions · l.296 |
-| «Error al aprobar sesión» | `throw (shown by whoever catches it)` | `!response.ok` | handleApprove · l.338 |
-| «Error al cancelar sesión» | `throw (shown by whoever catches it)` | `!response.ok` | handleCancelSubmit · l.384 |
+| «Error al cargar sesiones» | `throw (shown by whoever catches it)` | `!response.ok` | fetchSessions · l.311 |
+| «Error al aprobar sesión» | `throw (shown by whoever catches it)` | `!response.ok` | handleApprove · l.353 |
+| «Error al cancelar sesión» | `throw (shown by whoever catches it)` | `!response.ok` | handleCancelSubmit · l.399 |
 
 **Downloads and printing** (1)
 
 | How | When | Where |
 |---|---|---|
-| `<a download> Exportar Calendario` | `sessions.length > 0` | SessionsPage · l.580 |
+| `<a download> Exportar Calendario` | `sessions.length > 0` | clasicoView · l.659 |
 
-**Moves to another page from code** (7)
+**Moves to another page from code** (8)
 
 | Goes to | How | When | Where |
 |---|---|---|---|
-| `{{ pathname: router.pathname, query }}` | `router.replace` |  | SessionsPage · l.153 |
-| `/login` | `router.push` | `!session?.user` | initializeAuth · l.162 |
-| `/dashboard` | `router.push` | `!isAdminUser` | initializeAuth · l.172 |
-| `/login` | `router.push` |  | initializeAuth · l.177 |
-| `/admin/sessions/[*]` | `router.push` |  | handleViewSession · l.314 |
-| `/login` | `router.push` |  | handleLogout · l.403 |
-| `/admin/sessions/create` | `router.push` |  | SessionsPage · l.564 |
+| `{{ pathname: router.pathname, query }}` | `router.replace` |  | SessionsPage · l.168 |
+| `/login` | `router.push` | `!session?.user` | initializeAuth · l.177 |
+| `/dashboard` | `router.push` | `!isAdminUser` | initializeAuth · l.187 |
+| `/login` | `router.push` |  | initializeAuth · l.192 |
+| `/admin/sessions/[*]` | `router.push` |  | handleViewSession · l.329 |
+| `/login` | `router.push` |  | handleLogout · l.418 |
+| `/admin/sessions/create` | `router.push` |  | SessionsPage · l.522 |
+| `/admin/sessions/create` | `router.push` |  | clasicoView · l.643 |
 
 **Access checks in the code** (1)
 
 | Line of code | Where |
 |---|---|
-| `userRole = await getUserPrimaryRole(session.user.id)` | initializeAuth · l.167 |
+| `userRole = await getUserPrimaryRole(session.user.id)` | initializeAuth · l.182 |
 
 **Draws nothing when** (2)
 
 | Condition | Where |
 |---|---|
-| `!data` | ListView · l.749 |
-| `!dropdownOpen` | ListView · l.765 |
+| `!data` | ListView · l.833 |
+| `!dropdownOpen` | ListView · l.849 |
 
-**Pieces placed here, with the texts and settings handed to them** (2)
+**Pieces placed here, with the texts and settings handed to them** (6)
 
 | Piece | Texts and settings | Shown when | Hook | Where |
 |---|---|---|---|---|
-| `MainLayout` |  |  |  | SessionsPage · l.491 |
-| `ResponsiveFunctionalPageHeader` | title: Sesiones de Consultoría · subtitle: Gestión de sesiones con consultores externos e internos |  |  | SessionsPage · l.499 |
+| `MainLayout` |  |  |  | nuevoView · l.545 |
+| `AdminSessionsListNuevo` |  |  |  | nuevoView · l.553 |
+| `AdminSessionsRowsNuevo` |  | `viewMode === 'list' && listHost && view === 'nuevo'` |  | keptRows · l.563 |
+| `MainLayout` |  |  |  | clasicoView · l.570 |
+| `ResponsiveFunctionalPageHeader` | title: Sesiones de Consultoría · subtitle: Gestión de sesiones con consultores externos e internos |  |  | clasicoView · l.578 |
+| `FollowedView` |  |  |  | SessionsPage · l.805 |
 
 **Other texts written in the code (safety net: not tied to an element by the script)** (8)
 
 | Text | Where |
 |---|---|
-| «Bearer {authSession.access_token}» | SessionsPage · l.220 |
-| «Lun» | SessionsPage · l.982 |
-| «Mar» | SessionsPage · l.982 |
-| «Mié» | SessionsPage · l.982 |
-| «Jue» | SessionsPage · l.982 |
-| «Vie» | SessionsPage · l.982 |
-| «Sáb» | SessionsPage · l.982 |
-| «Dom» | SessionsPage · l.982 |
+| «Bearer {authSession.access_token}» | SessionsPage · l.235 |
+| «Lun» | SessionsPage · l.1068 |
+| «Mar» | SessionsPage · l.1068 |
+| «Mié» | SessionsPage · l.1068 |
+| «Jue» | SessionsPage · l.1068 |
+| «Vie» | SessionsPage · l.1068 |
+| «Sáb» | SessionsPage · l.1068 |
+| «Dom» | SessionsPage · l.1068 |
 
 **Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (8)
 
 | Kind | What | Where |
 |---|---|---|
-| listener | `document.addEventListener('click')` | ListView · l.777 |
-| listener | `document.addEventListener('keydown')` | ListView · l.779 |
+| listener | `document.addEventListener('click')` | ListView · l.861 |
+| listener | `document.addEventListener('keydown')` | ListView · l.863 |
 | address value | `?consultant_id` | l.1 |
 | address value | `?date_from` | l.1 |
 | address value | `?date_to` | l.1 |
@@ -1117,47 +1164,55 @@ File `pages/admin/sessions/index.tsx` · 1175 lines · frame: MainLayout
 
 **Values shown from data** (19)
 
-- `{badge.label}` — getStatusBadge · l.409
-- `{stats.total}` — SessionsPage · l.510
-- `{stats.programada}` — SessionsPage · l.514
-- `{stats.pendiente}` — SessionsPage · l.518
-- `{formatDateShort(session.session_dat…}` — ListView · l.818, when `!(sessions.length === 0) && each sessions`
-- `{session.title}` — ListView · l.825, when `!(sessions.length === 0) && each sessions`
-- `{session.schools?.name} / -` — ListView · l.828, when `!(sessions.length === 0) && each sessions`
-- `{session.growth_communities?.name} / -` — ListView · l.831, when `!(sessions.length === 0) && each sessions`
-- `{getFacilitatorNames(session.session…}` — ListView · l.834, when `!(sessions.length === 0) && each sessions`
-- `{getStatusBadge(session.status)} [{(() => { const ledger = cancellatio…}]` — ListView · l.838, when `!(sessions.length === 0) && each sessions`
-- `{session.title}` — MonthView · l.965, when `!(sessions.length === 0) && each sessions`, screen size: `md:hidden`
-- `{formatDateShort(session.session_dat…} • {formatTime(session.start_time)} - {formatTime(session.end_time)}` — MonthView · l.968, when `!(sessions.length === 0) && each sessions`, screen size: `md:hidden`
-- `{session.schools?.name}` — MonthView · l.971, when `!(sessions.length === 0) && each sessions`, screen size: `md:hidden`
-- `{day}` — MonthView · l.983, when `each ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']`, screen size: `hidden md:grid`
-- `{day.getDate()}` — MonthView · l.1001, when `each days`, screen size: `hidden md:grid`
-- `{session.title}` — WeekView · l.1098, when `each weekDays && !(daySessions.length === 0) && each daySessions`, screen size: `md:hidden`
-- `{getStatusBadge(session.status)}` — WeekView · l.1111, when `each weekDays && !(daySessions.length === 0) && each daySessions`, screen size: `md:hidden`
-- `{session.title}` — WeekView · l.1146, when `each weekDays && !(daySessions.length === 0) && each daySessions`, screen size: `hidden md:block`
-- `{getStatusBadge(session.status)}` — WeekView · l.1159, when `each weekDays && !(daySessions.length === 0) && each daySessions`, screen size: `hidden md:block`
+- `{badge.label}` — getStatusBadge · l.424
+- `{stats.total}` — clasicoView · l.589
+- `{stats.programada}` — clasicoView · l.593
+- `{stats.pendiente}` — clasicoView · l.597
+- `{formatDateShort(session.session_dat…}` — ListView · l.904, when `!(sessions.length === 0) && each sessions`
+- `{session.title}` — ListView · l.911, when `!(sessions.length === 0) && each sessions`
+- `{session.schools?.name} / -` — ListView · l.914, when `!(sessions.length === 0) && each sessions`
+- `{session.growth_communities?.name} / -` — ListView · l.917, when `!(sessions.length === 0) && each sessions`
+- `{getFacilitatorNames(session.session…}` — ListView · l.920, when `!(sessions.length === 0) && each sessions`
+- `{getStatusBadge(session.status)} [{(() => { const ledger = cancellatio…}]` — ListView · l.924, when `!(sessions.length === 0) && each sessions`
+- `{session.title}` — MonthView · l.1051, when `!(sessions.length === 0) && each sessions`, screen size: `md:hidden`
+- `{formatDateShort(session.session_dat…} • {formatTime(session.start_time)} - {formatTime(session.end_time)}` — MonthView · l.1054, when `!(sessions.length === 0) && each sessions`, screen size: `md:hidden`
+- `{session.schools?.name}` — MonthView · l.1057, when `!(sessions.length === 0) && each sessions`, screen size: `md:hidden`
+- `{day}` — MonthView · l.1069, when `each ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']`, screen size: `hidden md:grid`
+- `{day.getDate()}` — MonthView · l.1087, when `each days`, screen size: `hidden md:grid`
+- `{session.title}` — WeekView · l.1184, when `each weekDays && !(daySessions.length === 0) && each daySessions`, screen size: `md:hidden`
+- `{getStatusBadge(session.status)}` — WeekView · l.1197, when `each weekDays && !(daySessions.length === 0) && each daySessions`, screen size: `md:hidden`
+- `{session.title}` — WeekView · l.1232, when `each weekDays && !(daySessions.length === 0) && each daySessions`, screen size: `hidden md:block`
+- `{getStatusBadge(session.status)}` — WeekView · l.1245, when `each weekDays && !(daySessions.length === 0) && each daySessions`, screen size: `hidden md:block`
 
 **Other texts on screen** (13)
 
-- «No tiene permisos para acceder a esta página.» — SessionsPage · l.484, when `!isAdmin`
-- «Total Sesiones» — SessionsPage · l.509
-- «Programadas» — SessionsPage · l.513
-- «Pendientes» — SessionsPage · l.517
-- «Filtros» — SessionsPage · l.577
-- «Por favor, ingrese la razón de la cancelación:» — SessionsPage · l.690, when `showCancelModal`
-- «No se encontraron sesiones» — ListView · l.808, when `sessions.length === 0`
-- «(Chile)» — ListView · l.823, when `!(sessions.length === 0) && each sessions`
-- «No hay sesiones este mes» — MonthView · l.956, when `sessions.length === 0`, screen size: `md:hidden`
-- «No hay sesiones» — WeekView · l.1086, when `each weekDays && daySessions.length === 0`, screen size: `md:hidden`
-- «(Chile)» — WeekView · l.1108, when `each weekDays && !(daySessions.length === 0) && each daySessions`, screen size: `md:hidden`
-- «No hay sesiones programadas» — WeekView · l.1134, when `each weekDays && daySessions.length === 0`, screen size: `hidden md:block`
-- «(Chile)» — WeekView · l.1156, when `each weekDays && !(daySessions.length === 0) && each daySessions`, screen size: `hidden md:block`
+- «No tiene permisos para acceder a esta página.» — SessionsPage · l.499, when `!isAdmin`
+- «Total Sesiones» — clasicoView · l.588
+- «Programadas» — clasicoView · l.592
+- «Pendientes» — clasicoView · l.596
+- «Filtros» — clasicoView · l.656
+- «Por favor, ingrese la razón de la cancelación:» — clasicoView · l.770, when `showCancelModal`
+- «No se encontraron sesiones» — ListView · l.894, when `sessions.length === 0`
+- «(Chile)» — ListView · l.909, when `!(sessions.length === 0) && each sessions`
+- «No hay sesiones este mes» — MonthView · l.1042, when `sessions.length === 0`, screen size: `md:hidden`
+- «No hay sesiones» — WeekView · l.1172, when `each weekDays && daySessions.length === 0`, screen size: `md:hidden`
+- «(Chile)» — WeekView · l.1194, when `each weekDays && !(daySessions.length === 0) && each daySessions`, screen size: `md:hidden`
+- «No hay sesiones programadas» — WeekView · l.1220, when `each weekDays && daySessions.length === 0`, screen size: `hidden md:block`
+- «(Chile)» — WeekView · l.1242, when `each weekDays && !(daySessions.length === 0) && each daySessions`, screen size: `hidden md:block`
 
 **Reads and writes the database directly:** `table:contract_hours_ledger` (select), `table:growth_communities` (select), `table:schools` (select)
 
 ### Pieces it uses (each is listed once, under "Pieces" below)
 
 - `components/layout/FunctionalPageHeader.tsx`
+- `components/sessions/admin-nuevo/AdminSessionsListNuevo.tsx`
+- `components/sessions/admin-nuevo/adminNuevoStyles.ts`
+- `components/ui/kit/Button.tsx`
+- `components/ui/kit/Card.tsx`
+- `components/ui/kit/Dialog.tsx`
+- `components/ui/kit/Field.tsx`
+- `components/ui/kit/PageHeader.tsx`
+- `components/ui/kit/Table.tsx`
 - `lib/utils/session-ui-helpers.tsx`
 - `types/roles.ts`
 - `utils/roleUtils.ts`
@@ -1166,12 +1221,12 @@ File `pages/admin/sessions/index.tsx` · 1175 lines · frame: MainLayout
 
 | Address | Method | Called from |
 |---|---|---|
-| `/api/admin/consultants` | GET | `pages/admin/sessions/index.tsx:218` |
-| `/api/sessions` | GET | `pages/admin/sessions/index.tsx:289` |
-| `/api/sessions/[id]/approve` | POST | `pages/admin/sessions/index.tsx:328` |
-| `/api/sessions/[id]/cancel` | POST | `pages/admin/sessions/index.tsx:373` |
-| `/api/sessions/ical` | ? | `pages/admin/sessions/index.tsx:581` |
-| `/api/sessions/stats` | GET | `pages/admin/sessions/index.tsx:240` |
+| `/api/admin/consultants` | GET | `pages/admin/sessions/index.tsx:233` |
+| `/api/sessions` | GET | `pages/admin/sessions/index.tsx:304` |
+| `/api/sessions/[id]/approve` | POST | `pages/admin/sessions/index.tsx:343` |
+| `/api/sessions/[id]/cancel` | POST | `pages/admin/sessions/index.tsx:388` |
+| `/api/sessions/ical` | ? | `components/sessions/admin-nuevo/AdminSessionsListNuevo.tsx:544`, `pages/admin/sessions/index.tsx:660` |
+| `/api/sessions/stats` | GET | `pages/admin/sessions/index.tsx:255` |
 
 ## /consultor/sessions/[id]
 
@@ -1182,7 +1237,7 @@ File `pages/consultor/sessions/[id].tsx` · 170 lines · frame: MainLayout
 - Menu: no entry.
 - Middleware: signed-in only. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page: no access check found by the script.
-- Linked from: `components/dashboard/unified/UpcomingSessionsCard.tsx:77`, `components/sessions/SessionsListNuevo.tsx:101`, `components/sessions/SessionsListNuevo.tsx:102`, `components/workspace/WorkspaceSessionsTab.tsx:264`, `components/workspace/WorkspaceSessionsTab.tsx:268`, `hooks/useSessionsList.ts:326`, `lib/notifications/catalog.ts:195`, `pages/consultor/sessions/reports.tsx:817`, `pages/consultor/sessions/reports.tsx:821`
+- Linked from: `components/dashboard/unified/UpcomingSessionsCard.tsx:77`, `components/sessions/SessionsListNuevo.tsx:101`, `components/sessions/SessionsListNuevo.tsx:102`, `components/workspace/WorkspaceSessionsTab.tsx:264`, `components/workspace/WorkspaceSessionsTab.tsx:268`, `hooks/useSessionsList.ts:326`, `lib/notifications/catalog.ts:197`, `pages/consultor/sessions/reports.tsx:368`, `pages/consultor/sessions/reports.tsx:861`, `pages/consultor/sessions/reports.tsx:865`
 - Tests: browser tests that CI runs: `tests/e2e/look-sessions.spec.ts`; browser tests CI skips: `tests/e2e/notification-catalog-links.spec.ts`, `tests/e2e/session-reminders.spec.ts`; unit tests of the page: `__tests__/pages/consultor/sessions/detail.clasico.test.tsx`, `__tests__/pages/consultor/sessions/detail.latch.test.tsx`, `__tests__/pages/consultor/sessions/detail.nuevo.test.tsx`, `__tests__/pages/consultor/sessions/detail.sameSession.test.tsx`, `__tests__/pages/consultor/sessions/detail.test.tsx`.
 - QA scenarios that name this address: lider_comunidad 1.
 
@@ -1325,7 +1380,7 @@ File `pages/consultor/sessions/index.tsx` · 45 lines · frame: MainLayout
 - Menu: Mi Trabajo › «Mis Sesiones» → `/consultor/sessions` — admin or consultor; the group: admin or consultor (`Sidebar.tsx` l.178)
 - Middleware: signed-in only. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page: no access check found by the script.
-- Linked from: `components/dashboard/unified/UpcomingSessionsCard.tsx:81`, `components/layout/Sidebar.tsx:180`, `lib/notificationEvents.ts:480`, `lib/notificationEvents.ts:517`, `lib/notificationEvents.ts:535`, `lib/notificationEvents.ts:568`, `lib/notificationEvents.ts:582`, `lib/notificationEvents.ts:597`, `lib/notificationEvents.ts:611`, `lib/notifications/catalog.ts:182`, `lib/notifications/catalog.ts:230`, `pages/consultor/sessions/[id].tsx:13`
+- Linked from: `components/dashboard/unified/UpcomingSessionsCard.tsx:81`, `components/layout/Sidebar.tsx:180`, `lib/notificationEvents.ts:488`, `lib/notificationEvents.ts:525`, `lib/notificationEvents.ts:543`, `lib/notificationEvents.ts:576`, `lib/notificationEvents.ts:590`, `lib/notificationEvents.ts:605`, `lib/notificationEvents.ts:619`, `lib/notifications/catalog.ts:184`, `lib/notifications/catalog.ts:232`, `pages/consultor/sessions/[id].tsx:13`
 - Tests: browser tests that CI runs: `tests/e2e/look-sessions.spec.ts`; unit tests of the page: `__tests__/pages/consultor/sessions/list.clasico.test.tsx`, `__tests__/pages/consultor/sessions/list.nuevo.test.tsx`, `__tests__/pages/consultor/sessions/list.sameList.test.tsx`, `__tests__/pages/consultor/sessions/list.test.tsx`.
 - QA scenarios that name this address: consultor 8, lider_comunidad 3, director 1, supervisor 1, docente 1.
 
@@ -1409,7 +1464,7 @@ File `pages/consultor/sessions/index.tsx` · 45 lines · frame: MainLayout
 
 ## /consultor/sessions/reports
 
-File `pages/consultor/sessions/reports.tsx` · 890 lines · frame: MainLayout
+File `pages/consultor/sessions/reports.tsx` · 942 lines · frame: MainLayout
 
 ### Who reaches it
 
@@ -1417,13 +1472,14 @@ File `pages/consultor/sessions/reports.tsx` · 890 lines · frame: MainLayout
 - Menu: Consultorías › «Reportes» → `/consultor/sessions/reports` — admin only; the group: admin or consultor (`Sidebar.tsx` l.508)
 - Middleware: signed-in only. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page:
-  - l.273 `router.push → /login  (when !session?.user)`
-  - l.277 `role = await getUserPrimaryRole(session.user.id)`
-  - l.279 `router.push → /dashboard  (when !role \|\| !['admin', 'consultor'].includes(role))`
-  - l.339 `isAdmin = userRole === 'admin'`
-  - l.380 `router.push → /dashboard  (when error)`
-- Linked from: `components/layout/Sidebar.tsx:188`, `components/layout/Sidebar.tsx:510`, `lib/notifications/catalog.ts:182`
-- Tests: no browser test that CI runs.
+  - l.283 `router.push → /login  (when !session?.user)`
+  - l.287 `role = await getUserPrimaryRole(session.user.id)`
+  - l.289 `router.push → /dashboard  (when !role \|\| !['admin', 'consultor'].includes(role))`
+  - l.349 `isAdmin = userRole === 'admin'`
+  - l.403 `router.push → /dashboard  (when error && isNuevo)`
+  - l.417 `router.push → /dashboard  (when error)`
+- Linked from: `components/layout/Sidebar.tsx:188`, `components/layout/Sidebar.tsx:510`, `lib/notifications/catalog.ts:184`
+- Tests: no browser test that CI runs; unit tests of the page: `__tests__/pages/consultor/sessions/reports.clasico.test.tsx`, `__tests__/pages/consultor/sessions/reports.nuevo.test.tsx`, `__tests__/pages/consultor/sessions/reports.sameRequests.test.tsx`.
 - QA scenarios that name this address: admin 5, community_manager 1, consultor 7, equipo_directivo 6, lider_comunidad 2, lider_generacion 3, supervisor_de_red 6.
 
 | Role | Sees it in the menu | Middleware |
@@ -1444,217 +1500,234 @@ File `pages/consultor/sessions/reports.tsx` · 890 lines · frame: MainLayout
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «Acceso Denegado» | h2 | `error` | SessionReportsPage · l.375 |
-| «Reportes de Sesiones» | h1 |  | renderHeader · l.430 |
-| «Filtros» | h3 |  | renderFilters · l.455 |
-| «Sesiones por Mes» | h3 |  | renderCharts · l.618 |
-| «Distribución por Estado» | h3 |  | renderCharts · l.635 |
-| «Distribución por Modalidad» | h3 |  | renderCharts · l.660 |
-| «Tendencia de Asistencia» | h3 |  | renderCharts · l.685 |
-| «Sesiones por Escuela» | h3 | `isAdmin && analyticsData.sessions_by_school.length > 0` | renderCharts · l.706 |
-| «Top Consultores» | h3 | `isAdmin && analyticsData.top_consultants && analyticsData.top_consultants.length > 0` | renderCharts · l.733 |
-| «Sesiones Recientes» | h3 |  | renderRecentSessionsTable · l.777 |
+| «Acceso Denegado» | h2 | `error` | SessionReportsPage · l.412 |
+| «Reportes de Sesiones» | h1 |  | renderHeader · l.474 |
+| «Filtros» | h3 |  | renderFilters · l.499 |
+| «Sesiones por Mes» | h3 |  | renderCharts · l.662 |
+| «Distribución por Estado» | h3 |  | renderCharts · l.679 |
+| «Distribución por Modalidad» | h3 |  | renderCharts · l.704 |
+| «Tendencia de Asistencia» | h3 |  | renderCharts · l.729 |
+| «Sesiones por Escuela» | h3 | `isAdmin && analyticsData.sessions_by_school.length > 0` | renderCharts · l.750 |
+| «Top Consultores» | h3 | `isAdmin && analyticsData.top_consultants && analyticsData.top_consultants.length > 0` | renderCharts · l.777 |
+| «Sesiones Recientes» | h3 |  | renderRecentSessionsTable · l.821 |
 
 **Buttons** (1)
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «Volver al Dashboard» | `{() => router.push('/dashboard')}` | `error` |  |  | SessionReportsPage · l.379 |
+| «Volver al Dashboard» | `{() => router.push('/dashboard')}` | `error` |  |  | SessionReportsPage · l.416 |
 
 **Other things that react to a click** (1)
 
 | Element | Text | Does | Shown when | Where |
 |---|---|---|---|---|
-| `tr` | «{format(parseISO(session.session_dat…} {session.title} {session.school_name} {session.gc_name} {badge.label} {session.a…» · also `onKeyDown={(e) => { if (e.key === 'Enter' \|\| e.key === ' ') { e.preventDefault(); router.p…}` | `{() => router.push('/consultor/sessions/${session.id}')}` | `each analyticsData.recent_sessions` | renderRecentSessionsTable · l.812 |
+| `tr` | «{format(parseISO(session.session_dat…} {session.title} {session.school_name} {session.gc_name} {badge.label} {session.a…» · also `onKeyDown={(e) => { if (e.key === 'Enter' \|\| e.key === ' ') { e.preventDefault(); router.p…}` | `{() => router.push('/consultor/sessions/${session.id}')}` | `each analyticsData.recent_sessions` | renderRecentSessionsTable · l.856 |
 
 **Fields** (4)
 
 | Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
 |---|---|---|---|---|---|---|
-| «Desde» | date |  |  |  | `id=date-from (id used by code)` | renderFilters · l.460 |
-| «Hasta» | date |  |  |  | `id=date-to (id used by code)` | renderFilters · l.470 |
-| «Escuela» | select |  | «Todas», «(lista) {s.school_name}» |  | `id=school-filter (id used by code)` | renderFilters · l.480 |
-| «Consultor» | select |  | «Todos», «(lista) {c.name}» | `isAdmin && consultants.length > 0` | `id=consultant-filter (id used by code)` | renderFilters · l.497 |
+| «Desde» | date |  |  |  | `id=date-from (id used by code)` | renderFilters · l.504 |
+| «Hasta» | date |  |  |  | `id=date-to (id used by code)` | renderFilters · l.514 |
+| «Escuela» | select |  | «Todas», «(lista) {s.school_name}» |  | `id=school-filter (id used by code)` | renderFilters · l.524 |
+| «Consultor» | select |  | «Todos», «(lista) {c.name}» | `isAdmin && consultants.length > 0` | `id=consultant-filter (id used by code)` | renderFilters · l.541 |
 
 **Table columns** (6)
 
 | Text | Shown when | Where |
 |---|---|---|
-| «Fecha» |  | renderRecentSessionsTable · l.788 |
-| «Título» |  | renderRecentSessionsTable · l.791 |
-| «Escuela» |  | renderRecentSessionsTable · l.794 |
-| «Comunidad» |  | renderRecentSessionsTable · l.797 |
-| «Estado» |  | renderRecentSessionsTable · l.800 |
-| «Asistencia» |  | renderRecentSessionsTable · l.803 |
+| «Fecha» |  | renderRecentSessionsTable · l.832 |
+| «Título» |  | renderRecentSessionsTable · l.835 |
+| «Escuela» |  | renderRecentSessionsTable · l.838 |
+| «Comunidad» |  | renderRecentSessionsTable · l.841 |
+| «Estado» |  | renderRecentSessionsTable · l.844 |
+| «Asistencia» |  | renderRecentSessionsTable · l.847 |
 
 **Toasts** (2)
 
 | Kind | Text | When | Where |
 |---|---|---|---|
-| error | «Error cargando datos» | `!response.ok` | fetchAnalytics · l.326 |
-| error | «Error al cargar datos de reportes» |  | fetchAnalytics · l.333 |
+| error | «Error cargando datos» | `!response.ok` | fetchAnalytics · l.336 |
+| error | «Error al cargar datos de reportes» |  | fetchAnalytics · l.343 |
 
 **Messages set on the page** (1)
 
 | Text | Set by | When | Where |
 |---|---|---|---|
-| «Error al cargar los datos del usuario» | `setError` |  | initAuth · l.286 |
+| «Error al cargar los datos del usuario» | `setError` |  | initAuth · l.296 |
 
 **Charts** (6)
 
 | Chart | Series | Shown when | Where |
 |---|---|---|---|
-| BarChart | Bar `completed` «Completadas»; Bar `cancelled` «Canceladas»; Bar `other` «Otras» |  | renderCharts · l.620 |
-| PieChart | Pie `count` (slices: one colour per data row) |  | renderCharts · l.637 |
-| PieChart | Pie `count` (slices: one colour per data row) |  | renderCharts · l.662 |
-| AreaChart | Area `avg_attendance_rate` «Asistencia (%)» |  | renderCharts · l.687 |
-| BarChart | Bar `total` «Total»; Bar `completed` «Completadas» | `isAdmin && analyticsData.sessions_by_school.length > 0` | renderCharts · l.708 |
-| BarChart | Bar `sessions_led` «Sesiones dirigidas» | `isAdmin && analyticsData.top_consultants && analyticsData.top_consultants.length > 0` | renderCharts · l.735 |
+| BarChart | Bar `completed` «Completadas»; Bar `cancelled` «Canceladas»; Bar `other` «Otras» |  | renderCharts · l.664 |
+| PieChart | Pie `count` (slices: one colour per data row) |  | renderCharts · l.681 |
+| PieChart | Pie `count` (slices: one colour per data row) |  | renderCharts · l.706 |
+| AreaChart | Area `avg_attendance_rate` «Asistencia (%)» |  | renderCharts · l.731 |
+| BarChart | Bar `total` «Total»; Bar `completed` «Completadas» | `isAdmin && analyticsData.sessions_by_school.length > 0` | renderCharts · l.752 |
+| BarChart | Bar `sessions_led` «Sesiones dirigidas» | `isAdmin && analyticsData.top_consultants && analyticsData.top_consultants.length > 0` | renderCharts · l.779 |
 
-**Moves to another page from code** (5)
+**Moves to another page from code** (7)
 
 | Goes to | How | When | Where |
 |---|---|---|---|
-| `/login` | `router.push` | `!session?.user` | initAuth · l.273 |
-| `/dashboard` | `router.push` | `!role \|\| !['admin', 'consultor'].includes(role)` | initAuth · l.279 |
-| `/dashboard` | `router.push` | `error` | SessionReportsPage · l.380 |
-| `/consultor/sessions/[*]` | `router.push` | `each analyticsData.recent_sessions` | renderRecentSessionsTable · l.817 |
-| `/consultor/sessions/[*]` | `router.push` | `each analyticsData.recent_sessions && (e.key === 'Enter' \|\| e.key === ' ')` | renderRecentSessionsTable · l.821 |
+| `/login` | `router.push` | `!session?.user` | initAuth · l.283 |
+| `/dashboard` | `router.push` | `!role \|\| !['admin', 'consultor'].includes(role)` | initAuth · l.289 |
+| `/consultor/sessions/[*]` | `router.push` |  | SessionReportsPage · l.368 |
+| `/dashboard` | `router.push` | `error && isNuevo` | SessionReportsPage · l.403 |
+| `/dashboard` | `router.push` | `error` | SessionReportsPage · l.417 |
+| `/consultor/sessions/[*]` | `router.push` | `each analyticsData.recent_sessions` | renderRecentSessionsTable · l.861 |
+| `/consultor/sessions/[*]` | `router.push` | `each analyticsData.recent_sessions && (e.key === 'Enter' \|\| e.key === ' ')` | renderRecentSessionsTable · l.865 |
 
 **Access checks in the code** (2)
 
 | Line of code | Where |
 |---|---|
-| `role = await getUserPrimaryRole(session.user.id)` | initAuth · l.277 |
-| `isAdmin = userRole === 'admin'` | SessionReportsPage · l.339 |
+| `role = await getUserPrimaryRole(session.user.id)` | initAuth · l.287 |
+| `isAdmin = userRole === 'admin'` | SessionReportsPage · l.349 |
 
 **Draws nothing when** (2)
 
 | Condition | Where |
 |---|---|
-| `!router.isReady` | SessionReportsPage · l.265 |
-| `!userRole` | SessionReportsPage · l.296 |
+| `!router.isReady` | SessionReportsPage · l.275 |
+| `!userRole` | SessionReportsPage · l.306 |
 
-**Pieces placed here, with the texts and settings handed to them** (58)
+**Pieces placed here, with the texts and settings handed to them** (64)
 
 | Piece | Texts and settings | Shown when | Hook | Where |
 |---|---|---|---|---|
-| `MainLayout` |  | `loading` |  | SessionReportsPage · l.346 |
-| `LoadingSkeleton` |  | `loading` |  | SessionReportsPage · l.349 |
-| `LoadingSkeleton` |  | `loading && each Array.from({ length: 4 })` |  | SessionReportsPage · l.352 |
-| `LoadingSkeleton` |  | `loading && each Array.from({ length: 4 })` |  | SessionReportsPage · l.357 |
-| `MainLayout` |  | `error` |  | SessionReportsPage · l.371 |
-| `MainLayout` |  | `!dataLoading && analyticsData && analyticsData.kpis.total_sessions === 0` |  | SessionReportsPage · l.397 |
-| `HelpButton` | sectionId: mis-reportes |  |  | renderHeader · l.431 |
-| `KPICard` | title: Total Sesiones |  |  | renderKPICards · l.528 |
-| `KPICard` | title: Tasa de Completación |  |  | renderKPICards · l.534 |
-| `KPICard` | title: Horas Programadas |  |  | renderKPICards · l.540 |
-| `KPICard` | title: Asistencia Promedio |  |  | renderKPICards · l.546 |
-| `KPICard` | title: Pendientes de Informe |  |  | renderKPICards · l.556 |
-| `KPICard` | title: Próximas Sesiones |  |  | renderKPICards · l.562 |
-| `KPICard` | title: Sesiones Canceladas |  |  | renderKPICards · l.568 |
-| `ResponsiveContainer` |  |  |  | renderCharts · l.619 |
-| `CartesianGrid` | strokeDasharray: 3 3 |  |  | renderCharts · l.621 |
-| `XAxis` |  |  |  | renderCharts · l.622 |
-| `YAxis` |  |  |  | renderCharts · l.623 |
-| `Tooltip` |  |  |  | renderCharts · l.624 |
-| `Legend` |  |  |  | renderCharts · l.625 |
-| `Bar` |  |  |  | renderCharts · l.626 |
-| `Bar` |  |  |  | renderCharts · l.627 |
-| `Bar` |  |  |  | renderCharts · l.628 |
-| `ResponsiveContainer` |  |  |  | renderCharts · l.636 |
-| `Pie` | cx: 50% · cy: 50% |  |  | renderCharts · l.638 |
-| `Cell` |  | `each statusData` |  | renderCharts · l.649 |
-| `Tooltip` |  |  |  | renderCharts · l.652 |
-| `Legend` |  |  |  | renderCharts · l.653 |
-| `ResponsiveContainer` |  |  |  | renderCharts · l.661 |
-| `Pie` | cx: 50% · cy: 50% |  |  | renderCharts · l.663 |
-| `Cell` |  | `each modalityData` |  | renderCharts · l.674 |
-| `Tooltip` |  |  |  | renderCharts · l.677 |
-| `Legend` |  |  |  | renderCharts · l.678 |
-| `ResponsiveContainer` |  |  |  | renderCharts · l.686 |
-| `CartesianGrid` | strokeDasharray: 3 3 |  |  | renderCharts · l.688 |
-| `XAxis` |  |  |  | renderCharts · l.689 |
-| `YAxis` | unit: % |  |  | renderCharts · l.690 |
-| `Tooltip` |  |  |  | renderCharts · l.691 |
-| `Area` |  |  |  | renderCharts · l.692 |
-| `ResponsiveContainer` |  | `isAdmin && analyticsData.sessions_by_school.length > 0` |  | renderCharts · l.707 |
-| `CartesianGrid` | strokeDasharray: 3 3 | `isAdmin && analyticsData.sessions_by_school.length > 0` |  | renderCharts · l.713 |
-| `XAxis` |  | `isAdmin && analyticsData.sessions_by_school.length > 0` |  | renderCharts · l.714 |
-| `YAxis` |  | `isAdmin && analyticsData.sessions_by_school.length > 0` |  | renderCharts · l.715 |
-| `Tooltip` |  | `isAdmin && analyticsData.sessions_by_school.length > 0` |  | renderCharts · l.721 |
-| `Legend` |  | `isAdmin && analyticsData.sessions_by_school.length > 0` |  | renderCharts · l.722 |
-| `Bar` |  | `isAdmin && analyticsData.sessions_by_school.length > 0` |  | renderCharts · l.723 |
-| `Bar` |  | `isAdmin && analyticsData.sessions_by_school.length > 0` |  | renderCharts · l.724 |
-| `ResponsiveContainer` |  | `isAdmin && analyticsData.top_consultants && analyticsData.top_consultants.length > 0` |  | renderCharts · l.734 |
-| `CartesianGrid` | strokeDasharray: 3 3 | `isAdmin && analyticsData.top_consultants && analyticsData.top_consultants.length > 0` |  | renderCharts · l.740 |
-| `XAxis` |  | `isAdmin && analyticsData.top_consultants && analyticsData.top_consultants.length > 0` |  | renderCharts · l.741 |
-| `YAxis` |  | `isAdmin && analyticsData.top_consultants && analyticsData.top_consultants.length > 0` |  | renderCharts · l.742 |
-| `Tooltip` |  | `isAdmin && analyticsData.top_consultants && analyticsData.top_consultants.length > 0` |  | renderCharts · l.748 |
-| `Legend` |  | `isAdmin && analyticsData.top_consultants && analyticsData.top_consultants.length > 0` |  | renderCharts · l.749 |
-| `Bar` |  | `isAdmin && analyticsData.top_consultants && analyticsData.top_consultants.length > 0` |  | renderCharts · l.750 |
-| `ExportDropdown` | tabName: Sesiones Recientes · headers: Fecha / Título / Escuela / Comunidad / Estado / Asistencia |  |  | renderRecentSessionsTable · l.778 |
-| `MainLayout` |  |  |  | SessionReportsPage · l.859 |
-| `LoadingSkeleton` |  | `dataLoading && each Array.from({ length: 4 })` |  | SessionReportsPage · l.868 |
-| `LoadingSkeleton` |  | `dataLoading && each Array.from({ length: 4 })` |  | SessionReportsPage · l.873 |
+| `MainLayout` |  | `loading` |  | SessionReportsPage · l.376 |
+| `LoadingSkeleton` |  | `loading` |  | SessionReportsPage · l.379 |
+| `LoadingSkeleton` |  | `loading && each Array.from({ length: 4 })` |  | SessionReportsPage · l.382 |
+| `LoadingSkeleton` |  | `loading && each Array.from({ length: 4 })` |  | SessionReportsPage · l.387 |
+| `MainLayout` |  | `error && isNuevo` |  | SessionReportsPage · l.402 |
+| `ReportsErrorNuevo` |  | `error && isNuevo` |  | SessionReportsPage · l.403 |
+| `MainLayout` |  | `error` |  | SessionReportsPage · l.408 |
+| `MainLayout` |  | `!dataLoading && analyticsData && analyticsData.kpis.total_sessions === 0 && isNuevo` |  | SessionReportsPage · l.435 |
+| `ReportsNuevo` |  | `!dataLoading && analyticsData && analyticsData.kpis.total_sessions === 0 && isNuevo` |  | SessionReportsPage · l.436 |
+| `MainLayout` |  | `!dataLoading && analyticsData && analyticsData.kpis.total_sessions === 0` |  | SessionReportsPage · l.441 |
+| `HelpButton` | sectionId: mis-reportes |  |  | renderHeader · l.475 |
+| `KPICard` | title: Total Sesiones |  |  | renderKPICards · l.572 |
+| `KPICard` | title: Tasa de Completación |  |  | renderKPICards · l.578 |
+| `KPICard` | title: Horas Programadas |  |  | renderKPICards · l.584 |
+| `KPICard` | title: Asistencia Promedio |  |  | renderKPICards · l.590 |
+| `KPICard` | title: Pendientes de Informe |  |  | renderKPICards · l.600 |
+| `KPICard` | title: Próximas Sesiones |  |  | renderKPICards · l.606 |
+| `KPICard` | title: Sesiones Canceladas |  |  | renderKPICards · l.612 |
+| `ResponsiveContainer` |  |  |  | renderCharts · l.663 |
+| `CartesianGrid` | strokeDasharray: 3 3 |  |  | renderCharts · l.665 |
+| `XAxis` |  |  |  | renderCharts · l.666 |
+| `YAxis` |  |  |  | renderCharts · l.667 |
+| `Tooltip` |  |  |  | renderCharts · l.668 |
+| `Legend` |  |  |  | renderCharts · l.669 |
+| `Bar` |  |  |  | renderCharts · l.670 |
+| `Bar` |  |  |  | renderCharts · l.671 |
+| `Bar` |  |  |  | renderCharts · l.672 |
+| `ResponsiveContainer` |  |  |  | renderCharts · l.680 |
+| `Pie` | cx: 50% · cy: 50% |  |  | renderCharts · l.682 |
+| `Cell` |  | `each statusData` |  | renderCharts · l.693 |
+| `Tooltip` |  |  |  | renderCharts · l.696 |
+| `Legend` |  |  |  | renderCharts · l.697 |
+| `ResponsiveContainer` |  |  |  | renderCharts · l.705 |
+| `Pie` | cx: 50% · cy: 50% |  |  | renderCharts · l.707 |
+| `Cell` |  | `each modalityData` |  | renderCharts · l.718 |
+| `Tooltip` |  |  |  | renderCharts · l.721 |
+| `Legend` |  |  |  | renderCharts · l.722 |
+| `ResponsiveContainer` |  |  |  | renderCharts · l.730 |
+| `CartesianGrid` | strokeDasharray: 3 3 |  |  | renderCharts · l.732 |
+| `XAxis` |  |  |  | renderCharts · l.733 |
+| `YAxis` | unit: % |  |  | renderCharts · l.734 |
+| `Tooltip` |  |  |  | renderCharts · l.735 |
+| `Area` |  |  |  | renderCharts · l.736 |
+| `ResponsiveContainer` |  | `isAdmin && analyticsData.sessions_by_school.length > 0` |  | renderCharts · l.751 |
+| `CartesianGrid` | strokeDasharray: 3 3 | `isAdmin && analyticsData.sessions_by_school.length > 0` |  | renderCharts · l.757 |
+| `XAxis` |  | `isAdmin && analyticsData.sessions_by_school.length > 0` |  | renderCharts · l.758 |
+| `YAxis` |  | `isAdmin && analyticsData.sessions_by_school.length > 0` |  | renderCharts · l.759 |
+| `Tooltip` |  | `isAdmin && analyticsData.sessions_by_school.length > 0` |  | renderCharts · l.765 |
+| `Legend` |  | `isAdmin && analyticsData.sessions_by_school.length > 0` |  | renderCharts · l.766 |
+| `Bar` |  | `isAdmin && analyticsData.sessions_by_school.length > 0` |  | renderCharts · l.767 |
+| `Bar` |  | `isAdmin && analyticsData.sessions_by_school.length > 0` |  | renderCharts · l.768 |
+| `ResponsiveContainer` |  | `isAdmin && analyticsData.top_consultants && analyticsData.top_consultants.length > 0` |  | renderCharts · l.778 |
+| `CartesianGrid` | strokeDasharray: 3 3 | `isAdmin && analyticsData.top_consultants && analyticsData.top_consultants.length > 0` |  | renderCharts · l.784 |
+| `XAxis` |  | `isAdmin && analyticsData.top_consultants && analyticsData.top_consultants.length > 0` |  | renderCharts · l.785 |
+| `YAxis` |  | `isAdmin && analyticsData.top_consultants && analyticsData.top_consultants.length > 0` |  | renderCharts · l.786 |
+| `Tooltip` |  | `isAdmin && analyticsData.top_consultants && analyticsData.top_consultants.length > 0` |  | renderCharts · l.792 |
+| `Legend` |  | `isAdmin && analyticsData.top_consultants && analyticsData.top_consultants.length > 0` |  | renderCharts · l.793 |
+| `Bar` |  | `isAdmin && analyticsData.top_consultants && analyticsData.top_consultants.length > 0` |  | renderCharts · l.794 |
+| `ExportDropdown` | tabName: Sesiones Recientes · headers: Fecha / Título / Escuela / Comunidad / Estado / Asistencia |  |  | renderRecentSessionsTable · l.822 |
+| `MainLayout` |  | `isNuevo` |  | SessionReportsPage · l.904 |
+| `ReportsNuevo` |  | `isNuevo` |  | SessionReportsPage · l.905 |
+| `MainLayout` |  |  |  | SessionReportsPage · l.911 |
+| `LoadingSkeleton` |  | `dataLoading && each Array.from({ length: 4 })` |  | SessionReportsPage · l.920 |
+| `LoadingSkeleton` |  | `dataLoading && each Array.from({ length: 4 })` |  | SessionReportsPage · l.925 |
 
-**Texts kept in lists and helpers in the code (labels, options, status names)** (1)
+**Texts kept in lists and helpers in the code (labels, options, status names)** (3)
 
 | Name | Texts | Where |
 |---|---|---|
-| `MODALITY_COLORS` | «rgb(var(--color-serie-1, var(--color-blue-500)))», «rgb(var(--color-serie-2, var(--color-legacy-10b981)))», «rgb(var(--color-serie-3, 245 158 11))» | l.133 |
+| `BREADCRUMBS_NUEVO_ADMIN` | «Consultorías», «Reportes» | l.137 |
+| `BREADCRUMBS_NUEVO_CONSULTOR` | «Mi Trabajo», «Mis Reportes» | l.138 |
+| `MODALITY_COLORS` | «rgb(var(--color-serie-1, var(--color-blue-500)))», «rgb(var(--color-serie-2, var(--color-legacy-10b981)))», «rgb(var(--color-serie-3, 245 158 11))» | l.140 |
 
 **Other texts written in the code (safety net: not tied to an element by the script)** (1)
 
 | Text | Where |
 |---|---|
-| «Bearer {session.access_token}» | SessionReportsPage · l.320 |
+| «Bearer {session.access_token}» | SessionReportsPage · l.330 |
 
 **Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (1)
 
 | Kind | What | Where |
 |---|---|---|
-| listener | `window.addEventListener('resize')` | SessionReportsPage · l.259 |
+| listener | `window.addEventListener('resize')` | SessionReportsPage · l.269 |
 
 **Values shown from data** (13)
 
-- `{title}` — KPICard · l.158
-- `{value}` — KPICard · l.159
-- `{icon}` — KPICard · l.162
-- `{label}` — CustomChartTooltip · l.189, when `active && payload && payload.length`
-- `{entry.name} : {entry.value}` — CustomChartTooltip · l.191, when `active && payload && payload.length && each payload`
-- `{(percent * 100).toFixed(0)}%` — renderPieLabel · l.223
-- `{error}` — SessionReportsPage · l.378, when `error`
-- `{format(parseISO(session.session_dat…}` — renderRecentSessionsTable · l.825, when `each analyticsData.recent_sessions`
-- `{session.title}` — renderRecentSessionsTable · l.828, when `each analyticsData.recent_sessions`
-- `{session.school_name}` — renderRecentSessionsTable · l.831, when `each analyticsData.recent_sessions`
-- `{session.gc_name}` — renderRecentSessionsTable · l.834, when `each analyticsData.recent_sessions`
-- `{badge.label}` — renderRecentSessionsTable · l.838, when `each analyticsData.recent_sessions`
-- `{session.attendance_rate}% / -` — renderRecentSessionsTable · l.842, when `each analyticsData.recent_sessions`
+- `{title}` — KPICard · l.165
+- `{value}` — KPICard · l.166
+- `{icon}` — KPICard · l.169
+- `{label}` — CustomChartTooltip · l.196, when `active && payload && payload.length`
+- `{entry.name} : {entry.value}` — CustomChartTooltip · l.198, when `active && payload && payload.length && each payload`
+- `{(percent * 100).toFixed(0)}%` — renderPieLabel · l.230
+- `{error}` — SessionReportsPage · l.415, when `error`
+- `{format(parseISO(session.session_dat…}` — renderRecentSessionsTable · l.869, when `each analyticsData.recent_sessions`
+- `{session.title}` — renderRecentSessionsTable · l.872, when `each analyticsData.recent_sessions`
+- `{session.school_name}` — renderRecentSessionsTable · l.875, when `each analyticsData.recent_sessions`
+- `{session.gc_name}` — renderRecentSessionsTable · l.878, when `each analyticsData.recent_sessions`
+- `{badge.label}` — renderRecentSessionsTable · l.882, when `each analyticsData.recent_sessions`
+- `{session.attendance_rate}% / -` — renderRecentSessionsTable · l.886, when `each analyticsData.recent_sessions`
 
 **Other texts on screen** (13)
 
-- «No hay sesiones en el período seleccionado» — SessionReportsPage · l.403, when `!dataLoading && analyticsData && analyticsData.kpis.total_sessions === 0`
-- «No hay sesiones que coincidan con los filtros seleccionados. Intenta ajustar los filtros para ver más resultados.» — SessionReportsPage · l.404, when `!dataLoading && analyticsData && analyticsData.kpis.total_sessions === 0`
-- «Estadísticas y métricas de todas las sesiones de consultoría / Estadísticas y métricas de tus sesiones de consultoría» — renderHeader · l.433
-- «Desde» (label) — renderFilters · l.459
-- «Hasta» (label) — renderFilters · l.469
-- «Escuela» (label) — renderFilters · l.479
-- «Consultor» (label) — renderFilters · l.496, when `isAdmin && consultants.length > 0`
-- «Sesiones por Mes - Gráfico de barras» (aria-label) — renderCharts · l.617
-- «Distribución por Estado - Gráfico circular» (aria-label) — renderCharts · l.634
-- «Distribución por Modalidad - Gráfico circular» (aria-label) — renderCharts · l.659
-- «Tendencia de Asistencia - Gráfico de área» (aria-label) — renderCharts · l.684
-- «Sesiones por Escuela - Gráfico de barras horizontal» (aria-label) — renderCharts · l.705, when `isAdmin && analyticsData.sessions_by_school.length > 0`
-- «Top Consultores - Gráfico de barras horizontal» (aria-label) — renderCharts · l.732, when `isAdmin && analyticsData.top_consultants && analyticsData.top_consultants.length > 0`
+- «No hay sesiones en el período seleccionado» — SessionReportsPage · l.447, when `!dataLoading && analyticsData && analyticsData.kpis.total_sessions === 0`
+- «No hay sesiones que coincidan con los filtros seleccionados. Intenta ajustar los filtros para ver más resultados.» — SessionReportsPage · l.448, when `!dataLoading && analyticsData && analyticsData.kpis.total_sessions === 0`
+- «Estadísticas y métricas de todas las sesiones de consultoría / Estadísticas y métricas de tus sesiones de consultoría» — renderHeader · l.477
+- «Desde» (label) — renderFilters · l.503
+- «Hasta» (label) — renderFilters · l.513
+- «Escuela» (label) — renderFilters · l.523
+- «Consultor» (label) — renderFilters · l.540, when `isAdmin && consultants.length > 0`
+- «Sesiones por Mes - Gráfico de barras» (aria-label) — renderCharts · l.661
+- «Distribución por Estado - Gráfico circular» (aria-label) — renderCharts · l.678
+- «Distribución por Modalidad - Gráfico circular» (aria-label) — renderCharts · l.703
+- «Tendencia de Asistencia - Gráfico de área» (aria-label) — renderCharts · l.728
+- «Sesiones por Escuela - Gráfico de barras horizontal» (aria-label) — renderCharts · l.749, when `isAdmin && analyticsData.sessions_by_school.length > 0`
+- «Top Consultores - Gráfico de barras horizontal» (aria-label) — renderCharts · l.776, when `isAdmin && analyticsData.top_consultants && analyticsData.top_consultants.length > 0`
 
 ### Pieces it uses (each is listed once, under "Pieces" below)
 
 - `components/reports/ExportDropdown.tsx`
+- `components/sessions/reports-nuevo/ReportsNuevo.tsx`
 - `components/tutorials/HelpButton.tsx`
 - `components/tutorials/HelpDrawer.tsx`
 - `components/tutorials/VimeoEmbed.tsx`
 - `components/ui/dialog.tsx`
+- `components/ui/kit/Button.tsx`
+- `components/ui/kit/Card.tsx`
+- `components/ui/kit/EmptyState.tsx`
+- `components/ui/kit/Field.tsx`
+- `components/ui/kit/PageHeader.tsx`
+- `components/ui/kit/Table.tsx`
 - `lib/colorAlpha.ts`
 - `lib/exportUtils.ts`
 - `lib/tutorials/content.ts`
@@ -1666,11 +1739,11 @@ File `pages/consultor/sessions/reports.tsx` · 890 lines · frame: MainLayout
 
 | Address | Method | Called from |
 |---|---|---|
-| `/api/sessions/reports/analytics` | GET | `pages/consultor/sessions/reports.tsx:318` |
+| `/api/sessions/reports/analytics` | GET | `pages/consultor/sessions/reports.tsx:328` |
 
 ## /meet/diag
 
-File `pages/meet/diag.tsx` · 1038 lines · frame: none · getServerSideProps
+File `pages/meet/diag.tsx` · 1047 lines · frame: none · getServerSideProps
 
 **Looks like a leftover but is in use**
 
@@ -1679,9 +1752,9 @@ File `pages/meet/diag.tsx` · 1038 lines · frame: none · getServerSideProps
 - Menu: no entry.
 - Middleware: signed-in only. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page:
-  - l.1026 `server redirect → /login?next=[*]  (when !user)`
+  - l.1035 `server redirect → /login?next=[*]  (when !user)`
 - Linked from: nothing in the code (reached by typing the address, or from outside)
-- Tests: no browser test that CI runs; unit tests of the page: `__tests__/lib/api-auth.server-side-user.test.ts`, `__tests__/pages/meet-diag-join-section.test.ts`, `__tests__/pages/meet/diag-join-passcode.test.tsx`, `__tests__/pages/meet/diag-ssr.test.ts`.
+- Tests: no browser test that CI runs; unit tests of the page: `__tests__/lib/api-auth.server-side-user.test.ts`, `__tests__/pages/meet-diag-join-section.test.ts`, `__tests__/pages/meet/diag-join-passcode.test.tsx`, `__tests__/pages/meet/diag-ssr.test.ts`, `__tests__/pages/meet/diag.nuevo.test.tsx`.
 
 | Role | Sees it in the menu | Middleware |
 |---|---|---|
@@ -1701,195 +1774,199 @@ File `pages/meet/diag.tsx` · 1038 lines · frame: none · getServerSideProps
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «Diagnóstico del equipo» | h1 |  | MeetDiagPage · l.762 |
-| «Mediciones» | h2 |  | MeetDiagPage · l.778 |
-| «Prueba de cámara y micrófono» | h2 |  | MeetDiagPage · l.846 |
-| «Prueba de conexión» | h2 | `!joinAvailable` | MeetDiagPage · l.863 |
-| «Prueba de conexión» | h2 | `!(!joinAvailable)` | MeetDiagPage · l.874 |
-| «Resultados» | h2 |  | MeetDiagPage · l.959 |
+| «Diagnóstico del equipo» | h1 |  | MeetDiagPage · l.767 |
+| «Mediciones» | h2 |  | MeetDiagPage · l.783 |
+| «Prueba de cámara y micrófono» | h2 |  | MeetDiagPage · l.855 |
+| «Prueba de conexión» | h2 | `!joinAvailable` | MeetDiagPage · l.872 |
+| «Prueba de conexión» | h2 | `!(!joinAvailable)` | MeetDiagPage · l.883 |
+| «Resultados» | h2 |  | MeetDiagPage · l.968 |
 
 **Buttons** (4)
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «Probar cámara y micrófono» | `{runMediaProbe}` |  |  | `testid=diag-media-probe-button` | MeetDiagPage · l.851 |
-| «Entrando… / Entrar a la reunión» | `{runTestJoin}` | `!(!joinAvailable)` | `{joinState === 'joining' \|\| joinState === 'joined' \|\| passcode.trim().length ===…}` | `testid=diag-join-button` | MeetDiagPage · l.912 |
-| «Salir de la reunión» | `{leaveTestJoin}` | `!(!joinAvailable) && joinState === 'joined'` |  | `testid=diag-join-leave-button` | MeetDiagPage · l.926 |
-| «Copiar resultados» | `{copyReport}` |  |  | `testid=diag-copy-button` | MeetDiagPage · l.964 |
+| «Probar cámara y micrófono» | `{runMediaProbe}` |  |  | `testid=diag-media-probe-button` | MeetDiagPage · l.860 |
+| «Entrando… / Entrar a la reunión» | `{runTestJoin}` | `!(!joinAvailable)` | `{joinState === 'joining' \|\| joinState === 'joined' \|\| passcode.trim().length ===…}` | `testid=diag-join-button` | MeetDiagPage · l.921 |
+| «Salir de la reunión» | `{leaveTestJoin}` | `!(!joinAvailable) && joinState === 'joined'` |  | `testid=diag-join-leave-button` | MeetDiagPage · l.935 |
+| «Copiar resultados» | `{copyReport}` |  |  | `testid=diag-copy-button` | MeetDiagPage · l.973 |
 
 **Links** (1)
 
 | Text | Goes to | Shown when | Hook | Where |
 |---|---|---|---|---|
-| «Volver al inicio» | `/dashboard` |  | `testid=diag-back-link` | MeetDiagPage · l.994 |
+| «Volver al inicio» | `/dashboard` |  | `testid=diag-back-link` | MeetDiagPage · l.1003 |
 
 **Fields** (3)
 
 | Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
 |---|---|---|---|---|---|---|
-| «Número de reunión» | text | «Por ejemplo: 87239242778» |  | `!(!joinAvailable)` | `testid=diag-join-meeting-number` | MeetDiagPage · l.884 |
-| «Clave de la reunión» | text | «Obligatoria — cópiala tal cual» · required |  | `!(!joinAvailable)` | `testid=diag-join-passcode` | MeetDiagPage · l.897 |
-| «Resultados en formato JSON» | textarea | `readOnly=true` |  |  | `testid=diag-report-json` | MeetDiagPage · l.983 |
+| «Número de reunión» | text | «Por ejemplo: 87239242778» |  | `!(!joinAvailable)` | `testid=diag-join-meeting-number` | MeetDiagPage · l.893 |
+| «Clave de la reunión» | text | «Obligatoria — cópiala tal cual» · required |  | `!(!joinAvailable)` | `testid=diag-join-passcode` | MeetDiagPage · l.906 |
+| «Resultados en formato JSON» | textarea | `readOnly=true` |  |  | `testid=diag-report-json` | MeetDiagPage · l.992 |
 
 **Table columns** (4)
 
 | Text | Shown when | Where |
 |---|---|---|
-| «Medición» |  | MeetDiagPage · l.789 |
-| «Resultado» |  | MeetDiagPage · l.792 |
-| «Estado» |  | MeetDiagPage · l.795 |
-| «{probe.label}» | `each allProbes` | MeetDiagPage · l.807 |
+| «Medición» |  | MeetDiagPage · l.794 |
+| «Resultado» |  | MeetDiagPage · l.797 |
+| «Estado» |  | MeetDiagPage · l.800 |
+| «{probe.label}» | `each allProbes` | MeetDiagPage · l.812 |
 
 **Messages set on the page** (3)
 
 | Text | Set by | When | Where |
 |---|---|---|---|
-| «El SDK se descargó pero no quedó disponible en la página.» | `throw (shown by whoever catches it)` | `!window.ZoomMtgEmbedded` | loadMeetingSdk · l.144 |
-| «Esta instalación no tiene credenciales de Zoom configuradas. / No se pudo firmar la entrada (HTTP {signatureResponse.status}).» | `throw (shown by whoever catches it)` | `!signatureResponse.ok` | MeetDiagPage · l.640 |
-| «No se encontró el contenedor de la reunión.» | `throw (shown by whoever catches it)` | `!root` | MeetDiagPage · l.653 |
+| «El SDK se descargó pero no quedó disponible en la página.» | `throw (shown by whoever catches it)` | `!window.ZoomMtgEmbedded` | loadMeetingSdk · l.146 |
+| «Esta instalación no tiene credenciales de Zoom configuradas. / No se pudo firmar la entrada (HTTP {signatureResponse.status}).» | `throw (shown by whoever catches it)` | `!signatureResponse.ok` | MeetDiagPage · l.645 |
+| «No se encontró el contenedor de la reunión.» | `throw (shown by whoever catches it)` | `!root` | MeetDiagPage · l.658 |
 
 **Moves to another page from code** (1)
 
 | Goes to | How | When | Where |
 |---|---|---|---|
-| `/login?next=[*]` | `server redirect` | `!user` | getServerSideProps · l.1026 |
+| `/login?next=[*]` | `server redirect` | `!user` | getServerSideProps · l.1035 |
 
 **Draws nothing when** (2)
 
 | Condition | Where |
 |---|---|
-| `cancelled` | MeetDiagPage · l.498 |
-| `cancelled` | MeetDiagPage · l.510 |
+| `cancelled` | MeetDiagPage · l.503 |
+| `cancelled` | MeetDiagPage · l.515 |
 
 **Texts kept in lists and helpers in the code (labels, options, status names)** (4)
 
 | Name | Texts | Where |
 |---|---|---|
-| `STATUS_LABEL` | «OK», «Atención», «Falla», «Dato», «Sin medir» | l.192 |
-| `timezone` | «No informada» | collectPassiveProbes · l.418 |
-| `resolution` | «· {settings.width}×{settings.height}» | MeetDiagPage · l.552 |
-| `explanation` | «Permiso denegado por la persona usuaria o bloqueado por la política del navegador. / El equipo no tiene cámara o micrófono disponibles. / Otra aplicación está usando la cámara o el micrófono. / Revisa la consola del navegador para el detalle.» | MeetDiagPage · l.566 |
+| `STATUS_LABEL` | «OK», «Atención», «Falla», «Dato», «Sin medir» | l.194 |
+| `timezone` | «No informada» | collectPassiveProbes · l.420 |
+| `resolution` | «· {settings.width}×{settings.height}» | MeetDiagPage · l.557 |
+| `explanation` | «Permiso denegado por la persona usuaria o bloqueado por la política del navegador. / El equipo no tiene cámara o micrófono disponibles. / Otra aplicación está usando la cámara o el micrófono. / Revisa la consola del navegador para el detalle.» | MeetDiagPage · l.571 |
 
 **Other texts written in the code (safety net: not tied to an element by the script)** (46)
 
 | Text | Where |
 |---|---|
-| «Desconocido» | identifyBrowser · l.221 |
-| «Navegador» | collectPassiveProbes · l.287 |
-| «La matriz de pruebas cubre Chrome, Edge, Firefox y Safari.» | collectPassiveProbes · l.290 |
-| «User agent» | collectPassiveProbes · l.295 |
-| «Plataforma» | collectPassiveProbes · l.302 |
-| «Núcleos de CPU» | collectPassiveProbes · l.310 |
-| «Mínimo del equipo P0: {FLOORS.cores.warn} núcleos. Recomendado: {FLOORS.cores.pass}.» | collectPassiveProbes · l.313 |
-| «Memoria RAM (aprox.)» | collectPassiveProbes · l.319 |
-| «No informada (solo Chrome/Edge)» | collectPassiveProbes · l.320 |
-| «Mínimo P0/P1: {FLOORS.memoryGb.warn} GB. El navegador redondea este valor hacia abajo.» | collectPassiveProbes · l.322 |
-| «Pantalla» | collectPassiveProbes · l.330 |
-| «Bajo {FLOORS.screenWidth.warn} px de ancho la vista embebida de escritorio no es usable.» | collectPassiveProbes · l.333 |
-| «Ancho de banda estimado» | collectPassiveProbes · l.339 |
-| «Perfiles de la prueba: fibra · 4 Mbps · 1,5 Mbps. Es una estimación del navegador, no una medición de red.» | collectPassiveProbes · l.342 |
-| «En Firefox y Safari mide la red con la herramienta indicada en el protocolo.» | collectPassiveProbes · l.350 |
-| «Latencia estimada (RTT)» | collectPassiveProbes · l.357 |
-| «Perfiles de la prueba: 80 ms y 300 ms. Es una estimación del navegador.» | collectPassiveProbes · l.360 |
-| «Modo ahorro de datos» | collectPassiveProbes · l.374 |
-| «Activado» | collectPassiveProbes · l.375 |
-| «Desactivado» | collectPassiveProbes · l.375 |
-| «Con ahorro de datos activado el navegador degrada video sin avisar.» | collectPassiveProbes · l.377 |
-| «Disponible» | collectPassiveProbes · l.385 |
-| «El SDK de video lo necesita. Sin WebAssembly no hay experiencia embebida.» | collectPassiveProbes · l.387 |
-| «WebGL / aceleración gráfica» | collectPassiveProbes · l.394 |
-| «Un renderizador por software (SwiftShader, llvmpipe) sube mucho el uso de CPU con varias cámaras.» | collectPassiveProbes · l.397 |
-| «Solo medición. Sin aislamiento se pierden envío en 720p, supresión de ruido y audio de pestaña; la reunión funciona igual.» | collectPassiveProbes · l.406 |
-| «Solo medición. Esta página no modifica ninguna cabecera para habilitarlo.» | collectPassiveProbes · l.415 |
-| «Zona horaria del equipo» | collectPassiveProbes · l.426 |
-| «Las sesiones se agendan en hora de Chile. Un equipo con otra zona muestra horarios corridos.» | collectPassiveProbes · l.429 |
-| «Uso de CPU durante la reunión» | collectPassiveProbes · l.434 |
-| «Se mide en el equipo (Administrador de tareas) durante la llamada, según el protocolo. Umbral: bajo 90%.» | collectPassiveProbes · l.437 |
-| «Tiempo hasta entrar a la reunión» | MeetDiagPage · l.471 |
-| «Umbral del protocolo (B1): menos de 20 segundos desde el clic hasta ver y escuchar.» | MeetDiagPage · l.474 |
-| «Cámara y micrófono» | MeetDiagPage · l.480 |
-| «Presiona "Probar cámara y micrófono". El navegador pedirá permiso.» | MeetDiagPage · l.483 |
-| «Almacenamiento disponible» | MeetDiagPage · l.503 |
-| «Referencial. El SDK guarda pocos megabytes en caché.» | MeetDiagPage · l.506 |
-| «Suele indicar un contexto no seguro (sin HTTPS) o un navegador demasiado antiguo.» | MeetDiagPage · l.541 |
-| «Permiso concedido y ambos dispositivos entregados. Esto confirma que la política de permisos de /meet permite la videollamada.» | MeetDiagPage · l.561 |
-| «Falta uno de los dos dispositivos. Revisa que el equipo tenga cámara y micrófono conectados.» | MeetDiagPage · l.562 |
-| «Error» | MeetDiagPage · l.565 |
-| «El número de la reunión tiene entre 9 y 11 dígitos. Cópialo sin espacios.» | MeetDiagPage · l.606 |
-| «La reunión de prueba debe tener clave. Si la que te pasaron no la tiene, pide otra: una reunión sin clave no se usa en este protocolo.» | MeetDiagPage · l.623 |
-| «Prueba de equipo» | MeetDiagPage · l.671 |
-| «Umbral del protocolo (B1): menos de 20 segundos. Medido desde el clic hasta que el SDK confirma la entrada. SDK {SDK_VERSION}.» | MeetDiagPage · l.684 |
-| «Anota este mensaje completo en la planilla: distingue un problema de red de un problema de la cuenta de Zoom.» | MeetDiagPage · l.694 |
+| «Desconocido» | identifyBrowser · l.223 |
+| «Navegador» | collectPassiveProbes · l.289 |
+| «La matriz de pruebas cubre Chrome, Edge, Firefox y Safari.» | collectPassiveProbes · l.292 |
+| «User agent» | collectPassiveProbes · l.297 |
+| «Plataforma» | collectPassiveProbes · l.304 |
+| «Núcleos de CPU» | collectPassiveProbes · l.312 |
+| «Mínimo del equipo P0: {FLOORS.cores.warn} núcleos. Recomendado: {FLOORS.cores.pass}.» | collectPassiveProbes · l.315 |
+| «Memoria RAM (aprox.)» | collectPassiveProbes · l.321 |
+| «No informada (solo Chrome/Edge)» | collectPassiveProbes · l.322 |
+| «Mínimo P0/P1: {FLOORS.memoryGb.warn} GB. El navegador redondea este valor hacia abajo.» | collectPassiveProbes · l.324 |
+| «Pantalla» | collectPassiveProbes · l.332 |
+| «Bajo {FLOORS.screenWidth.warn} px de ancho la vista embebida de escritorio no es usable.» | collectPassiveProbes · l.335 |
+| «Ancho de banda estimado» | collectPassiveProbes · l.341 |
+| «Perfiles de la prueba: fibra · 4 Mbps · 1,5 Mbps. Es una estimación del navegador, no una medición de red.» | collectPassiveProbes · l.344 |
+| «En Firefox y Safari mide la red con la herramienta indicada en el protocolo.» | collectPassiveProbes · l.352 |
+| «Latencia estimada (RTT)» | collectPassiveProbes · l.359 |
+| «Perfiles de la prueba: 80 ms y 300 ms. Es una estimación del navegador.» | collectPassiveProbes · l.362 |
+| «Modo ahorro de datos» | collectPassiveProbes · l.376 |
+| «Activado» | collectPassiveProbes · l.377 |
+| «Desactivado» | collectPassiveProbes · l.377 |
+| «Con ahorro de datos activado el navegador degrada video sin avisar.» | collectPassiveProbes · l.379 |
+| «Disponible» | collectPassiveProbes · l.387 |
+| «El SDK de video lo necesita. Sin WebAssembly no hay experiencia embebida.» | collectPassiveProbes · l.389 |
+| «WebGL / aceleración gráfica» | collectPassiveProbes · l.396 |
+| «Un renderizador por software (SwiftShader, llvmpipe) sube mucho el uso de CPU con varias cámaras.» | collectPassiveProbes · l.399 |
+| «Solo medición. Sin aislamiento se pierden envío en 720p, supresión de ruido y audio de pestaña; la reunión funciona igual.» | collectPassiveProbes · l.408 |
+| «Solo medición. Esta página no modifica ninguna cabecera para habilitarlo.» | collectPassiveProbes · l.417 |
+| «Zona horaria del equipo» | collectPassiveProbes · l.428 |
+| «Las sesiones se agendan en hora de Chile. Un equipo con otra zona muestra horarios corridos.» | collectPassiveProbes · l.431 |
+| «Uso de CPU durante la reunión» | collectPassiveProbes · l.436 |
+| «Se mide en el equipo (Administrador de tareas) durante la llamada, según el protocolo. Umbral: bajo 90%.» | collectPassiveProbes · l.439 |
+| «Tiempo hasta entrar a la reunión» | MeetDiagPage · l.476 |
+| «Umbral del protocolo (B1): menos de 20 segundos desde el clic hasta ver y escuchar.» | MeetDiagPage · l.479 |
+| «Cámara y micrófono» | MeetDiagPage · l.485 |
+| «Presiona "Probar cámara y micrófono". El navegador pedirá permiso.» | MeetDiagPage · l.488 |
+| «Almacenamiento disponible» | MeetDiagPage · l.508 |
+| «Referencial. El SDK guarda pocos megabytes en caché.» | MeetDiagPage · l.511 |
+| «Suele indicar un contexto no seguro (sin HTTPS) o un navegador demasiado antiguo.» | MeetDiagPage · l.546 |
+| «Permiso concedido y ambos dispositivos entregados. Esto confirma que la política de permisos de /meet permite la videollamada.» | MeetDiagPage · l.566 |
+| «Falta uno de los dos dispositivos. Revisa que el equipo tenga cámara y micrófono conectados.» | MeetDiagPage · l.567 |
+| «Error» | MeetDiagPage · l.570 |
+| «El número de la reunión tiene entre 9 y 11 dígitos. Cópialo sin espacios.» | MeetDiagPage · l.611 |
+| «La reunión de prueba debe tener clave. Si la que te pasaron no la tiene, pide otra: una reunión sin clave no se usa en este protocolo.» | MeetDiagPage · l.628 |
+| «Prueba de equipo» | MeetDiagPage · l.676 |
+| «Umbral del protocolo (B1): menos de 20 segundos. Medido desde el clic hasta que el SDK confirma la entrada. SDK {SDK_VERSION}.» | MeetDiagPage · l.689 |
+| «Anota este mensaje completo en la planilla: distingue un problema de red de un problema de la cuenta de Zoom.» | MeetDiagPage · l.699 |
 
 **Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (10)
 
 | Kind | What | Where |
 |---|---|---|
-| lookup | `querySelector(script[data-sdk-src="{src}"])` | loadScript · l.105 |
-| listener | `script.addEventListener('load')` | loadScript · l.111 |
-| listener | `script.addEventListener('error')` | loadScript · l.119 |
-| mark | `testid=diag-summary` | MeetDiagPage · l.779 |
-| mark | `testid=diag-row-{probe.id}` | MeetDiagPage · l.802 |
-| mark | `testid=diag-join-placeholder` | MeetDiagPage · l.864 |
-| mark | `testid=diag-join-status` | MeetDiagPage · l.935 |
-| mark | `testid=diag-join-sdk-root` | MeetDiagPage · l.950 |
-| mark | `testid=diag-copy-ok` | MeetDiagPage · l.973 |
-| mark | `testid=diag-copy-error` | MeetDiagPage · l.978 |
+| lookup | `querySelector(script[data-sdk-src="{src}"])` | loadScript · l.107 |
+| listener | `script.addEventListener('load')` | loadScript · l.113 |
+| listener | `script.addEventListener('error')` | loadScript · l.121 |
+| mark | `testid=diag-summary` | MeetDiagPage · l.784 |
+| mark | `testid=diag-row-{probe.id}` | MeetDiagPage · l.807 |
+| mark | `testid=diag-join-placeholder` | MeetDiagPage · l.873 |
+| mark | `testid=diag-join-status` | MeetDiagPage · l.944 |
+| mark | `testid=diag-join-sdk-root` | MeetDiagPage · l.959 |
+| mark | `testid=diag-copy-ok` | MeetDiagPage · l.982 |
+| mark | `testid=diag-copy-error` | MeetDiagPage · l.987 |
 
 **Values shown from data** (4)
 
-- `{probe.value}` — MeetDiagPage · l.811, when `each allProbes`
-- `{probe.note}` — MeetDiagPage · l.813, when `each allProbes && probe.note`
-- `{STATUS_LABEL[probe.status]}` — MeetDiagPage · l.817, when `each allProbes`
-- `{joinProbe.value}` — MeetDiagPage · l.935, when `!(!joinAvailable)`
+- `{probe.value}` — MeetDiagPage · l.816, when `each allProbes`
+- `{probe.note}` — MeetDiagPage · l.818, when `each allProbes && probe.note`
+- `{STATUS_LABEL[probe.status]}` — MeetDiagPage · l.822, when `each allProbes`
+- `{joinProbe.value}` — MeetDiagPage · l.944, when `!(!joinAvailable)`
 
 **Other texts on screen** (26)
 
-- «Diagnóstico de equipo — Reuniones \| GENERA» — MeetDiagPage · l.752
-- «Reuniones · Diagnóstico» — MeetDiagPage · l.760
-- «Esta página revisa si este computador y esta red pueden sostener una videollamada dentro de GENERA. No inicia ninguna reunión ni graba nada.» — MeetDiagPage · l.766
-- «Sigue el protocolo de la visita, presiona» — MeetDiagPage · l.770
-- «Probar cámara y micrófono» — MeetDiagPage · l.771
-- «y luego» — MeetDiagPage · l.771
-- «Copiar resultados» — MeetDiagPage · l.772
-- «{counts.pass} OK · {counts.warn} con atención · {counts.fail} con falla» — MeetDiagPage · l.779
-- «Midiendo…» — MeetDiagPage · l.828, when `allProbes.length === 0`
-- «Referencia de equipos:» — MeetDiagPage · l.837
-- «P0» — MeetDiagPage · l.837
-- «= Windows 10 con 4 GB y doble núcleo, o Windows 11 con procesador i5.» — MeetDiagPage · l.837
-- «P1» — MeetDiagPage · l.839
-- «= Chromebook con 4 GB o tablet Android. Un resultado &ldquo;Atención&rdquo; no impide usar la plataforma: significa que el equipo está en el mínimo y hay que anotarlo en la planilla.» — MeetDiagPage · l.839
-- «El navegador pedirá permiso. Acepta para que la prueba sea válida. La cámara se apaga apenas termina la medición.» — MeetDiagPage · l.848
-- «Prueba de conexión: disponible próximamente.» — MeetDiagPage · l.865, when `!joinAvailable`
-- «Este bloque necesita las credenciales de Zoom configuradas en el servidor. El resto del diagnóstico funciona igual: continúa con la Parte A del protocolo.» — MeetDiagPage · l.868, when `!joinAvailable`
-- «Escribe el número y la clave de la reunión de prueba que te pasaron, y presiona» — MeetDiagPage · l.876, when `!(!joinAvailable)`
-- «Entrar a la reunión» — MeetDiagPage · l.877, when `!(!joinAvailable)`
-- «. El tiempo se mide solo y queda en el bloque de resultados.» — MeetDiagPage · l.877, when `!(!joinAvailable)`
-- «Número de reunión» (label) — MeetDiagPage · l.882, when `!(!joinAvailable)`
-- «Clave de la reunión» (label) — MeetDiagPage · l.895, when `!(!joinAvailable)`
-- «Para la medición B2 del protocolo, entra y sal tres veces seguidas y anota si las tres funcionaron. El video se abre dentro de esta misma página.» — MeetDiagPage · l.941, when `!(!joinAvailable)`
-- «Copia este bloque y pégalo en la planilla de la visita.» — MeetDiagPage · l.961
-- «Copiado.» — MeetDiagPage · l.974, when `copyState === 'ok'`
-- «No se pudo copiar automáticamente. Selecciona el texto de abajo y cópialo a mano.» — MeetDiagPage · l.979, when `copyState === 'error'`
+- «Diagnóstico de equipo — Reuniones \| GENERA» — MeetDiagPage · l.757
+- «Reuniones · Diagnóstico» — MeetDiagPage · l.765
+- «Esta página revisa si este computador y esta red pueden sostener una videollamada dentro de GENERA. No inicia ninguna reunión ni graba nada.» — MeetDiagPage · l.771
+- «Sigue el protocolo de la visita, presiona» — MeetDiagPage · l.775
+- «Probar cámara y micrófono» — MeetDiagPage · l.776
+- «y luego» — MeetDiagPage · l.776
+- «Copiar resultados» — MeetDiagPage · l.777
+- «{counts.pass} OK · {counts.warn} con atención · {counts.fail} con falla» — MeetDiagPage · l.784
+- «Midiendo…» — MeetDiagPage · l.837, when `allProbes.length === 0`
+- «Referencia de equipos:» — MeetDiagPage · l.846
+- «P0» — MeetDiagPage · l.846
+- «= Windows 10 con 4 GB y doble núcleo, o Windows 11 con procesador i5.» — MeetDiagPage · l.846
+- «P1» — MeetDiagPage · l.848
+- «= Chromebook con 4 GB o tablet Android. Un resultado &ldquo;Atención&rdquo; no impide usar la plataforma: significa que el equipo está en el mínimo y hay que anotarlo en la planilla.» — MeetDiagPage · l.848
+- «El navegador pedirá permiso. Acepta para que la prueba sea válida. La cámara se apaga apenas termina la medición.» — MeetDiagPage · l.857
+- «Prueba de conexión: disponible próximamente.» — MeetDiagPage · l.874, when `!joinAvailable`
+- «Este bloque necesita las credenciales de Zoom configuradas en el servidor. El resto del diagnóstico funciona igual: continúa con la Parte A del protocolo.» — MeetDiagPage · l.877, when `!joinAvailable`
+- «Escribe el número y la clave de la reunión de prueba que te pasaron, y presiona» — MeetDiagPage · l.885, when `!(!joinAvailable)`
+- «Entrar a la reunión» — MeetDiagPage · l.886, when `!(!joinAvailable)`
+- «. El tiempo se mide solo y queda en el bloque de resultados.» — MeetDiagPage · l.886, when `!(!joinAvailable)`
+- «Número de reunión» (label) — MeetDiagPage · l.891, when `!(!joinAvailable)`
+- «Clave de la reunión» (label) — MeetDiagPage · l.904, when `!(!joinAvailable)`
+- «Para la medición B2 del protocolo, entra y sal tres veces seguidas y anota si las tres funcionaron. El video se abre dentro de esta misma página.» — MeetDiagPage · l.950, when `!(!joinAvailable)`
+- «Copia este bloque y pégalo en la planilla de la visita.» — MeetDiagPage · l.970
+- «Copiado.» — MeetDiagPage · l.983, when `copyState === 'ok'`
+- «No se pudo copiar automáticamente. Selecciona el texto de abajo y cópialo a mano.» — MeetDiagPage · l.988, when `copyState === 'error'`
+
+### Pieces it uses (each is listed once, under "Pieces" below)
+
+- `components/meet/meetLookNuevo.ts`
 
 ### API addresses it calls
 
 | Address | Method | Called from |
 |---|---|---|
-| `/api/meet/diag-signature` | POST | `pages/meet/diag.tsx:634` |
+| `/api/meet/diag-signature` | POST | `pages/meet/diag.tsx:639` |
 
 ## /meet/session/[id]
 
-File `pages/meet/session/[id].tsx` · 193 lines · frame: none · getServerSideProps
+File `pages/meet/session/[id].tsx` · 198 lines · frame: none · getServerSideProps
 
 ### Who reaches it
 
 - Menu: no entry.
 - Middleware: signed-in only. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page:
-  - l.179 `server redirect → /login?next=[*]  (when access.kind === 'unauthenticated')`
-- Linked from: `lib/notifications/catalog.ts:195`, `lib/utils/session-disclosure.ts:111`
-- Tests: browser tests that CI runs: `tests/e2e/session-disclosure.spec.ts`, `tests/e2e/session-ical.spec.ts`, `tests/e2e/zoom-join-authz.spec.ts`, `tests/e2e/zoom-managed-join.spec.ts`; browser tests CI skips: `tests/e2e/notification-catalog-links.spec.ts`, `tests/e2e/session-reminders.spec.ts`; unit tests of the page: `__tests__/lib/api-auth.server-side-user.test.ts`, `__tests__/pages/meet/session-managed-join.test.tsx`, `__tests__/pages/meet/session-ssr.test.ts`.
+  - l.184 `server redirect → /login?next=[*]  (when access.kind === 'unauthenticated')`
+- Linked from: `lib/notifications/catalog.ts:197`, `lib/utils/session-disclosure.ts:111`
+- Tests: browser tests that CI runs: `tests/e2e/session-disclosure.spec.ts`, `tests/e2e/session-ical.spec.ts`, `tests/e2e/zoom-join-authz.spec.ts`, `tests/e2e/zoom-managed-join.spec.ts`; browser tests CI skips: `tests/e2e/notification-catalog-links.spec.ts`, `tests/e2e/session-reminders.spec.ts`; unit tests of the page: `__tests__/lib/api-auth.server-side-user.test.ts`, `__tests__/pages/meet/session-managed-join.test.tsx`, `__tests__/pages/meet/session-ssr.test.ts`, `__tests__/pages/meet/session.nuevo.test.tsx`.
 
 | Role | Sees it in the menu | Middleware |
 |---|---|---|
@@ -1909,64 +1986,65 @@ File `pages/meet/session/[id].tsx` · 193 lines · frame: none · getServerSideP
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «{session.title}» | h1 |  | MeetSessionPage · l.90 |
+| «{session.title}» | h1 |  | MeetSessionPage · l.95 |
 
 **Links** (2)
 
 | Text | Goes to | Shown when | Hook | Where |
 |---|---|---|---|---|
-| «Abrir enlace de reunión» | `{session.meeting_link}` (new tab) | `!(session.join_access === 'closed') && !(session.join_access === 'disabled') && !(session.is_zoom_managed) && session.meeting_link` | `testid=meet-join-link` | MeetSessionPage · l.126 |
-| «Volver al inicio» | `/dashboard` |  | `testid=meet-back-link` | MeetSessionPage · l.147 |
+| «Abrir enlace de reunión» | `{session.meeting_link}` (new tab) | `!(session.join_access === 'closed') && !(session.join_access === 'disabled') && !(session.is_zoom_managed) && session.meeting_link` | `testid=meet-join-link` | MeetSessionPage · l.131 |
+| «Volver al inicio» | `/dashboard` |  | `testid=meet-back-link` | MeetSessionPage · l.152 |
 
 **Moves to another page from code** (1)
 
 | Goes to | How | When | Where |
 |---|---|---|---|
-| `/login?next=[*]` | `server redirect` | `access.kind === 'unauthenticated'` | getServerSideProps · l.179 |
+| `/login?next=[*]` | `server redirect` | `access.kind === 'unauthenticated'` | getServerSideProps · l.184 |
 
 **Pieces placed here, with the texts and settings handed to them** (4)
 
 | Piece | Texts and settings | Shown when | Hook | Where |
 |---|---|---|---|---|
-| `Calendar` | aria-hidden: true |  |  | MeetSessionPage · l.96 |
-| `Clock` | aria-hidden: true |  |  | MeetSessionPage · l.101 |
-| `JoinMeetingButton` |  | `!(session.join_access === 'denied') && !(session.join_access === 'closed') && !(session.join_access === 'disabled') && session.is_zoom_managed` |  | MeetSessionPage · l.123 |
-| `ExternalLink` | aria-hidden: true | `!(session.join_access === 'closed') && !(session.join_access === 'disabled') && !(session.is_zoom_managed) && session.meeting_link` |  | MeetSessionPage · l.133 |
+| `Calendar` | aria-hidden: true |  |  | MeetSessionPage · l.101 |
+| `Clock` | aria-hidden: true |  |  | MeetSessionPage · l.106 |
+| `JoinMeetingButton` |  | `!(session.join_access === 'denied') && !(session.join_access === 'closed') && !(session.join_access === 'disabled') && session.is_zoom_managed` |  | MeetSessionPage · l.128 |
+| `ExternalLink` | aria-hidden: true | `!(session.join_access === 'closed') && !(session.join_access === 'disabled') && !(session.is_zoom_managed) && session.meeting_link` |  | MeetSessionPage · l.138 |
 
 **Texts kept in lists and helpers in the code (labels, options, status names)** (1)
 
 | Name | Texts | Where |
 |---|---|---|
-| `JOIN_DISABLED_MESSAGE` | «Las videollamadas están temporalmente deshabilitadas» | l.69 |
+| `JOIN_DISABLED_MESSAGE` | «Las videollamadas están temporalmente deshabilitadas» | l.71 |
 
 **Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (4)
 
 | Kind | What | Where |
 |---|---|---|
-| mark | `testid=meet-join-denied` | MeetSessionPage · l.111 |
-| mark | `testid=meet-join-closed` | MeetSessionPage · l.115 |
-| mark | `testid=meet-join-disabled` | MeetSessionPage · l.119 |
-| mark | `testid=meet-no-link` | MeetSessionPage · l.141 |
+| mark | `testid=meet-join-denied` | MeetSessionPage · l.116 |
+| mark | `testid=meet-join-closed` | MeetSessionPage · l.120 |
+| mark | `testid=meet-join-disabled` | MeetSessionPage · l.124 |
+| mark | `testid=meet-no-link` | MeetSessionPage · l.146 |
 
 **Values shown from data** (4)
 
-- `{dateLabel}` — MeetSessionPage · l.98
-- `{session.join_denial_message} / {JOIN_NOT_AUTHORIZED_MESSAGE}` — MeetSessionPage · l.111, when `session.join_access === 'denied'`
-- `{session.join_denial_message} / {MEETING_CLOSED_MESSAGE}` — MeetSessionPage · l.115, when `!(session.join_access === 'denied') && session.join_access === 'closed'`
-- `{JOIN_DISABLED_MESSAGE}` — MeetSessionPage · l.119, when `!(session.join_access === 'denied') && !(session.join_access === 'closed') && session.join_access === 'disabled'`
+- `{dateLabel}` — MeetSessionPage · l.103
+- `{session.join_denial_message} / {JOIN_NOT_AUTHORIZED_MESSAGE}` — MeetSessionPage · l.116, when `session.join_access === 'denied'`
+- `{session.join_denial_message} / {MEETING_CLOSED_MESSAGE}` — MeetSessionPage · l.120, when `!(session.join_access === 'denied') && session.join_access === 'closed'`
+- `{JOIN_DISABLED_MESSAGE}` — MeetSessionPage · l.124, when `!(session.join_access === 'denied') && !(session.join_access === 'closed') && session.join_access === 'disabled'`
 
 **Other texts on screen** (7)
 
-- «{session.title} — Reunión \| GENERA» — MeetSessionPage · l.83
-- «Reunión» — MeetSessionPage · l.89
-- «Fecha» — MeetSessionPage · l.97, hidden by its class (`sr-only`); another control opens it or it is for screen readers
-- «Horario» — MeetSessionPage · l.102, hidden by its class (`sr-only`); another control opens it or it is for screen readers
-- «(hora Chile)» — MeetSessionPage · l.105
-- «El enlace abre un servicio de reuniones externo a GENERA, en una pestaña nueva.» — MeetSessionPage · l.137, when `!(session.join_access === 'closed') && !(session.join_access === 'disabled') && !(session.is_zoom_managed) && session.meeting_link`
-- «Esta sesión no tiene enlace de reunión.» — MeetSessionPage · l.142, when `!(session.join_access === 'closed') && !(session.join_access === 'disabled') && !(session.is_zoom_managed) && !(session.meeting_link)`
+- «{session.title} — Reunión \| GENERA» — MeetSessionPage · l.88
+- «Reunión» — MeetSessionPage · l.94
+- «Fecha» — MeetSessionPage · l.102, hidden by its class (`sr-only`); another control opens it or it is for screen readers
+- «Horario» — MeetSessionPage · l.107, hidden by its class (`sr-only`); another control opens it or it is for screen readers
+- «(hora Chile)» — MeetSessionPage · l.110
+- «El enlace abre un servicio de reuniones externo a GENERA, en una pestaña nueva.» — MeetSessionPage · l.142, when `!(session.join_access === 'closed') && !(session.join_access === 'disabled') && !(session.is_zoom_managed) && session.meeting_link`
+- «Esta sesión no tiene enlace de reunión.» — MeetSessionPage · l.147, when `!(session.join_access === 'closed') && !(session.join_access === 'disabled') && !(session.is_zoom_managed) && !(session.meeting_link)`
 
 ### Pieces it uses (each is listed once, under "Pieces" below)
 
+- `components/meet/meetLookNuevo.ts`
 - `components/sessions/JoinMeetingButton.tsx`
 - `components/sessions/MeetingDialIn.tsx`
 - `components/sessions/PreJoinCheck.tsx`
@@ -2162,6 +2240,17 @@ Used by: `/admin/bulk-tag-sessions`, `/admin/consultant-assignments`, `/admin/se
 - `{icon}` — MobileFunctionalPageHeader · l.119
 - `{children}` — MobileFunctionalPageHeader · l.159, when `children`
 - `{subtitle}` — MobileFunctionalPageHeader · l.168, when `subtitle`
+
+### components/meet/meetLookNuevo.ts
+
+Used by: `/meet/diag`, `/meet/session/[id]`
+
+**Texts kept in lists and helpers in the code (labels, options, status names)** (2)
+
+| Name | Texts | Where |
+|---|---|---|
+| `MEET_SESSION_NUEVO` | «mt-6 {MEET_NUEVO.notice}», «w-full {MEET_NUEVO.buttonDefault}» | l.33 |
+| `MEET_DIAG_NUEVO` | «mt-5 {MEET_NUEVO.card}» | l.51 |
 
 ### components/reports/ExportDropdown.tsx
 
@@ -3505,6 +3594,652 @@ Used by: `/consultor/sessions`
 - «Mis Sesiones» — SessionsListNuevo · l.350
 - «Otras Sesiones en Mis Colegios» — SessionsListNuevo · l.353
 
+### components/sessions/admin-nuevo/AdminSessionDetailNuevo.tsx
+
+Used by: `/admin/sessions/[id]`
+
+**Titles** (4)
+
+| Text | Level | Shown when | Where |
+|---|---|---|---|
+| «{title}» | h3 |  | Detail · l.117 |
+| «Consultores» | h2 |  | Consultants · l.254 |
+| «Consultores actuales» | h3 | `!(!editingFacilitators)` | Consultants · l.291 |
+| «Añadir consultor» | h3 | `!(!editingFacilitators) && loadingConsultants` | Consultants · l.330 |
+
+**Buttons** (11)
+
+| Text | Does | Shown when | Disabled when | Hook | Where |
+|---|---|---|---|---|---|
+| «Ver todas las sesiones de la serie» · aria «{showSeriesPanel ? 'Ocultar sesiones de la serie' : 'Ver todas las sesiones de l…}» | `{() => setShowSeriesPanel(!showSeriesPanel)}` |  |  |  | SeriesBand · l.146 |
+| «Ver» | `{() => openSession(s.id)}` | `showSeriesPanel && !(seriesLoading) && !(seriesSessions.length === 0) && each seriesSessions` |  |  | SeriesBand · l.212 |
+| «Cancelar sesiones futuras» | `{() => setShowSeriesCancelModal(true)}` | `showSeriesPanel && !(seriesLoading)` | `{actionInProgress}` |  | SeriesBand · l.223 |
+| «Editar consultores» | `{() => handleStartEditFacilitators()}` | `session.status !== 'completada' && session.status !== 'cancelada' && !editingFacilitators` |  |  | Consultants · l.256 |
+| «Quitar» | `{() => handleRemoveEditFacilitator(facilitator.user_id)}` | `!(!editingFacilitators) && editFacilitators.length > 0 && each editFacilitators` |  |  | Consultants · l.314 |
+| «Cancelar» | `{() => handleCancelEditFacilitators()}` | `!(!editingFacilitators)` | `{savingFacilitators}` |  | Consultants · l.362 |
+| «Guardando... / Guardar» | `{() => handleSaveFacilitators()}` | `!(!editingFacilitators)` | `{savingFacilitators \|\| editFacilitators.length === 0}` |  | Consultants · l.365 |
+| «Cerrar» | `{onClose}` |  | `{actionInProgress}` |  | CancelDialog · l.412 |
+| «{confirmText}» | `{onConfirm}` |  | `{actionInProgress \|\| !reason.trim()}` |  | CancelDialog · l.415 |
+| «Aprobar» | `{() => setAskApprove(session.id)}` | `(session.status === 'borrador' \|\| session.status === 'pendiente_aprobacion')` | `{actionInProgress}` |  | AdminSessionDetailNuevo · l.508 |
+| «Cancelar» | `{() => setShowCancelModal(true)}` | `session.status !== 'completada' && session.status !== 'cancelada'` | `{actionInProgress}` |  | AdminSessionDetailNuevo · l.540 |
+
+**Links** (4)
+
+| Text | Goes to | Shown when | Hook | Where |
+|---|---|---|---|---|
+| «Agregar al Calendario» | `/api/sessions/[*]/ical` | `(['programada', 'en_progreso', 'pendiente_informe'] as string[]).includes(session.status)` |  | AdminSessionDetailNuevo · l.490 |
+| «Exportar Serie» | `/api/sessions/series/[*]/ical` | `session.recurrence_group_id` |  | AdminSessionDetailNuevo · l.497 |
+| «Ir a Zoom» | `{buildSessionJoinPath(session.id)}` | `session.status === 'en_progreso' && session.is_zoom_managed === true && managedMeetingIsReady(managedMeetingStatus)` | `testid=session-zoom-entry-button` | AdminSessionDetailNuevo · l.529 |
+| «Unirse a la reunión Zoom / Abrir reunión» | `{session.join_path}` | `!(session.is_zoom_managed && managedMeetingIsUnavailable(managedMeetingStatus)) && !(session.is_zoom_managed && !managedMeetingIsReady(managedMeetingStatus)) && session.has_meeting && session.join_path` | `testid=session-join-link` | AdminSessionDetailNuevo · l.586 |
+
+**Fields** (3)
+
+| Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
+|---|---|---|---|---|---|---|
+|  | checkbox |  |  | `!(!editingFacilitators) && editFacilitators.length > 0 && each editFacilitators` |  | Consultants · l.308 |
+|  | select | disabled: `{availableConsultants.length === 0}` |  | `!(!editingFacilitators) && !(loadingConsultants)` |  | Consultants · l.338 |
+| «{title}» | textarea | «Razón de cancelación...» |  |  |  | CancelDialog · l.422 |
+
+**Pop-ups** (5)
+
+| Name or title | How | Opens when | Texts passed to it | Where |
+|---|---|---|---|---|
+| `Dialog` | component | `{open}` |  | CancelDialog · l.405 |
+| `CancelDialog` | component | `{showCancelModal}` | title: Cancelar Sesión · sentence: Por favor, ingrese la razón de la cancelación: · confirmText: Confirmar Cancelación | AdminSessionDetailNuevo · l.619 |
+| `CancelDialog` | component | `{showSeriesCancelModal}` | title: Cancelar Sesiones Futuras de la Serie · sentence: Esto cancelará todas las sesiones futuras de esta serie que aún no estén completadas o canceladas. Por favor, ingrese la razón de la cancelación: · confirmText: Confirmar Cancelación de Serie | AdminSessionDetailNuevo · l.631 |
+| `ConfirmDialog` | component | `{approveOpen}` |  | AdminSessionDetailNuevo · l.644 |
+| `ConfirmDialog` | component | `{startOpen}` |  | AdminSessionDetailNuevo · l.656 |
+
+**Downloads and printing** (2)
+
+| How | When | Where |
+|---|---|---|
+| `<a download> Agregar al Calendario` | `(['programada', 'en_progreso', 'pendiente_informe'] as string[]).includes(session.status)` | AdminSessionDetailNuevo · l.490 |
+| `<a download> Exportar Serie` | `session.recurrence_group_id` | AdminSessionDetailNuevo · l.497 |
+
+**Draws nothing when** (2)
+
+| Condition | Where |
+|---|---|
+| `target === null \|\| target !== shownAndAddressed` | AdminSessionDetailNuevo · l.651 |
+| `target === null \|\| target !== shownAndAddressed` | AdminSessionDetailNuevo · l.663 |
+
+**Pieces placed here, with the texts and settings handed to them** (32)
+
+| Piece | Texts and settings | Shown when | Hook | Where |
+|---|---|---|---|---|
+| `Badge` |  |  |  | StatusBadge · l.111 |
+| `Link2` | aria-hidden: true |  |  | SeriesBand · l.140 |
+| `ChevronUp` | aria-hidden: true | `showSeriesPanel` |  | SeriesBand · l.154 |
+| `ChevronDown` | aria-hidden: true | `!(showSeriesPanel)` |  | SeriesBand · l.154 |
+| `Spinner` |  | `showSeriesPanel && seriesLoading` |  | SeriesBand · l.162 |
+| `Badge` |  | `showSeriesPanel && !(seriesLoading) && seriesStats && each (Object.entries(seriesStats) as [SessionStatus, n…` |  | SeriesBand · l.177 |
+| `Badge` | tone: accent | `!(seriesLoading) && !(seriesSessions.length === 0) && each seriesSessions && s.id === session.id` |  | SeriesBand · l.199 |
+| `Eye` | aria-hidden: true | `showSeriesPanel && !(seriesLoading) && !(seriesSessions.length === 0) && each seriesSessions` |  | SeriesBand · l.213 |
+| `XCircle` | aria-hidden: true | `showSeriesPanel && !(seriesLoading)` |  | SeriesBand · l.224 |
+| `Badge` | tone: accent | `!editingFacilitators && session.facilitators.length > 0 && each session.facilitators && facilitator.is_lead` |  | Consultants · l.275 |
+| `Spinner` |  | `!(!editingFacilitators) && loadingConsultants` |  | Consultants · l.332 |
+| `Field` | label: Añadir consultor | `!(!editingFacilitators) && !(loadingConsultants)` |  | Consultants · l.337 |
+| `PageHeader` | title: Detalle de Sesión |  |  | AdminSessionDetailNuevo · l.473 |
+| `Card` |  |  |  | AdminSessionDetailNuevo · l.479 |
+| `CardBody` |  |  |  | AdminSessionDetailNuevo · l.480 |
+| `CalendarPlus` | aria-hidden: true | `(['programada', 'en_progreso', 'pendiente_informe'] as string[]).includes(session.status)` |  | AdminSessionDetailNuevo · l.491 |
+| `CalendarPlus` | aria-hidden: true | `session.recurrence_group_id` |  | AdminSessionDetailNuevo · l.502 |
+| `CheckCircle` | aria-hidden: true | `(session.status === 'borrador' \|\| session.status === 'pendiente_aprobacion')` |  | AdminSessionDetailNuevo · l.509 |
+| `SessionStartControl` |  | `session.status === 'programada'` |  | AdminSessionDetailNuevo · l.517 |
+| `Link2` | aria-hidden: true | `session.status === 'en_progreso' && session.is_zoom_managed === true && managedMeetingIsReady(managedMeetingStatus)` |  | AdminSessionDetailNuevo · l.534 |
+| `XCircle` | aria-hidden: true | `session.status !== 'completada' && session.status !== 'cancelada'` |  | AdminSessionDetailNuevo · l.541 |
+| `Detail` | title: Título |  |  | AdminSessionDetailNuevo · l.550 |
+| `Detail` | title: Modalidad |  |  | AdminSessionDetailNuevo · l.553 |
+| `Detail` | title: Fecha |  |  | AdminSessionDetailNuevo · l.556 |
+| `Detail` | title: Horario |  |  | AdminSessionDetailNuevo · l.559 |
+| `Detail` | title: Ubicación | `session.location` |  | AdminSessionDetailNuevo · l.566 |
+| `Detail` | title: Reunión Zoom | `session.is_zoom_managed && managedMeetingIsUnavailable(managedMeetingStatus)` |  | AdminSessionDetailNuevo · l.572 |
+| `Detail` | title: Reunión Zoom | `!(session.is_zoom_managed && managedMeetingIsUnavailable(managedMeetingStatus)) && session.is_zoom_managed && !managedMeetingIsReady(managedMeetingStatus)` |  | AdminSessionDetailNuevo · l.578 |
+| `Detail` | title: Enlace de reunión | `!(session.is_zoom_managed && managedMeetingIsUnavailable(managedMeetingStatus)) && !(session.is_zoom_managed && !managedMeetingIsReady(managedMeetingStatus)) && session.has_meeting && session.join_path` |  | AdminSessionDetailNuevo · l.584 |
+| `Detail` | title: Descripción | `session.description` |  | AdminSessionDetailNuevo · l.597 |
+| `Detail` | title: Objetivos | `session.objectives` |  | AdminSessionDetailNuevo · l.602 |
+| `Detail` | title: Razón de cancelación | `session.cancellation_reason` |  | AdminSessionDetailNuevo · l.607 |
+
+**Texts kept in lists and helpers in the code (labels, options, status names)** (3)
+
+| Name | Texts | Where |
+|---|---|---|
+| `APPROVE_QUESTION` | «¿Está seguro que desea aprobar esta sesión?» | l.107 |
+| `START_QUESTION` | «¿Está seguro que desea iniciar esta sesión?» | l.108 |
+| `label` | «Borradores / s» | SeriesBand · l.172 |
+
+**Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (4)
+
+| Kind | What | Where |
+|---|---|---|
+| role | `role=region` | SeriesBand · l.159 |
+| mark | `testid=admin-session-detail-nuevo` | AdminSessionDetailNuevo · l.472 |
+| role | `role=alert` | AdminSessionDetailNuevo · l.573 |
+| role | `role=status` | AdminSessionDetailNuevo · l.579 |
+
+**Values shown from data** (17)
+
+- `{getStatusBadge(status).label}` — StatusBadge · l.111
+- `{count} {label}` — SeriesBand · l.177, when `showSeriesPanel && !(seriesLoading) && seriesStats && each (Object.entries(seriesStats) as [SessionStatus, n…`
+- `{format(new Date(s.session_date + 'T…}` — SeriesBand · l.203, when `showSeriesPanel && !(seriesLoading) && !(seriesSessions.length === 0) && each seriesSessions`
+- `{s.start_time.substring(0, 5)} - {s.end_time.substring(0, 5)}` — SeriesBand · l.206, when `showSeriesPanel && !(seriesLoading) && !(seriesSessions.length === 0) && each seriesSessions`
+- `{displayName}` — Consultants · l.273, when `!editingFacilitators && session.facilitators.length > 0 && each session.facilitators`
+- `{facilitator.facilitator_role.replac…}` — Consultants · l.280, when `!editingFacilitators && session.facilitators.length > 0 && each session.facilitators`
+- `{displayName}` — Consultants · l.303, when `!(!editingFacilitators) && editFacilitators.length > 0 && each editFacilitators`
+- `{consultant.email}` — Consultants · l.304, when `!(!editingFacilitators) && editFacilitators.length > 0 && each editFacilitators && consultant`
+- `{sentence}` — CancelDialog · l.421
+- `{session.title}` — AdminSessionDetailNuevo · l.476
+- `{session.title}` — AdminSessionDetailNuevo · l.551
+- `{session.modality}` — AdminSessionDetailNuevo · l.554
+- `{formatDate(session.session_date)}` — AdminSessionDetailNuevo · l.557
+- `{session.location}` — AdminSessionDetailNuevo · l.567, when `session.location`
+- `{session.description}` — AdminSessionDetailNuevo · l.598, when `session.description`
+- `{session.objectives}` — AdminSessionDetailNuevo · l.603, when `session.objectives`
+- `{session.cancellation_reason}` — AdminSessionDetailNuevo · l.608, when `session.cancellation_reason`
+
+**Other texts on screen** (13)
+
+- «Serie de sesiones — Sesión {session.session_number} [de {seriesTotalSessions}]» — SeriesBand · l.141
+- «Sesiones de la serie» (aria-label) — SeriesBand · l.159, when `showSeriesPanel`
+- «No se encontraron sesiones en esta serie.» — SeriesBand · l.187, when `showSeriesPanel && !(seriesLoading) && seriesSessions.length === 0`
+- «Sesión {s.session_number}» — SeriesBand · l.197, when `showSeriesPanel && !(seriesLoading) && !(seriesSessions.length === 0) && each seriesSessions`
+- «Actual» — SeriesBand · l.200, when `!(seriesLoading) && !(seriesSessions.length === 0) && each seriesSessions && s.id === session.id`
+- «Consultor principal» — Consultants · l.276, when `!editingFacilitators && session.facilitators.length > 0 && each session.facilitators && facilitator.is_lead`
+- «Sin consultores asignados» — Consultants · l.286, when `!editingFacilitators && !(session.facilitators.length > 0)`
+- «No hay consultores añadidos» — Consultants · l.322, when `!(!editingFacilitators) && !(editFacilitators.length > 0)`
+- «Cargando consultores...» — Consultants · l.333, when `!(!editingFacilitators) && loadingConsultants`
+- «(hora Chile)» — AdminSessionDetailNuevo · l.562
+- «min)» — AdminSessionDetailNuevo · l.562
+- «La reunión terminó o fue cancelada. Cancela o reprograma la sesión.» — AdminSessionDetailNuevo · l.574, when `session.is_zoom_managed && managedMeetingIsUnavailable(managedMeetingStatus)`
+- «No se pudo verificar el estado de Zoom. Reintentando… / Preparando la reunión Zoom…» — AdminSessionDetailNuevo · l.579, when `!(session.is_zoom_managed && managedMeetingIsUnavailable(managedMeetingStatus)) && session.is_zoom_managed && !managedMeetingIsReady(managedMeetingStatus)`
+
+### components/sessions/admin-nuevo/AdminSessionsListNuevo.tsx
+
+Used by: `/admin/sessions`
+
+**Titles** (4)
+
+| Text | Level | Shown when | Where |
+|---|---|---|---|
+| «{format(currentDate, 'MMMM yyyy', { …}» | h3 |  | MonthNuevo · l.364 |
+| «{format(day, 'EEEE, dd MMMM', { loca…}» | h4 | `each weekDays` | days · l.459 |
+| «{format(weekStart, 'dd MMM', { local…} - {format(weekEnd, 'dd MMM yyyy', { lo…}» | h3 |  | WeekNuevo · l.489 |
+| «Filtros» | h2 |  | AdminSessionsListNuevo · l.597 |
+
+**Buttons** (12)
+
+| Text | Does | Shown when | Disabled when | Hook | Where |
+|---|---|---|---|---|---|
+| «[icon MoreVertical]» · aria «{`Acciones de ${session.title}`}» | `{(e) => { e.stopPropagation(); setDropdownOpen(dropdownOpen === session.id ? nul…}` | `!(sessions.length === 0) && each sessions` |  |  | ListTable · l.229 |
+| «Ver detalle» | `{(e) => { e.stopPropagation(); handleViewSession(session.id); setDropdownOpen(nu…}` | `!(sessions.length === 0) && each sessions && dropdownOpen === session.id` |  |  | ListTable · l.244 |
+| «Aprobar» | `{(e) => { e.stopPropagation(); handleApprove(session.id); setDropdownOpen(null);…}` | `!(sessions.length === 0) && each sessions && dropdownOpen === session.id && ((session.status === 'borrador' \|\| session.status === 'pendiente_aprobacion'))` |  |  | ListTable · l.257 |
+| «Cancelar» | `{(e) => { e.stopPropagation(); onCancelRow(session.id); setDropdownOpen(null); }}` | `!(sessions.length === 0) && each sessions && dropdownOpen === session.id && session.status !== 'completada' && session.status !== 'cancelada'` |  |  | ListTable · l.271 |
+| «{children}» · aria «{label}» | `{onClick}` |  |  |  | Arrow · l.308 |
+| «{session.title} [{props.getSeriesInfo(session)}] {when}» | `{() => props.handleViewSession(session.id)}` |  |  |  | AgendaLine · l.325 |
+| «{formatTime(session.start_time)} {session.title}» · tooltip «{session.title}» | `{() => handleViewSession(session.id)}` | `each days && each daySessions.slice(0, 2)` · screen size: `hidden md:grid` |  |  | MonthNuevo · l.410 |
+| «+ {daySessions.length - 2} más» | `{() => { // As today: only this day's sessions, in «Lista». handleFilterChange('…}` | `each days && daySessions.length > 2` · screen size: `hidden md:grid` |  |  | MonthNuevo · l.424 |
+| «{view.label}» | `{() => setViewMode(view.id)}` | `each VIEWS` |  |  | AdminSessionsListNuevo · l.581 |
+| «Nueva Sesión» | `{openNewSession}` |  |  |  | AdminSessionsListNuevo · l.588 |
+| «Cerrar» | `{closeCancelModal}` |  | `{actionInProgress}` |  | AdminSessionsListNuevo · l.706 |
+| «Confirmar Cancelación» | `{handleCancelSubmit}` |  | `{actionInProgress \|\| !cancellationReason.trim()}` |  | AdminSessionsListNuevo · l.709 |
+
+**Links** (1)
+
+| Text | Goes to | Shown when | Hook | Where |
+|---|---|---|---|---|
+| «Exportar Calendario» | `{icalHref}` | `sessions.length > 0` |  | AdminSessionsListNuevo · l.602 |
+
+**Other things that react to a click** (5)
+
+| Element | Text | Does | Shown when | Where |
+|---|---|---|---|---|
+| `TableRow` | «{formatDateShort(session.session_dat…} {formatTime(session.start_time)} - {formatTime(session.end_time)} (Chile) {sessi…» | `{() => handleViewSession(session.id)}` | `!(sessions.length === 0) && each sessions` | ListTable · l.200 |
+| `Arrow` | «[icon ChevronLeft]» | `{() => setCurrentDate(addMonths(currentDate, -1))}` |  | MonthNuevo · l.361 |
+| `Arrow` | «[icon ChevronRight]» | `{() => setCurrentDate(addMonths(currentDate, 1))}` |  | MonthNuevo · l.365 |
+| `Arrow` | «[icon ChevronLeft]» | `{() => setCurrentDate(addWeeks(currentDate, -1))}` |  | WeekNuevo · l.486 |
+| `Arrow` | «[icon ChevronRight]» | `{() => setCurrentDate(addWeeks(currentDate, 1))}` |  | WeekNuevo · l.492 |
+
+**Fields** (7)
+
+| Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
+|---|---|---|---|---|---|---|
+| «Colegio» | select |  |  |  |  | AdminSessionsListNuevo · l.609 |
+| «Comunidad» | select |  |  |  |  | AdminSessionsListNuevo · l.622 |
+| «Consultor» | select |  |  |  |  | AdminSessionsListNuevo · l.635 |
+| «Estado» | select |  |  |  |  | AdminSessionsListNuevo · l.648 |
+| «Desde» | date | «Desde» |  | `viewMode === 'list'` |  | AdminSessionsListNuevo · l.666 |
+| «Hasta» | date | «Hasta» |  | `viewMode === 'list'` |  | AdminSessionsListNuevo · l.675 |
+| «Cancelar Sesión» | textarea | «Razón de cancelación...» |  |  |  | AdminSessionsListNuevo · l.716 |
+
+**Pop-ups** (1)
+
+| Name or title | How | Opens when | Texts passed to it | Where |
+|---|---|---|---|---|
+| `Dialog` | component | `{showCancelModal}` | title: Cancelar Sesión | AdminSessionsListNuevo · l.699 |
+
+**Downloads and printing** (1)
+
+| How | When | Where |
+|---|---|---|
+| `<a download> Exportar Calendario` | `sessions.length > 0` | AdminSessionsListNuevo · l.602 |
+
+**Draws nothing when** (1)
+
+| Condition | Where |
+|---|---|
+| `!mark` | LedgerBadges · l.131 |
+
+**Pieces placed here, with the texts and settings handed to them** (53)
+
+| Piece | Texts and settings | Shown when | Hook | Where |
+|---|---|---|---|---|
+| `Badge` |  |  |  | StatusBadge · l.127 |
+| `Badge` |  |  |  | LedgerBadges · l.134 |
+| `Badge` | tone: neutral | `mark.admin_override` |  | LedgerBadges · l.138 |
+| `Table` |  |  |  | ListTable · l.175 |
+| `TableHead` |  |  |  | ListTable · l.176 |
+| `TableRow` |  |  |  | ListTable · l.177 |
+| `TableHeaderCell` |  |  |  | ListTable · l.178 |
+| `TableHeaderCell` |  |  |  | ListTable · l.179 |
+| `TableHeaderCell` |  |  |  | ListTable · l.180 |
+| `TableHeaderCell` |  |  |  | ListTable · l.181 |
+| `TableHeaderCell` |  |  |  | ListTable · l.182 |
+| `TableHeaderCell` |  |  |  | ListTable · l.183 |
+| `TableHeaderCell` |  |  |  | ListTable · l.184 |
+| `TableHeaderCell` |  |  |  | ListTable · l.185 |
+| `TableHeaderCell` |  |  |  | ListTable · l.186 |
+| `TableBody` |  |  |  | ListTable · l.189 |
+| `TableRow` |  | `sessions.length === 0` |  | ListTable · l.191 |
+| `TableCell` |  | `sessions.length === 0` |  | ListTable · l.192 |
+| `TableRow` |  | `!(sessions.length === 0) && each sessions` |  | ListTable · l.200 |
+| `TableCell` | label: Fecha | `!(sessions.length === 0) && each sessions` |  | ListTable · l.201 |
+| `TableCell` | label: Hora | `!(sessions.length === 0) && each sessions` |  | ListTable · l.202 |
+| `TableCell` |  | `!(sessions.length === 0) && each sessions` |  | ListTable · l.206 |
+| `TableCell` | label: Colegio | `!(sessions.length === 0) && each sessions` |  | ListTable · l.209 |
+| `TableCell` | label: Comunidad | `!(sessions.length === 0) && each sessions` |  | ListTable · l.210 |
+| `TableCell` | label: Consultor(es) | `!(sessions.length === 0) && each sessions` |  | ListTable · l.211 |
+| `TableCell` | label: Estado | `!(sessions.length === 0) && each sessions` |  | ListTable · l.214 |
+| `TableCell` | label: Serie | `!(sessions.length === 0) && each sessions` |  | ListTable · l.220 |
+| `Link2` | aria-hidden: true | `!(sessions.length === 0) && each sessions && session.recurrence_group_id` |  | ListTable · l.223 |
+| `TableCell` | label: Acciones | `!(sessions.length === 0) && each sessions` |  | ListTable · l.228 |
+| `MoreVertical` | aria-hidden: true | `!(sessions.length === 0) && each sessions` |  | ListTable · l.240 |
+| `Eye` | aria-hidden: true | `!(sessions.length === 0) && each sessions && dropdownOpen === session.id` |  | ListTable · l.253 |
+| `CheckCircle` | aria-hidden: true | `!(sessions.length === 0) && each sessions && dropdownOpen === session.id && ((session.status === 'borrador' \|\| session.status === 'pendiente_aprobacion'))` |  | ListTable · l.266 |
+| `XCircle` | aria-hidden: true | `!(sessions.length === 0) && each sessions && dropdownOpen === session.id && session.status !== 'completada' && session.status !== 'cancelada'` |  | ListTable · l.280 |
+| `Link2` | aria-hidden: true | `session.recurrence_group_id` |  | AgendaLine · l.335 |
+| `Arrow` | label: Mes anterior |  |  | MonthNuevo · l.361 |
+| `ChevronLeft` | aria-hidden: true |  |  | MonthNuevo · l.362 |
+| `Arrow` | label: Mes siguiente |  |  | MonthNuevo · l.365 |
+| `ChevronRight` | aria-hidden: true |  |  | MonthNuevo · l.366 |
+| `Arrow` | label: Semana anterior |  |  | WeekNuevo · l.486 |
+| `ChevronLeft` | aria-hidden: true |  |  | WeekNuevo · l.487 |
+| `Arrow` | label: Semana siguiente |  |  | WeekNuevo · l.492 |
+| `ChevronRight` | aria-hidden: true |  |  | WeekNuevo · l.493 |
+| `PageHeader` | title: Sesiones de Consultoría · description: Gestión de sesiones con consultores externos e internos |  |  | AdminSessionsListNuevo · l.550 |
+| `Card` |  | `each [ ['Total Sesiones', stats.total], ['Programadas'…` |  | AdminSessionsListNuevo · l.563 |
+| `CardBody` |  | `each [ ['Total Sesiones', stats.total], ['Programadas'…` |  | AdminSessionsListNuevo · l.564 |
+| `Card` |  |  |  | AdminSessionsListNuevo · l.572 |
+| `CardBody` |  |  |  | AdminSessionsListNuevo · l.573 |
+| `Icon` | aria-hidden: true | `each VIEWS` |  | AdminSessionsListNuevo · l.582 |
+| `Plus` | aria-hidden: true |  |  | AdminSessionsListNuevo · l.589 |
+| `Filter` | aria-hidden: true |  |  | AdminSessionsListNuevo · l.598 |
+| `CalendarPlus` | aria-hidden: true | `sessions.length > 0` |  | AdminSessionsListNuevo · l.603 |
+| `Field` | label: Desde | `viewMode === 'list'` |  | AdminSessionsListNuevo · l.665 |
+| `Field` | label: Hasta | `viewMode === 'list'` |  | AdminSessionsListNuevo · l.674 |
+
+**Texts kept in lists and helpers in the code (labels, options, status names)** (1)
+
+| Name | Texts | Where |
+|---|---|---|
+| `VIEWS` | «Lista», «Mes», «Semana» | l.502 |
+
+**Other texts written in the code (safety net: not tied to an element by the script)** (10)
+
+| Text | Where |
+|---|---|
+| «Lun» | MonthNuevo · l.393 |
+| «Mar» | MonthNuevo · l.393 |
+| «Mié» | MonthNuevo · l.393 |
+| «Jue» | MonthNuevo · l.393 |
+| «Vie» | MonthNuevo · l.393 |
+| «Sáb» | MonthNuevo · l.393 |
+| «Dom» | MonthNuevo · l.393 |
+| «Total Sesiones» | AdminSessionsListNuevo · l.559 |
+| «Programadas» | AdminSessionsListNuevo · l.560 |
+| «Pendientes» | AdminSessionsListNuevo · l.561 |
+
+**Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (4)
+
+| Kind | What | Where |
+|---|---|---|
+| lookup | `querySelectorAll([data-row-menu])` | AdminSessionsListNuevo · l.538 |
+| focus | `button.focus()` | AdminSessionsListNuevo · l.539 |
+| mark | `testid=admin-sessions-nuevo` | AdminSessionsListNuevo · l.549 |
+| role | `role=group` | AdminSessionsListNuevo · l.576 |
+
+**Values shown from data** (14)
+
+- `{getStatusBadge(status).label}` — StatusBadge · l.127
+- `{formatDateShort(session.session_dat…}` — ListTable · l.201, when `!(sessions.length === 0) && each sessions`
+- `{session.title}` — ListTable · l.207, when `!(sessions.length === 0) && each sessions`
+- `{session.schools?.name} / -` — ListTable · l.209, when `!(sessions.length === 0) && each sessions`
+- `{session.growth_communities?.name} / -` — ListTable · l.210, when `!(sessions.length === 0) && each sessions`
+- `{names}` — ListTable · l.212, when `!(sessions.length === 0) && each sessions`
+- `{session.schools.name}` — MonthNuevo · l.383, when `!(sessions.length === 0) && each sessions && session.schools?.name`, screen size: `md:hidden`
+- `{day}` — MonthNuevo · l.394, when `each ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']`, screen size: `hidden md:grid`
+- `{day.getDate()}` — MonthNuevo · l.407, when `each days`, screen size: `hidden md:grid`
+- `{empty}` — days · l.461, when `each weekDays && daySessions.length === 0`
+- `{days('No hay sesiones')}` — WeekNuevo · l.496, screen size: `md:hidden`
+- `{days('No hay sesiones programadas')}` — WeekNuevo · l.497, screen size: `hidden md:grid`
+- `{label}` — AdminSessionsListNuevo · l.565, when `each [ ['Total Sesiones', stats.total], ['Programadas'…`
+- `{value}` — AdminSessionsListNuevo · l.566, when `each [ ['Total Sesiones', stats.total], ['Programadas'…`
+
+**Other texts on screen** (17)
+
+- «Penalizada / Devuelta» — LedgerBadges · l.134
+- «Admin» — LedgerBadges · l.139, when `mark.admin_override`
+- «Fecha» — ListTable · l.178
+- «Hora» — ListTable · l.179
+- «Título» — ListTable · l.180
+- «Colegio» — ListTable · l.181
+- «Comunidad» — ListTable · l.182
+- «Consultor(es)» — ListTable · l.183
+- «Estado» — ListTable · l.184
+- «Serie» — ListTable · l.185
+- «Acciones» — ListTable · l.186
+- «No se encontraron sesiones» — ListTable · l.193, when `sessions.length === 0`
+- «(Chile)» — ListTable · l.204, when `!(sessions.length === 0) && each sessions`
+- «No hay sesiones este mes» — MonthNuevo · l.373, when `sessions.length === 0`, screen size: `md:hidden`
+- «(Chile)» — days · l.472, when `each weekDays && !(daySessions.length === 0) && each daySessions`
+- «Vista» (aria-label) — AdminSessionsListNuevo · l.576
+- «Por favor, ingrese la razón de la cancelación:» — AdminSessionsListNuevo · l.715
+
+### components/sessions/admin-nuevo/ApprovalsNuevo.tsx
+
+Used by: `/admin/sessions/approvals`
+
+**Titles** (3)
+
+| Text | Level | Shown when | Where |
+|---|---|---|---|
+| «{request.consultor_sessions?.title} / Sesión sin título» | h3 |  | RequestCard · l.75 |
+| «Cambios propuestos:» | h4 |  | RequestCard · l.102 |
+| «Razón:» | h4 | `request.reason` | RequestCard · l.128 |
+
+**Tabs** (1)
+
+| Text | Does | Shown when | Where |
+|---|---|---|---|
+| «{tab.label}» |  | `each TABS` | ApprovalsNuevo · l.179 |
+
+**Buttons** (2)
+
+| Text | Does | Shown when | Disabled when | Hook | Where |
+|---|---|---|---|---|---|
+| «Rechazar» | `{() => handleReject(request.id)}` | `request.status === 'pending'` | `{actionInProgress}` |  | RequestCard · l.146 |
+| «Aprobar» | `{() => handleApprove(request.id)}` | `request.status === 'pending'` | `{actionInProgress}` |  | RequestCard · l.150 |
+
+**Fields** (1)
+
+| Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
+|---|---|---|---|---|---|---|
+| «Ingrese notas para el consultor...» | textarea | «Ingrese notas para el consultor...» |  | `request.status === 'pending'` |  | RequestCard · l.135 |
+
+**Pieces placed here, with the texts and settings handed to them** (13)
+
+| Piece | Texts and settings | Shown when | Hook | Where |
+|---|---|---|---|---|
+| `Card` |  |  |  | RequestCard · l.71 |
+| `CardBody` |  |  |  | RequestCard · l.72 |
+| `Badge` |  |  |  | RequestCard · l.96 |
+| `Field` | label: Notas (opcional para aprobar, requerido para rechazar) | `request.status === 'pending'` |  | RequestCard · l.134 |
+| `XCircle` | aria-hidden: true | `request.status === 'pending'` |  | RequestCard · l.147 |
+| `CheckCircle` | aria-hidden: true | `request.status === 'pending'` |  | RequestCard · l.151 |
+| `PageHeader` | title: Aprobaciones de Sesiones · description: Revise y apruebe o rechace solicitudes de cambio de sesiones de consultores |  |  | ApprovalsNuevo · l.165 |
+| `Tabs` |  |  |  | ApprovalsNuevo · l.170 |
+| `TabList` | label: Estado de las solicitudes |  |  | ApprovalsNuevo · l.175 |
+| `Icon` | aria-hidden: true | `each TABS` |  | ApprovalsNuevo · l.180 |
+| `TabPanel` |  | `each TABS` |  | ApprovalsNuevo · l.187 |
+| `Card` |  | `each TABS && editRequests.length === 0` |  | ApprovalsNuevo · l.189 |
+| `EmptyState` |  | `each TABS && editRequests.length === 0` |  | ApprovalsNuevo · l.190 |
+
+**Texts kept in lists and helpers in the code (labels, options, status names)** (3)
+
+| Name | Texts | Where |
+|---|---|---|
+| `TABS` | «Pendientes», «Aprobadas», «Rechazadas», «Todas» | l.42 |
+| `STATUS` | «Pendiente», «Aprobada», «Rechazada» | l.49 |
+| `emptyText()` | «No hay solicitudes pendientes / No hay solicitudes aprobadas / No hay solicitudes rechazadas / No hay solicitudes de cambio» | emptyText · l.56 |
+
+**Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (1)
+
+| Kind | What | Where |
+|---|---|---|
+| mark | `testid=approvals-nuevo` | ApprovalsNuevo · l.164 |
+
+**Values shown from data** (6)
+
+- `{format(parseISO(request.created_at)…}` — RequestCard · l.93
+- `{status.label}` — RequestCard · l.96
+- `{formatFieldLabel(field)} :` — RequestCard · l.111, when `!(Object.keys(parsedChanges).length === 0) && each Object.keys(parsedChanges)`
+- `{formatValue(field, change.old)}` — RequestCard · l.113, when `!(Object.keys(parsedChanges).length === 0) && each Object.keys(parsedChanges)`
+- `{formatValue(field, change.new)}` — RequestCard · l.117, when `!(Object.keys(parsedChanges).length === 0) && each Object.keys(parsedChanges)`
+- `{request.reason}` — RequestCard · l.129, when `request.reason`
+
+**Other texts on screen** (3)
+
+- «Fecha de sesión: {format(parseISO(request.consultor_s…} / N/A» — RequestCard · l.79
+- «Solicitado por: {request.profiles.first_name} {request.profiles.last_name} / Usuario desconocido» — RequestCard · l.88
+- «Formato de cambios inválido» — RequestCard · l.105, when `Object.keys(parsedChanges).length === 0`
+
+### components/sessions/admin-nuevo/BulkTagNuevo.tsx
+
+Used by: `/admin/bulk-tag-sessions`
+
+**Titles** (1)
+
+| Text | Level | Shown when | Where |
+|---|---|---|---|
+| «Filtros» | h2 |  | BulkTagNuevo · l.123 |
+
+**Buttons** (4)
+
+| Text | Does | Shown when | Disabled when | Hook | Where |
+|---|---|---|---|---|---|
+| «[icon ChevronLeft]» · aria «Página anterior» | `{() => { setSelectedIds(new Set()); setPage((p) => Math.max(1, p - 1)); }}` | `totalPages > 1` | `{page === 1}` |  | BulkTagNuevo · l.174 |
+| «[icon ChevronRight]» · aria «Página siguiente» | `{() => { setSelectedIds(new Set()); setPage((p) => Math.min(totalPages, p + 1));…}` | `totalPages > 1` | `{page === totalPages}` |  | BulkTagNuevo · l.183 |
+| «Clasificando... / Clasificar Seleccionadas» | `{handleBulkTag}` | `selectedIds.size > 0` | `{saving \|\| !selectedHourTypeKey}` |  | BulkTagNuevo · l.269 |
+| «Deseleccionar» | `{() => setSelectedIds(new Set())}` | `selectedIds.size > 0` |  |  | BulkTagNuevo · l.274 |
+
+**Fields** (5)
+
+| Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
+|---|---|---|---|---|---|---|
+|  | checkbox |  |  |  |  | TickBox · l.77 |
+|  | date |  |  |  | `id=filter-date-from` | BulkTagNuevo · l.129 |
+|  | date |  |  |  | `id=filter-date-to` | BulkTagNuevo · l.138 |
+|  | select |  |  |  | `id=filter-school` | BulkTagNuevo · l.147 |
+| «Tipo de hora para clasificación» | select |  |  | `selectedIds.size > 0` |  | BulkTagNuevo · l.256 |
+
+**Pieces placed here, with the texts and settings handed to them** (35)
+
+| Piece | Texts and settings | Shown when | Hook | Where |
+|---|---|---|---|---|
+| `PageHeader` | title: Clasificar Sesiones · description: Asignar tipo de hora a sesiones históricas sin clasificar |  |  | BulkTagNuevo · l.111 |
+| `Notice` | tone: neutral |  |  | BulkTagNuevo · l.117 |
+| `Card` |  |  |  | BulkTagNuevo · l.121 |
+| `CardBody` |  |  |  | BulkTagNuevo · l.122 |
+| `Filter` | aria-hidden: true |  |  | BulkTagNuevo · l.124 |
+| `Field` | label: Fecha desde |  |  | BulkTagNuevo · l.128 |
+| `Field` | label: Fecha hasta |  |  | BulkTagNuevo · l.137 |
+| `Field` | label: Colegio |  |  | BulkTagNuevo · l.146 |
+| `Table` |  |  |  | BulkTagNuevo · l.166 |
+| `ChevronLeft` | aria-hidden: true | `totalPages > 1` |  | BulkTagNuevo · l.181 |
+| `ChevronRight` | aria-hidden: true | `totalPages > 1` |  | BulkTagNuevo · l.190 |
+| `TableHead` |  |  |  | BulkTagNuevo · l.197 |
+| `TableRow` |  |  |  | BulkTagNuevo · l.198 |
+| `TableHeaderCell` |  |  |  | BulkTagNuevo · l.199 |
+| `TickBox` | aria-label: Seleccionar todas las sesiones |  |  | BulkTagNuevo · l.200 |
+| `TableHeaderCell` |  |  |  | BulkTagNuevo · l.206 |
+| `TableHeaderCell` |  |  |  | BulkTagNuevo · l.207 |
+| `TableHeaderCell` |  |  |  | BulkTagNuevo · l.208 |
+| `TableHeaderCell` |  |  |  | BulkTagNuevo · l.209 |
+| `TableHeaderCell` |  |  |  | BulkTagNuevo · l.210 |
+| `TableBody` |  |  |  | BulkTagNuevo · l.213 |
+| `TableRow` |  | `sessions.length === 0` |  | BulkTagNuevo · l.215 |
+| `TableCell` |  | `sessions.length === 0` |  | BulkTagNuevo · l.216 |
+| `TableRow` |  | `!(sessions.length === 0) && each sessions` |  | BulkTagNuevo · l.225 |
+| `TableCell` | label: Seleccionar | `!(sessions.length === 0) && each sessions` |  | BulkTagNuevo · l.226 |
+| `TickBox` | aria-label: Seleccionar sesión {session.title} | `!(sessions.length === 0) && each sessions` |  | BulkTagNuevo · l.227 |
+| `TableCell` | label: Fecha | `!(sessions.length === 0) && each sessions` |  | BulkTagNuevo · l.233 |
+| `TableCell` | label: Título | `!(sessions.length === 0) && each sessions` |  | BulkTagNuevo · l.234 |
+| `TableCell` | label: Colegio | `!(sessions.length === 0) && each sessions` |  | BulkTagNuevo · l.237 |
+| `TableCell` | label: Consultor | `!(sessions.length === 0) && each sessions` |  | BulkTagNuevo · l.238 |
+| `TableCell` | label: Estado | `!(sessions.length === 0) && each sessions` |  | BulkTagNuevo · l.239 |
+| `Badge` |  | `!(sessions.length === 0) && each sessions` |  | BulkTagNuevo · l.240 |
+| `Card` |  | `selectedIds.size > 0` |  | BulkTagNuevo · l.252 |
+| `CardBody` |  | `selectedIds.size > 0` |  | BulkTagNuevo · l.253 |
+| `Tag` | aria-hidden: true | `selectedIds.size > 0` |  | BulkTagNuevo · l.270 |
+
+**Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (1)
+
+| Kind | What | Where |
+|---|---|---|
+| mark | `testid=bulk-tag-nuevo` | BulkTagNuevo · l.110 |
+
+**Values shown from data** (5)
+
+- `{formatDate(session.scheduled_date)}` — BulkTagNuevo · l.233, when `!(sessions.length === 0) && each sessions`
+- `{session.title}` — BulkTagNuevo · l.234, when `!(sessions.length === 0) && each sessions`
+- `{session.schools?.name} / —` — BulkTagNuevo · l.237, when `!(sessions.length === 0) && each sessions`
+- `{getFacilitatorName(session)}` — BulkTagNuevo · l.238, when `!(sessions.length === 0) && each sessions`
+- `{badge.label}` — BulkTagNuevo · l.240, when `!(sessions.length === 0) && each sessions`
+
+**Other texts on screen** (12)
+
+- «Las sesiones clasificadas aquí aparecerán en reportes pero» — BulkTagNuevo · l.118
+- «NO» — BulkTagNuevo · l.118
+- «afectarán los saldos de horas del contrato.» — BulkTagNuevo · l.118
+- «{total} sesión(es) sin clasificar» — BulkTagNuevo · l.164
+- «Página {page} de {totalPages}» — BulkTagNuevo · l.170, when `totalPages > 1`
+- «Fecha» — BulkTagNuevo · l.206
+- «Título» — BulkTagNuevo · l.207
+- «Colegio» — BulkTagNuevo · l.208
+- «Consultor» — BulkTagNuevo · l.209
+- «Estado» — BulkTagNuevo · l.210
+- «No hay sesiones sin clasificar con los filtros actuales» — BulkTagNuevo · l.217, when `sessions.length === 0`
+- «{selectedIds.size} sesión(es) seleccionada(s)» — BulkTagNuevo · l.254, when `selectedIds.size > 0`
+
+### components/sessions/admin-nuevo/adminNuevoStyles.ts
+
+Used by: `/admin/bulk-tag-sessions`, `/admin/sessions/[id]`, `/admin/sessions/approvals`, `/admin/sessions`
+
+**Texts kept in lists and helpers in the code (labels, options, status names)** (4)
+
+| Name | Texts | Where |
+|---|---|---|
+| `CRUMBS_LIST` | «Consultorías», «Sesiones» | l.8 |
+| `CRUMBS_DETAIL` | «Sesiones», «Detalle de Sesión» | l.10 |
+| `CRUMBS_APPROVALS` | «Consultorías», «Aprobaciones» | l.12 |
+| `CRUMBS_BULK_TAG` | «Consultorías», «Clasificar Sesiones» | l.14 |
+
+### components/sessions/assignments-nuevo/AssignmentsNuevo.tsx
+
+Used by: `/admin/consultant-assignments`
+
+**Buttons** (2)
+
+| Text | Does | Shown when | Disabled when | Hook | Where |
+|---|---|---|---|---|---|
+| «Editar» | `{() => onEdit(assignment)}` | `!(filteredAssignments.length === 0) && each filteredAssignments` |  |  | AssignmentsNuevo · l.225 |
+| «Eliminar» | `{() => setToDelete(assignment.id)}` | `!(filteredAssignments.length === 0) && each filteredAssignments` |  |  | AssignmentsNuevo · l.228 |
+
+**Fields** (2)
+
+| Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
+|---|---|---|---|---|---|---|
+| «Tipo» | select |  |  |  |  | AssignmentsNuevo · l.111 |
+| «Estado» | select |  |  |  |  | AssignmentsNuevo · l.119 |
+
+**Pop-ups** (1)
+
+| Name or title | How | Opens when | Texts passed to it | Where |
+|---|---|---|---|---|
+| `ConfirmDialog` | component | `{toDelete !== null}` | title: ¿Está seguro de que desea eliminar esta asignación? · tone: danger | AssignmentsNuevo · l.240 |
+
+**Pieces placed here, with the texts and settings handed to them** (28)
+
+| Piece | Texts and settings | Shown when | Hook | Where |
+|---|---|---|---|---|
+| `PageHeader` | title: Consultorías · description: Gestión de asignaciones consultor-estudiante para seguimiento y mentorías · searchPlaceholder: Buscar por nombre o email... · primaryAction: Nueva Asignación |  |  | AssignmentsNuevo · l.99 |
+| `Plus` | aria-hidden: true |  |  | AssignmentsNuevo · l.106 |
+| `Card` |  | `each stats` |  | AssignmentsNuevo · l.129 |
+| `CardBody` |  | `each stats` |  | AssignmentsNuevo · l.130 |
+| `Table` |  |  |  | AssignmentsNuevo · l.138 |
+| `TableHead` |  |  |  | AssignmentsNuevo · l.139 |
+| `TableRow` |  |  |  | AssignmentsNuevo · l.140 |
+| `TableHeaderCell` |  |  |  | AssignmentsNuevo · l.141 |
+| `TableHeaderCell` |  |  |  | AssignmentsNuevo · l.142 |
+| `TableHeaderCell` |  |  |  | AssignmentsNuevo · l.143 |
+| `TableHeaderCell` |  |  |  | AssignmentsNuevo · l.144 |
+| `TableHeaderCell` |  |  |  | AssignmentsNuevo · l.145 |
+| `TableHeaderCell` |  |  |  | AssignmentsNuevo · l.146 |
+| `TableHeaderCell` |  |  |  | AssignmentsNuevo · l.147 |
+| `TableBody` |  |  |  | AssignmentsNuevo · l.150 |
+| `TableRow` |  | `filteredAssignments.length === 0` |  | AssignmentsNuevo · l.152 |
+| `TableCell` |  | `filteredAssignments.length === 0` |  | AssignmentsNuevo · l.153 |
+| `TableRow` |  | `!(filteredAssignments.length === 0) && each filteredAssignments` |  | AssignmentsNuevo · l.164 |
+| `TableCell` |  | `!(filteredAssignments.length === 0) && each filteredAssignments` |  | AssignmentsNuevo · l.165 |
+| `TableCell` | label: Estudiante | `!(filteredAssignments.length === 0) && each filteredAssignments` |  | AssignmentsNuevo · l.175 |
+| `TableCell` | label: Tipo | `!(filteredAssignments.length === 0) && each filteredAssignments` |  | AssignmentsNuevo · l.200 |
+| `Badge` |  | `!(filteredAssignments.length === 0) && each filteredAssignments` |  | AssignmentsNuevo · l.201 |
+| `TableCell` | label: Permisos | `!(filteredAssignments.length === 0) && each filteredAssignments` |  | AssignmentsNuevo · l.205 |
+| `Badge` | tone: neutral | `!(filteredAssignments.length === 0) && each filteredAssignments && each getPermissionBadges(assignment)` |  | AssignmentsNuevo · l.208 |
+| `TableCell` | label: Duración | `!(filteredAssignments.length === 0) && each filteredAssignments` |  | AssignmentsNuevo · l.214 |
+| `TableCell` | label: Estado | `!(filteredAssignments.length === 0) && each filteredAssignments` |  | AssignmentsNuevo · l.220 |
+| `Badge` |  | `!(filteredAssignments.length === 0) && each filteredAssignments` |  | AssignmentsNuevo · l.221 |
+| `TableCell` | label: Acciones | `!(filteredAssignments.length === 0) && each filteredAssignments` |  | AssignmentsNuevo · l.223 |
+
+**Texts kept in lists and helpers in the code (labels, options, status names)** (1)
+
+| Name | Texts | Where |
+|---|---|---|
+| `stats` | «Asignaciones Activas», «Completas», «Consultores Únicos», «Estudiantes Afectados» | AssignmentsNuevo · l.90 |
+
+**Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (1)
+
+| Kind | What | Where |
+|---|---|---|
+| mark | `testid=assignments-nuevo` | AssignmentsNuevo · l.98 |
+
+**Values shown from data** (6)
+
+- `{stat.value}` — AssignmentsNuevo · l.131, when `each stats`
+- `{stat.label}` — AssignmentsNuevo · l.132, when `each stats`
+- `{assignment.student.first_name} {assignment.student.last_name}` — AssignmentsNuevo · l.178, when `!(filteredAssignments.length === 0) && each filteredAssignments && assignment.student`
+- `{assignment.student.email}` — AssignmentsNuevo · l.181, when `!(filteredAssignments.length === 0) && each filteredAssignments && assignment.student`
+- `{assignmentTypeLabels[assignment.ass…} / {assignment.assignment_type}` — AssignmentsNuevo · l.201, when `!(filteredAssignments.length === 0) && each filteredAssignments`
+- `{permission}` — AssignmentsNuevo · l.208, when `!(filteredAssignments.length === 0) && each filteredAssignments && each getPermissionBadges(assignment)`
+
+**Other texts on screen** (15)
+
+- «Consultor» — AssignmentsNuevo · l.141
+- «Estudiante» — AssignmentsNuevo · l.142
+- «Tipo» — AssignmentsNuevo · l.143
+- «Permisos» — AssignmentsNuevo · l.144
+- «Duración» — AssignmentsNuevo · l.145
+- «Estado» — AssignmentsNuevo · l.146
+- «Acciones» — AssignmentsNuevo · l.147
+- «No se encontraron asignaciones que coincidan con los filtros. / No hay asignaciones creadas aún.» — AssignmentsNuevo · l.153, when `filteredAssignments.length === 0`
+- «{`${assignment.consultant?.first_nam…} / Sin nombre» — AssignmentsNuevo · l.167, when `!(filteredAssignments.length === 0) && each filteredAssignments`
+- «{assignment.consultant?.email} / Sin email» — AssignmentsNuevo · l.172, when `!(filteredAssignments.length === 0) && each filteredAssignments`
+- «Comunidad: {assignment.community.name} / Generación: {assignment.generation.name} / Escuela: {assignment.school.name} / Asignación Grupal» — AssignmentsNuevo · l.185, when `!(filteredAssignments.length === 0) && each filteredAssignments && !(assignment.student)`
+- «{count} estudiante s afectado s» — AssignmentsNuevo · l.194, when `!(filteredAssignments.length === 0) && each filteredAssignments && !(assignment.student)`
+- «Inicio: {formatDateTime(assignment.starts_at)}» — AssignmentsNuevo · l.216, when `!(filteredAssignments.length === 0) && each filteredAssignments`
+- «Fin: {formatDateTime(assignment.ends_at)}» — AssignmentsNuevo · l.217, when `!(filteredAssignments.length === 0) && each filteredAssignments`
+- «Activa / Inactiva» — AssignmentsNuevo · l.221, when `!(filteredAssignments.length === 0) && each filteredAssignments`
+
 ### components/sessions/create-nuevo/ConsultantsNuevo.tsx
 
 Used by: `/admin/sessions/create`
@@ -4123,6 +4858,143 @@ Used by: `/consultor/sessions/[id]`
 - «Todos los participantes / Solo facilitadores» — ReportNuevo · l.119, when `!(showReportEditor()) && existingReport`
 - «No hay informe creado» — ReportNuevo · l.130, when `!(showReportEditor()) && !(existingReport)`
 
+### components/sessions/reports-nuevo/ReportsNuevo.tsx
+
+Used by: `/consultor/sessions/reports`
+
+**Titles** (4)
+
+| Text | Level | Shown when | Where |
+|---|---|---|---|
+| «{title}» | h2 |  | ChartCard · l.187 |
+| «Filtros» | h2 |  | ReportsNuevo · l.214 |
+| «Sesiones Recientes» | h2 | `recent.length > 0` | ReportsNuevo · l.428 |
+| «Acceso Denegado» | h2 |  | ReportsErrorNuevo · l.489 |
+
+**Buttons** (1)
+
+| Text | Does | Shown when | Disabled when | Hook | Where |
+|---|---|---|---|---|---|
+| «Volver al Dashboard» | `{onBack}` |  |  |  | ReportsErrorNuevo · l.491 |
+
+**Other things that react to a click** (1)
+
+| Element | Text | Does | Shown when | Where |
+|---|---|---|---|---|
+| `TableRow` | «{format(parseISO(session.session_dat…} {session.title} {session.school_name} {session.gc_name} {badge.label} {session.a…» · also `onKeyDown={(e) => { if (e.key === 'Enter' \|\| e.key === ' ') { e.preventDefault(); onOpenSe…}` | `{() => onOpenSession(session.id)}` | `recent.length > 0 && each recent` | ReportsNuevo · l.448 |
+
+**Fields** (4)
+
+| Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
+|---|---|---|---|---|---|---|
+|  | date |  |  |  | `id=date-from` | ReportsNuevo · l.220 |
+|  | date |  |  |  | `id=date-to` | ReportsNuevo · l.223 |
+|  | select |  |  |  | `id=school-filter` | ReportsNuevo · l.226 |
+|  | select |  |  | `isAdmin && consultants.length > 0` | `id=consultant-filter` | ReportsNuevo · l.237 |
+
+**Draws nothing when** (1)
+
+| Condition | Where |
+|---|---|
+| `!active \|\| !payload \|\| !payload.length` | ChartTooltip · l.140 |
+
+**Pieces placed here, with the texts and settings handed to them** (59)
+
+| Piece | Texts and settings | Shown when | Hook | Where |
+|---|---|---|---|---|
+| `Card` |  |  |  | Kpi · l.169 |
+| `CardBody` |  |  |  | Kpi · l.170 |
+| `Card` |  |  |  | ChartCard · l.185 |
+| `CardBody` |  |  |  | ChartCard · l.186 |
+| `PageHeader` | title: Reportes de Sesiones · description: Estadísticas y métricas de todas las sesiones de consultoría / Estadísticas y métricas de tus sesiones de consultoría |  |  | ReportsNuevo · l.199 |
+| `HelpButton` | sectionId: mis-reportes |  |  | ReportsNuevo · l.205 |
+| `Card` |  |  |  | ReportsNuevo · l.212 |
+| `CardBody` |  |  |  | ReportsNuevo · l.213 |
+| `Filter` | aria-hidden: true |  |  | ReportsNuevo · l.215 |
+| `Field` | label: Desde |  |  | ReportsNuevo · l.219 |
+| `Field` | label: Hasta |  |  | ReportsNuevo · l.222 |
+| `Field` | label: Escuela |  |  | ReportsNuevo · l.225 |
+| `Field` | label: Consultor | `isAdmin && consultants.length > 0` |  | ReportsNuevo · l.236 |
+| `EmptyState` | title: No hay sesiones en el período seleccionado · description: No hay sesiones que coincidan con los filtros seleccionados. Intenta ajustar los filtros para ver más resultados. | `mode === 'empty'` |  | ReportsNuevo · l.262 |
+| `LoadingSkeleton` |  | `dataLoading && each Array.from({ length: 4 })` |  | ReportsNuevo · l.276 |
+| `LoadingSkeleton` |  | `dataLoading && each Array.from({ length: 4 })` |  | ReportsNuevo · l.281 |
+| `Kpi` | title: Total Sesiones |  |  | ReportsNuevo · l.325 |
+| `Kpi` | title: Tasa de Completación |  |  | ReportsNuevo · l.326 |
+| `Kpi` | title: Horas Programadas |  |  | ReportsNuevo · l.327 |
+| `Kpi` | title: Asistencia Promedio |  |  | ReportsNuevo · l.328 |
+| `Kpi` | title: Pendientes de Informe |  |  | ReportsNuevo · l.331 |
+| `Kpi` | title: Próximas Sesiones |  |  | ReportsNuevo · l.332 |
+| `Kpi` | title: Sesiones Canceladas |  |  | ReportsNuevo · l.333 |
+| `ChartCard` | title: Sesiones por Mes · ariaLabel: Sesiones por Mes - Gráfico de barras |  |  | ReportsNuevo · l.338 |
+| `CartesianGrid` | strokeDasharray: 3 3 |  |  | ReportsNuevo · l.341 |
+| `ChartCard` | title: Distribución por Estado · ariaLabel: Distribución por Estado - Gráfico circular |  |  | ReportsNuevo · l.353 |
+| `Pie` | cx: 50% · cy: 50% |  |  | ReportsNuevo · l.356 |
+| `ChartCard` | title: Distribución por Modalidad · ariaLabel: Distribución por Modalidad - Gráfico circular |  |  | ReportsNuevo · l.367 |
+| `Pie` | cx: 50% · cy: 50% |  |  | ReportsNuevo · l.370 |
+| `ChartCard` | title: Tendencia de Asistencia · ariaLabel: Tendencia de Asistencia - Gráfico de área |  |  | ReportsNuevo · l.381 |
+| `CartesianGrid` | strokeDasharray: 3 3 |  |  | ReportsNuevo · l.384 |
+| `YAxis` | unit: % |  |  | ReportsNuevo · l.386 |
+| `ChartCard` | title: Sesiones por Escuela · ariaLabel: Sesiones por Escuela - Gráfico de barras horizontal | `isAdmin && analyticsData.sessions_by_school.length > 0` |  | ReportsNuevo · l.394 |
+| `CartesianGrid` | strokeDasharray: 3 3 | `isAdmin && analyticsData.sessions_by_school.length > 0` |  | ReportsNuevo · l.397 |
+| `ChartCard` | title: Top Consultores · ariaLabel: Top Consultores - Gráfico de barras horizontal | `isAdmin && analyticsData.top_consultants && analyticsData.top_consultants.length > 0` |  | ReportsNuevo · l.410 |
+| `CartesianGrid` | strokeDasharray: 3 3 | `isAdmin && analyticsData.top_consultants && analyticsData.top_consultants.length > 0` |  | ReportsNuevo · l.413 |
+| `ExportDropdown` | tabName: Sesiones Recientes · headers: Fecha / Título / Escuela / Comunidad / Estado / Asistencia | `recent.length > 0` |  | ReportsNuevo · l.431 |
+| `Table` |  | `recent.length > 0` |  | ReportsNuevo · l.433 |
+| `TableHead` |  | `recent.length > 0` |  | ReportsNuevo · l.434 |
+| `TableRow` |  | `recent.length > 0` |  | ReportsNuevo · l.435 |
+| `TableHeaderCell` |  | `recent.length > 0` |  | ReportsNuevo · l.436 |
+| `TableHeaderCell` |  | `recent.length > 0` |  | ReportsNuevo · l.437 |
+| `TableHeaderCell` |  | `recent.length > 0` |  | ReportsNuevo · l.438 |
+| `TableHeaderCell` |  | `recent.length > 0` |  | ReportsNuevo · l.439 |
+| `TableHeaderCell` |  | `recent.length > 0` |  | ReportsNuevo · l.440 |
+| `TableHeaderCell` |  | `recent.length > 0` |  | ReportsNuevo · l.441 |
+| `TableBody` |  | `recent.length > 0` |  | ReportsNuevo · l.444 |
+| `TableRow` |  | `recent.length > 0 && each recent` |  | ReportsNuevo · l.448 |
+| `TableCell` | label: Fecha | `recent.length > 0 && each recent` |  | ReportsNuevo · l.461 |
+| `TableCell` |  | `recent.length > 0 && each recent` |  | ReportsNuevo · l.462 |
+| `TableCell` | label: Escuela | `recent.length > 0 && each recent` |  | ReportsNuevo · l.465 |
+| `TableCell` | label: Comunidad | `recent.length > 0 && each recent` |  | ReportsNuevo · l.466 |
+| `TableCell` | label: Estado | `recent.length > 0 && each recent` |  | ReportsNuevo · l.467 |
+| `Badge` |  | `recent.length > 0 && each recent` |  | ReportsNuevo · l.468 |
+| `TableCell` | label: Asistencia | `recent.length > 0 && each recent` |  | ReportsNuevo · l.470 |
+| `Card` |  |  |  | ReportsErrorNuevo · l.486 |
+| `CardBody` |  |  |  | ReportsErrorNuevo · l.487 |
+| `AlertCircle` | aria-hidden: true |  |  | ReportsErrorNuevo · l.488 |
+| `ArrowLeft` | aria-hidden: true |  |  | ReportsErrorNuevo · l.492 |
+
+**Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (2)
+
+| Kind | What | Where |
+|---|---|---|
+| mark | `testid=reports-nuevo` | shell · l.253 |
+| mark | `testid=reports-nuevo-error` | ReportsErrorNuevo · l.485 |
+
+**Values shown from data** (14)
+
+- `{label}` — ChartTooltip · l.143
+- `{(percent * 100).toFixed(0)}%` — renderPieLabel · l.161
+- `{title}` — Kpi · l.172
+- `{value}` — Kpi · l.173
+- `{icon}` — Kpi · l.175
+- `{children}` — ChartCard · l.188
+- `{header} {filters} {body}` — shell · l.253
+- `{format(parseISO(session.session_dat…}` — ReportsNuevo · l.461, when `recent.length > 0 && each recent`
+- `{session.title}` — ReportsNuevo · l.462, when `recent.length > 0 && each recent`
+- `{session.school_name}` — ReportsNuevo · l.465, when `recent.length > 0 && each recent`
+- `{session.gc_name}` — ReportsNuevo · l.466, when `recent.length > 0 && each recent`
+- `{badge.label}` — ReportsNuevo · l.468, when `recent.length > 0 && each recent`
+- `{session.attendance_rate}% / -` — ReportsNuevo · l.470, when `recent.length > 0 && each recent`
+- `{message}` — ReportsErrorNuevo · l.490
+
+**Other texts on screen** (6)
+
+- «Fecha» — ReportsNuevo · l.436, when `recent.length > 0`
+- «Título» — ReportsNuevo · l.437, when `recent.length > 0`
+- «Escuela» — ReportsNuevo · l.438, when `recent.length > 0`
+- «Comunidad» — ReportsNuevo · l.439, when `recent.length > 0`
+- «Estado» — ReportsNuevo · l.440, when `recent.length > 0`
+- «Asistencia» — ReportsNuevo · l.441, when `recent.length > 0`
+
 ### components/sessions/sessionCreateChecks.ts
 
 Used by: `/admin/sessions/create`
@@ -4249,7 +5121,7 @@ Used by: `/consultor/sessions`
 
 ### components/ui/kit/Button.tsx
 
-Used by: `/admin/sessions/create`, `/consultor/sessions/[id]`, `/consultor/sessions`
+Used by: `/admin/bulk-tag-sessions`, `/admin/consultant-assignments`, `/admin/sessions/[id]`, `/admin/sessions/approvals`, `/admin/sessions/create`, `/admin/sessions`, `/consultor/sessions/[id]`, `/consultor/sessions`, `/consultor/sessions/reports`
 
 **Buttons** (1)
 
@@ -4273,7 +5145,7 @@ Used by: `/admin/sessions/create`, `/consultor/sessions/[id]`, `/consultor/sessi
 
 ### components/ui/kit/Card.tsx
 
-Used by: `/admin/sessions/create`, `/consultor/sessions/[id]`, `/consultor/sessions`
+Used by: `/admin/bulk-tag-sessions`, `/admin/consultant-assignments`, `/admin/sessions/[id]`, `/admin/sessions/approvals`, `/admin/sessions/create`, `/admin/sessions`, `/consultor/sessions/[id]`, `/consultor/sessions`, `/consultor/sessions/reports`
 
 **Buttons** (1)
 
@@ -4293,7 +5165,7 @@ Used by: `/admin/sessions/create`, `/consultor/sessions/[id]`, `/consultor/sessi
 
 ### components/ui/kit/ConfirmDialog.tsx
 
-Used by: `/admin/sessions/create`, `/consultor/sessions/[id]`
+Used by: `/admin/consultant-assignments`, `/admin/sessions/[id]`, `/admin/sessions/create`, `/consultor/sessions/[id]`
 
 **Buttons** (2)
 
@@ -4326,7 +5198,7 @@ Used by: `/admin/sessions/create`, `/consultor/sessions/[id]`
 
 ### components/ui/kit/Dialog.tsx
 
-Used by: `/admin/sessions/create`, `/consultor/sessions/[id]`
+Used by: `/admin/consultant-assignments`, `/admin/sessions/[id]`, `/admin/sessions/create`, `/admin/sessions`, `/consultor/sessions/[id]`
 
 **Pieces placed here, with the texts and settings handed to them** (2)
 
@@ -4355,7 +5227,7 @@ Used by: `/admin/sessions/create`, `/consultor/sessions/[id]`
 
 ### components/ui/kit/EmptyState.tsx
 
-Used by: `/admin/sessions/create`
+Used by: `/admin/sessions/approvals`, `/admin/sessions/create`, `/consultor/sessions/reports`
 
 **Values shown from data** (3)
 
@@ -4365,7 +5237,7 @@ Used by: `/admin/sessions/create`
 
 ### components/ui/kit/Field.tsx
 
-Used by: `/admin/sessions/create`, `/consultor/sessions/[id]`, `/consultor/sessions`
+Used by: `/admin/bulk-tag-sessions`, `/admin/consultant-assignments`, `/admin/sessions/[id]`, `/admin/sessions/approvals`, `/admin/sessions/create`, `/admin/sessions`, `/consultor/sessions/[id]`, `/consultor/sessions`, `/consultor/sessions/reports`
 
 **Fields** (5)
 
@@ -4415,7 +5287,7 @@ Used by: `/admin/sessions/create`, `/consultor/sessions/[id]`, `/consultor/sessi
 
 ### components/ui/kit/Loading.tsx
 
-Used by: `/admin/sessions/create`
+Used by: `/admin/sessions/[id]`, `/admin/sessions/create`
 
 **Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (1)
 
@@ -4433,7 +5305,7 @@ Used by: `/admin/sessions/create`
 
 ### components/ui/kit/Notice.tsx
 
-Used by: `/admin/sessions/create`, `/consultor/sessions/[id]`
+Used by: `/admin/bulk-tag-sessions`, `/admin/sessions/create`, `/consultor/sessions/[id]`
 
 **Values shown from data** (1)
 
@@ -4441,7 +5313,7 @@ Used by: `/admin/sessions/create`, `/consultor/sessions/[id]`
 
 ### components/ui/kit/PageHeader.tsx
 
-Used by: `/admin/sessions/create`, `/consultor/sessions`
+Used by: `/admin/bulk-tag-sessions`, `/admin/consultant-assignments`, `/admin/sessions/[id]`, `/admin/sessions/approvals`, `/admin/sessions/create`, `/admin/sessions`, `/consultor/sessions`, `/consultor/sessions/reports`
 
 **Titles** (1)
 
@@ -4478,7 +5350,7 @@ Used by: `/admin/sessions/create`, `/consultor/sessions`
 
 ### components/ui/kit/Table.tsx
 
-Used by: `/consultor/sessions/[id]`
+Used by: `/admin/bulk-tag-sessions`, `/admin/consultant-assignments`, `/admin/sessions`, `/consultor/sessions/[id]`, `/consultor/sessions/reports`
 
 **Buttons** (1)
 
@@ -4515,7 +5387,7 @@ Used by: `/consultor/sessions/[id]`
 
 ### components/ui/kit/Tabs.tsx
 
-Used by: `/consultor/sessions/[id]`, `/consultor/sessions`
+Used by: `/admin/sessions/approvals`, `/consultor/sessions/[id]`, `/consultor/sessions`
 
 **Tabs** (1)
 
@@ -5118,38 +5990,38 @@ Used by: `/admin/bulk-tag-sessions`, `/admin/consultant-assignments`, `/admin/se
 
 | Address | File | Methods | Screens that call it | Also named in |
 |---|---|---|---|---|
-| `/api/admin/bulk-tag-sessions` | `pages/api/admin/bulk-tag-sessions.ts` | GET, PATCH | `/admin/bulk-tag-sessions` | `__tests__/api/hour-tracking/bulk-tag.test.ts`, `pages/admin/bulk-tag-sessions.tsx` |
+| `/api/admin/bulk-tag-sessions` | `pages/api/admin/bulk-tag-sessions.ts` | GET, PATCH | `/admin/bulk-tag-sessions` | `__tests__/api/hour-tracking/bulk-tag.test.ts`, `__tests__/helpers/adminSessionsFakes.tsx`, `__tests__/pages/admin/bulkTag.sameRequests.test.tsx`, `pages/admin/bulk-tag-sessions.tsx` |
 | `/api/admin/consultant-assignment-users` | `pages/api/admin/consultant-assignment-users.ts` | GET | `/admin/consultant-assignments`, `/admin/consultant-earnings`, `/admin/consultant-rates`, `/admin/user-management` | `components/ConsultantAssignmentModal.tsx`, `components/admin/ConsultantRateManager.tsx`, `pages/admin/consultant-earnings.tsx` |
-| `/api/admin/consultant-assignments` | `pages/api/admin/consultant-assignments.ts` | DELETE, GET, POST, PUT | `/admin/consultant-assignments`, `/admin/user-management` | `__tests__/api/admin/consultant-assignments.test.ts`, `components/ConsultantAssignmentModal.tsx`, `pages/admin/consultant-assignments.tsx` |
-| `/api/admin/consultants` | `pages/api/admin/consultants.ts` | GET | `/admin/sessions`, `/admin/sessions/[id]`, `/admin/sessions/create` | `__tests__/api/admin/consultants.test.ts`, `__tests__/pages/admin/sessions/create-timezone.test.tsx`, `__tests__/pages/admin/sessions/create-zoom-managed.test.tsx`, `__tests__/pages/admin/sessions/create.clasico.test.tsx`, `__tests__/pages/admin/sessions/create.nuevo.test.tsx` +5 |
+| `/api/admin/consultant-assignments` | `pages/api/admin/consultant-assignments.ts` | DELETE, GET, POST, PUT | `/admin/consultant-assignments`, `/admin/user-management` | `__tests__/api/admin/consultant-assignments.test.ts`, `__tests__/pages/admin/consultantAssignments.clasico.test.tsx`, `__tests__/pages/admin/consultantAssignments.fixtures.ts`, `__tests__/pages/admin/consultantAssignments.nuevo.test.tsx`, `components/ConsultantAssignmentModal.tsx` +1 |
+| `/api/admin/consultants` | `pages/api/admin/consultants.ts` | GET | `/admin/sessions`, `/admin/sessions/[id]`, `/admin/sessions/create` | `__tests__/api/admin/consultants.test.ts`, `__tests__/helpers/adminSessionsFakes.tsx`, `__tests__/pages/admin/sessions/adminDetail.sameRequests.test.tsx`, `__tests__/pages/admin/sessions/adminDetail.views.test.tsx`, `__tests__/pages/admin/sessions/create-timezone.test.tsx` +8 |
 | `/api/admin/sessions/[id]/hour-override` | `pages/api/admin/sessions/[id]/hour-override.ts` | POST | `/admin/sessions/[id]` | `__tests__/api/admin/hour-override.test.ts`, `__tests__/lib/services/comparison-billing-isolation.test.ts`, `components/sessions/HoursComparisonPanel.tsx`, `scripts/redesign/harness/seed/30-sesiones-horas.mjs` |
-| `/api/admin/sessions/[id]/hours-comparison` | `pages/api/admin/sessions/[id]/hours-comparison.ts` | GET | `/admin/sessions/[id]` | `__tests__/api/admin/hours-comparison.test.ts`, `__tests__/components/sessions/HoursComparisonPanel.test.tsx`, `__tests__/lib/services/comparison-billing-isolation.test.ts`, `components/sessions/HoursComparisonPanel.tsx` |
+| `/api/admin/sessions/[id]/hours-comparison` | `pages/api/admin/sessions/[id]/hours-comparison.ts` | GET | `/admin/sessions/[id]` | `__tests__/api/admin/hours-comparison.test.ts`, `__tests__/components/sessions/HoursComparisonPanel.test.tsx`, `__tests__/lib/services/comparison-billing-isolation.test.ts`, `__tests__/pages/admin/sessions/adminDetail.latch.test.tsx`, `components/sessions/HoursComparisonPanel.tsx` |
 | `/api/meet/diag-signature` | `pages/api/meet/diag-signature.ts` | POST | `/meet/diag` | `__tests__/api/forged-session-sweep.test.ts`, `__tests__/api/meet/diag-signature.test.ts`, `__tests__/pages/meet-diag-join-section.test.ts`, `__tests__/pages/meet/diag-ssr.test.ts`, `pages/meet/diag.tsx` |
 | `/api/meet/session/[id]/join` | `pages/api/meet/session/[id]/join.ts` | POST | `/meet/session/[id]` | `__tests__/api/meet/session-join-sdk.test.ts`, `__tests__/api/meet/session-join-zak.test.ts`, `__tests__/api/meet/session-join.test.ts`, `__tests__/components/sessions/JoinMeetingButton.clientview.test.tsx`, `__tests__/components/sessions/JoinMeetingButton.prejoin-screen.test.tsx` +8 |
-| `/api/sessions/[id]/approve` | `pages/api/sessions/[id]/approve.ts` | POST | `/admin/sessions`, `/admin/sessions/[id]`, `/admin/sessions/create` | `__tests__/api/sessions/session-approval-hours-fail-closed.test.ts`, `__tests__/api/sessions/session-approve-facilitators.test.ts`, `__tests__/api/sessions/session-approve-zoom-provision.test.ts`, `__tests__/api/sessions/session-lifecycle-notifications.test.ts`, `__tests__/pages/admin/sessions/create.clasico.test.tsx` +5 |
+| `/api/sessions/[id]/approve` | `pages/api/sessions/[id]/approve.ts` | POST | `/admin/sessions`, `/admin/sessions/[id]`, `/admin/sessions/create` | `__tests__/api/sessions/session-approval-hours-fail-closed.test.ts`, `__tests__/api/sessions/session-approve-facilitators.test.ts`, `__tests__/api/sessions/session-approve-zoom-provision.test.ts`, `__tests__/api/sessions/session-lifecycle-notifications.test.ts`, `__tests__/helpers/adminSessionsFakes.tsx` +9 |
 | `/api/sessions/[id]/attendance-suggestions` | `pages/api/sessions/[id]/attendance-suggestions.ts` | GET | `/consultor/sessions/[id]` | `__tests__/api/sessions/attendance-suggestions.test.ts`, `components/sessions/AttendanceSuggestionsPanel.tsx`, `tests/e2e/look-sessions.spec.ts` |
 | `/api/sessions/[id]/attendees` | `pages/api/sessions/[id]/attendees.ts` | GET, PUT | `/consultor/sessions/[id]` | `__tests__/api/sessions/attendees.test.ts`, `__tests__/pages/consultor/sessions/detail.clasico.test.tsx`, `__tests__/pages/consultor/sessions/detail.nuevo.test.tsx`, `__tests__/pages/consultor/sessions/detail.sameSession.test.tsx`, `__tests__/pages/consultor/sessions/detail.test.tsx` +3 |
 | `/api/sessions/[id]/audio-report` | `pages/api/sessions/[id]/audio-report.ts` | POST | `/consultor/sessions/[id]` | `__tests__/api/sessions/session-audio-report.test.ts`, `components/sessions/AudioReportUploader.tsx` |
-| `/api/sessions/[id]/cancel` | `pages/api/sessions/[id]/cancel.ts` | POST | `/admin/sessions`, `/admin/sessions/[id]` | `__tests__/api/hour-tracking/cancellation.test.ts`, `__tests__/api/sessions/session-cancel-zoom-delete.test.ts`, `__tests__/api/sessions/session-lifecycle-notifications.test.ts`, `__tests__/api/sessions/session-notification-recipients.test.ts`, `pages/admin/sessions/[id].tsx` +1 |
+| `/api/sessions/[id]/cancel` | `pages/api/sessions/[id]/cancel.ts` | POST | `/admin/sessions`, `/admin/sessions/[id]` | `__tests__/api/hour-tracking/cancellation.test.ts`, `__tests__/api/sessions/session-cancel-zoom-delete.test.ts`, `__tests__/api/sessions/session-lifecycle-notifications.test.ts`, `__tests__/api/sessions/session-notification-recipients.test.ts`, `__tests__/helpers/adminSessionsFakes.tsx` +4 |
 | `/api/sessions/[id]/edit-requests` | `pages/api/sessions/[id]/edit-requests.ts` | GET, POST | `/consultor/sessions/[id]` | `__tests__/api/sessions/edit-requests.test.ts`, `__tests__/api/sessions/session-notification-recipients.test.ts`, `__tests__/api/sessions/session-notifications.test.ts`, `__tests__/pages/consultor/sessions/detail.clasico.test.tsx`, `__tests__/pages/consultor/sessions/detail.sameSession.test.tsx` +1 |
-| `/api/sessions/[id]/facilitators` | `pages/api/sessions/[id]/facilitators.ts` | PUT | `/admin/sessions/[id]` | `__tests__/api/sessions/facilitators.test.ts`, `pages/admin/sessions/[id].tsx` |
+| `/api/sessions/[id]/facilitators` | `pages/api/sessions/[id]/facilitators.ts` | PUT | `/admin/sessions/[id]` | `__tests__/api/sessions/facilitators.test.ts`, `__tests__/helpers/adminSessionsFakes.tsx`, `__tests__/pages/admin/sessions/adminDetail.sameRequests.test.tsx`, `pages/admin/sessions/[id].tsx` |
 | `/api/sessions/[id]/finalize` | `pages/api/sessions/[id]/finalize.ts` | POST | `/consultor/sessions/[id]` | `__tests__/api/sessions/finalize.test.ts`, `__tests__/api/sessions/session-notification-recipients.test.ts`, `__tests__/pages/consultor/sessions/detail.clasico.test.tsx`, `__tests__/pages/consultor/sessions/detail.nuevo.test.tsx`, `__tests__/pages/consultor/sessions/detail.sameSession.test.tsx` +1 |
-| `/api/sessions/[id]/ical` | `pages/api/sessions/[id]/ical.ts` | GET | `/admin/sessions/[id]`, `/consultor/sessions/[id]` | `__tests__/api/sessions/cached-roles-never-authorize.test.ts`, `__tests__/api/sessions/ical-attendee-disclosure.test.ts`, `__tests__/api/sessions/ical-sequence.test.ts`, `__tests__/api/sessions/session-ical-export.test.ts`, `__tests__/pages/consultor/sessions/detail.nuevo.test.tsx` +5 |
-| `/api/sessions/[id]` | `pages/api/sessions/[id]/index.ts` | GET, PUT | `/admin/sessions/[id]`, `/consultor/sessions/[id]` | `__tests__/api/reports/qa-tenant-exclusion-contract.test.ts`, `__tests__/api/sessions/cached-roles-never-authorize.test.ts`, `__tests__/api/sessions/ical-scope-union.test.ts`, `__tests__/api/sessions/reschedule-hours-sync.test.ts`, `__tests__/api/sessions/role-revocation-fail-closed.test.ts` +31 |
+| `/api/sessions/[id]/ical` | `pages/api/sessions/[id]/ical.ts` | GET | `/admin/sessions/[id]`, `/consultor/sessions/[id]` | `__tests__/api/sessions/cached-roles-never-authorize.test.ts`, `__tests__/api/sessions/ical-attendee-disclosure.test.ts`, `__tests__/api/sessions/ical-sequence.test.ts`, `__tests__/api/sessions/session-ical-export.test.ts`, `__tests__/pages/admin/sessions/adminDetail.views.test.tsx` +7 |
+| `/api/sessions/[id]` | `pages/api/sessions/[id]/index.ts` | GET, PUT | `/admin/sessions/[id]`, `/consultor/sessions/[id]` | `__tests__/api/reports/qa-tenant-exclusion-contract.test.ts`, `__tests__/api/sessions/cached-roles-never-authorize.test.ts`, `__tests__/api/sessions/ical-scope-union.test.ts`, `__tests__/api/sessions/reschedule-hours-sync.test.ts`, `__tests__/api/sessions/role-revocation-fail-closed.test.ts` +36 |
 | `/api/sessions/[id]/materials` | `pages/api/sessions/[id]/materials.ts` | GET, POST | `/consultor/sessions/[id]` | `__tests__/api/sessions/materials.test.ts`, `__tests__/pages/consultor/sessions/detail.clasico.test.tsx`, `__tests__/pages/consultor/sessions/detail.sameSession.test.tsx`, `hooks/useSessionDetail.ts`, `tests/e2e/look-sessions.spec.ts` +1 |
 | `/api/sessions/[id]/materials/[mid]` | `pages/api/sessions/[id]/materials/[mid].ts` | DELETE | `/consultor/sessions/[id]` | `__tests__/api/sessions/materials-detail.test.ts`, `__tests__/pages/consultor/sessions/detail.clasico.test.tsx`, `__tests__/pages/consultor/sessions/detail.nuevo.test.tsx`, `__tests__/pages/consultor/sessions/detail.sameSession.test.tsx`, `hooks/useSessionDetail.ts` |
 | `/api/sessions/[id]/reports` | `pages/api/sessions/[id]/reports.ts` | GET, POST | `/consultor/sessions/[id]` | `__tests__/api/sessions/reports.test.ts`, `__tests__/pages/consultor/sessions/detail.clasico.test.tsx`, `__tests__/pages/consultor/sessions/detail.sameSession.test.tsx`, `hooks/useSessionDetail.ts`, `tests/e2e/session-disclosure.spec.ts` |
 | `/api/sessions/[id]/reports/[rid]` | `pages/api/sessions/[id]/reports/[rid].ts` | GET, PUT | `/consultor/sessions/[id]` | `__tests__/api/sessions/cached-roles-never-authorize.test.ts`, `__tests__/api/sessions/report-detail-disclosure.test.ts`, `__tests__/api/sessions/reports-detail.test.ts`, `__tests__/pages/consultor/sessions/detail.clasico.test.tsx`, `__tests__/pages/consultor/sessions/detail.sameSession.test.tsx` +2 |
 | `/api/sessions/bulk-approve` | `pages/api/sessions/bulk-approve.ts` | POST | `/admin/sessions/create` | `__tests__/api/sessions/session-approval-hours-fail-closed.test.ts`, `__tests__/api/sessions/session-bulk-approve-facilitators.test.ts`, `__tests__/api/sessions/session-bulk-approve-zoom-provision.test.ts`, `__tests__/api/sessions/session-lifecycle-notifications.test.ts`, `__tests__/pages/admin/sessions/create.clasico.test.tsx` +4 |
 | `/api/sessions/capabilities` | `pages/api/sessions/capabilities.ts` | GET | **no screen** | `__tests__/api/sessions/session-zoom-capabilities.test.ts` |
-| `/api/sessions/edit-requests/[eid]` | `pages/api/sessions/edit-requests/[eid].ts` | GET, PUT | `/admin/sessions/approvals` | `__tests__/api/sessions/edit-requests-detail.test.ts`, `__tests__/api/sessions/reschedule-hours-sync.test.ts`, `__tests__/api/sessions/session-lifecycle-notifications.test.ts`, `__tests__/api/sessions/session-notifications.test.ts`, `__tests__/api/sessions/session-reschedule-zoom-sync.test.ts` +3 |
-| `/api/sessions/edit-requests` | `pages/api/sessions/edit-requests/index.ts` | GET | `/admin/sessions/approvals` | `pages/admin/sessions/approvals.tsx` |
-| `/api/sessions/ical` | `pages/api/sessions/ical.ts` | GET | `/admin/sessions`, `/consultor/sessions` | `__tests__/api/sessions/cached-roles-never-authorize.test.ts`, `__tests__/api/sessions/ical-attendee-disclosure.test.ts`, `__tests__/api/sessions/ical-scope-union.test.ts`, `__tests__/api/sessions/ical-sequence.test.ts`, `__tests__/api/sessions/session-ical-export.test.ts` +5 |
-| `/api/sessions` | `pages/api/sessions/index.ts` | GET, POST | `/admin/sessions`, `/admin/sessions/create`, `/community/workspace`, `/consultor/sessions` | `__tests__/api/sessions/role-revocation-fail-closed.test.ts`, `__tests__/api/sessions/session-create-facilitators.test.ts`, `__tests__/api/sessions/session-custom-dates-chile.test.ts`, `__tests__/api/sessions/session-detail-disclosure.test.ts`, `__tests__/api/sessions/session-managed-intent-create.test.ts` +25 |
-| `/api/sessions/reports/analytics` | `pages/api/sessions/reports/analytics.ts` | GET | `/consultor/sessions/reports` | `__tests__/api/sessions/session-reports-analytics.test.ts`, `pages/consultor/sessions/reports.tsx` |
-| `/api/sessions/series/[groupId]` | `pages/api/sessions/series/[groupId].ts` | GET | `/admin/sessions/[id]` | `__tests__/api/sessions/session-series.test.ts`, `pages/admin/sessions/[id].tsx` |
-| `/api/sessions/series/[groupId]/cancel` | `pages/api/sessions/series/[groupId]/cancel.ts` | POST | `/admin/sessions/[id]` | `__tests__/api/sessions/session-cancel-zoom-delete.test.ts`, `__tests__/api/sessions/session-lifecycle-notifications.test.ts`, `__tests__/api/sessions/session-series.test.ts`, `pages/admin/sessions/[id].tsx` |
-| `/api/sessions/series/[groupId]/ical` | `pages/api/sessions/series/[groupId]/ical.ts` | GET | `/admin/sessions/[id]` | `__tests__/api/sessions/ical-attendee-disclosure.test.ts`, `__tests__/api/sessions/ical-sequence.test.ts`, `__tests__/api/sessions/session-ical-export.test.ts`, `pages/admin/sessions/[id].tsx` |
-| `/api/sessions/stats` | `pages/api/sessions/stats.ts` | GET | `/admin/sessions` | `pages/admin/sessions/index.tsx` |
+| `/api/sessions/edit-requests/[eid]` | `pages/api/sessions/edit-requests/[eid].ts` | GET, PUT | `/admin/sessions/approvals` | `__tests__/api/sessions/edit-requests-detail.test.ts`, `__tests__/api/sessions/reschedule-hours-sync.test.ts`, `__tests__/api/sessions/session-lifecycle-notifications.test.ts`, `__tests__/api/sessions/session-notifications.test.ts`, `__tests__/api/sessions/session-reschedule-zoom-sync.test.ts` +5 |
+| `/api/sessions/edit-requests` | `pages/api/sessions/edit-requests/index.ts` | GET | `/admin/sessions/approvals` | `__tests__/helpers/adminSessionsFakes.tsx`, `__tests__/pages/admin/sessions/approvals.sameRequests.test.tsx`, `__tests__/pages/admin/sessions/approvals.views.test.tsx`, `pages/admin/sessions/approvals.tsx` |
+| `/api/sessions/ical` | `pages/api/sessions/ical.ts` | GET | `/admin/sessions`, `/consultor/sessions` | `__tests__/api/sessions/cached-roles-never-authorize.test.ts`, `__tests__/api/sessions/ical-attendee-disclosure.test.ts`, `__tests__/api/sessions/ical-scope-union.test.ts`, `__tests__/api/sessions/ical-sequence.test.ts`, `__tests__/api/sessions/session-ical-export.test.ts` +8 |
+| `/api/sessions` | `pages/api/sessions/index.ts` | GET, POST | `/admin/sessions`, `/admin/sessions/create`, `/community/workspace`, `/consultor/sessions` | `__tests__/api/sessions/role-revocation-fail-closed.test.ts`, `__tests__/api/sessions/session-create-facilitators.test.ts`, `__tests__/api/sessions/session-custom-dates-chile.test.ts`, `__tests__/api/sessions/session-detail-disclosure.test.ts`, `__tests__/api/sessions/session-managed-intent-create.test.ts` +27 |
+| `/api/sessions/reports/analytics` | `pages/api/sessions/reports/analytics.ts` | GET | `/consultor/sessions/reports` | `__tests__/api/sessions/session-reports-analytics.test.ts`, `__tests__/pages/consultor/sessions/reports.fixtures.ts`, `pages/consultor/sessions/reports.tsx` |
+| `/api/sessions/series/[groupId]` | `pages/api/sessions/series/[groupId].ts` | GET | `/admin/sessions/[id]` | `__tests__/api/sessions/session-series.test.ts`, `__tests__/helpers/adminSessionsFakes.tsx`, `__tests__/pages/admin/sessions/adminDetail.views.test.tsx`, `pages/admin/sessions/[id].tsx` |
+| `/api/sessions/series/[groupId]/cancel` | `pages/api/sessions/series/[groupId]/cancel.ts` | POST | `/admin/sessions/[id]` | `__tests__/api/sessions/session-cancel-zoom-delete.test.ts`, `__tests__/api/sessions/session-lifecycle-notifications.test.ts`, `__tests__/api/sessions/session-series.test.ts`, `__tests__/helpers/adminSessionsFakes.tsx`, `__tests__/pages/admin/sessions/adminDetail.sameRequests.test.tsx` +1 |
+| `/api/sessions/series/[groupId]/ical` | `pages/api/sessions/series/[groupId]/ical.ts` | GET | `/admin/sessions/[id]` | `__tests__/api/sessions/ical-attendee-disclosure.test.ts`, `__tests__/api/sessions/ical-sequence.test.ts`, `__tests__/api/sessions/session-ical-export.test.ts`, `__tests__/pages/admin/sessions/adminDetail.views.test.tsx`, `components/sessions/admin-nuevo/AdminSessionDetailNuevo.tsx` +1 |
+| `/api/sessions/stats` | `pages/api/sessions/stats.ts` | GET | `/admin/sessions` | `__tests__/helpers/adminSessionsFakes.tsx`, `pages/admin/sessions/index.tsx` |
 | `/api/zoom/webhook` | `pages/api/zoom/webhook.ts` | POST | **no screen** | `__tests__/api/zoom/webhook-oversize.server.test.ts`, `__tests__/api/zoom/webhook.test.ts`, `__tests__/middleware.forced-password-change.test.ts` |
 

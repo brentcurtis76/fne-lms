@@ -1,11 +1,11 @@
 # Screens and their tests
 
-Written by `scripts/redesign/inventory.mjs` from commit `c7e27398c`. For phase 3 (the safety net). A browser test is counted for a screen when the test file names the screen's address; that is weaker than "the test checks the screen". CI runs 32 of 73 browser test files (`scripts/ci/e2e-mandatory.mjs`).
+Written by `scripts/redesign/inventory.mjs` from commit `a908cc8b5`. For phase 3 (the safety net). A browser test is counted for a screen when the test file names the screen's address; that is weaker than "the test checks the screen". CI runs 32 of 73 browser test files (`scripts/ci/e2e-mandatory.mjs`).
 
 - 152 screens with an address.
 - 39 are named by a browser test that CI runs.
-- 49 are named only by tests CI skips, or have only unit tests.
-- 64 have no test at all.
+- 55 are named only by tests CI skips, or have only unit tests.
+- 58 have no test at all.
 
 ## No test at all
 
@@ -32,11 +32,6 @@ Written by `scripts/redesign/inventory.mjs` from commit `c7e27398c`. For phase 3
 | 05-tareas | `/admin/assignment-review/[id]` | `pages/admin/assignment-review/[id].tsx` |
 | 05-tareas | `/assignments/[id]/submissions` | `pages/assignments/[id]/submissions.tsx` |
 | 05-tareas | `/community/workspace/assignments/[id]/groups` | `pages/community/workspace/assignments/[id]/groups.tsx` |
-| 06-sesiones | `/admin/bulk-tag-sessions` | `pages/admin/bulk-tag-sessions.tsx` |
-| 06-sesiones | `/admin/consultant-assignments` | `pages/admin/consultant-assignments.tsx` |
-| 06-sesiones | `/admin/sessions/approvals` | `pages/admin/sessions/approvals.tsx` |
-| 06-sesiones | `/admin/sessions` | `pages/admin/sessions/index.tsx` |
-| 06-sesiones | `/consultor/sessions/reports` | `pages/consultor/sessions/reports.tsx` |
 | 08-gestor-de-cambio | `/admin/assessment-builder` | `pages/admin/assessment-builder/index.tsx` |
 | 08-gestor-de-cambio | `/demo/assessments/[templateId]` | `pages/demo/assessments/[templateId]/index.tsx` (Looks like a leftover but is in use) |
 | 08-gestor-de-cambio | `/demo/assessments` | `pages/demo/assessments/index.tsx` (Looks like a leftover but is in use) |
@@ -52,7 +47,6 @@ Written by `scripts/redesign/inventory.mjs` from commit `c7e27398c`. For phase 3
 | 10-licitaciones | `/admin/licitaciones/templates` | `pages/admin/licitaciones/templates.tsx` |
 | 10-licitaciones | `/licitaciones/importar` | `pages/licitaciones/importar.tsx` |
 | 10-licitaciones | `/licitaciones` | `pages/licitaciones/index.tsx` |
-| 11-gestion | `/admin/clients` | `pages/admin/clients.tsx` |
 | 11-gestion | `/admin/quotes/[id]/edit` | `pages/admin/quotes/[id]/edit.tsx` |
 | 11-gestion | `/admin/quotes/new` | `pages/admin/quotes/new.tsx` |
 | 11-gestion | `/quote/[id]` | `pages/quote/[id].tsx` |
@@ -90,7 +84,12 @@ Written by `scripts/redesign/inventory.mjs` from commit `c7e27398c`. For phase 3
 | 05-tareas | `/assignments/[id]` | `e2e/assessment-frequency-validation.spec.ts`, `e2e/due-reminders.spec.ts` | — |
 | 05-tareas | `/quiz-reviews` | `e2e/urgent-anonymous-boundaries.spec.ts`, `e2e/urgent-anonymous-current.spec.ts` | — |
 | 05-tareas | `/quiz-reviews/[id]` | `e2e/urgent-anonymous-boundaries.spec.ts`, `e2e/urgent-anonymous-current.spec.ts` | — |
-| 06-sesiones | `/meet/diag` | — | 4 |
+| 06-sesiones | `/admin/bulk-tag-sessions` | — | 2 |
+| 06-sesiones | `/admin/consultant-assignments` | — | 3 |
+| 06-sesiones | `/admin/sessions/approvals` | — | 3 |
+| 06-sesiones | `/admin/sessions` | — | 3 |
+| 06-sesiones | `/consultor/sessions/reports` | — | 3 |
+| 06-sesiones | `/meet/diag` | — | 5 |
 | 07-espacio-colaborativo | `/admin/growth-communities/[id]/members` | — | 2 |
 | 07-espacio-colaborativo | `/admin/growth-communities` | — | 2 |
 | 08-gestor-de-cambio | `/admin/assessment-builder/[templateId]/expectations` | `e2e/assessment-builder-expectations-editor.spec.ts` | 1 |
@@ -109,12 +108,13 @@ Written by `scripts/redesign/inventory.mjs` from commit `c7e27398c`. For phase 3
 | 09-vias-transformacion | `/community/workspace/transformation/evaluate` | — | 1 |
 | 10-licitaciones | `/admin/licitaciones/consultores` | `e2e/flows/proposal-consultant-crud.spec.ts` | — |
 | 10-licitaciones | `/admin/licitaciones/documentos-propuesta` | `e2e/flows/proposal-document-library.spec.ts` | — |
-| 10-licitaciones | `/licitaciones/[id]` | `e2e/flows/proposal-admin-visibility.spec.ts`, `e2e/flows/proposal-buckets.spec.ts`, `e2e/flows/proposal-config.spec.ts`, `e2e/flows/proposal-versioning.spec.ts` | 2 |
+| 10-licitaciones | `/licitaciones/[id]` | `e2e/flows/proposal-admin-visibility.spec.ts`, `e2e/flows/proposal-buckets.spec.ts`, `e2e/flows/proposal-config.spec.ts`, `e2e/flows/proposal-versioning.spec.ts` | 3 |
 | 10-licitaciones | `/licitaciones/[id]/evaluacion` | — | 1 |
 | 10-licitaciones | `/licitaciones/nueva` | — | 1 |
 | 10-licitaciones | `/propuesta/[slug]` | `e2e/flows/proposal-buckets.spec.ts`, `e2e/flows/proposal-web-view.spec.ts` | — |
+| 11-gestion | `/admin/clients` | — | 1 |
 | 11-gestion | `/admin/quotes` | — | 1 |
-| 11-gestion | `/contract-print/[id]` | — | 1 |
+| 11-gestion | `/contract-print/[id]` | — | 3 |
 | 11-gestion | `/contracts` | `e2e/urgent-anonymous-boundaries.spec.ts`, `e2e/urgent-anonymous-current.spec.ts` | 5 |
 | 14-personas | `/admin/school-users` | — | 1 |
 | 15-comunicacion | `/admin/news` | `e2e/urgent-anonymous-boundaries.spec.ts`, `e2e/urgent-anonymous-current.spec.ts` | — |

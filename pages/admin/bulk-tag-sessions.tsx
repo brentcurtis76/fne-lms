@@ -11,6 +11,9 @@ import { getStatusBadge } from '../../lib/utils/session-ui-helpers';
 import type { SessionStatus } from '../../lib/types/consultor-sessions.types';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { useLook } from '../../contexts/LookContext';
+import BulkTagNuevo from '../../components/sessions/admin-nuevo/BulkTagNuevo';
+import { CRUMBS_BULK_TAG } from '../../components/sessions/admin-nuevo/adminNuevoStyles';
 
 // ============================================================
 // Types
@@ -61,6 +64,10 @@ const BulkTagSessionsPage: React.FC = () => {
   const [filterDateTo, setFilterDateTo] = useState('');
   const [filterSchoolId, setFilterSchoolId] = useState('');
   const [schools, setSchools] = useState<Array<{ id: number; name: string }>>([]);
+
+  // Redesign 6S, release SC: the new look (an account that chose it) draws its own view of this
+  // page's state; while the look is unknown it counts as today's.
+  const isNuevo = useLook().look === 'nuevo';
 
   useEffect(() => {
     initAuth();
@@ -246,6 +253,45 @@ const BulkTagSessionsPage: React.FC = () => {
           <p className="text-gray-600">No tiene permisos para acceder a esta página.</p>
         </div>
       </div>
+    );
+  }
+
+  if (isNuevo) {
+    return (
+      <MainLayout
+        user={user}
+        currentPage="sessions"
+        pageTitle=""
+        breadcrumbs={CRUMBS_BULK_TAG}
+        isAdmin={isAdmin}
+        onLogout={handleLogout}
+      >
+        <BulkTagNuevo
+          sessions={sessions}
+          total={total}
+          page={page}
+          totalPages={totalPages}
+          setPage={setPage}
+          hourTypes={hourTypes}
+          selectedHourTypeKey={selectedHourTypeKey}
+          setSelectedHourTypeKey={setSelectedHourTypeKey}
+          selectedIds={selectedIds}
+          setSelectedIds={setSelectedIds}
+          saving={saving}
+          filterDateFrom={filterDateFrom}
+          setFilterDateFrom={setFilterDateFrom}
+          filterDateTo={filterDateTo}
+          setFilterDateTo={setFilterDateTo}
+          filterSchoolId={filterSchoolId}
+          setFilterSchoolId={setFilterSchoolId}
+          schools={schools}
+          handleToggleSelect={handleToggleSelect}
+          handleSelectAll={handleSelectAll}
+          handleBulkTag={handleBulkTag}
+          getFacilitatorName={getFacilitatorName}
+          formatDate={formatDate}
+        />
+      </MainLayout>
     );
   }
 

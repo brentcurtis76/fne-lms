@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/router';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { User } from '@supabase/supabase-js';
@@ -29,6 +30,10 @@ import {
 } from '../../../lib/utils/session-ui-helpers';
 import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, getDay, startOfWeek, endOfWeek, addMonths, addWeeks } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { FollowedView, useKeptNode, useSlotRef } from '../../../components/sessions/admin-nuevo/keptNode';
+import AdminSessionsListNuevo, { AdminSessionsRowsNuevo } from '../../../components/sessions/admin-nuevo/AdminSessionsListNuevo';
+import type { AdminSessionsListNuevoProps, ListPieceState } from '../../../components/sessions/admin-nuevo/AdminSessionsListNuevo';
+import { CRUMBS_LIST } from '../../../components/sessions/admin-nuevo/adminNuevoStyles';
 
 type ViewMode = 'list' | 'month' | 'week';
 
@@ -115,6 +120,16 @@ const SessionsPage: React.FC = () => {
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancellationReason, setCancellationReason] = useState('');
+
+  // Redesign 6S, release SC: the rows piece (`ListView`) reads the cancelled rows' marks when it
+  // mounts, so a change of view must not mount it again: it is rendered once, at the same first place
+  // of both views, into one element this page keeps, and each view only lends the place where that
+  // element sits (components/sessions/admin-nuevo/keptNode). `cancelOpener`: the new look's row whose
+  // menu opened the cancel pop-up.
+  const listHost = useKeptNode();
+  const clasicoListPlace = useSlotRef(listHost, viewMode === 'list');
+  const nuevoListPlace = useSlotRef(listHost, viewMode === 'list');
+  const cancelOpener = useRef<string | null>(null);
 
   useEffect(() => {
     initializeAuth();
@@ -487,7 +502,71 @@ const SessionsPage: React.FC = () => {
     );
   }
 
-  return (
+  // Redesign 6S, release SC: the new look (an account that chose it) draws its own view of this
+  // page's state; while the look is unknown it counts as today's. Which view draws the body follows the
+  // look by SB's rule, in `FollowedView` (it reads the look, so a change of look does not render this
+  // page again): today's look wins at once, a new look arriving within four seconds of the body's first
+  // drawing is followed once, otherwise the view is kept. The rows piece is kept mounted across it.
+  const nuevoProps: AdminSessionsListNuevoProps = {
+    stats,
+    viewMode,
+    setViewMode,
+    currentDate,
+    setCurrentDate,
+    sessions,
+    schools,
+    communities,
+    consultants,
+    filters,
+    handleFilterChange,
+    openNewSession: () => router.push('/admin/sessions/create'),
+    handleViewSession,
+    handleApprove,
+    handleCancelClick,
+    listPlace: nuevoListPlace,
+    cancelOpener,
+    showCancelModal,
+    cancellationReason,
+    setCancellationReason,
+    actionInProgress,
+    closeCancelModal: () => {
+      setShowCancelModal(false);
+      setCancellationReason('');
+      setSelectedSessionId(null);
+    },
+    handleCancelSubmit,
+    getFacilitatorNames,
+    getSeriesInfo,
+    formatDateShort,
+    formatTime,
+  };
+
+  const nuevoView = () => (
+    <MainLayout
+      user={user}
+      currentPage="sessions"
+      pageTitle=""
+      breadcrumbs={CRUMBS_LIST}
+      isAdmin={isAdmin}
+      onLogout={handleLogout}
+    >
+      <AdminSessionsListNuevo {...nuevoProps} />
+    </MainLayout>
+  );
+
+  // The rows piece, once for both views (only in the list view, as before).
+  const keptRows = (view: 'clasico' | 'nuevo') =>
+    viewMode === 'list' && listHost
+      ? createPortal(
+          <ListView
+            sessions={sessions}
+            renderNuevo={view === 'nuevo' ? (state) => <AdminSessionsRowsNuevo state={state} props={nuevoProps} /> : undefined}
+          />,
+          listHost
+        )
+      : null;
+
+  const clasicoView = () => (
     <MainLayout
       user={user}
       currentPage="sessions"
@@ -666,9 +745,10 @@ const SessionsPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Content Area */}
+          {/* Content Area (the rows piece, `keptRows` above, sits here in the list view, in a place of
+              its own that holds nothing else) */}
           <div className="p-4">
-            {viewMode === 'list' && <ListView sessions={sessions} />}
+            {viewMode === 'list' && <div ref={clasicoListPlace} style={{ display: 'contents' }} />}
             {viewMode === 'month' && <MonthView sessions={sessions} currentDate={currentDate} />}
             {viewMode === 'week' && <WeekView sessions={sessions} currentDate={currentDate} />}
           </div>
@@ -722,8 +802,12 @@ const SessionsPage: React.FC = () => {
     </MainLayout>
   );
 
+  return <FollowedView clasico={clasicoView} nuevo={nuevoView} kept={keptRows} />;
+
   // Sub-components for different views
-  function ListView({ sessions }: { sessions: SessionListItem[] }) {
+  // `renderNuevo` (redesign 6S, release SC): the new look draws the rows itself, from this piece's
+  // ledger marks and row menu; without it the piece draws today's rows.
+  function ListView({ sessions, renderNuevo }: { sessions: SessionListItem[]; renderNuevo?: (state: ListPieceState) => React.ReactNode }) {
     const [dropdownOpen, setDropdownOpen] = useState<string | null>(null);
     // Map from session_id → { ledger_status, admin_override }
     const [cancellationMap, setCancellationMap] = useState<
@@ -784,6 +868,8 @@ const SessionsPage: React.FC = () => {
         document.removeEventListener('keydown', handleEscape);
       };
     }, [dropdownOpen]);
+
+    if (renderNuevo) return <>{renderNuevo({ cancellationMap, dropdownOpen, setDropdownOpen })}</>;
 
     return (
       <div className="overflow-x-auto">

@@ -42,3 +42,38 @@ export function formatDate(value: string | null | undefined): string {
   if (Number.isNaN(date.getTime())) return '—';
   return date.toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'America/Santiago' });
 }
+
+/**
+ * A count in the one Chilean form every Correos screen uses: whole number, thousands grouped with a dot, always
+ * (1.200, 11.200, 20.000). Written out by hand so it does not depend on the browser's or server's locale data
+ * (`toLocaleString('es-CL')` writes 1200 but 11.200).
+ */
+export function formatCount(value: number): string {
+  if (!Number.isFinite(value)) return '0';
+  const whole = Math.trunc(value);
+  const digits = String(Math.abs(whole));
+  let grouped = '';
+  for (let index = 0; index < digits.length; index += 1) {
+    if (index > 0 && (digits.length - index) % 3 === 0) grouped += '.';
+    grouped += digits[index];
+  }
+  return whole < 0 ? `-${grouped}` : grouped;
+}
+
+/** A noun's singular and plural («persona», «personas»). */
+export interface Noun {
+  one: string;
+  many: string;
+}
+
+export const NOUNS = {
+  persona: { one: 'persona', many: 'personas' },
+  fila: { one: 'fila', many: 'filas' },
+  usuario: { one: 'usuario', many: 'usuarios' },
+  interesado: { one: 'interesado', many: 'interesados' },
+} as const satisfies Record<string, Noun>;
+
+/** «1 persona», «11.200 personas». */
+export function countOf(value: number, noun: Noun): string {
+  return `${formatCount(value)} ${value === 1 ? noun.one : noun.many}`;
+}

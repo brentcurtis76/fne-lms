@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import type { GetServerSideProps } from 'next';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
@@ -13,7 +13,6 @@ import {
   LoadingBlock,
   Notice,
   PageHeader,
-  Pagination,
   Table,
   TableBody,
   TableCell,
@@ -23,10 +22,19 @@ import {
 } from '../../../../components/ui/kit';
 import { CorreosNav } from '../../../../components/correos/CorreosNav';
 import { ListPicker } from '../../../../components/correos/ListPicker';
-import { EMPTY_REASON, ReasonFields, reasonBody, reasonComplete, type ReasonValue } from '../../../../components/correos/ReasonFields';
+import { Pager } from '../../../../components/correos/Pager';
+import {
+  EMPTY_REASON,
+  ReasonFields,
+  firstReasonControl,
+  focusControl,
+  reasonBody,
+  reasonMessage,
+  type ReasonValue,
+} from '../../../../components/correos/ReasonFields';
 import { callApi, failureText } from '../../../../components/correos/api';
 import { isValidAddress } from '../../../../lib/correos/address';
-import { formatDate } from '../../../../lib/correos/labels';
+import { formatDate, NOUNS } from '../../../../lib/correos/labels';
 import { correosAdminPage } from '../../../../lib/correos-host/page-guard';
 
 /** Correos contacts: search (server-side, 25 a page) and add one person. Admins only. */
@@ -75,6 +83,22 @@ export default function CorreosContactos() {
   const [draft, setDraft] = useState<PersonDraft | null>(null);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [showReasonErrors, setShowReasonErrors] = useState(false);
+  const errorBox = useRef<HTMLDivElement>(null);
+
+  // A refusal is drawn at the foot of the form, next to «Agregar», and brought into view there.
+  useEffect(() => {
+    const element = errorBox.current;
+    if (formError && element && typeof element.scrollIntoView === 'function') element.scrollIntoView({ block: 'nearest' });
+  }, [formError]);
+
+  const openDraft = () => {
+    setFormError(null);
+    setEmailError(null);
+    setShowReasonErrors(false);
+    setDraft({ ...EMPTY_PERSON, reason: { ...EMPTY_REASON } });
+  };
   const [outcome, setOutcome] = useState<{ tone: 'success' | 'warning' | 'neutral'; text: string; contactId: string | null } | null>(null);
 
   // The search waits for a short pause in typing.
@@ -105,9 +129,22 @@ export default function CorreosContactos() {
     event.preventDefault();
     if (!draft) return;
     setFormError(null);
-    if (!isValidAddress(draft.email)) return setFormError('Esa dirección de correo no es válida. Revísala.');
+    setEmailError(null);
+    if (!isValidAddress(draft.email)) {
+      const message = 'Esa dirección de correo no es válida. Revísala.';
+      setEmailError(message);
+      setFormError(message);
+      focusControl('correos-persona-email');
+      return;
+    }
     if (draft.list_ids.length === 0) return setFormError('Elige al menos una lista.');
-    if (!reasonComplete(draft.reason)) return setFormError('Indica de dónde viene el permiso y escribe la nota.');
+    const missing = reasonMessage(draft.reason);
+    if (missing) {
+      setShowReasonErrors(true);
+      setFormError(missing);
+      focusControl(firstReasonControl(draft.reason, 'correos-persona'));
+      return;
+    }
     setSaving(true);
     const answer = await callApi<{ outcome: string; message: string; contactId: string | null }>('/api/admin/correos/contactos', {
       method: 'POST',
@@ -151,10 +188,7 @@ export default function CorreosContactos() {
           searchLabel="Buscar personas"
           primaryAction={{
             label: 'Agregar persona',
-            onClick: () => {
-              setFormError(null);
-              setDraft({ ...EMPTY_PERSON, reason: { ...EMPTY_REASON } });
-            },
+            onClick: openDraft,
             'data-testid': 'correos-contactos-agregar',
           }}
         />
@@ -188,12 +222,12 @@ export default function CorreosContactos() {
               stackOnPhone
               aria-label="Contactos"
               footer={
-                <Pagination
+                <Pager
                   page={result.page}
                   pageSize={result.pageSize}
                   total={result.total}
                   onPageChange={setPage}
-                  noun="personas"
+                  noun={NOUNS.persona}
                   data-testid="correos-contactos-paginas"
                 />
               }
@@ -254,13 +288,9 @@ export default function CorreosContactos() {
       >
         {draft ? (
           <form id="correos-persona-form" onSubmit={addOne} noValidate className="flex flex-col gap-4">
-            {formError ? (
-              <Notice tone="error" data-testid="correos-persona-error">
-                {formError}
-              </Notice>
-            ) : null}
-            <Field label="Correo" required>
+            <Field label="Correo" required error={emailError}>
               <Input
+                id="correos-persona-email"
                 type="email"
                 autoComplete="off"
                 value={draft.email}
@@ -295,7 +325,19 @@ export default function CorreosContactos() {
               />
             </Field>
             <ListPicker idPrefix="correos-persona" value={draft.list_ids} onChange={(list_ids) => setDraft({ ...draft, list_ids })} />
-            <ReasonFields idPrefix="correos-persona" value={draft.reason} onChange={(reason) => setDraft({ ...draft, reason })} />
+            <ReasonFields
+              idPrefix="correos-persona"
+              value={draft.reason}
+              onChange={(reason) => setDraft({ ...draft, reason })}
+              showErrors={showReasonErrors}
+            />
+            {formError ? (
+              <div ref={errorBox} className="scroll-mb-4">
+                <Notice tone="error" data-testid="correos-persona-error">
+                  {formError}
+                </Notice>
+              </div>
+            ) : null}
           </form>
         ) : null}
       </Dialog>

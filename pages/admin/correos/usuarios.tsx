@@ -3,7 +3,9 @@ import type { GetServerSideProps } from 'next';
 import MainLayout from '../../../components/layout/MainLayout';
 import { PageHeader } from '../../../components/ui/kit';
 import { CorreosNav } from '../../../components/correos/CorreosNav';
+import { AddressText } from '../../../components/correos/AddressText';
 import { PickPeople } from '../../../components/correos/PickPeople';
+import { NOUNS } from '../../../lib/correos/labels';
 import { correosAdminPage } from '../../../lib/correos-host/page-guard';
 
 /**
@@ -40,14 +42,14 @@ export default function CorreosUsuarios() {
           api="/api/admin/correos/usuarios"
           idsField="user_ids"
           testPrefix="correos-usuarios"
-          noun="usuarios"
+          noun={NOUNS.usuario}
           searchLabel="Buscar usuarios por correo o nombre"
           emptyTitle="Nadie coincide"
           emptyDescription="Solo aparecen usuarios con un rol activo y un correo válido."
           rowLabel={nameOf}
           columns={[
             { header: 'Nombre', primary: true, cell: (row) => <span className="font-semibold">{nameOf(row)}</span> },
-            { header: 'Correo', cell: (row) => <span className="break-all">{row.email}</span> },
+            { header: 'Correo', cell: (row) => <AddressText address={row.email} /> },
           ]}
         />
       </div>

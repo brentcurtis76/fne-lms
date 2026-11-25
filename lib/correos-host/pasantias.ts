@@ -7,7 +7,7 @@
  * when one has not ticked. The registro-tractor form's table is never read.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { ilikeAny, isValidAddress } from '../correos/address';
+import { cleanCell, containsAny, isValidAddress, trimHidden } from '../correos/address';
 import { PAGE_SIZE, type ContactRowInput } from '../correos/contacts';
 
 export interface TickedLead {
@@ -36,7 +36,7 @@ function ticked(row: LeadRow): row is LeadRow & TickedLead {
     typeof row.marketing_opt_in_at === 'string' &&
     !Number.isNaN(new Date(row.marketing_opt_in_at).getTime()) &&
     typeof row.marketing_notice_version === 'string' &&
-    row.marketing_notice_version.trim() !== '' &&
+    trimHidden(row.marketing_notice_version) !== '' &&
     isValidAddress(row.email)
   );
 }
@@ -53,7 +53,7 @@ export async function listTickedLeads(
 ): Promise<{ ok: true; items: TickedLead[]; total: number; page: number; pageSize: number } | { ok: false }> {
   const from = (page - 1) * PAGE_SIZE;
   let query = db.from('pasantias_leads').select(LEAD_SELECT, { count: 'exact' }).eq('marketing_opt_in', true);
-  if (term) query = query.or(ilikeAny(SEARCH_COLUMNS, term));
+  if (term) query = query.or(containsAny(SEARCH_COLUMNS, term));
   const { data, error, count } = await query
     .order('marketing_opt_in_at', { ascending: false })
     .order('id', { ascending: true })
@@ -76,12 +76,12 @@ export async function checkLeadIds(
     const row = byId.get(id);
     if (!row || !ticked(row)) return { ok: false, reason: 'not_allowed' };
     rows.push({
-      email: row.email,
-      first_name: row.first_name,
-      last_name: row.last_name,
-      organization: row.institution,
+      email: trimHidden(row.email),
+      first_name: cleanCell(row.first_name),
+      last_name: cleanCell(row.last_name),
+      organization: cleanCell(row.institution),
       basis_recorded_at: new Date(row.marketing_opt_in_at).toISOString(),
-      consent_notice_version: row.marketing_notice_version.trim(),
+      consent_notice_version: trimHidden(row.marketing_notice_version),
     });
   }
   return { ok: true, rows };

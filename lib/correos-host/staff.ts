@@ -14,7 +14,7 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { authorizeUserEmail } from '../email/outbound-policy';
-import { ilikeAny, isValidAddress } from '../correos/address';
+import { cleanCell, containsAny, isValidAddress, trimHidden } from '../correos/address';
 import { PAGE_SIZE } from '../correos/contacts';
 
 export interface StaffCandidate {
@@ -36,11 +36,11 @@ interface ProfileRow {
 }
 
 function toCandidate(row: ProfileRow): StaffCandidate {
-  const first = row.first_name?.trim() || null;
-  const last = row.last_name?.trim() || null;
+  const first = cleanCell(row.first_name);
+  const last = cleanCell(row.last_name);
   // Only the full name is known: it goes in as the first name, unchanged.
-  const fallback = !first && !last ? row.name?.trim() || null : null;
-  return { id: row.id, first_name: first ?? fallback, last_name: last, email: (row.email ?? '').trim() };
+  const fallback = !first && !last ? cleanCell(row.name) : null;
+  return { id: row.id, first_name: first ?? fallback, last_name: last, email: trimHidden(row.email ?? '') };
 }
 
 async function mayBeMailed(db: SupabaseClient, row: ProfileRow): Promise<boolean> {
@@ -68,7 +68,7 @@ export async function listStaff(
     .select(STAFF_SELECT, { count: 'exact' })
     .eq('user_roles.is_active', true)
     .not('email', 'is', null);
-  if (term) query = query.or(ilikeAny(SEARCH_COLUMNS, term));
+  if (term) query = query.or(containsAny(SEARCH_COLUMNS, term));
   const { data, error, count } = await query
     .order('last_name', { ascending: true, nullsFirst: false })
     .order('id', { ascending: true })

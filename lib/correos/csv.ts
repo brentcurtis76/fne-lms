@@ -15,6 +15,7 @@
  * Cells are returned exactly as written (no trimming, no interpretation): a cell beginning with `=`, `+`, `-`
  * or `@`, or holding HTML, stays the same plain text. Whoever stores or shows it treats it as text.
  */
+import { formatCount } from './labels';
 
 export const MAX_CSV_ROWS = 20_000;
 
@@ -50,7 +51,7 @@ export const CSV_REFUSAL_MESSAGES: Record<CsvRefusal, string> = {
   no_rows: 'El archivo tiene la fila de títulos, pero ninguna persona.',
   no_address_column:
     'El archivo no tiene una columna de correo. La primera fila debe nombrar las columnas, por ejemplo «correo», «nombre», «apellido», «organización».',
-  too_many_rows: `El archivo tiene más de ${MAX_CSV_ROWS.toLocaleString('es-CL')} filas. No se importó nada: divídelo en archivos más pequeños.`,
+  too_many_rows: `El archivo tiene más de ${formatCount(MAX_CSV_ROWS)} filas. No se importó nada: divídelo en archivos más pequeños.`,
   unclosed_quote: 'El archivo tiene unas comillas que se abren y no se cierran. No se importó nada.',
   too_large: 'El archivo pesa más de 8 MB. No se importó nada: divídelo en archivos más pequeños.',
 };

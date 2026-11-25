@@ -25,7 +25,7 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap;
 
-SELECT plan(190);
+SELECT plan(191);
 
 \set admin_uid     '''00000000-0000-0000-0000-0000000041aa'''
 \set docente_uid   '''00000000-0000-0000-0000-0000000041dd'''
@@ -152,9 +152,13 @@ SELECT col_default_is('public', 'email_lists', 'is_public', 'false',
 
 -- Keys the release declares.
 SELECT ok(
-  EXISTS (SELECT 1 FROM pg_indexes WHERE schemaname = 'public' AND tablename = 'email_lists'
-            AND indexname = 'email_lists_name_key' AND indexdef LIKE 'CREATE UNIQUE INDEX%lower(btrim(name))%'),
-  'email_lists_name_key: UNIQUE on lower(btrim(name))'
+  EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'email_lists_name_key' AND contype = 'u'
+            AND conrelid = 'public.email_lists'::regclass
+            AND pg_get_constraintdef(oid) = 'UNIQUE (name_norm)')
+  AND EXISTS (SELECT 1 FROM pg_attribute a JOIN pg_attrdef d ON d.adrelid = a.attrelid AND d.adnum = a.attnum
+               WHERE a.attrelid = 'public.email_lists'::regclass AND a.attname = 'name_norm' AND a.attgenerated = 's'
+                 AND pg_get_expr(d.adbin, d.adrelid) = 'lower(btrim(name))'),
+  'email_lists_name_key: UNIQUE on name_norm, a stored column the database keeps as lower(btrim(name))'
 );
 SELECT ok(
   EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'email_list_members_list_contact_key' AND contype = 'u'
@@ -204,7 +208,7 @@ SELECT is(
 -- The seed statement of 20261124200300, run again.
 INSERT INTO public.email_lists (name, description, is_public)
 VALUES ('Boletín general', NULL, true), ('Directivos', NULL, false)
-ON CONFLICT ((lower(btrim(name)))) DO NOTHING;
+ON CONFLICT (name_norm) DO NOTHING;
 
 SELECT is(
   (SELECT count(*)::int FROM public.email_lists WHERE lower(btrim(name)) IN ('boletín general', 'directivos')),
@@ -455,6 +459,8 @@ SELECT throws_ok($$INSERT INTO public.email_lists (name, is_public) VALUES ('DIR
   '23505', NULL, 'S2: "DIRECTIVOS" is refused while "Directivos" exists');
 SELECT throws_ok($$UPDATE public.email_lists SET name = 'directivos ' WHERE id = '41000000-0000-4000-8000-0000000000a1'$$,
   '23505', NULL, 'S2: renaming a list to an existing name (other case, spaces) is refused');
+SELECT throws_ok($$UPDATE public.email_lists SET name_norm = 'otra' WHERE id = '41000000-0000-4000-8000-0000000000a1'$$,
+  '428C9', NULL, 'S2: the compared form of the name (name_norm) cannot be written directly');
 SELECT throws_ok($$INSERT INTO public.email_lists (name, is_public) VALUES ('   ', false)$$,
   '23514', NULL, 'S2: a blank list name is refused');
 SELECT lives_ok($$UPDATE public.email_lists SET name = 'Lista Prueba 41 renombrada', description = 'Descripción de prueba',

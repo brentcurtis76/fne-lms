@@ -466,9 +466,9 @@ describe('/api/meetings/[id]/finalize', () => {
     }
 
     it('refuses with 409 no_attendance and changes nothing, sends nothing, notifies nobody', async () => {
+      // EC-R7b: only an 'absent' row is not ticked; an 'invited' row would be.
       const { m, client, res } = await finalizeAttended({
         attendees: [
-          { user_id: 'u1', role: 'participant', attendance_status: 'invited', user_profile: null },
           { user_id: 'u2', role: 'participant', attendance_status: 'absent', user_profile: null },
         ],
       });
@@ -477,6 +477,30 @@ describe('/api/meetings/[id]/finalize', () => {
       expect((client as any).__meetingUpdateFn).not.toHaveBeenCalled();
       expect(m.sendMeetingSummary).not.toHaveBeenCalled();
       expect(m.triggerNotification).not.toHaveBeenCalled();
+    });
+
+    it('EC-R7b: finalises with one ticked (invited) attendee: no 409, «asistió» marks and bells follow the ticked rows', async () => {
+      const { m, client, res } = await finalizeAttended({
+        attendees: [
+          { user_id: 'u1', role: 'participant', attendance_status: 'invited', user_profile: null },
+          { user_id: 'u2', role: 'participant', attendance_status: null, user_profile: null },
+          { user_id: 'u3', role: 'participant', attendance_status: 'attended', user_profile: null },
+          { user_id: 'u4', role: 'participant', attendance_status: 'absent', user_profile: null },
+        ],
+      });
+      expect(res._getStatusCode()).toBe(200);
+      expect((client as any).__meetingUpdateFn).toHaveBeenCalledTimes(1);
+      const templateData = (m.sendMeetingSummary as any).mock.calls[0][0];
+      expect(templateData.attendees.map((a: any) => a.attended)).toEqual([true, true, true, false]);
+      expect(m.triggerNotification).toHaveBeenCalledWith('meeting_finalized', expect.objectContaining({
+        audience: 'attended',
+        recipient_ids: ['u1', 'u2', 'u3'],
+      }));
+    });
+
+    it('EC-R7b: the refusal text names «Asistentes»', async () => {
+      const { res } = await finalizeAttended({ attendees: [] });
+      expect(JSON.parse(res._getData())).toEqual({ error: 'Nadie está marcado en «Asistentes»', code: 'no_attendance' });
     });
 
     it('refuses as well when the meeting has no attendee rows at all', async () => {

@@ -43,8 +43,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       onlyAttended: audience === 'attended',
     });
 
-    // EC-R7: how many attendee rows are marked 'attended' (a number only), so
-    // the dialog can refuse «Solo los asistentes» while nobody attended. A
+    // EC-R7/EC-R7b: how many attendee rows are ticked under «Asistentes»
+    // (attendance_status not 'absent', NULL counts; a number only), so the
+    // dialog can refuse «Solo los asistentes» while nobody is ticked. A
     // failed read leaves the number out, and the dialog then disables nothing.
     const { data: attendanceRows, error: attendanceError } = await serviceClient
       .from('meeting_attendees')
@@ -55,7 +56,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return sendApiResponse(res, { count: recipients.length });
     }
     const attendedCount = (attendanceRows || []).filter(
-      (row: { attendance_status: string | null }) => row.attendance_status === 'attended',
+      (row: { attendance_status: string | null }) => row.attendance_status !== 'absent',
     ).length;
 
     return sendApiResponse(res, { count: recipients.length, attended_count: attendedCount });

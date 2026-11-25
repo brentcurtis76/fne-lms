@@ -120,20 +120,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       )
       .eq('meeting_id', id);
 
-    // EC-R7: «Solo los asistentes» while nobody is marked as having attended
-    // would reach nobody, and finalising cannot be undone, so it is refused
-    // before anything changes. A meeting that already carries finalized_at
-    // skips this and keeps answering meeting_already_finalized below.
+    // EC-R7b: «Solo los asistentes» are the people ticked under «Asistentes»:
+    // every attendee row whose attendance_status is not 'absent' (NULL counts).
+    const isTicked = (a: any) => a.attendance_status !== 'absent';
+
+    // EC-R7: «Solo los asistentes» while nobody is ticked would reach nobody,
+    // and finalising cannot be undone, so it is refused before anything
+    // changes. A meeting that already carries finalized_at skips this and
+    // keeps answering meeting_already_finalized below.
     if (
       audience === 'attended' &&
       !meeting.finalized_at &&
-      !(attendeesRich || []).some((a: any) => a.attendance_status === 'attended')
+      !(attendeesRich || []).some(isTicked)
     ) {
       return sendMeetingError(
         res,
         409,
         'no_attendance',
-        'Nadie está marcado como asistente',
+        'Nadie está marcado en «Asistentes»',
       );
     }
 
@@ -304,7 +308,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         audience,
         attendees: (attendeesRich || []).map((a: any) => ({
           name: profileName(a.user_profile, 'Asistente'),
-          attended: a.attendance_status === 'attended',
+          attended: isTicked(a),
           role: a.role,
         })),
         // Legacy plain summary/notes fallback: most autosave-written meetings
@@ -393,7 +397,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       let bellRecipientIds: string[] = [];
       if (audience === 'attended') {
         bellRecipientIds = (attendeesRich || [])
-          .filter((a: any) => a.attendance_status === 'attended')
+          .filter(isTicked)
           .map((a: any) => a.user_id);
       } else if (workspace?.community_id) {
         // SM-H8: the people with access to the meeting, not the whole community.

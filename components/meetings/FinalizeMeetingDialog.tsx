@@ -22,7 +22,7 @@ type Audience = FinalizeRequestAudience;
 const CONFLICT_MESSAGES: Record<string, string> = {
   meeting_not_draft: 'La reunión ya no está en borrador',
   meeting_already_finalized: 'La reunión ya fue finalizada por otro usuario',
-  no_attendance: 'La asistencia aún no se registra en la plataforma. Elige «Las personas con acceso a la reunión».',
+  no_attendance: 'Nadie está marcado en «Asistentes» en esta reunión. Elige «Las personas con acceso a la reunión».',
 };
 
 type FinalizeResult = {
@@ -84,7 +84,7 @@ export function FinalizeMeetingDialog({
   const [audience, setAudience] = useState<Audience>('with_access');
   const [facilitatorDoc, setFacilitatorDoc] = useState<TipTapDoc>(() => emptyDoc());
   const [recipients, setRecipients] = useState<RecipientState>({ kind: 'idle' });
-  // EC-R7: how many attendees are marked 'attended', from the recipients
+  // EC-R7/EC-R7b: how many attendees are ticked under «Asistentes», from the recipients
   // answer. null (unknown, or an answer without the number) disables nothing;
   // only an explicit 0 disables «Solo los asistentes».
   const [attendedCount, setAttendedCount] = useState<number | null>(null);
@@ -226,7 +226,7 @@ export function FinalizeMeetingDialog({
               <span>
                 {AUDIENCE_PICKER_LABELS.attended}
                 {nobodyAttended && (
-                  <span className="block text-xs text-gray-600">La asistencia aún no se registra en la plataforma.</span>
+                  <span className="block text-xs text-gray-600">Nadie está marcado en «Asistentes» en esta reunión.</span>
                 )}
               </span>
             </label>

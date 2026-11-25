@@ -128,7 +128,16 @@ describe('/api/meetings/[id]/recipients', () => {
     vi.clearAllMocks();
   });
 
-  it('answers attended_count 0 when nobody is marked as attending', async () => {
+  it('EC-R7b: counts a meeting with one ticked (invited) attendee as attended_count 1', async () => {
+    const { res } = await preview({
+      audience: 'attended',
+      attendees: [{ user_id: 'u1', role: 'participant', attendance_status: 'invited' }],
+    });
+    expect(res._getStatusCode()).toBe(200);
+    expect(JSON.parse(res._getData()).data.attended_count).toBe(1);
+  });
+
+  it('EC-R7b: counts every ticked row (invited counts, absent does not)', async () => {
     const { res } = await preview({
       attendees: [
         { user_id: 'u1', role: 'participant', attendance_status: 'invited' },
@@ -136,10 +145,10 @@ describe('/api/meetings/[id]/recipients', () => {
       ],
     });
     expect(res._getStatusCode()).toBe(200);
-    expect(JSON.parse(res._getData())).toEqual({ data: { count: 3, attended_count: 0 } });
+    expect(JSON.parse(res._getData())).toEqual({ data: { count: 3, attended_count: 1 } });
   });
 
-  it('answers attended_count 2 with two attendee rows marked attended, numbers only', async () => {
+  it('EC-R7b: answers attended_count 3 with two attended and one invited row, numbers only', async () => {
     const { res } = await preview({
       audience: 'attended',
       attendees: [
@@ -150,7 +159,7 @@ describe('/api/meetings/[id]/recipients', () => {
     });
     expect(res._getStatusCode()).toBe(200);
     const body = JSON.parse(res._getData());
-    expect(body).toEqual({ data: { count: 3, attended_count: 2 } });
+    expect(body).toEqual({ data: { count: 3, attended_count: 3 } });
     expect(JSON.stringify(body)).not.toMatch(/u1|u2|u3|@/);
   });
 

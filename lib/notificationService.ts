@@ -267,7 +267,9 @@ export async function getMeetingAccessUserIds(
  *   meeting (getMeetingAccessUserIds; SM-H8 — it used to be every active
  *   member of the community, which mailed agreements and commitments to
  *   people who may not read them).
- * - `opts.onlyAttended = true`: only users with `meeting_attendees.attendance_status = 'attended'`.
+ * - `opts.onlyAttended = true`: the people ticked under «Asistentes»: every
+ *   `meeting_attendees` row of the meeting whose `attendance_status` is not
+ *   'absent' (NULL counts as ticked) (EC-R7b).
  *
  * Dedupes by user id. Keeps only users the `meeting_finalized` email
  * precedence sends to: a non-default `community` category mode decides, then
@@ -299,13 +301,12 @@ export async function getCommunityRecipients(
   const userIdSet = new Set<string>();
 
   if (opts.onlyAttended) {
-    const { data: attendedRows } = await supabase
+    const { data: attendeeRows } = await supabase
       .from('meeting_attendees')
-      .select('user_id')
-      .eq('meeting_id', meetingId)
-      .eq('attendance_status', 'attended');
-    for (const row of attendedRows || []) {
-      if (row.user_id) userIdSet.add(row.user_id as string);
+      .select('user_id, attendance_status')
+      .eq('meeting_id', meetingId);
+    for (const row of attendeeRows || []) {
+      if (row.user_id && row.attendance_status !== 'absent') userIdSet.add(row.user_id as string);
     }
   } else {
     if (!communityId) return [];

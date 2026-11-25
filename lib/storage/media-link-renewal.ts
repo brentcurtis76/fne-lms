@@ -15,14 +15,29 @@
 // One renewal at a time: if the renewed source fails before it can play (the
 // route refuses, the file is gone, the file cannot be decoded), the caller's
 // giveUp shows the usual error instead of trying again.
+//
+// Send-back 2: an error within RENEWAL_MIN_INTERVAL_MS (60 seconds) of the
+// previous renewal also gives up, even when the renewed source reached
+// `canplay` in between. A link lives five minutes, so such an error is not an
+// expired link (a damaged stretch of the file, or a line on which every reload
+// fails again); without this rule error -> load -> canplay -> error could ask
+// the route again without end. An error later than that renews again.
 
 const MEDIA_ERR_ABORTED = 1;
 const MEDIA_ERR_DECODE = 3;
+
+/**
+ * A link lives five minutes, so an error sooner than this after the previous
+ * renewal is not an expired link: give up instead of renewing again.
+ */
+export const RENEWAL_MIN_INTERVAL_MS = 60_000;
 
 interface RenewalState {
   renewing: boolean;
   position: number;
   resume: boolean;
+  /** Date.now() of the last renewal; kept when renewalSettled clears `renewing`. */
+  renewedAt: number;
 }
 
 const states = new WeakMap<HTMLMediaElement, RenewalState>();
@@ -32,13 +47,15 @@ export function renewMediaLinkOnError(media: HTMLMediaElement, giveUp: () => voi
   const code = media.error?.code;
   if (code === MEDIA_ERR_ABORTED) return;
   const state = states.get(media);
-  if (code === MEDIA_ERR_DECODE || state?.renewing) {
+  const now = Date.now();
+  const tooSoon = state !== undefined && now - state.renewedAt < RENEWAL_MIN_INTERVAL_MS;
+  if (code === MEDIA_ERR_DECODE || state?.renewing || tooSoon) {
     states.delete(media);
     giveUp();
     return;
   }
   const position = Number.isFinite(media.currentTime) ? media.currentTime : 0;
-  states.set(media, { renewing: true, position, resume: !media.paused });
+  states.set(media, { renewing: true, position, resume: !media.paused, renewedAt: now });
   media.load();
 }
 

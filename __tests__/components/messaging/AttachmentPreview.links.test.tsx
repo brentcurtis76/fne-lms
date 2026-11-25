@@ -105,8 +105,12 @@ describe('AttachmentPreview — a long video or audio renews its link through th
   beforeEach(() => {
     load = vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => undefined);
     play = vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(() => Promise.resolve());
+    // Only the clock is faked (renewal times); React and the DOM keep real timers.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-11-25T10:00:00.000Z'));
   });
   afterEach(() => {
+    vi.useRealTimers();
     load.mockRestore();
     play.mockRestore();
   });
@@ -136,6 +140,8 @@ describe('AttachmentPreview — a long video or audio renews its link through th
     expect(play).toHaveBeenCalledTimes(1);
     fireEvent.canPlay(video);
 
+    // The next expiry comes minutes later (send-back 2: an error within 60 s gives up).
+    vi.setSystemTime(Date.now() + 221_000);
     state.code = 2;
     video.currentTime = 370;
     fireEvent.error(video);
@@ -195,6 +201,40 @@ describe('AttachmentPreview — a long video or audio renews its link through th
     fireEvent.error(video.querySelector('source') as HTMLSourceElement);
     expect(load).not.toHaveBeenCalled();
     expect(utils.getByText('Error al cargar el video')).toBeTruthy();
+  });
+
+  // Send-back 2: canplay clears `renewing`, so without a time rule
+  // error -> loadedmetadata -> canplay -> error could renew without end.
+  it('an error again within 60 seconds of the renewal, after canplay: the usual error, load() only once', () => {
+    const utils = show(attachment('att-vid', 'video/mp4', 'clase.mp4'));
+    const video = utils.container.querySelector('video') as HTMLVideoElement;
+    const state = mediaState(video, { code: 2, paused: false, at: 149 });
+    fireEvent.error(video);
+    expect(load).toHaveBeenCalledTimes(1);
+    state.code = null;
+    fireEvent.loadedMetadata(video);
+    fireEvent.canPlay(video);
+    vi.setSystemTime(Date.now() + 30_000);
+    state.code = 2;
+    fireEvent.error(video);
+    expect(load).toHaveBeenCalledTimes(1);
+    expect(utils.getByText('Error al cargar el video')).toBeTruthy();
+  });
+
+  it('an error 61 seconds after the renewal, after canplay: renews again, no error', () => {
+    const utils = show(attachment('att-vid', 'video/mp4', 'clase.mp4'));
+    const video = utils.container.querySelector('video') as HTMLVideoElement;
+    const state = mediaState(video, { code: 2, paused: false, at: 149 });
+    fireEvent.error(video);
+    expect(load).toHaveBeenCalledTimes(1);
+    state.code = null;
+    fireEvent.loadedMetadata(video);
+    fireEvent.canPlay(video);
+    vi.setSystemTime(Date.now() + 61_000);
+    state.code = 2;
+    fireEvent.error(video);
+    expect(load).toHaveBeenCalledTimes(2);
+    expect(utils.queryByText('Error al cargar el video')).toBeNull();
   });
 
   it('a file that cannot be decoded: the usual error at once, no renewal', () => {

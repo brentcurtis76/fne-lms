@@ -142,7 +142,7 @@ RESET ROLE;
 -- ---------------------------------------------------------------------------
 SELECT tests.authenticate_as('f2b130_docente');
 SELECT is(pg_temp.n('course-materials'), 2, 'signed-in person still lists both course-materials fixtures');
-SELECT is(pg_temp.n('post-media'), 2, 'signed-in person still lists both post-media fixtures');
+SELECT is(pg_temp.n('post-media'), 0, 'signed-in person lists 0 post-media fixtures (changed on purpose by F26: nobody lists the feed store with their own session)');
 
 -- ---------------------------------------------------------------------------
 -- 4. Governed stores unchanged (assertions taken from 126)

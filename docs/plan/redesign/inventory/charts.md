@@ -1,6 +1,6 @@
 # Charts on the platform
 
-Written by `scripts/redesign/inventory.mjs` from commit `c7e27398c`. For the later proposal of chart colours: the approved look fixes colours for one series only (DESIGN.md section 6).
+Written by `scripts/redesign/inventory.mjs` from commit `a908cc8b5`. For the later proposal of chart colours: the approved look fixes colours for one series only (DESIGN.md section 6).
 
 A series is one set of bars, one line, one area or one shape. A pie has one series and several slices.
 
@@ -14,12 +14,12 @@ A series is one set of bars, one line, one area or one shape. A pie has one seri
 | /admin/qa/load-tests | `pages/admin/qa/load-tests.tsx` l.672 | LineChart | Line `response_time_p95`; Line `response_time_p99`; Line `error_rate` | 3 | `#fbbf24`, `#f59e0b`, `#6b7280` | `!(loading) && stats && stats.total_tests > 0 && trends.length > 1` |
 | /community/transformation/report (to be deleted) | `pages/community/transformation/report.tsx` l.179 | RadarChart | Radar `level` «Nivel Promedio» | 1 | `{COLORS.brand_blue}` |  |
 | /community/transformation/report (to be deleted) | `pages/community/transformation/report.tsx` l.206 | BarChart | Bar `level` (slices: one colour per data row) | 1 | per slice |  |
-| /consultor/sessions/reports | `pages/consultor/sessions/reports.tsx` l.620 | BarChart | Bar `completed` «Completadas»; Bar `cancelled` «Canceladas»; Bar `other` «Otras» | 3 | `rgb(var(--color-legacy-10b981))`, `rgb(var(--color-red-500))`, `rgb(var(--color-gray-400))` |  |
-| /consultor/sessions/reports | `pages/consultor/sessions/reports.tsx` l.637 | PieChart | Pie `count` (slices: one colour per data row) | 1 | per slice |  |
-| /consultor/sessions/reports | `pages/consultor/sessions/reports.tsx` l.662 | PieChart | Pie `count` (slices: one colour per data row) | 1 | per slice |  |
-| /consultor/sessions/reports | `pages/consultor/sessions/reports.tsx` l.687 | AreaChart | Area `avg_attendance_rate` «Asistencia (%)» | 1 | `{FNE_COLORS.brand_accent_light}` |  |
-| /consultor/sessions/reports | `pages/consultor/sessions/reports.tsx` l.708 | BarChart | Bar `total` «Total»; Bar `completed` «Completadas» | 2 | `rgb(var(--color-serie-1, var(--color-blue-500)))`, `rgb(var(--color-serie-2, var(--color-legacy-10b981)))` | `isAdmin && analyticsData.sessions_by_school.length > 0` |
-| /consultor/sessions/reports | `pages/consultor/sessions/reports.tsx` l.735 | BarChart | Bar `sessions_led` «Sesiones dirigidas» | 1 | `{FNE_COLORS.brand_accent}` | `isAdmin && analyticsData.top_consultants && analyticsData.top_consultants.length > 0` |
+| /consultor/sessions/reports | `pages/consultor/sessions/reports.tsx` l.664 | BarChart | Bar `completed` «Completadas»; Bar `cancelled` «Canceladas»; Bar `other` «Otras» | 3 | `rgb(var(--color-legacy-10b981))`, `rgb(var(--color-red-500))`, `rgb(var(--color-gray-400))` |  |
+| /consultor/sessions/reports | `pages/consultor/sessions/reports.tsx` l.681 | PieChart | Pie `count` (slices: one colour per data row) | 1 | per slice |  |
+| /consultor/sessions/reports | `pages/consultor/sessions/reports.tsx` l.706 | PieChart | Pie `count` (slices: one colour per data row) | 1 | per slice |  |
+| /consultor/sessions/reports | `pages/consultor/sessions/reports.tsx` l.731 | AreaChart | Area `avg_attendance_rate` «Asistencia (%)» | 1 | `{FNE_COLORS.brand_accent_light}` |  |
+| /consultor/sessions/reports | `pages/consultor/sessions/reports.tsx` l.752 | BarChart | Bar `total` «Total»; Bar `completed` «Completadas» | 2 | `rgb(var(--color-serie-1, var(--color-blue-500)))`, `rgb(var(--color-serie-2, var(--color-legacy-10b981)))` | `isAdmin && analyticsData.sessions_by_school.length > 0` |
+| /consultor/sessions/reports | `pages/consultor/sessions/reports.tsx` l.779 | BarChart | Bar `sessions_led` «Sesiones dirigidas» | 1 | `{FNE_COLORS.brand_accent}` | `isAdmin && analyticsData.top_consultants && analyticsData.top_consultants.length > 0` |
 | /directivo/assessments/dashboard | `pages/directivo/assessments/dashboard.tsx` l.553 | BarChart | Bar `score` (slices: one colour per data row) | 1 | per slice | `!(!hasResults) && activeTab === 'overview'` |
 | /directivo/assessments/dashboard | `pages/directivo/assessments/dashboard.tsx` l.584 | RadarChart | Radar `score` «Promedio» | 1 | `rgb(var(--color-blue-600))` | `!(!hasResults) && activeTab === 'overview' && radarData.length >= 3` |
 | /directivo/assessments/dashboard | `pages/directivo/assessments/dashboard.tsx` l.647 | PieChart | Pie `value` (slices: one colour per data row) | 1 | per slice | `!(!hasResults) && activeTab === 'courses' && scoredCourses.length > 0` |

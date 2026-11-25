@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "c7e27398ca230dbbc3e581dcde19f92480491fcd",
-  "date": "2026-11-22T23:11:25-03:00"
+  "commit": "a908cc8b50d6d63408cd0f40fb401cf0030b72e0",
+  "date": "2026-11-25T13:27:34-03:00"
  },
  "screens": [
   {
@@ -67,7 +67,7 @@
      }
     ],
     "linkedFrom": [
-     "pages/configuracion/notificaciones.tsx:442",
+     "pages/configuracion/notificaciones.tsx:444",
      "pages/configuracion/piezas.tsx:225",
      "pages/configuracion/piezas.tsx:398"
     ],
@@ -422,7 +422,7 @@
   {
    "file": "pages/configuracion/notificaciones.tsx",
    "route": "/configuracion/notificaciones",
-   "lines": 451,
+   "lines": 453,
    "marks": {},
    "frame": "MainLayout",
    "server": "getServerSideProps",
@@ -473,7 +473,7 @@
     },
     "inPage": [
      {
-      "line": 121,
+      "line": 123,
       "text": "server redirect → /login?next=[*]  (when !viewer)"
      }
     ],
@@ -509,7 +509,7 @@
    "rows": [
     {
      "kind": "list",
-     "line": 89,
+     "line": 91,
      "text": "PRODUCER_EVENT_LABELS",
      "items": [
       "Invitación a un grupo",
@@ -521,7 +521,7 @@
     },
     {
      "kind": "nav",
-     "line": 121,
+     "line": 123,
      "in": "getServerSideProps",
      "when": "!viewer",
      "text": "/login?next=[*]",
@@ -529,7 +529,7 @@
     },
     {
      "kind": "nav",
-     "line": 127,
+     "line": 129,
      "in": "getServerSideProps",
      "when": "verdict !== 'allowed'",
      "text": "{forcedChangeRedirectPath(verdict)}",
@@ -537,7 +537,7 @@
     },
     {
      "kind": "list",
-     "line": 149,
+     "line": 151,
      "text": "READ_ERROR",
      "items": [
       "No pudimos cargar tus preferencias."
@@ -545,7 +545,7 @@
     },
     {
      "kind": "list",
-     "line": 150,
+     "line": 152,
      "text": "SAVE_ERROR",
      "items": [
       "No pudimos guardar tus preferencias. Intenta nuevamente."
@@ -553,7 +553,7 @@
     },
     {
      "kind": "list",
-     "line": 152,
+     "line": 154,
      "text": "MODE_LABELS",
      "items": [
       "Predeterminado",
@@ -564,7 +564,7 @@
     },
     {
      "kind": "list",
-     "line": 160,
+     "line": 162,
      "text": "STORED_UNAVAILABLE",
      "items": [
       "Opción anterior (se envía de inmediato)"
@@ -572,7 +572,7 @@
     },
     {
      "kind": "list",
-     "line": 162,
+     "line": 164,
      "text": "DELIVERY_LABELS",
      "items": [
       "Se envía de inmediato",
@@ -582,7 +582,7 @@
     },
     {
      "kind": "list",
-     "line": 168,
+     "line": 170,
      "text": "ADDRESS_NOTICES",
      "items": [
       "No podemos enviarte correos: tu dirección rechazó mensajes anteriores. Escribe a soporte para revisarla; mientras tanto no recibirás avisos por correo.",
@@ -592,26 +592,26 @@
     },
     {
      "kind": "gate",
-     "line": 212,
+     "line": 214,
      "in": "NotificationSettingsPage",
      "text": "id !== request.current"
     },
     {
      "kind": "gate",
-     "line": 229,
+     "line": 231,
      "in": "NotificationSettingsPage",
      "text": "sessionLoading || sessionError || sessionUserId === ownerId"
     },
     {
      "kind": "message",
-     "line": 264,
+     "line": 266,
      "in": "save",
      "text": "saved / Tus preferencias se guardaron.",
      "via": "setNotice"
     },
     {
      "kind": "hook",
-     "line": 275,
+     "line": 277,
      "in": "NotificationSettingsPage",
      "when": "status === 'session_changed'",
      "text": "role=alert",
@@ -620,7 +620,7 @@
     },
     {
      "kind": "hook",
-     "line": 275,
+     "line": 277,
      "in": "NotificationSettingsPage",
      "when": "status === 'session_changed'",
      "text": "testid=ns-session-changed",
@@ -629,14 +629,14 @@
     },
     {
      "kind": "text",
-     "line": 276,
+     "line": 278,
      "in": "NotificationSettingsPage",
      "when": "status === 'session_changed'",
      "text": "Tu sesión cambió en otra pestaña. Recarga la página para ver tus preferencias."
     },
     {
      "kind": "button",
-     "line": 277,
+     "line": 279,
      "in": "NotificationSettingsPage",
      "when": "status === 'session_changed'",
      "text": "Recargar",
@@ -647,7 +647,7 @@
     },
     {
      "kind": "hook",
-     "line": 284,
+     "line": 286,
      "in": "NotificationSettingsPage",
      "when": "!(status === 'session_changed') && status === 'expired'",
      "text": "role=alert",
@@ -656,7 +656,7 @@
     },
     {
      "kind": "hook",
-     "line": 284,
+     "line": 286,
      "in": "NotificationSettingsPage",
      "when": "!(status === 'session_changed') && status === 'expired'",
      "text": "testid=ns-expired",
@@ -665,14 +665,14 @@
     },
     {
      "kind": "text",
-     "line": 285,
+     "line": 287,
      "in": "NotificationSettingsPage",
      "when": "!(status === 'session_changed') && status === 'expired'",
      "text": "Tu sesión terminó."
     },
     {
      "kind": "link",
-     "line": 286,
+     "line": 288,
      "in": "NotificationSettingsPage",
      "when": "!(status === 'session_changed') && status === 'expired'",
      "text": "Inicia sesión nuevamente",
@@ -680,7 +680,7 @@
     },
     {
      "kind": "hook",
-     "line": 293,
+     "line": 295,
      "in": "NotificationSettingsPage",
      "when": "!(status === 'session_changed') && !(status === 'expired') && status === 'error'",
      "text": "role=alert",
@@ -689,7 +689,7 @@
     },
     {
      "kind": "hook",
-     "line": 293,
+     "line": 295,
      "in": "NotificationSettingsPage",
      "when": "!(status === 'session_changed') && !(status === 'expired') && status === 'error'",
      "text": "testid=ns-error",
@@ -698,14 +698,14 @@
     },
     {
      "kind": "value",
-     "line": 294,
+     "line": 296,
      "in": "NotificationSettingsPage",
      "when": "!(status === 'session_changed') && !(status === 'expired') && status === 'error'",
      "text": "{READ_ERROR}"
     },
     {
      "kind": "button",
-     "line": 295,
+     "line": 297,
      "in": "NotificationSettingsPage",
      "when": "!(status === 'session_changed') && !(status === 'expired') && status === 'error'",
      "text": "Reintentar",
@@ -716,7 +716,7 @@
     },
     {
      "kind": "hook",
-     "line": 307,
+     "line": 309,
      "in": "NotificationSettingsPage",
      "when": "!(status === 'session_changed') && !(status === 'expired') && !(status === 'error') && (status === 'loading' || !view)",
      "text": "role=status",
@@ -725,7 +725,7 @@
     },
     {
      "kind": "hook",
-     "line": 307,
+     "line": 309,
      "in": "NotificationSettingsPage",
      "when": "!(status === 'session_changed') && !(status === 'expired') && !(status === 'error') && (status === 'loading' || !view)",
      "text": "testid=ns-loading",
@@ -734,14 +734,14 @@
     },
     {
      "kind": "text",
-     "line": 308,
+     "line": 310,
      "in": "NotificationSettingsPage",
      "when": "!(status === 'session_changed') && !(status === 'expired') && !(status === 'error') && (status === 'loading' || !view)",
      "text": "Cargando tus preferencias…"
     },
     {
      "kind": "hook",
-     "line": 313,
+     "line": 315,
      "in": "NotificationSettingsPage",
      "when": "!(status === 'expired') && !(status === 'error') && (!(status === 'loading' || !view)) && shown.length === 0",
      "text": "testid=ns-empty",
@@ -750,21 +750,21 @@
     },
     {
      "kind": "text",
-     "line": 314,
+     "line": 316,
      "in": "NotificationSettingsPage",
      "when": "!(status === 'expired') && !(status === 'error') && (!(status === 'loading' || !view)) && shown.length === 0",
      "text": "Tu cuenta no tiene avisos por correo que configurar."
     },
     {
      "kind": "form",
-     "line": 325,
+     "line": 327,
      "in": "NotificationSettingsPage",
      "when": "!(status === 'expired') && !(status === 'error') && (!(status === 'loading' || !view)) && !(shown.length === 0)",
      "text": "{(event) => { event.preventDefault(); void save(); }}"
     },
     {
      "kind": "hook",
-     "line": 331,
+     "line": 333,
      "in": "NotificationSettingsPage",
      "when": "!(status === 'expired') && !(status === 'error') && (!(status === 'loading' || !view)) && !(shown.length === 0)",
      "text": "testid=ns-address-{view.address_suppression}",
@@ -773,14 +773,14 @@
     },
     {
      "kind": "value",
-     "line": 331,
+     "line": 333,
      "in": "NotificationSettingsPage",
      "when": "!(status === 'expired') && !(status === 'error') && (!(status === 'loading' || !view)) && !(shown.length === 0)",
      "text": "{ADDRESS_NOTICES[view.address_suppre…}"
     },
     {
      "kind": "hook",
-     "line": 334,
+     "line": 336,
      "in": "NotificationSettingsPage",
      "when": "!(status === 'expired') && !(status === 'error') && (!(status === 'loading' || !view)) && !(shown.length === 0)",
      "text": "testid=ns-digest-note",
@@ -789,14 +789,14 @@
     },
     {
      "kind": "text",
-     "line": 334,
+     "line": 336,
      "in": "NotificationSettingsPage",
      "when": "!(status === 'expired') && !(status === 'error') && (!(status === 'loading' || !view)) && !(shown.length === 0)",
      "text": "Resumen diario: los avisos se agrupan en un correo al día. Por ahora no puedes elegir la hora de envío. / El resumen diario todavía no está disponible: los avisos que irían en un resumen se envían de inmediato."
     },
     {
      "kind": "hook",
-     "line": 340,
+     "line": 342,
      "in": "NotificationSettingsPage",
      "when": "!(status === 'error') && (!(status === 'loading' || !view)) && !(shown.length === 0) && mandatory.length > 0",
      "text": "testid=ns-mandatory",
@@ -805,21 +805,21 @@
     },
     {
      "kind": "text",
-     "line": 341,
+     "line": 343,
      "in": "NotificationSettingsPage",
      "when": "!(status === 'error') && (!(status === 'loading' || !view)) && !(shown.length === 0) && mandatory.length > 0",
      "text": "Estos avisos se envían siempre, aunque desactives su categoría:"
     },
     {
      "kind": "value",
-     "line": 344,
+     "line": 346,
      "in": "NotificationSettingsPage",
      "when": "(!(status === 'loading' || !view)) && !(shown.length === 0) && mandatory.length > 0 && each mandatory",
      "text": "{labelOf(e.event_type)}"
     },
     {
      "kind": "hook",
-     "line": 355,
+     "line": 357,
      "in": "NotificationSettingsPage",
      "when": "!(status === 'error') && (!(status === 'loading' || !view)) && !(shown.length === 0) && each shown",
      "text": "testid=ns-category-{section.category}",
@@ -828,7 +828,7 @@
     },
     {
      "kind": "label",
-     "line": 357,
+     "line": 359,
      "in": "NotificationSettingsPage",
      "when": "!(status === 'error') && (!(status === 'loading' || !view)) && !(shown.length === 0) && each shown",
      "text": "{saved.label}",
@@ -836,7 +836,7 @@
     },
     {
      "kind": "field",
-     "line": 360,
+     "line": 362,
      "in": "NotificationSettingsPage",
      "when": "!(status === 'error') && (!(status === 'loading' || !view)) && !(shown.length === 0) && each shown",
      "text": "{saved.label}",
@@ -857,7 +857,7 @@
     },
     {
      "kind": "hook",
-     "line": 383,
+     "line": 385,
      "in": "NotificationSettingsPage",
      "when": "(!(status === 'loading' || !view)) && !(shown.length === 0) && each shown && !digest && saved.email_mode === 'digest'",
      "text": "testid=ns-stored-digest-{section.category}",
@@ -866,28 +866,28 @@
     },
     {
      "kind": "text",
-     "line": 384,
+     "line": 386,
      "in": "NotificationSettingsPage",
      "when": "(!(status === 'loading' || !view)) && !(shown.length === 0) && each shown && !digest && saved.email_mode === 'digest'",
      "text": "Elegiste Resumen diario antes. Mientras no esté disponible, estos avisos se envían de inmediato."
     },
     {
      "kind": "text",
-     "line": 389,
+     "line": 391,
      "in": "NotificationSettingsPage",
      "when": "(!(status === 'loading' || !view)) && !(shown.length === 0) && each shown && legacy",
      "text": "Con Predeterminado se mantienen apagados los avisos que desactivaste antes."
     },
     {
      "kind": "gate",
-     "line": 395,
+     "line": 397,
      "in": "NotificationSettingsPage",
      "when": "(!(status === 'loading' || !view)) && !(shown.length === 0) && each shown && each section.events",
      "text": "!event"
     },
     {
      "kind": "hook",
-     "line": 397,
+     "line": 399,
      "in": "NotificationSettingsPage",
      "when": "(!(status === 'loading' || !view)) && !(shown.length === 0) && each shown && each section.events",
      "text": "testid=ns-event-{event.event_type}",
@@ -896,21 +896,21 @@
     },
     {
      "kind": "value",
-     "line": 398,
+     "line": 400,
      "in": "NotificationSettingsPage",
      "when": "(!(status === 'loading' || !view)) && !(shown.length === 0) && each shown && each section.events",
      "text": "{applicable.label}"
     },
     {
      "kind": "text",
-     "line": 400,
+     "line": 402,
      "in": "NotificationSettingsPage",
      "when": "(!(status === 'loading' || !view)) && !(shown.length === 0) && each shown && each section.events",
      "text": "Se envía siempre"
     },
     {
      "kind": "hook",
-     "line": 402,
+     "line": 404,
      "in": "NotificationSettingsPage",
      "when": "!(shown.length === 0) && each shown && each section.events && event.reason === 'legacy_suppressed'",
      "text": "testid=ns-legacy-{event.event_type}",
@@ -919,14 +919,14 @@
     },
     {
      "kind": "text",
-     "line": 402,
+     "line": 404,
      "in": "NotificationSettingsPage",
      "when": "!(shown.length === 0) && each shown && each section.events && event.reason === 'legacy_suppressed'",
      "text": "· desactivado por una preferencia anterior"
     },
     {
      "kind": "button",
-     "line": 414,
+     "line": 416,
      "in": "NotificationSettingsPage",
      "when": "!(status === 'expired') && !(status === 'error') && (!(status === 'loading' || !view)) && !(shown.length === 0)",
      "text": "Guardando… / Guardar cambios",
@@ -938,7 +938,7 @@
     },
     {
      "kind": "hook",
-     "line": 417,
+     "line": 419,
      "in": "NotificationSettingsPage",
      "when": "!(status === 'expired') && !(status === 'error') && (!(status === 'loading' || !view)) && !(shown.length === 0)",
      "text": "role=status aria-live=polite",
@@ -947,7 +947,7 @@
     },
     {
      "kind": "hook",
-     "line": 419,
+     "line": 421,
      "in": "NotificationSettingsPage",
      "when": "!(status === 'error') && (!(status === 'loading' || !view)) && !(shown.length === 0) && notice",
      "text": "testid={notice.kind === 'saved' ? 'ns-saved' : 'ns-save-error'}",
@@ -956,14 +956,14 @@
     },
     {
      "kind": "value",
-     "line": 419,
+     "line": 421,
      "in": "NotificationSettingsPage",
      "when": "!(status === 'error') && (!(status === 'loading' || !view)) && !(shown.length === 0) && notice",
      "text": "{notice.text}"
     },
     {
      "kind": "hook",
-     "line": 423,
+     "line": 425,
      "in": "NotificationSettingsPage",
      "when": "(!(status === 'loading' || !view)) && !(shown.length === 0) && !(notice) && changes.length > 0",
      "text": "testid=ns-unsaved",
@@ -972,21 +972,21 @@
     },
     {
      "kind": "text",
-     "line": 424,
+     "line": 426,
      "in": "NotificationSettingsPage",
      "when": "(!(status === 'loading' || !view)) && !(shown.length === 0) && !(notice) && changes.length > 0",
      "text": "Tienes cambios sin guardar."
     },
     {
      "kind": "piece",
-     "line": 434,
+     "line": 436,
      "in": "NotificationSettingsPage",
      "text": "pageTitle: Notificaciones por correo · breadcrumbs: Configuración / Notificaciones",
      "tag": "MainLayout"
     },
     {
      "kind": "hook",
-     "line": 435,
+     "line": 437,
      "in": "NotificationSettingsPage",
      "text": "testid=notification-settings",
      "type": "mark",
@@ -994,13 +994,13 @@
     },
     {
      "kind": "text",
-     "line": 437,
+     "line": 439,
      "in": "NotificationSettingsPage",
      "text": "Elige cómo recibir por correo los avisos de cada tema. Los avisos dentro de la plataforma no cambian."
     },
     {
      "kind": "link",
-     "line": 442,
+     "line": 444,
      "in": "NotificationSettingsPage",
      "when": "canChooseLook",
      "text": "Apariencia",
@@ -1036,7 +1036,7 @@
      "route": "/api/user/notification-preferences",
      "methods": [],
      "from": [
-      "pages/configuracion/notificaciones.tsx:147"
+      "pages/configuracion/notificaciones.tsx:149"
      ]
     }
    ]
@@ -4402,7 +4402,7 @@
    "usedBy": [
     "/configuracion/notificaciones"
    ],
-   "lines": 867,
+   "lines": 875,
    "rows": [
     {
      "kind": "list",
@@ -4422,7 +4422,7 @@
     },
     {
      "kind": "list",
-     "line": 426,
+     "line": 434,
      "text": "step",
      "items": [
       "Paso {d.step_index} / Un paso"
@@ -4430,7 +4430,7 @@
     },
     {
      "kind": "list",
-     "line": 427,
+     "line": 435,
      "text": "tester",
      "items": [
       "(probado por {d.tester_email})"
@@ -4438,7 +4438,7 @@
     },
     {
      "kind": "list",
-     "line": 445,
+     "line": 453,
      "text": "dueDate",
      "items": [
       "Fecha límite: {new Date(d.due_date as stri…}."
@@ -4446,7 +4446,7 @@
     },
     {
      "kind": "list",
-     "line": 475,
+     "line": 483,
      "text": "when",
      "items": [
       "el {date}{time ? ` a las ${time}` : ''} / en una fecha por confirmar"
@@ -4454,7 +4454,7 @@
     },
     {
      "kind": "list",
-     "line": 532,
+     "line": 540,
      "text": "when",
      "items": [
       "del {date}{time ? ` a las ${time}` : ''}"
@@ -4462,7 +4462,7 @@
     },
     {
      "kind": "list",
-     "line": 564,
+     "line": 572,
      "text": "fieldList",
      "items": [
       "los campos solicitados"
@@ -4470,7 +4470,7 @@
     },
     {
      "kind": "list",
-     "line": 565,
+     "line": 573,
      "text": "notes",
      "items": [
       "Nota: {d.review_notes}"
@@ -4478,7 +4478,7 @@
     },
     {
      "kind": "list",
-     "line": 579,
+     "line": 587,
      "text": "notes",
      "items": [
       "Motivo: {d.review_notes}"
@@ -4486,7 +4486,7 @@
     },
     {
      "kind": "list",
-     "line": 608,
+     "line": 616,
      "text": "link",
      "items": [
       "El enlace de reunión está disponible en la sesión."
@@ -4494,7 +4494,7 @@
     },
     {
      "kind": "list",
-     "line": 758,
+     "line": 766,
      "text": "winner",
      "items": [
       "ATE ganadora: {d.ganador_nombre}."
@@ -4502,7 +4502,7 @@
     },
     {
      "kind": "list",
-     "line": 772,
+     "line": 780,
      "text": "winner",
      "items": [
       "ATE seleccionada: {d.ganador_nombre}."
@@ -4510,7 +4510,7 @@
     },
     {
      "kind": "list",
-     "line": 803,
+     "line": 811,
      "text": "who",
      "items": [
       "por {finalizer}"
@@ -4518,7 +4518,7 @@
     },
     {
      "kind": "list",
-     "line": 804,
+     "line": 812,
      "text": "audience",
      "items": [
       "Enviada a quienes asistieron. / Enviada a la Comunidad de Crecimiento."
@@ -4688,373 +4688,385 @@
     },
     {
      "kind": "string",
-     "line": 405,
+     "line": 403,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Tu reporte tiene una respuesta de Soporte"
+    },
+    {
+     "kind": "string",
+     "line": 404,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Soporte respondió a un problema que reportaste. Ábrelo en «Mis reportes»."
+    },
+    {
+     "kind": "string",
+     "line": 413,
      "in": "NOTIFICATION_EVENTS",
      "text": "Nuevo consultor asignado: {d.consultant.name}"
     },
     {
      "kind": "string",
-     "line": 406,
+     "line": 414,
      "in": "NOTIFICATION_EVENTS",
      "text": "Consultor asignado"
     },
     {
      "kind": "string",
-     "line": 423,
+     "line": 431,
      "in": "NOTIFICATION_EVENTS",
      "text": "QA Fallo: {d.scenario_name}"
     },
     {
      "kind": "string",
-     "line": 424,
+     "line": 432,
      "in": "NOTIFICATION_EVENTS",
      "text": "Fallo en prueba QA"
     },
     {
      "kind": "string",
-     "line": 428,
+     "line": 436,
      "in": "NOTIFICATION_EVENTS",
      "text": "{step} falló: \"{d.step_instruction || 'Sin …}\"{tester}"
     },
     {
      "kind": "string",
-     "line": 428,
+     "line": 436,
      "in": "NOTIFICATION_EVENTS",
      "text": "Sin descripción"
     },
     {
      "kind": "string",
-     "line": 440,
+     "line": 448,
      "in": "NOTIFICATION_EVENTS",
      "text": "Nuevo escenario QA asignado"
     },
     {
      "kind": "string",
-     "line": 470,
+     "line": 478,
      "in": "NOTIFICATION_EVENTS",
      "text": "Sesión agendada: {d.session.title}"
     },
     {
      "kind": "string",
-     "line": 471,
+     "line": 479,
      "in": "NOTIFICATION_EVENTS",
      "text": "Nueva sesión agendada"
     },
     {
      "kind": "string",
-     "line": 478,
+     "line": 486,
      "in": "NOTIFICATION_EVENTS",
      "text": "Su sesión quedó agendada para {when}."
     },
     {
      "kind": "string",
-     "line": 490,
+     "line": 498,
      "in": "NOTIFICATION_EVENTS",
      "text": "Sesión reprogramada: {d.session.title}"
     },
     {
      "kind": "string",
-     "line": 491,
+     "line": 499,
      "in": "NOTIFICATION_EVENTS",
      "text": "Sesión reprogramada"
     },
     {
      "kind": "string",
-     "line": 515,
+     "line": 523,
      "in": "NOTIFICATION_EVENTS",
      "text": "Su sesión cambió. Antes: {before}. Ahora: {after}. Actualice su calendario."
     },
     {
      "kind": "string",
-     "line": 527,
+     "line": 535,
      "in": "NOTIFICATION_EVENTS",
      "text": "Sesión cancelada: {d.session.title}"
     },
     {
      "kind": "string",
-     "line": 528,
+     "line": 536,
      "in": "NOTIFICATION_EVENTS",
      "text": "Sesión cancelada"
     },
     {
      "kind": "string",
-     "line": 533,
+     "line": 541,
      "in": "NOTIFICATION_EVENTS",
      "text": "Su sesión{when} fue cancelada. No necesita conectarse."
     },
     {
      "kind": "string",
-     "line": 545,
+     "line": 553,
      "in": "NOTIFICATION_EVENTS",
      "text": "Solicitud de cambio: {d.session.title}"
     },
     {
      "kind": "string",
-     "line": 546,
+     "line": 554,
      "in": "NOTIFICATION_EVENTS",
      "text": "Nueva solicitud de cambio en sesión"
     },
     {
      "kind": "string",
-     "line": 560,
+     "line": 568,
      "in": "NOTIFICATION_EVENTS",
      "text": "Cambios aprobados: {d.session.title}"
     },
     {
      "kind": "string",
-     "line": 561,
+     "line": 569,
      "in": "NOTIFICATION_EVENTS",
      "text": "Solicitud de cambio aprobada"
     },
     {
      "kind": "string",
-     "line": 566,
+     "line": 574,
      "in": "NOTIFICATION_EVENTS",
      "text": "Los cambios en {fieldList} han sido aprobados.{notes}"
     },
     {
      "kind": "string",
-     "line": 576,
+     "line": 584,
      "in": "NOTIFICATION_EVENTS",
      "text": "Cambios rechazados: {d.session.title}"
     },
     {
      "kind": "string",
-     "line": 577,
+     "line": 585,
      "in": "NOTIFICATION_EVENTS",
      "text": "Solicitud de cambio rechazada"
     },
     {
      "kind": "string",
-     "line": 590,
+     "line": 598,
      "in": "NOTIFICATION_EVENTS",
      "text": "Recordatorio: {d.session.title} mañana"
     },
     {
      "kind": "string",
-     "line": 591,
+     "line": 599,
      "in": "NOTIFICATION_EVENTS",
      "text": "Sesión programada para mañana"
     },
     {
      "kind": "string",
-     "line": 595,
+     "line": 603,
      "in": "NOTIFICATION_EVENTS",
      "text": "Tiene una sesión programada para {date}{time ? ' a las ' + time : ''}."
     },
     {
      "kind": "string",
-     "line": 606,
+     "line": 614,
      "in": "NOTIFICATION_EVENTS",
      "text": "Sesión comienza en 1 hora"
     },
     {
      "kind": "string",
-     "line": 609,
+     "line": 617,
      "in": "NOTIFICATION_EVENTS",
      "text": "Su sesión está por comenzar.{link}"
     },
     {
      "kind": "string",
-     "line": 623,
+     "line": 631,
      "in": "NOTIFICATION_EVENTS",
      "text": "Nueva licitacion: {d.numero_licitacion}"
     },
     {
      "kind": "string",
-     "line": 624,
+     "line": 632,
      "in": "NOTIFICATION_EVENTS",
      "text": "Nueva licitacion creada"
     },
     {
      "kind": "string",
-     "line": 635,
+     "line": 643,
      "in": "NOTIFICATION_EVENTS",
      "text": "Publicacion registrada: {d.numero_licitacion}"
     },
     {
      "kind": "string",
-     "line": 636,
+     "line": 644,
      "in": "NOTIFICATION_EVENTS",
      "text": "Publicacion registrada"
     },
     {
      "kind": "string",
-     "line": 647,
+     "line": 655,
      "in": "NOTIFICATION_EVENTS",
      "text": "Manana vence plazo de bases: {d.numero_licitacion}"
     },
     {
      "kind": "string",
-     "line": 648,
+     "line": 656,
      "in": "NOTIFICATION_EVENTS",
      "text": "Manana vence plazo de solicitud de bases"
     },
     {
      "kind": "string",
-     "line": 659,
+     "line": 667,
      "in": "NOTIFICATION_EVENTS",
      "text": "Hoy vence plazo de bases: {d.numero_licitacion}"
     },
     {
      "kind": "string",
-     "line": 660,
+     "line": 668,
      "in": "NOTIFICATION_EVENTS",
      "text": "Hoy vence plazo de solicitud de bases"
     },
     {
      "kind": "string",
-     "line": 671,
+     "line": 679,
      "in": "NOTIFICATION_EVENTS",
      "text": "Manana vence plazo de consultas: {d.numero_licitacion}"
     },
     {
      "kind": "string",
-     "line": 672,
+     "line": 680,
      "in": "NOTIFICATION_EVENTS",
      "text": "Manana vence plazo de consultas"
     },
     {
      "kind": "string",
-     "line": 683,
+     "line": 691,
      "in": "NOTIFICATION_EVENTS",
      "text": "Hoy vence plazo de consultas: {d.numero_licitacion}"
     },
     {
      "kind": "string",
-     "line": 684,
+     "line": 692,
      "in": "NOTIFICATION_EVENTS",
      "text": "Hoy vence plazo de consultas"
     },
     {
      "kind": "string",
-     "line": 695,
+     "line": 703,
      "in": "NOTIFICATION_EVENTS",
      "text": "Ventana de propuestas abierta: {d.numero_licitacion}"
     },
     {
      "kind": "string",
-     "line": 696,
+     "line": 704,
      "in": "NOTIFICATION_EVENTS",
      "text": "Ventana de propuestas abierta"
     },
     {
      "kind": "string",
-     "line": 707,
+     "line": 715,
      "in": "NOTIFICATION_EVENTS",
      "text": "Manana vence plazo de propuestas: {d.numero_licitacion}"
     },
     {
      "kind": "string",
-     "line": 708,
+     "line": 716,
      "in": "NOTIFICATION_EVENTS",
      "text": "Manana vence plazo de propuestas"
     },
     {
      "kind": "string",
-     "line": 719,
+     "line": 727,
      "in": "NOTIFICATION_EVENTS",
      "text": "Hoy vence plazo de propuestas: {d.numero_licitacion}"
     },
     {
      "kind": "string",
-     "line": 720,
+     "line": 728,
      "in": "NOTIFICATION_EVENTS",
      "text": "Hoy vence plazo de propuestas"
     },
     {
      "kind": "string",
-     "line": 731,
+     "line": 739,
      "in": "NOTIFICATION_EVENTS",
      "text": "Evaluacion iniciada: {d.numero_licitacion}"
     },
     {
      "kind": "string",
-     "line": 732,
+     "line": 740,
      "in": "NOTIFICATION_EVENTS",
      "text": "Periodo de evaluacion iniciado"
     },
     {
      "kind": "string",
-     "line": 743,
+     "line": 751,
      "in": "NOTIFICATION_EVENTS",
      "text": "Manana vence plazo de evaluacion: {d.numero_licitacion}"
     },
     {
      "kind": "string",
-     "line": 744,
+     "line": 752,
      "in": "NOTIFICATION_EVENTS",
      "text": "Manana vence plazo de evaluacion"
     },
     {
      "kind": "string",
-     "line": 755,
+     "line": 763,
      "in": "NOTIFICATION_EVENTS",
      "text": "Evaluacion completada: {d.numero_licitacion}"
     },
     {
      "kind": "string",
-     "line": 756,
+     "line": 764,
      "in": "NOTIFICATION_EVENTS",
      "text": "Evaluacion completada"
     },
     {
      "kind": "string",
-     "line": 769,
+     "line": 777,
      "in": "NOTIFICATION_EVENTS",
      "text": "Licitacion adjudicada: {d.numero_licitacion}"
     },
     {
      "kind": "string",
-     "line": 770,
+     "line": 778,
      "in": "NOTIFICATION_EVENTS",
      "text": "Licitacion adjudicada"
     },
     {
      "kind": "string",
-     "line": 783,
+     "line": 791,
      "in": "NOTIFICATION_EVENTS",
      "text": "Contrato generado: {d.numero_licitacion}"
     },
     {
      "kind": "string",
-     "line": 784,
+     "line": 792,
      "in": "NOTIFICATION_EVENTS",
      "text": "Contrato generado"
     },
     {
      "kind": "string",
-     "line": 799,
+     "line": 807,
      "in": "NOTIFICATION_EVENTS",
      "text": "Reunión finalizada: {title}"
     },
     {
      "kind": "string",
-     "line": 799,
+     "line": 807,
      "in": "NOTIFICATION_EVENTS",
      "text": "Reunión finalizada"
     },
     {
      "kind": "string",
-     "line": 808,
+     "line": 816,
      "in": "NOTIFICATION_EVENTS",
      "text": "La reunión \"{bounded(d.title, PREVIEW_MA…}\" fue finalizada{who}.{audience}"
     },
     {
      "kind": "string",
-     "line": 808,
+     "line": 816,
      "in": "NOTIFICATION_EVENTS",
      "text": "sin título"
     },
     {
      "kind": "string",
-     "line": 820,
+     "line": 828,
      "in": "NOTIFICATION_EVENTS",
      "text": "Actualización del sistema"
     },
     {
      "kind": "string",
-     "line": 822,
+     "line": 830,
      "in": "NOTIFICATION_EVENTS",
      "text": "Hay una nueva actualización disponible en la plataforma."
     }
@@ -5065,7 +5077,7 @@
    "usedBy": [
     "/configuracion/notificaciones"
    ],
-   "lines": 552,
+   "lines": 556,
    "rows": [
     {
      "kind": "list",

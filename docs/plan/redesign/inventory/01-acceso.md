@@ -1,7 +1,7 @@
 # Acceso (sign-in, sign-up, passwords)
 
 Area `01-acceso`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `c7e27398c` (2026-11-22).
+Read from commit `a908cc8b5` (2026-11-25).
 
 7 screen files, 13 API files, 7 pieces.
 
@@ -1114,7 +1114,7 @@ Used by: `/login`
 | `/api/auth/change-password` | `pages/api/auth/change-password.ts` | POST | `/profile` | `__tests__/middleware.forced-password-change.test.ts`, `components/profile/PasswordChangeSection.tsx`, `lib/auth/forced-password-change.ts` |
 | `/api/auth/force-password-change` | `pages/api/auth/force-password-change.ts` | POST | `/change-password` | `__tests__/api/auth/force-password-change.test.ts`, `__tests__/components/ChangePasswordPage.forcedCompletion.test.tsx`, `__tests__/middleware.forced-password-change.test.ts`, `__tests__/security/__boundary_fixtures__/clean-browser-module.tsx`, `__tests__/security/no-browser-password-mutation.test.ts` +4 |
 | `/api/auth/logout` | `pages/api/auth/logout.ts` | POST | **no screen** | `__tests__/middleware.forced-password-change.test.ts`, `lib/auth/forced-password-change.ts` |
-| `/api/auth/my-roles` | `pages/api/auth/my-roles.ts` | GET | `/admin/licitaciones/consultores`, `/admin/licitaciones/criterios`, `/admin/licitaciones/documentos-propuesta`, `/admin/licitaciones/feriados`, `/admin/licitaciones/templates`, `/licitaciones`, `/licitaciones/[id]`, `/licitaciones/[id]/evaluacion`, `/licitaciones/importar`, `/licitaciones/nueva` | `__tests__/api/forged-session-sweep.test.ts`, `__tests__/api/group-quiz-notifications.test.ts`, `__tests__/pages/licitaciones/evaluacion-page.test.tsx`, `__tests__/pages/licitaciones/licitacion-detail-step2.test.tsx`, `__tests__/pages/licitaciones/licitacion-detail-step6-carta.test.tsx` +16 |
+| `/api/auth/my-roles` | `pages/api/auth/my-roles.ts` | GET | `/admin/licitaciones/consultores`, `/admin/licitaciones/criterios`, `/admin/licitaciones/documentos-propuesta`, `/admin/licitaciones/feriados`, `/admin/licitaciones/templates`, `/licitaciones`, `/licitaciones/[id]`, `/licitaciones/[id]/evaluacion`, `/licitaciones/importar`, `/licitaciones/nueva` | `__tests__/api/forged-session-sweep.test.ts`, `__tests__/api/group-quiz-notifications.test.ts`, `__tests__/pages/licitaciones/evaluacion-page.test.tsx`, `__tests__/pages/licitaciones/licitacion-detail-eliminar.test.tsx`, `__tests__/pages/licitaciones/licitacion-detail-step2.test.tsx` +17 |
 | `/api/auth/password-change-state` | `pages/api/auth/password-change-state.ts` | GET | `/change-password` | `__tests__/api/auth/password-change-state.availability.test.ts`, `__tests__/components/ChangePasswordPage.forcedCompletion.test.tsx`, `__tests__/middleware.forced-password-change.test.ts`, `lib/auth/forced-password-change.ts`, `pages/change-password.tsx` +1 |
 | `/api/auth/recovery-request` | `pages/api/auth/recovery-request.ts` | POST | `/login` | `__tests__/api/auth/recovery-request.test.ts`, `__tests__/components/LoginPage.passwordRecovery.test.tsx`, `pages/login.tsx`, `tests/e2e/auth-lifecycle.spec.ts` |
 | `/api/auth/recovery/complete` | `pages/api/auth/recovery/complete.ts` | POST | `/reset-password` | `__tests__/api/auth/recovery/complete.test.ts`, `__tests__/components/ResetPasswordPage.recoveryProof.test.tsx`, `__tests__/middleware.forced-password-change.test.ts`, `__tests__/security/no-browser-password-mutation.test.ts`, `lib/auth/forced-password-change.ts` +1 |

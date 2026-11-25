@@ -48,12 +48,14 @@ CREATE TABLE public.email_lists (
   created_by uuid,
   created_at timestamp with time zone DEFAULT now() NOT NULL,
   updated_at timestamp with time zone DEFAULT now() NOT NULL,
-  CONSTRAINT email_lists_name_check CHECK (btrim(name) <> ''::text AND char_length(name) <= 200)
+  -- The name as it is compared: without case or surrounding spaces. Kept by
+  -- the database, never written by anyone.
+  name_norm text GENERATED ALWAYS AS (lower(btrim(name))) STORED,
+  CONSTRAINT email_lists_name_check CHECK (btrim(name) <> ''::text AND char_length(name) <= 200),
+  -- Two lists cannot share a name compared without case or surrounding spaces.
+  -- Declared with the table it guards: the table is new, so no row can break it.
+  CONSTRAINT email_lists_name_key UNIQUE (name_norm)
 );
-
--- Two lists cannot share a name compared without case or surrounding spaces.
-CREATE UNIQUE INDEX email_lists_name_key
-  ON public.email_lists USING btree (lower(btrim(name)));
 
 CREATE TRIGGER trg_email_lists_updated_at
   BEFORE UPDATE ON public.email_lists
@@ -203,7 +205,10 @@ CREATE POLICY email_settings_admin_select ON public.email_settings
 -- 6. Documentation
 -- =============================================================================
 COMMENT ON TABLE public.email_lists IS
-  'Correos mailing lists. Admin-readable only; written by the server with the service role (create, rename, describe, public or not, archive). A list is never deleted: no function deletes one, and DELETE/TRUNCATE are revoked even from service_role; archived_at retires it. Names are unique compared as lower(btrim(name)) (email_lists_name_key).';
+  'Correos mailing lists. Admin-readable only; written by the server with the service role (create, rename, describe, public or not, archive). A list is never deleted: no function deletes one, and DELETE/TRUNCATE are revoked even from service_role; archived_at retires it. Names are unique compared as lower(btrim(name)): the stored column name_norm holds that form and carries the unique key email_lists_name_key.';
+
+COMMENT ON COLUMN public.email_lists.name_norm IS
+  'The list name as it is compared for uniqueness, lower(btrim(name)). Generated and stored by the database; never written directly.';
 
 COMMENT ON COLUMN public.email_lists.is_public IS
   'Whether people may see and join this list themselves (release 2). Defaults to false, the safe value; it asserts no consent.';

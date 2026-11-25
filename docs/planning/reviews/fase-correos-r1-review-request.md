@@ -1,7 +1,7 @@
 # GENERA correos, release 1: the email kit's look, mailing lists and contacts, reached only by typing the address, and nobody is mailed
 
 Branch: `correos/r1`. Base: `5542c952b` (main, 25 Nov 2026, pull request 213: the fixes' third release of 24 Nov, awarded tenders never deleted, the Carta's signer and contract files behind five-minute links).
-A straight line of commits on main, no merge commits: 9 commits of two phases (phase 1, the look: 2 commits; phase 2, lists and contacts: 3 commits; then 3 commits of fixes after the code reads and the looks by sight, and 1 commit that declares the list-name key with its table), and this request.
+A straight line of commits on main, no merge commits, 13 in all: 9 commits of two phases (phase 1, the look: 2 commits; phase 2, lists and contacts: 3 commits; then 3 commits of fixes after the code reads and the looks by sight, and 1 commit that declares the list-name key with its table), this request (3 commits), and 1 commit that rebuilds the package lock.
 
 - `31bc9fedd` correos r1 phase 1: the look (kit, GENERA brand, preview page and test send)
 - `7a9bc6913` correos r1 phase 1 fix: no stray colours in the template or the preview page
@@ -12,6 +12,9 @@ A straight line of commits on main, no merge commits: 9 commits of two phases (p
 - `5bc3bcd05` correos: literal search, hidden-character cleaning, pickers keep paging
 - `46773e1d3` correos: erasure empties the consent notice version
 - `1080232a1` correos: the list-name key is declared with its table (same rule, a form the release check can carry)
+- `e49c48d79` fix(deps): rebuild package-lock from main with Node 22 so npm ci passes on CI
+
+The package lock now starts from main's and only adds the two email packages (`@react-email/components` 1.0.12, `@react-email/render` 2.0.6) and what they depend on (25 added entries, none of main's removed; the older `@react-email/render` 0.0.16 that `resend` needs stays, nested under `resend`), because the earlier lock had been written by a newer npm than the Node 22 the checks use, which read it as out of sync with `package.json`.
 
 ## Approved scope
 
@@ -47,7 +50,7 @@ Recovery without a destructive statement: the three functions can be replaced in
 
 ## Proof
 
-On `11ad2c0d8` (25 Nov 2026, after the rebase onto main `5542c952b`): type check, lint (no warnings allowed), the pages inventory check (543 files: 162 screen files, 381 API files), the browser-boundary guard and the destructive-migration check (133 migration files), each exit status 0; the whole unit suite, 823 files passed and 1 skipped, 22,700 tests passed and 19 skipped, none failed; the database tests on a fresh local database, 117 files, 11,276 tests, PASS (the new files `041-email-lists-rls.sql` and `042-email-contact-functions.sql` among them); the rules after a dump and rebuild, 1,091, 0 different; CI's browser list as CI runs it, 367 passed, none failed, none flaky, 34 mandatory specs ran, no skips; a code read of the rebased release by a second model, clean.
+On `e49c48d79` (25 Nov 2026, after the rebase onto main `5542c952b` and the package-lock repair): a clean install with `npm ci` under Node 22 (the version the checks use) from a clean copy, 1,434 packages; type check, lint (no warnings allowed), the pages inventory check (543 files: 162 screen files, 381 API files), the browser-boundary guard and the destructive-migration check (133 migration files), each exit status 0; the whole unit suite, 823 files passed and 1 skipped, 22,700 tests passed and 19 skipped, none failed; the database tests on a fresh local database, 117 files, 11,276 tests, PASS (the new files `041-email-lists-rls.sql` and `042-email-contact-functions.sql` among them); the rules after a dump and rebuild, 1,091, 0 different; CI's browser list as CI runs it, 367 passed, none failed, none flaky, 34 mandatory specs ran, no skips; a code read of the rebased release by a second model, clean (the lock commit after it changes no code).
 
 The 49 regenerated files under `docs/plan/redesign/inventory/` stay in this branch on purpose: the inventory check wants every area file read from one commit, and it fails without them.
 

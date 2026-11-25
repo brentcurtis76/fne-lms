@@ -3,6 +3,10 @@
 --
 -- The only way the application writes contacts and memberships:
 --
+--   email_hidden_chars() -> text
+--       The whitespace and invisible characters (as code points) stripped from
+--       both ends of every cell and refused inside an address.
+--
 --   email_address_fingerprint(text) -> text
 --       SHA-256 hex of lower(btrim(address)) in UTF-8; NULL or blank gives
 --       NULL. The same digest email_suppression.email_hash holds.
@@ -16,21 +20,64 @@
 --
 --   email_erase_contact(contact id, actor) -> jsonb
 --       Fingerprint into the block list (reason 'manual', erased_at set: see
---       20261124200100), then the contact made anonymous, its address removed
---       from every send row, every membership ended. The row is NOT deleted.
+--       20261124200100), then the contact made anonymous (address, names,
+--       organisation, note, tags, token emptied), its address and error text
+--       removed from every send row, every membership ended. The row is NOT deleted.
 --       A second call changes nothing.
 --
 -- No function here deletes a row, lifts a block (no UPDATE or DELETE of an
 -- existing email_suppression row beyond stamping erased_at once), deletes a
 -- contact, a list or a member. No parameter has a default.
 --
--- All three: SECURITY DEFINER, search_path = public, pg_temp, EXECUTE for
+-- All four: SECURITY DEFINER, search_path = public, pg_temp, EXECUTE for
 -- service_role only. Part of the generic email kit: no host table is read.
 --
 -- Serialisation: email_add_contacts and email_erase_contact take the same
 -- transaction-level advisory lock, so two imports, or an import and an
 -- erasure, never interleave (no lost classification, no duplicate-key race).
 -- =============================================================================
+
+
+-- -----------------------------------------------------------------------------
+-- 0. Hidden characters
+--
+-- email_hidden_chars() -> text: every whitespace, line-break and invisible
+-- format character that must never surround or sit inside a stored address,
+-- written as code points (no raw invisible character appears in this file):
+--   ASCII whitespace  U+0009..U+000D, U+0020
+--   Unicode spaces    U+0085, U+00A0, U+1680, U+2000..U+200A, U+2028, U+2029,
+--                     U+202F, U+205F, U+3000
+--   invisible         U+00AD, U+180E, U+200B..U+200F, U+202A..U+202E,
+--                     U+2060..U+2064, U+2066..U+2069, U+FEFF
+-- email_add_contacts strips these from both ends of every cell (btrim with this
+-- set) and calls an address that still holds one anywhere INVALID, so a padded
+-- variant of an address is the plain address and nothing un-normalised is
+-- stored. (btrim alone strips only U+0020, and the regex class [:space:] does
+-- not see U+00A0 under every locale.) email_erase_contact uses it to block the
+-- cleaned form of an address stored before this rule existed.
+-- -----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.email_hidden_chars()
+RETURNS text
+LANGUAGE sql
+IMMUTABLE
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+  SELECT string_agg(chr(c), '' ORDER BY c)
+    FROM (
+      SELECT unnest(ARRAY[9, 10, 11, 12, 13, 32, 133, 160, 173, 5760, 6158, 12288, 65279])
+      UNION ALL SELECT generate_series(8192, 8207)   -- U+2000..U+200F
+      UNION ALL SELECT generate_series(8232, 8239)   -- U+2028..U+202F
+      UNION ALL SELECT generate_series(8287, 8292)   -- U+205F..U+2064
+      UNION ALL SELECT generate_series(8294, 8297)   -- U+2066..U+2069
+    ) AS s(c);
+$$;
+
+REVOKE ALL ON FUNCTION public.email_hidden_chars() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.email_hidden_chars() TO service_role;
+
+COMMENT ON FUNCTION public.email_hidden_chars() IS
+  'The whitespace and invisible characters Correos strips from both ends of an address, name or organisation and refuses inside an address: U+0009..U+000D, U+0020, U+0085, U+00A0, U+00AD, U+1680, U+180E, U+2000..U+200F, U+2028..U+202F, U+205F..U+2064, U+2066..U+2069, U+3000, U+FEFF. Service role only.';
 
 
 -- -----------------------------------------------------------------------------
@@ -63,7 +110,8 @@ COMMENT ON FUNCTION public.email_address_fingerprint(text) IS
 --   { "email": text, "first_name": text?, "last_name": text?,
 --     "organization": text?, "basis_recorded_at": timestamptz text?,
 --     "consent_notice_version": text? }
---   Cells are trimmed and stored as plain text, blank -> NULL; nothing is
+--   Cells are trimmed of every character in email_hidden_chars() (not only
+--   ASCII spaces) and stored as plain text, blank -> NULL; nothing is
 --   interpreted. A row's own basis_recorded_at / consent_notice_version
 --   (pasantías leads: the tick's time and notice version) wins over the call's.
 -- p_list_ids: at least one; every one exists and is not archived.
@@ -75,10 +123,13 @@ COMMENT ON FUNCTION public.email_address_fingerprint(text) IS
 -- p_actor: required; stored as imported_by (new contacts) and added_by.
 --
 -- Each row, in this order:
---   a. malformed address                                   -> invalid
---   b. same lower(btrim()) address earlier in the call     -> duplicate
+--   a. malformed address, or one that still holds a hidden
+--      character (email_hidden_chars) after trimming       -> invalid
+--   b. same lower(trimmed) address earlier in the call     -> duplicate
 --   c. fingerprint in email_suppression, or the contact has
---      suppressed_at or anonymized_at                      -> blocked
+--      suppressed_at or anonymized_at, or a contact stored
+--      before this rule holds the same address wrapped in
+--      hidden characters (an admin resolves it first)      -> blocked
 --   d. contact has unsubscribed_at, or is 'unsubscribed' on
 --      every chosen list                                   -> left
 --   e. contact has a membership (subscribed or pending) on
@@ -113,10 +164,11 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 DECLARE
-  v_source  text := nullif(btrim(p_source), '');
-  v_basis   text := nullif(btrim(p_legal_basis), '');
-  v_note    text := nullif(btrim(p_basis_note), '');
-  v_version text := nullif(btrim(p_consent_notice_version), '');
+  v_hidden  text := public.email_hidden_chars();
+  v_source  text := nullif(btrim(p_source, v_hidden), '');
+  v_basis   text := nullif(btrim(p_legal_basis, v_hidden), '');
+  v_note    text := nullif(btrim(p_basis_note, v_hidden), '');
+  v_version text := nullif(btrim(p_consent_notice_version, v_hidden), '');
   v_lists   uuid[];
   v_n_lists integer;
   v_found   integer;
@@ -150,7 +202,7 @@ BEGIN
   IF v_basis = 'consent_form' AND v_version IS NULL AND EXISTS (
        SELECT 1 FROM jsonb_array_elements(p_rows) AS r(val)
         WHERE nullif(btrim(CASE WHEN jsonb_typeof(r.val) = 'object'
-                                THEN r.val->>'consent_notice_version' END), '') IS NULL) THEN
+                                THEN r.val->>'consent_notice_version' END, v_hidden), '') IS NULL) THEN
     RAISE EXCEPTION 'email_add_contacts: consent_notice_version_required' USING ERRCODE = '22023';
   END IF;
 
@@ -171,14 +223,16 @@ BEGIN
 
   WITH src AS (
     SELECT r.ord,
-           nullif(btrim(o.val->>'email'), '')                  AS email,
-           nullif(btrim(o.val->>'first_name'), '')             AS first_name,
-           nullif(btrim(o.val->>'last_name'), '')              AS last_name,
-           nullif(btrim(o.val->>'organization'), '')           AS organization,
-           coalesce(nullif(btrim(o.val->>'basis_recorded_at'), '')::timestamptz,
-                    p_basis_recorded_at)                       AS recorded_at,
-           coalesce(nullif(btrim(o.val->>'consent_notice_version'), ''),
-                    v_version)                                 AS notice_version
+           -- Every kind of surrounding whitespace and invisible character
+           -- goes (email_hidden_chars), not only ASCII spaces.
+           nullif(btrim(o.val->>'email', v_hidden), '')                  AS email,
+           nullif(btrim(o.val->>'first_name', v_hidden), '')             AS first_name,
+           nullif(btrim(o.val->>'last_name', v_hidden), '')              AS last_name,
+           nullif(btrim(o.val->>'organization', v_hidden), '')           AS organization,
+           coalesce(nullif(btrim(o.val->>'basis_recorded_at', v_hidden), '')::timestamptz,
+                    p_basis_recorded_at)                                 AS recorded_at,
+           coalesce(nullif(btrim(o.val->>'consent_notice_version', v_hidden), ''),
+                    v_version)                                           AS notice_version
       FROM jsonb_array_elements(p_rows) WITH ORDINALITY AS r(val, ord)
       CROSS JOIN LATERAL (
         SELECT CASE WHEN jsonb_typeof(r.val) = 'object' THEN r.val ELSE '{}'::jsonb END AS val
@@ -188,7 +242,9 @@ BEGIN
     SELECT s.*,
            (s.email IS NOT NULL
             AND char_length(s.email) <= 254
-            AND s.email ~ '^[^[:space:][:cntrl:]@<>,;]+@[^[:space:][:cntrl:]@<>,;]+[.][^[:space:][:cntrl:]@<>,;]+$'
+            -- no hidden character left anywhere inside (stricter: nobody is mailed)
+            AND translate(s.email, v_hidden, '') = s.email
+            AND s.email ~'^[^[:space:][:cntrl:]@<>,;]+@[^[:space:][:cntrl:]@<>,;]+[.][^[:space:][:cntrl:]@<>,;]+$'
            ) AS valid,
            lower(s.email) AS norm
       FROM src s
@@ -211,6 +267,15 @@ BEGIN
      WHERE m.list_id = ANY (v_lists)
      GROUP BY m.contact_id
   ),
+  -- Contacts stored before this rule (the live 20260803170000 table) whose
+  -- address is wrapped in hidden characters: their cleaned address, once. A
+  -- call never adds that address as a second person beside them (blocked).
+  legacy AS (
+    SELECT DISTINCT lower(btrim(c.email_normalized, v_hidden)) AS norm
+      FROM public.email_contacts c
+     WHERE c.email_normalized IS NOT NULL
+       AND translate(c.email_normalized, v_hidden, '') <> c.email_normalized
+  ),
   cls AS MATERIALIZED (
     SELECT k.*,
            ec.id AS contact_id,
@@ -219,7 +284,8 @@ BEGIN
              WHEN k.rn > 1 THEN 'duplicate'
              WHEN es.email_hash IS NOT NULL
                OR ec.suppressed_at IS NOT NULL
-               OR ec.anonymized_at IS NOT NULL THEN 'blocked'
+               OR ec.anonymized_at IS NOT NULL
+               OR lg.norm IS NOT NULL THEN 'blocked'
              WHEN ec.id IS NOT NULL
               AND (ec.unsubscribed_at IS NOT NULL OR coalesce(ms.n_left, 0) = v_n_lists) THEN 'left'
              WHEN ec.id IS NOT NULL AND coalesce(ms.n_member, 0) = v_n_lists THEN 'duplicate'
@@ -232,6 +298,8 @@ BEGIN
         ON k.rn = 1 AND ec.email_normalized = k.norm
       LEFT JOIN memberships ms
         ON ms.contact_id = ec.id
+      LEFT JOIN legacy lg
+        ON k.rn = 1 AND lg.norm = k.norm
   ),
   -- The accepted rows with the contact they land on: the existing one, or a
   -- new id given here (so no join back to the inserted rows is needed).
@@ -291,7 +359,7 @@ GRANT EXECUTE ON FUNCTION public.email_add_contacts(jsonb, uuid[], text, text, t
   TO service_role;
 
 COMMENT ON FUNCTION public.email_add_contacts(jsonb, uuid[], text, text, text, timestamp with time zone, text, uuid) IS
-  'Correos: the one way people are brought in (manual, csv_import, profiles, pasantia_leads). Rows are classified in order invalid, duplicate (inside the call), blocked (fingerprint in email_suppression, or contact suppressed/anonymized), left (contact unsubscribed, or unsubscribed on every chosen list), duplicate (already on every chosen list), accepted. Accepted: contact created if new (existing names and basis untouched) and a subscribed membership with this call''s reason on each chosen list without one. Never changes an unsubscribed or pending membership, never lifts a block, deletes nothing. No defaults; NULL or blank source, legal basis, actor, basis time, or (manual/csv) note raises and saves nothing. Returns total/accepted/duplicate/blocked/left/invalid/contacts_created/memberships_created. Service role only.';
+  'Correos: the one way people are brought in (manual, csv_import, profiles, pasantia_leads). Every cell is trimmed of the characters in email_hidden_chars() (all Unicode whitespace and invisible format characters, not only ASCII spaces). Rows are classified in order invalid (malformed, or a hidden character left inside the address), duplicate (inside the call), blocked (fingerprint in email_suppression, or contact suppressed/anonymized, or an older contact holds the same address wrapped in hidden characters), left (contact unsubscribed, or unsubscribed on every chosen list), duplicate (already on every chosen list), accepted. Accepted: contact created if new (existing names and basis untouched) and a subscribed membership with this call''s reason on each chosen list without one. Never changes an unsubscribed or pending membership, never lifts a block, deletes nothing. No defaults; NULL or blank source, legal basis, actor, basis time, or (manual/csv) note raises and saves nothing. Returns total/accepted/duplicate/blocked/left/invalid/contacts_created/memberships_created. Service role only.';
 
 
 -- -----------------------------------------------------------------------------
@@ -314,7 +382,7 @@ SET search_path = public, pg_temp
 AS $$
 DECLARE
   v_contact public.email_contacts%ROWTYPE;
-  v_hash    text;
+  v_hidden  text := public.email_hidden_chars();
   v_sends   integer := 0;
   v_members integer := 0;
   v_now     timestamp with time zone := now();
@@ -332,20 +400,29 @@ BEGIN
 
   IF v_contact.anonymized_at IS NULL THEN
     -- 1. The block, by fingerprint only. An existing block keeps its reason
-    --    and gains the erased mark once; nothing is ever lifted.
-    v_hash := public.email_address_fingerprint(v_contact.email_normalized);
+    --    and gains the erased mark once; nothing is ever lifted. A contact
+    --    stored before the hidden-character rule may hold its address wrapped
+    --    in such characters: the cleaned address is blocked too, so the plain
+    --    address cannot come back.
     INSERT INTO public.email_suppression AS es (email_hash, reason, erased_at, erased_by)
-    VALUES (v_hash, 'manual', v_now, p_actor)
+    SELECT DISTINCT h.email_hash, 'manual', v_now, p_actor
+      FROM unnest(ARRAY[
+             public.email_address_fingerprint(v_contact.email_normalized),
+             public.email_address_fingerprint(btrim(v_contact.email_normalized, v_hidden))
+           ]) AS h(email_hash)
+     WHERE h.email_hash IS NOT NULL
     ON CONFLICT (email_hash) DO UPDATE
       SET erased_at = v_now, erased_by = p_actor
       WHERE es.erased_at IS NULL;
   END IF;
 
-  -- 2. The address leaves every past send row.
+  -- 2. The address leaves every past send row, and so does the free-text
+  --    error (a provider's rejection text can quote the address).
   UPDATE public.email_campaign_sends
-     SET email = NULL
+     SET email = NULL,
+         error = NULL
    WHERE contact_id = p_contact_id
-     AND email IS NOT NULL;
+     AND (email IS NOT NULL OR error IS NOT NULL);
   GET DIAGNOSTICS v_sends = ROW_COUNT;
 
   -- 3. Every membership ends; its token and its free-text note go.
@@ -360,7 +437,12 @@ BEGIN
   GET DIAGNOSTICS v_members = ROW_COUNT;
 
   -- 4. The contact becomes anonymous (the shape email_contacts_identity_shape_check
-  --    demands) and suppressed; the row stays.
+  --    demands) and suppressed; the row stays. Every column that can hold free
+  --    text or personal data is emptied: address, names, organisation, the
+  --    basis note, the tags (text[] NOT NULL, so '{}') and the token. What
+  --    stays holds no personal data: id, source, legal_basis and
+  --    consent_notice_version (fixed codes / a notice label), imported_by (the
+  --    admin), the timestamps and the suppression reason code.
   IF v_contact.anonymized_at IS NULL THEN
     UPDATE public.email_contacts
        SET email              = NULL,
@@ -369,6 +451,7 @@ BEGIN
            last_name          = NULL,
            organization       = NULL,
            basis_note         = NULL,
+           tags               = '{}'::text[],
            unsubscribe_token  = NULL,
            anonymized_at      = v_now,
            suppressed_at      = coalesce(suppressed_at, v_now),
@@ -390,4 +473,4 @@ REVOKE ALL ON FUNCTION public.email_erase_contact(uuid, uuid) FROM PUBLIC, anon,
 GRANT EXECUTE ON FUNCTION public.email_erase_contact(uuid, uuid) TO service_role;
 
 COMMENT ON FUNCTION public.email_erase_contact(uuid, uuid) IS
-  'Correos: erases a person. Writes the address fingerprint into email_suppression (reason manual, erased_at/erased_by set; an existing block keeps its reason and gains erased_at), makes the contact anonymous and suppressed (address, names, organisation, basis note, unsubscribe token NULL; anonymized_at set), NULLs email on every send row of the contact, and ends every membership (unsubscribed, token and note NULL). The row is not deleted; a second call changes nothing; an unknown id raises contact_not_found. Service role only.';
+  'Correos: erases a person. Writes the address fingerprint into email_suppression (reason manual, erased_at/erased_by set; an existing block keeps its reason and gains erased_at), makes the contact anonymous and suppressed (address, names, organisation, basis note, unsubscribe token NULL; tags empty; anonymized_at set), NULLs email and error on every send row of the contact, and ends every membership (unsubscribed, token and note NULL). The row is not deleted; a second call changes nothing; an unknown id raises contact_not_found. Service role only.';

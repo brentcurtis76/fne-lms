@@ -1,7 +1,7 @@
 # GENERA correos, release 1: the email kit's look, mailing lists and contacts, reached only by typing the address, and nobody is mailed
 
 Branch: `correos/r1`. Base: `6a336e70e` (main, 24 Nov 2026, pull request 212: the fixes' second release of 24 Nov, the contract text's version and the filler RUT refused).
-A straight line of commits on main, no merge commits: 8 commits of two phases (phase 1, the look: 2 commits; phase 2, lists and contacts: 3 commits; then 3 commits of fixes after the code reads and the looks by sight), and this request.
+A straight line of commits on main, no merge commits: 9 commits of two phases (phase 1, the look: 2 commits; phase 2, lists and contacts: 3 commits; then 3 commits of fixes after the code reads and the looks by sight, and 1 commit that declares the list-name key with its table), and this request.
 
 - `b306dec92` correos r1 phase 1: the look (kit, GENERA brand, preview page and test send)
 - `3dc8a2e13` correos r1 phase 1 fix: no stray colours in the template or the preview page
@@ -11,6 +11,7 @@ A straight line of commits on main, no merge commits: 8 commits of two phases (p
 - `d42f973e7` correos: strip hidden characters from addresses; erase empties tags
 - `e05d81298` correos: literal search, hidden-character cleaning, pickers keep paging
 - `e902e3f62` correos: erasure empties the consent notice version
+- `bafde3987` correos: the list-name key is declared with its table (same rule, a form the release check can carry)
 
 ## Approved scope
 
@@ -40,7 +41,7 @@ Four migrations, add-only, all new:
 - `20261124200200_email_contact_functions.sql`: three functions, server only: `public.email_address_fingerprint(text)`, `public.email_add_contacts(...)` and `public.email_erase_contact(uuid, uuid)`. Erasure removes a person's address from the contact and from past sends, ends the memberships and empties their free-text notes; it deletes no row.
 - `20261124200300_email_lists_seed.sql`: the two day-one lists; running it again creates nothing.
 
-No function of this release deletes rows, so `.pm-publish/solo-preflight.json` declares none. It holds one count check for each new unique key: `email_lists_name_key` (names compared as `lower(btrim(name))`; the count is taken on `name`), `email_list_members_list_contact_key` (`list_id`, `contact_id`) and `email_list_members_confirmation_token_key` (`confirmation_token`, empty tokens not counted). None of the keys is a partial index. All three tables are created by this release, so before it Production holds none of their rows. Every rule survives a dump and rebuild (1,089 rules, 0 different).
+No function of this release deletes rows, so `.pm-publish/solo-preflight.json` declares none, and it holds no count check either, because none is needed: every unique key of this release (`email_lists_name_key`, `email_list_members_list_contact_key` and `email_list_members_confirmation_token_key`) is declared inside the `CREATE TABLE` of a table the release itself creates, so no existing row can break it, and the publisher's static check raises no flag on any of the four files. The list-name key is a constraint on a stored column (`name_norm`, which the database keeps as `lower(btrim(name))`) rather than a separate unique index, so that it can be declared with its table and keep the same rule, the same name and the same error code. Every rule survives a dump and rebuild (1,089 rules, 0 different).
 
 Recovery without a destructive statement: the three functions can be replaced in place, or switched off by revoking EXECUTE from the service role; the screens are reached only by address.
 

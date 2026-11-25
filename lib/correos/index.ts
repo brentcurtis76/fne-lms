@@ -30,7 +30,7 @@ export { parseContactsCsv, looksLikeBinary, normalizeHeader, MAX_CSV_ROWS, MAX_C
 export type { CsvContactRow, CsvColumn, CsvParseResult, CsvRefusal } from './csv';
 export { parseReason, LEGAL_BASES, LEGAL_BASIS_LABELS, REASON_MESSAGES } from './reason';
 export type { LegalBasis, Reason, ReasonResult, ReasonOptions } from './reason';
-export { isValidAddress, normalizeAddress, isUuid, readIds, searchTerm, ilikeAny, readPage } from './address';
+export { isValidAddress, normalizeAddress, isUuid, readIds, searchTerm, containsAny, literalPattern, quotedValue, trimHidden, cleanCell, isHiddenChar, readPage } from './address';
 export {
   GENERIC_FAILURE,
   DATABASE_CODE_MESSAGES,

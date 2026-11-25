@@ -23,6 +23,7 @@ import {
 } from '../../../components/ui/kit';
 import { CorreosNav } from '../../../components/correos/CorreosNav';
 import { callApi, failureText } from '../../../components/correos/api';
+import { formatCount } from '../../../lib/correos/labels';
 import { correosAdminPage } from '../../../lib/correos-host/page-guard';
 
 /** Correos lists: read all, add, rename, describe, public or not, archive. No delete. Admins only. */
@@ -158,7 +159,7 @@ export default function CorreosListas() {
                     </TableCell>
                     <TableCell label="Pública">{list.is_public ? 'Sí' : 'No'}</TableCell>
                     <TableCell label="Suscritas" align="right">
-                      <span data-testid="correos-lista-suscritas">{list.subscribed.toLocaleString('es-CL')}</span>
+                      <span data-testid="correos-lista-suscritas">{formatCount(list.subscribed)}</span>
                     </TableCell>
                     <TableCell label="Estado">
                       {list.archived_at ? <Badge tone="neutral">Archivada</Badge> : <Badge tone="success">Activa</Badge>}

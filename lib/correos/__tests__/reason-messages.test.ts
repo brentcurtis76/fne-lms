@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { LEGAL_BASES, LEGAL_BASIS_LABELS, parseReason } from '../reason';
-import { ilikeAny, isValidAddress, readIds, readPage, searchTerm } from '../address';
+import { containsAny, isValidAddress, readIds, readPage, searchTerm } from '../address';
 import { DATABASE_CODE_MESSAGES, GENERIC_FAILURE, databaseCode, databaseErrorMessage } from '../messages';
 import { addressFingerprint } from '../contacts';
 
@@ -74,13 +74,12 @@ describe('C3: addresses and messages', () => {
 });
 
 describe('search words and ids', () => {
-  it('drops the characters PostgREST filters and LIKE give a meaning to', () => {
-    expect(searchTerm('ana,x)')).toBe('ana x');
-    expect(searchTerm('%_*\\"\':()')).toBe('');
+  it('keeps the typed text (trimmed, at most 100 characters) and matches it literally (see search.test.ts)', () => {
+    expect(searchTerm('ana,x)')).toBe('ana,x)');
     expect(searchTerm('  Muñoz  ')).toBe('Muñoz');
     expect(searchTerm(['ana'])).toBe('');
     expect(searchTerm('a'.repeat(300))).toHaveLength(100);
-    expect(ilikeAny(['email', 'first_name'], 'ana')).toBe('email.ilike.*ana*,first_name.ilike.*ana*');
+    expect(containsAny(['email', 'first_name'], 'ana')).toBe('email.imatch."ana",first_name.imatch."ana"');
   });
 
   it('reads ids and pages strictly', () => {

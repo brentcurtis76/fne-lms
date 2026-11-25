@@ -92,3 +92,118 @@ describe('AttachmentPreview — every file through the attachment route (F26b)',
     expect(openMock).toHaveBeenCalledWith('/api/community/message-attachments/att-doc', '_blank', 'noopener,noreferrer');
   });
 });
+
+// F26b send-back 1, point 1: a 6.5-minute video stopped at 2:29 when its
+// five-minute link ran out (the store answered 400 to the next range). The
+// player now asks the route again and continues at the same position; it
+// never builds an address of its own. jsdom has no media pipeline, so the
+// element's state (error, paused, currentTime) is set by hand and load()/play()
+// are recorded.
+describe('AttachmentPreview — a long video or audio renews its link through the route (send-back 1)', () => {
+  let load: ReturnType<typeof vi.spyOn>;
+  let play: ReturnType<typeof vi.spyOn>;
+  beforeEach(() => {
+    load = vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => undefined);
+    play = vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(() => Promise.resolve());
+  });
+  afterEach(() => {
+    load.mockRestore();
+    play.mockRestore();
+  });
+
+  function mediaState(media: HTMLMediaElement, state: { code: number | null; paused: boolean; at: number }) {
+    let at = state.at;
+    Object.defineProperty(media, 'error', { configurable: true, get: () => (state.code === null ? null : { code: state.code }) });
+    Object.defineProperty(media, 'paused', { configurable: true, get: () => state.paused });
+    Object.defineProperty(media, 'currentTime', { configurable: true, get: () => at, set: (v: number) => { at = v; } });
+    return state;
+  }
+
+  it('a video playing at 2:29 when the link expires: asks the route again, goes back to 2:29 and plays; a later expiry renews again', () => {
+    const utils = show(attachment('att-vid', 'video/mp4', 'clase.mp4'));
+    const video = utils.container.querySelector('video') as HTMLVideoElement;
+    const state = mediaState(video, { code: 2, paused: false, at: 149 });
+
+    fireEvent.error(video);
+    expect(load).toHaveBeenCalledTimes(1);
+    expect(utils.queryByText('Error al cargar el video')).toBeNull();
+    expect(video.querySelector('source')?.getAttribute('src')).toBe('/api/community/message-attachments/att-vid');
+
+    video.currentTime = 0;
+    state.code = null;
+    fireEvent.loadedMetadata(video);
+    expect(video.currentTime).toBe(149);
+    expect(play).toHaveBeenCalledTimes(1);
+    fireEvent.canPlay(video);
+
+    state.code = 2;
+    video.currentTime = 370;
+    fireEvent.error(video);
+    expect(load).toHaveBeenCalledTimes(2);
+    expect(utils.queryByText('Error al cargar el video')).toBeNull();
+  });
+
+  it('a paused video sought to 5:00 after the link expired: renewed at 5:00, stays paused', () => {
+    const utils = show(attachment('att-vid', 'video/mp4', 'clase.mp4'));
+    const video = utils.container.querySelector('video') as HTMLVideoElement;
+    mediaState(video, { code: 2, paused: true, at: 300 });
+    fireEvent.error(video);
+    expect(load).toHaveBeenCalledTimes(1);
+    video.currentTime = 0;
+    fireEvent.loadedMetadata(video);
+    expect(video.currentTime).toBe(300);
+    expect(play).not.toHaveBeenCalled();
+  });
+
+  it('an audio renews the same way', () => {
+    const utils = show(attachment('att-aud', 'audio/mpeg', 'nota.mp3'));
+    const audio = utils.container.querySelector('audio') as HTMLAudioElement;
+    mediaState(audio, { code: 2, paused: false, at: 200 });
+    fireEvent.error(audio);
+    expect(load).toHaveBeenCalledTimes(1);
+    expect(utils.queryByText('Error al cargar el audio')).toBeNull();
+    audio.currentTime = 0;
+    fireEvent.loadedMetadata(audio);
+    expect(audio.currentTime).toBe(200);
+    expect(play).toHaveBeenCalledTimes(1);
+  });
+
+  it('the route refuses the renewal (no longer allowed, file gone): the usual error, no second try', () => {
+    const utils = show(attachment('att-vid', 'video/mp4', 'clase.mp4'));
+    const video = utils.container.querySelector('video') as HTMLVideoElement;
+    mediaState(video, { code: 2, paused: false, at: 149 });
+    fireEvent.error(video);
+    expect(load).toHaveBeenCalledTimes(1);
+    fireEvent.error(video.querySelector('source') as HTMLSourceElement);
+    expect(utils.getByText('Error al cargar el video')).toBeTruthy();
+    expect(load).toHaveBeenCalledTimes(1);
+  });
+
+  it('the renewed link fails again before it can play: the usual error, no loop', () => {
+    const utils = show(attachment('att-vid', 'video/mp4', 'clase.mp4'));
+    const video = utils.container.querySelector('video') as HTMLVideoElement;
+    mediaState(video, { code: 2, paused: false, at: 149 });
+    fireEvent.error(video);
+    fireEvent.error(video);
+    expect(load).toHaveBeenCalledTimes(1);
+    expect(utils.getByText('Error al cargar el video')).toBeTruthy();
+  });
+
+  it('the route refuses the first load (the source cannot be fetched): the usual error as before, no renewal', () => {
+    const utils = show(attachment('att-vid', 'video/mp4', 'clase.mp4'));
+    const video = utils.container.querySelector('video') as HTMLVideoElement;
+    fireEvent.error(video.querySelector('source') as HTMLSourceElement);
+    expect(load).not.toHaveBeenCalled();
+    expect(utils.getByText('Error al cargar el video')).toBeTruthy();
+  });
+
+  it('a file that cannot be decoded: the usual error at once, no renewal', () => {
+    const utils = show(attachment('att-vid', 'video/mp4', 'clase.mp4'));
+    const video = utils.container.querySelector('video') as HTMLVideoElement;
+    mediaState(video, { code: 3, paused: false, at: 10 });
+    fireEvent.error(video);
+    expect(load).not.toHaveBeenCalled();
+    expect(utils.getByText('Error al cargar el video')).toBeTruthy();
+  });
+});
+

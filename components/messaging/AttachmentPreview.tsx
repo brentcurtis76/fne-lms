@@ -30,6 +30,12 @@ import {
   isPreviewSupported,
 } from '../../utils/documentUtils';
 import { formatFileSize } from '../../lib/utils/file-format';
+import {
+  mediaSourceFailed,
+  renewMediaLinkOnError,
+  renewalSettled,
+  resumeAfterRenewal,
+} from '../../lib/storage/media-link-renewal';
 
 interface AttachmentPreviewProps {
   isOpen: boolean;
@@ -228,9 +234,25 @@ export default function AttachmentPreview({
             controls
             className="max-w-full max-h-full"
             onLoadedData={() => setLoading(false)}
-            onError={() => setPreviewError('Error al cargar el video')}
+            // Send-back 1: when the five-minute link runs out mid-play, ask the
+            // route again and continue at the same position (lib/storage/media-link-renewal.ts).
+            onError={(e) => {
+              // a <source> error bubbles here through React; it is handled on the <source>
+              if (e.target !== e.currentTarget) return;
+              renewMediaLinkOnError(e.currentTarget, () => setPreviewError('Error al cargar el video'));
+            }}
+            onLoadedMetadata={(e) => resumeAfterRenewal(e.currentTarget)}
+            onCanPlay={(e) => renewalSettled(e.currentTarget)}
           >
-            <source src={fileRoute} type={attachment.mime_type} />
+            <source
+              src={fileRoute}
+              type={attachment.mime_type}
+              onError={(e) =>
+                mediaSourceFailed(e.currentTarget.parentElement as HTMLMediaElement | null, () =>
+                  setPreviewError('Error al cargar el video')
+                )
+              }
+            />
             Tu navegador no soporta la reproducción de videos.
           </video>
         </div>
@@ -252,9 +274,25 @@ export default function AttachmentPreview({
               controls
               className="mb-4"
               onLoadedData={() => setLoading(false)}
-              onError={() => setPreviewError('Error al cargar el audio')}
+              // Send-back 1: when the five-minute link runs out mid-play, ask the
+              // route again and continue at the same position (lib/storage/media-link-renewal.ts).
+              onError={(e) => {
+                // a <source> error bubbles here through React; it is handled on the <source>
+                if (e.target !== e.currentTarget) return;
+                renewMediaLinkOnError(e.currentTarget, () => setPreviewError('Error al cargar el audio'));
+              }}
+              onLoadedMetadata={(e) => resumeAfterRenewal(e.currentTarget)}
+              onCanPlay={(e) => renewalSettled(e.currentTarget)}
             >
-              <source src={fileRoute} type={attachment.mime_type} />
+              <source
+                src={fileRoute}
+                type={attachment.mime_type}
+                onError={(e) =>
+                  mediaSourceFailed(e.currentTarget.parentElement as HTMLMediaElement | null, () =>
+                    setPreviewError('Error al cargar el audio')
+                  )
+                }
+              />
               Tu navegador no soporta la reproducción de audio.
             </audio>
           </div>

@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "c7e27398ca230dbbc3e581dcde19f92480491fcd",
-  "date": "2026-11-22T23:11:25-03:00"
+  "commit": "9298935dbe2a95efd8049538ace9feb5f0394c46",
+  "date": "2026-11-25T10:48:59-03:00"
  },
  "screens": [
   {
@@ -75,8 +75,8 @@
      }
     ],
     "linkedFrom": [
-     "components/licitaciones/ProposalConfigPanel.tsx:1110",
-     "components/licitaciones/ProposalConfigPanel.tsx:1111"
+     "components/licitaciones/ProposalConfigPanel.tsx:1118",
+     "components/licitaciones/ProposalConfigPanel.tsx:1119"
     ],
     "qaScenarios": {},
     "tests": {
@@ -1532,10 +1532,10 @@
      }
     ],
     "linkedFrom": [
-     "components/licitaciones/ProposalConfigPanel.tsx:1500",
-     "components/licitaciones/ProposalConfigPanel.tsx:1501",
-     "components/licitaciones/ProposalConfigPanel.tsx:1572",
-     "components/licitaciones/ProposalConfigPanel.tsx:1573"
+     "components/licitaciones/ProposalConfigPanel.tsx:1508",
+     "components/licitaciones/ProposalConfigPanel.tsx:1509",
+     "components/licitaciones/ProposalConfigPanel.tsx:1580",
+     "components/licitaciones/ProposalConfigPanel.tsx:1581"
     ],
     "qaScenarios": {},
     "tests": {
@@ -3570,7 +3570,7 @@
   {
    "file": "pages/licitaciones/[id].tsx",
    "route": "/licitaciones/[id]",
-   "lines": 966,
+   "lines": 969,
    "marks": {},
    "frame": "MainLayout",
    "server": "none",
@@ -3621,22 +3621,22 @@
     },
     "inPage": [
      {
-      "line": 210,
+      "line": 211,
       "text": "router.push → /login  (when !user)"
      },
      {
-      "line": 222,
+      "line": 223,
       "text": "router.push → /dashboard  (when !adminAccess && !encargadoAccess)"
      },
      {
-      "line": 232,
+      "line": 233,
       "text": "router.push → /login"
      }
     ],
     "linkedFrom": [
      "middleware.ts:351",
-     "pages/contracts.tsx:854",
-     "pages/contracts.tsx:855",
+     "pages/contracts.tsx:852",
+     "pages/contracts.tsx:853",
      "pages/licitaciones/[id]/evaluacion.tsx:280",
      "pages/licitaciones/[id]/evaluacion.tsx:634",
      "pages/licitaciones/[id]/evaluacion.tsx:677",
@@ -3646,7 +3646,7 @@
      "pages/licitaciones/index.tsx:611",
      "pages/licitaciones/index.tsx:612",
      "pages/licitaciones/index.tsx:614",
-     "pages/licitaciones/nueva.tsx:270"
+     "pages/licitaciones/nueva.tsx:268"
     ],
     "qaScenarios": {},
     "tests": {
@@ -3658,6 +3658,7 @@
       "tests/e2e/flows/proposal-versioning.spec.ts"
      ],
      "unit": [
+      "__tests__/pages/licitaciones/licitacion-detail-eliminar.test.tsx",
       "__tests__/pages/licitaciones/licitacion-detail-step2.test.tsx",
       "__tests__/pages/licitaciones/licitacion-detail-step6-carta.test.tsx"
      ]
@@ -3666,7 +3667,7 @@
    "rows": [
     {
      "kind": "list",
-     "line": 22,
+     "line": 23,
      "text": "STEPS",
      "items": [
       "Creacion",
@@ -3680,50 +3681,50 @@
     },
     {
      "kind": "value",
-     "line": 73,
+     "line": 74,
      "in": "Stepper",
      "when": "each STEPS",
      "text": "{step.label}"
     },
     {
      "kind": "value",
-     "line": 90,
+     "line": 91,
      "in": "InfoRow",
      "text": "{label}"
     },
     {
      "kind": "value",
-     "line": 91,
+     "line": 92,
      "in": "InfoRow",
      "text": "{value} / -"
     },
     {
      "kind": "value",
-     "line": 99,
+     "line": 100,
      "in": "EstadoBadge",
      "text": "{info.label}"
     },
     {
      "kind": "gate",
-     "line": 163,
+     "line": 164,
      "in": "LicitacionDetailPage",
      "text": "!authReady"
     },
     {
      "kind": "gate",
-     "line": 173,
+     "line": 174,
      "in": "LicitacionDetailPage",
      "text": "!licitacion"
     },
     {
      "kind": "gate",
-     "line": 174,
+     "line": 175,
      "in": "LicitacionDetailPage",
      "text": "licitacion.estado !== 'cerrada'"
     },
     {
      "kind": "nav",
-     "line": 210,
+     "line": 211,
      "in": "checkAuth",
      "when": "!user",
      "text": "/login",
@@ -3731,7 +3732,7 @@
     },
     {
      "kind": "toast",
-     "line": 221,
+     "line": 222,
      "in": "checkAuth",
      "when": "!adminAccess && !encargadoAccess",
      "text": "No tiene permisos para acceder a licitaciones",
@@ -3739,7 +3740,7 @@
     },
     {
      "kind": "nav",
-     "line": 222,
+     "line": 223,
      "in": "checkAuth",
      "when": "!adminAccess && !encargadoAccess",
      "text": "/dashboard",
@@ -3747,14 +3748,14 @@
     },
     {
      "kind": "nav",
-     "line": 232,
+     "line": 233,
      "in": "checkAuth",
      "text": "/login",
      "via": "router.push"
     },
     {
      "kind": "toast",
-     "line": 251,
+     "line": 252,
      "in": "fetchLicitacion",
      "when": "!res.ok",
      "text": "Error al cargar licitacion",
@@ -3762,7 +3763,7 @@
     },
     {
      "kind": "nav",
-     "line": 252,
+     "line": 253,
      "in": "fetchLicitacion",
      "when": "!res.ok",
      "text": "/licitaciones",
@@ -3770,34 +3771,34 @@
     },
     {
      "kind": "toast",
-     "line": 265,
+     "line": 266,
      "in": "fetchLicitacion",
      "text": "Error al cargar licitacion",
      "variant": "error"
     },
     {
      "kind": "nav",
-     "line": 266,
+     "line": 267,
      "in": "fetchLicitacion",
      "text": "/licitaciones",
      "via": "router.push"
     },
     {
      "kind": "hook",
-     "line": 275,
+     "line": 276,
      "in": "handleCopyText",
      "text": "setTimeout(…, 2000)",
      "type": "timer"
     },
     {
      "kind": "gate",
-     "line": 294,
+     "line": 295,
      "in": "LicitacionDetailPage",
      "text": "latestFechaRef.current !== fecha"
     },
     {
      "kind": "toast",
-     "line": 299,
+     "line": 300,
      "in": "LicitacionDetailPage",
      "when": "latestFechaRef.current === fecha",
      "text": "Error al calcular cronograma",
@@ -3805,7 +3806,7 @@
     },
     {
      "kind": "toast",
-     "line": 322,
+     "line": 323,
      "in": "handleUploadImage",
      "when": "!res.ok",
      "text": "Error al subir imagen",
@@ -3813,21 +3814,21 @@
     },
     {
      "kind": "toast",
-     "line": 326,
+     "line": 327,
      "in": "handleUploadImage",
      "text": "Imagen subida exitosamente",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 330,
+     "line": 331,
      "in": "handleUploadImage",
      "text": "Error al subir imagen",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 338,
+     "line": 339,
      "in": "handleConfirmPublicacion",
      "when": "!fechaPublicacion || !id",
      "text": "Ingrese la fecha de publicacion",
@@ -3835,7 +3836,7 @@
     },
     {
      "kind": "toast",
-     "line": 358,
+     "line": 359,
      "in": "handleConfirmPublicacion",
      "when": "!res.ok",
      "text": "Error al confirmar publicacion",
@@ -3843,21 +3844,21 @@
     },
     {
      "kind": "toast",
-     "line": 362,
+     "line": 363,
      "in": "handleConfirmPublicacion",
      "text": "Publicacion confirmada exitosamente",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 365,
+     "line": 366,
      "in": "handleConfirmPublicacion",
      "text": "Error al confirmar publicacion",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 384,
+     "line": 385,
      "in": "handleSaveDates",
      "when": "!res.ok",
      "text": "Error al guardar fechas",
@@ -3865,21 +3866,21 @@
     },
     {
      "kind": "toast",
-     "line": 388,
+     "line": 389,
      "in": "handleSaveDates",
      "text": "Fechas actualizadas correctamente",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 392,
+     "line": 393,
      "in": "handleSaveDates",
      "text": "Error al guardar fechas",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 405,
+     "line": 406,
      "in": "handleDeleteLicitacion",
      "when": "!res.ok",
      "text": "Error al eliminar licitacion",
@@ -3887,28 +3888,28 @@
     },
     {
      "kind": "toast",
-     "line": 408,
+     "line": 409,
      "in": "handleDeleteLicitacion",
      "text": "Licitacion eliminada exitosamente",
      "variant": "success"
     },
     {
      "kind": "nav",
-     "line": 409,
+     "line": 410,
      "in": "handleDeleteLicitacion",
      "text": "/licitaciones",
      "via": "router.push"
     },
     {
      "kind": "toast",
-     "line": 411,
+     "line": 412,
      "in": "handleDeleteLicitacion",
      "text": "Error al eliminar licitacion",
      "variant": "error"
     },
     {
      "kind": "piece",
-     "line": 429,
+     "line": 430,
      "in": "LicitacionDetailPage",
      "when": "loading || !licitacion",
      "text": "pageTitle: Licitacion",
@@ -3916,19 +3917,19 @@
     },
     {
      "kind": "text",
-     "line": 455,
+     "line": 456,
      "in": "LicitacionDetailPage",
      "text": "Texto de publicacion"
     },
     {
      "kind": "text",
-     "line": 456,
+     "line": 457,
      "in": "LicitacionDetailPage",
      "text": "{publicacionText} / Seleccione una escuela con cliente vinculado para generar el texto."
     },
     {
      "kind": "button",
-     "line": 459,
+     "line": 460,
      "in": "LicitacionDetailPage",
      "text": "Copiado! / Copiar texto",
      "action": "{handleCopyText}",
@@ -3936,7 +3937,7 @@
     },
     {
      "kind": "piece",
-     "line": 464,
+     "line": 465,
      "in": "LicitacionDetailPage",
      "when": "copied",
      "text": "aria-hidden: true",
@@ -3944,7 +3945,7 @@
     },
     {
      "kind": "piece",
-     "line": 464,
+     "line": 465,
      "in": "LicitacionDetailPage",
      "when": "!(copied)",
      "text": "aria-hidden: true",
@@ -3952,63 +3953,63 @@
     },
     {
      "kind": "piece",
-     "line": 489,
+     "line": 490,
      "in": "LicitacionDetailPage",
      "text": "",
      "tag": "MainLayout"
     },
     {
      "kind": "button",
-     "line": 498,
+     "line": 499,
      "in": "LicitacionDetailPage",
      "text": "Volver a Licitaciones",
      "action": "{() => router.push('/licitaciones')}"
     },
     {
      "kind": "nav",
-     "line": 499,
+     "line": 500,
      "in": "LicitacionDetailPage",
      "text": "/licitaciones",
      "via": "router.push"
     },
     {
      "kind": "value",
-     "line": 509,
+     "line": 510,
      "in": "LicitacionDetailPage",
      "text": "{licitacion.numero_licitacion}"
     },
     {
      "kind": "heading",
-     "line": 510,
+     "line": 511,
      "in": "LicitacionDetailPage",
      "text": "{licitacion.nombre_licitacion}",
      "level": 1
     },
     {
      "kind": "value",
-     "line": 511,
+     "line": 512,
      "in": "LicitacionDetailPage",
      "text": "{licitacion.school?.name} — {licitacion.year}"
     },
     {
      "kind": "button",
-     "line": 518,
+     "line": 521,
      "in": "LicitacionDetailPage",
-     "when": "isAdmin",
+     "when": "isAdmin && puedeEliminarLicitacion(licitacion.estado, false)",
      "text": "Eliminando... / Eliminar",
      "action": "{() => { if (window.confirm( `¿Eliminar la licitacion \"${licitacion.numero_licit…}",
      "disabled": "{deleting}"
     },
     {
      "kind": "confirm",
-     "line": 520,
+     "line": 523,
      "in": "LicitacionDetailPage",
-     "when": "isAdmin",
+     "when": "isAdmin && puedeEliminarLicitacion(licitacion.estado, false)",
      "text": "¿Eliminar la licitacion \"{licitacion.numero_licitacion}\"? / Se eliminaran permanentemente todos los datos asociados: ATEs, documentos, evaluaciones, historial, etc. / Esta accion no se puede deshacer."
     },
     {
      "kind": "text",
-     "line": 540,
+     "line": 543,
      "in": "LicitacionDetailPage",
      "when": "historicalView === 'pending'",
      "text": "Cargando",
@@ -4016,7 +4017,7 @@
     },
     {
      "kind": "piece",
-     "line": 543,
+     "line": 546,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && historicalView === 'archive'",
      "text": "",
@@ -4024,7 +4025,7 @@
     },
     {
      "kind": "heading",
-     "line": 556,
+     "line": 559,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive')",
      "text": "1 Creacion de Licitacion [(Completado)]",
@@ -4032,7 +4033,7 @@
     },
     {
      "kind": "heading",
-     "line": 565,
+     "line": 568,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive')",
      "text": "Informacion General",
@@ -4040,7 +4041,7 @@
     },
     {
      "kind": "piece",
-     "line": 566,
+     "line": 569,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive')",
      "text": "label: Numero",
@@ -4048,7 +4049,7 @@
     },
     {
      "kind": "piece",
-     "line": 567,
+     "line": 570,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive')",
      "text": "label: Programa",
@@ -4056,7 +4057,7 @@
     },
     {
      "kind": "piece",
-     "line": 568,
+     "line": 571,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive')",
      "text": "label: Ano",
@@ -4064,7 +4065,7 @@
     },
     {
      "kind": "piece",
-     "line": 569,
+     "line": 572,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive')",
      "text": "label: Correo licitacion",
@@ -4072,7 +4073,7 @@
     },
     {
      "kind": "heading",
-     "line": 572,
+     "line": 575,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive')",
      "text": "Presupuesto y Plazos",
@@ -4080,7 +4081,7 @@
     },
     {
      "kind": "piece",
-     "line": 573,
+     "line": 576,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive')",
      "text": "label: Monto minimo",
@@ -4088,7 +4089,7 @@
     },
     {
      "kind": "piece",
-     "line": 574,
+     "line": 577,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive')",
      "text": "label: Monto maximo",
@@ -4096,7 +4097,7 @@
     },
     {
      "kind": "piece",
-     "line": 575,
+     "line": 578,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive')",
      "text": "label: Duracion minima",
@@ -4104,7 +4105,7 @@
     },
     {
      "kind": "piece",
-     "line": 576,
+     "line": 579,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive')",
      "text": "label: Duracion maxima",
@@ -4112,7 +4113,7 @@
     },
     {
      "kind": "piece",
-     "line": 577,
+     "line": 580,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive')",
      "text": "label: Peso tecnico",
@@ -4120,7 +4121,7 @@
     },
     {
      "kind": "piece",
-     "line": 578,
+     "line": 581,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive')",
      "text": "label: Peso economico",
@@ -4128,7 +4129,7 @@
     },
     {
      "kind": "heading",
-     "line": 582,
+     "line": 585,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive') && licitacion.cliente",
      "text": "Cliente",
@@ -4136,7 +4137,7 @@
     },
     {
      "kind": "piece",
-     "line": 583,
+     "line": 586,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive') && licitacion.cliente",
      "text": "label: Nombre legal",
@@ -4144,7 +4145,7 @@
     },
     {
      "kind": "piece",
-     "line": 584,
+     "line": 587,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive') && licitacion.cliente",
      "text": "label: RUT",
@@ -4152,7 +4153,7 @@
     },
     {
      "kind": "piece",
-     "line": 585,
+     "line": 588,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive') && licitacion.cliente",
      "text": "label: Representante",
@@ -4160,7 +4161,7 @@
     },
     {
      "kind": "piece",
-     "line": 586,
+     "line": 589,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive') && licitacion.cliente",
      "text": "label: Comuna",
@@ -4168,7 +4169,7 @@
     },
     {
      "kind": "heading",
-     "line": 596,
+     "line": 599,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive')",
      "text": "2 Publicacion [(Completado)]",
@@ -4176,28 +4177,28 @@
     },
     {
      "kind": "text",
-     "line": 610,
+     "line": 613,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive') && step2Done",
      "text": "Fecha de publicacion"
     },
     {
      "kind": "value",
-     "line": 611,
+     "line": 614,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive') && step2Done",
      "text": "{formatDate(licitacion.fecha_publica…}"
     },
     {
      "kind": "text",
-     "line": 614,
+     "line": 617,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive') && step2Done",
      "text": "Cronograma calculado"
     },
     {
      "kind": "piece",
-     "line": 616,
+     "line": 619,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive') && step2Done",
      "text": "label: Limite solicitud de bases",
@@ -4205,7 +4206,7 @@
     },
     {
      "kind": "piece",
-     "line": 617,
+     "line": 620,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive') && step2Done",
      "text": "label: Limite consultas",
@@ -4213,7 +4214,7 @@
     },
     {
      "kind": "piece",
-     "line": 618,
+     "line": 621,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive') && step2Done",
      "text": "label: Inicio propuestas",
@@ -4221,7 +4222,7 @@
     },
     {
      "kind": "piece",
-     "line": 619,
+     "line": 622,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive') && step2Done",
      "text": "label: Limite propuestas",
@@ -4229,7 +4230,7 @@
     },
     {
      "kind": "piece",
-     "line": 620,
+     "line": 623,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive') && step2Done",
      "text": "label: Limite evaluacion",
@@ -4237,7 +4238,7 @@
     },
     {
      "kind": "button",
-     "line": 625,
+     "line": 628,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive') && step2Done && isAdmin",
      "text": "Cancelar ajuste / Ajustar fechas (admin)",
@@ -4245,14 +4246,14 @@
     },
     {
      "kind": "label",
-     "line": 648,
+     "line": 651,
      "in": "LicitacionDetailPage",
      "when": "step2Done && isAdmin && editingTimeline && each (Object.keys(editedDates) as Array<keyof Timeline…",
      "text": "{key.replace(/_/g, ' ')}"
     },
     {
      "kind": "field",
-     "line": 651,
+     "line": 654,
      "in": "LicitacionDetailPage",
      "when": "step2Done && isAdmin && editingTimeline && each (Object.keys(editedDates) as Array<keyof Timeline…",
      "text": "{key.replace(/_/g, ' ')}",
@@ -4261,7 +4262,7 @@
     },
     {
      "kind": "button",
-     "line": 659,
+     "line": 662,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'archive') && step2Done && isAdmin && editingTimeline",
      "text": "Guardando... / Guardar fechas ajustadas",
@@ -4270,14 +4271,14 @@
     },
     {
      "kind": "label",
-     "line": 678,
+     "line": 681,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive') && !(step2Done) && step2Active",
      "text": "Fecha de publicacion *"
     },
     {
      "kind": "field",
-     "line": 682,
+     "line": 685,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive') && !(step2Done) && step2Active",
      "text": "Fecha de publicacion *",
@@ -4286,21 +4287,21 @@
     },
     {
      "kind": "text",
-     "line": 689,
+     "line": 692,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'archive') && !(step2Done) && step2Active && timelineLoading",
      "text": "Calculando cronograma..."
     },
     {
      "kind": "text",
-     "line": 699,
+     "line": 702,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'archive') && !(step2Done) && step2Active && displayTimeline.fecha_limite_solicitud_bases",
      "text": "Cronograma calculado (dias habiles, sin feriados chilenos)"
     },
     {
      "kind": "piece",
-     "line": 702,
+     "line": 705,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'archive') && !(step2Done) && step2Active && displayTimeline.fecha_limite_solicitud_bases",
      "text": "label: Limite solicitud de bases (+5 dias habiles)",
@@ -4308,7 +4309,7 @@
     },
     {
      "kind": "piece",
-     "line": 703,
+     "line": 706,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'archive') && !(step2Done) && step2Active && displayTimeline.fecha_limite_solicitud_bases",
      "text": "label: Limite consultas (+3 dias habiles)",
@@ -4316,7 +4317,7 @@
     },
     {
      "kind": "piece",
-     "line": 704,
+     "line": 707,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'archive') && !(step2Done) && step2Active && displayTimeline.fecha_limite_solicitud_bases",
      "text": "label: Inicio recepcion propuestas (+1 dia habil)",
@@ -4324,7 +4325,7 @@
     },
     {
      "kind": "piece",
-     "line": 705,
+     "line": 708,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'archive') && !(step2Done) && step2Active && displayTimeline.fecha_limite_solicitud_bases",
      "text": "label: Limite propuestas (+5 dias habiles)",
@@ -4332,7 +4333,7 @@
     },
     {
      "kind": "piece",
-     "line": 706,
+     "line": 709,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'archive') && !(step2Done) && step2Active && displayTimeline.fecha_limite_solicitud_bases",
      "text": "label: Limite evaluacion (+3 dias habiles)",
@@ -4340,14 +4341,14 @@
     },
     {
      "kind": "label",
-     "line": 714,
+     "line": 717,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'archive') && !(step2Done) && step2Active && canConfirmPublicacion",
      "text": "Imagen de publicacion (opcional)"
     },
     {
      "kind": "field",
-     "line": 718,
+     "line": 721,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'archive') && !(step2Done) && step2Active && canConfirmPublicacion",
      "text": "Imagen de publicacion (opcional)",
@@ -4357,7 +4358,7 @@
     },
     {
      "kind": "button",
-     "line": 725,
+     "line": 728,
      "in": "LicitacionDetailPage",
      "when": "!(step2Done) && step2Active && canConfirmPublicacion && imageFile",
      "text": "Subiendo... / Subir",
@@ -4366,14 +4367,14 @@
     },
     {
      "kind": "text",
-     "line": 737,
+     "line": 740,
      "in": "LicitacionDetailPage",
      "when": "!(step2Done) && step2Active && canConfirmPublicacion && uploadedImageUrl",
      "text": "Imagen subida"
     },
     {
      "kind": "button",
-     "line": 747,
+     "line": 750,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'archive') && !(step2Done) && step2Active && canConfirmPublicacion",
      "text": "Confirmando... / Confirmar Publicacion",
@@ -4382,28 +4383,28 @@
     },
     {
      "kind": "confirm",
-     "line": 749,
+     "line": 752,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'archive') && !(step2Done) && step2Active && canConfirmPublicacion",
      "text": "Esta acción no se puede deshacer. ¿Confirmar la publicación?"
     },
     {
      "kind": "text",
-     "line": 759,
+     "line": 762,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'archive') && !(step2Done) && step2Active && canConfirmPublicacion",
      "text": "Al confirmar, el estado cambiara a &ldquo;Recepcion de Bases&rdquo; y el cronograma quedara registrado."
     },
     {
      "kind": "text",
-     "line": 767,
+     "line": 770,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive') && !(step2Done) && !(step2Active)",
      "text": "Este paso estara disponible cuando la licitacion avance al estado &ldquo;Publicacion Pendiente&rdquo;."
     },
     {
      "kind": "heading",
-     "line": 781,
+     "line": 784,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive')",
      "text": "Bases [(Completado)] [(Disponible cuando la publicacion este confirmada)]",
@@ -4411,7 +4412,7 @@
     },
     {
      "kind": "piece",
-     "line": 792,
+     "line": 795,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive') && !isStep3Locked",
      "text": "",
@@ -4419,7 +4420,7 @@
     },
     {
      "kind": "heading",
-     "line": 812,
+     "line": 815,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive')",
      "text": "Propuestas [(Completado)] [(Disponible en Paso 3)]",
@@ -4427,7 +4428,7 @@
     },
     {
      "kind": "piece",
-     "line": 823,
+     "line": 826,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive') && !isStep4Locked",
      "text": "",
@@ -4435,7 +4436,7 @@
     },
     {
      "kind": "heading",
-     "line": 843,
+     "line": 846,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive')",
      "text": "Evaluacion [(Completado)] [(Disponible en Paso 4)]",
@@ -4443,14 +4444,14 @@
     },
     {
      "kind": "text",
-     "line": 857,
+     "line": 860,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive') && !isStep5Locked && isStep5Active",
      "text": "Complete la evaluacion de propuestas de cada ATE usando la pagina de evaluacion."
     },
     {
      "kind": "button",
-     "line": 859,
+     "line": 862,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive') && !isStep5Locked && isStep5Active",
      "text": "Ir a Evaluacion de Propuestas →",
@@ -4458,7 +4459,7 @@
     },
     {
      "kind": "nav",
-     "line": 860,
+     "line": 863,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive') && !isStep5Locked && isStep5Active",
      "text": "/licitaciones/[*]/evaluacion",
@@ -4466,14 +4467,14 @@
     },
     {
      "kind": "text",
-     "line": 868,
+     "line": 871,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive') && !isStep5Locked && !(isStep5Active)",
      "text": "La evaluacion fue completada. El Acta de Reunion fue firmada y subida."
     },
     {
      "kind": "button",
-     "line": 869,
+     "line": 872,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive') && !isStep5Locked && !(isStep5Active)",
      "text": "Ver resumen de evaluacion",
@@ -4481,7 +4482,7 @@
     },
     {
      "kind": "nav",
-     "line": 870,
+     "line": 873,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive') && !isStep5Locked && !(isStep5Active)",
      "text": "/licitaciones/[*]/evaluacion",
@@ -4489,7 +4490,7 @@
     },
     {
      "kind": "heading",
-     "line": 891,
+     "line": 894,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive')",
      "text": "Adjudicacion [(Completado)] [(Disponible en Paso 5)]",
@@ -4497,7 +4498,7 @@
     },
     {
      "kind": "piece",
-     "line": 902,
+     "line": 905,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive') && !isStep6Locked",
      "text": "",
@@ -4505,7 +4506,7 @@
     },
     {
      "kind": "heading",
-     "line": 921,
+     "line": 924,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive')",
      "text": "Contrato [(Completado)] [(Disponible en Paso 6)]",
@@ -4513,7 +4514,7 @@
     },
     {
      "kind": "piece",
-     "line": 932,
+     "line": 935,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive') && !isStep7Locked",
      "text": "",
@@ -4521,7 +4522,7 @@
     },
     {
      "kind": "piece",
-     "line": 945,
+     "line": 948,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive') && isAdmin",
      "text": "",
@@ -4529,7 +4530,7 @@
     },
     {
      "kind": "piece",
-     "line": 953,
+     "line": 956,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive') && activeStep >= 2",
      "text": "",
@@ -4537,7 +4538,7 @@
     },
     {
      "kind": "string",
-     "line": 313,
+     "line": 314,
      "in": "LicitacionDetailPage",
      "text": "Imagen publicacion - {licitacion?.numero_licitaci…}"
     },
@@ -4579,7 +4580,7 @@
       "GET"
      ],
      "from": [
-      "pages/licitaciones/[id].tsx:214"
+      "pages/licitaciones/[id].tsx:215"
      ]
     },
     {
@@ -4591,9 +4592,9 @@
       "PATCH"
      ],
      "from": [
-      "pages/licitaciones/[id].tsx:246",
-      "pages/licitaciones/[id].tsx:376",
-      "pages/licitaciones/[id].tsx:402"
+      "pages/licitaciones/[id].tsx:247",
+      "pages/licitaciones/[id].tsx:377",
+      "pages/licitaciones/[id].tsx:403"
      ]
     },
     {
@@ -4714,7 +4715,7 @@
       "GET"
      ],
      "from": [
-      "pages/licitaciones/[id].tsx:179"
+      "pages/licitaciones/[id].tsx:180"
      ]
     },
     {
@@ -4745,7 +4746,7 @@
       "POST"
      ],
      "from": [
-      "components/licitaciones/ProposalConfigPanel.tsx:722"
+      "components/licitaciones/ProposalConfigPanel.tsx:724"
      ]
     },
     {
@@ -4756,9 +4757,9 @@
       "POST"
      ],
      "from": [
-      "components/licitaciones/ProposalConfigPanel.tsx:254",
-      "components/licitaciones/ProposalConfigPanel.tsx:611",
-      "components/licitaciones/ProposalConfigPanel.tsx:751"
+      "components/licitaciones/ProposalConfigPanel.tsx:256",
+      "components/licitaciones/ProposalConfigPanel.tsx:613",
+      "components/licitaciones/ProposalConfigPanel.tsx:757"
      ]
     },
     {
@@ -4768,7 +4769,7 @@
       "POST"
      ],
      "from": [
-      "pages/licitaciones/[id].tsx:349"
+      "pages/licitaciones/[id].tsx:350"
      ]
     },
     {
@@ -4778,7 +4779,7 @@
       "GET"
      ],
      "from": [
-      "pages/licitaciones/[id].tsx:290"
+      "pages/licitaciones/[id].tsx:291"
      ]
     },
     {
@@ -4791,7 +4792,7 @@
       "components/licitaciones/ArchiveView.tsx:111",
       "components/licitaciones/Step6Adjudicacion.tsx:219",
       "components/licitaciones/Step7Contrato.tsx:69",
-      "pages/licitaciones/[id].tsx:315"
+      "pages/licitaciones/[id].tsx:316"
      ]
     },
     {
@@ -4801,7 +4802,7 @@
       "POST"
      ],
      "from": [
-      "pages/licitaciones/[id].tsx:164"
+      "pages/licitaciones/[id].tsx:165"
      ]
     },
     {
@@ -4811,7 +4812,7 @@
       "GET"
      ],
      "from": [
-      "components/licitaciones/ProposalConfigPanel.tsx:253"
+      "components/licitaciones/ProposalConfigPanel.tsx:255"
      ]
     },
     {
@@ -4821,7 +4822,7 @@
       "GET"
      ],
      "from": [
-      "components/licitaciones/ProposalConfigPanel.tsx:251"
+      "components/licitaciones/ProposalConfigPanel.tsx:253"
      ]
     },
     {
@@ -4831,7 +4832,7 @@
       "GET"
      ],
      "from": [
-      "components/licitaciones/ProposalConfigPanel.tsx:252"
+      "components/licitaciones/ProposalConfigPanel.tsx:254"
      ]
     },
     {
@@ -4841,7 +4842,7 @@
       "GET"
      ],
      "from": [
-      "components/licitaciones/ProposalConfigPanel.tsx:250"
+      "components/licitaciones/ProposalConfigPanel.tsx:252"
      ]
     },
     {
@@ -4851,7 +4852,7 @@
       "GET"
      ],
      "from": [
-      "components/licitaciones/ProposalConfigPanel.tsx:249"
+      "components/licitaciones/ProposalConfigPanel.tsx:251"
      ]
     }
    ]
@@ -4923,8 +4924,8 @@
      }
     ],
     "linkedFrom": [
-     "pages/licitaciones/[id].tsx:860",
-     "pages/licitaciones/[id].tsx:870"
+     "pages/licitaciones/[id].tsx:863",
+     "pages/licitaciones/[id].tsx:873"
     ],
     "qaScenarios": {},
     "tests": {
@@ -6285,35 +6286,35 @@
     "linkedFrom": [
      "components/layout/Sidebar.tsx:599",
      "lib/auth/forced-password-change.ts:150",
-     "lib/notificationEvents.ts:627",
-     "lib/notificationEvents.ts:639",
-     "lib/notificationEvents.ts:651",
-     "lib/notificationEvents.ts:663",
-     "lib/notificationEvents.ts:675",
-     "lib/notificationEvents.ts:687",
-     "lib/notificationEvents.ts:699",
-     "lib/notificationEvents.ts:711",
-     "lib/notificationEvents.ts:723",
-     "lib/notificationEvents.ts:735",
-     "lib/notificationEvents.ts:747",
-     "lib/notificationEvents.ts:761",
-     "lib/notificationEvents.ts:775",
-     "lib/notificationEvents.ts:787",
-     "lib/notifications/catalog.ts:243",
-     "lib/notifications/catalog.ts:244",
+     "lib/notificationEvents.ts:635",
+     "lib/notificationEvents.ts:647",
+     "lib/notificationEvents.ts:659",
+     "lib/notificationEvents.ts:671",
+     "lib/notificationEvents.ts:683",
+     "lib/notificationEvents.ts:695",
+     "lib/notificationEvents.ts:707",
+     "lib/notificationEvents.ts:719",
+     "lib/notificationEvents.ts:731",
+     "lib/notificationEvents.ts:743",
+     "lib/notificationEvents.ts:755",
+     "lib/notificationEvents.ts:769",
+     "lib/notificationEvents.ts:783",
+     "lib/notificationEvents.ts:795",
+     "lib/notifications/catalog.ts:245",
+     "lib/notifications/catalog.ts:246",
      "middleware.ts:351",
      "pages/admin/licitaciones/feriados.tsx:311",
      "pages/admin/licitaciones/templates.tsx:428",
-     "pages/licitaciones/[id].tsx:252",
-     "pages/licitaciones/[id].tsx:266",
-     "pages/licitaciones/[id].tsx:409",
-     "pages/licitaciones/[id].tsx:499",
+     "pages/licitaciones/[id].tsx:253",
+     "pages/licitaciones/[id].tsx:267",
+     "pages/licitaciones/[id].tsx:410",
+     "pages/licitaciones/[id].tsx:500",
      "pages/licitaciones/importar.tsx:103",
      "pages/licitaciones/importar.tsx:239",
      "pages/licitaciones/importar.tsx:342",
-     "pages/licitaciones/nueva.tsx:130",
-     "pages/licitaciones/nueva.tsx:310",
-     "pages/licitaciones/nueva.tsx:579",
+     "pages/licitaciones/nueva.tsx:128",
+     "pages/licitaciones/nueva.tsx:308",
+     "pages/licitaciones/nueva.tsx:577",
      "utils/notificationPermissions.ts:36",
      "utils/notificationPermissions.ts:77"
     ],
@@ -6994,7 +6995,7 @@
   {
    "file": "pages/licitaciones/nueva.tsx",
    "route": "/licitaciones/nueva",
-   "lines": 598,
+   "lines": 596,
    "marks": {},
    "frame": "MainLayout",
    "server": "none",
@@ -7045,11 +7046,11 @@
     },
     "inPage": [
      {
-      "line": 120,
+      "line": 118,
       "text": "router.push → /login  (when !user)"
      },
      {
-      "line": 141,
+      "line": 139,
       "text": "router.push → /login"
      }
     ],
@@ -7072,21 +7073,21 @@
    "rows": [
     {
      "kind": "label",
-     "line": 63,
+     "line": 61,
      "in": "Field",
      "text": "{label} [*]",
      "for": "{`field-${name}`}"
     },
     {
      "kind": "value",
-     "line": 68,
+     "line": 66,
      "in": "Field",
      "when": "errors[name]",
      "text": "{errors[name]}"
     },
     {
      "kind": "list",
-     "line": 73,
+     "line": 71,
      "text": "SIN_CLIENTE",
      "items": [
       "Esta escuela no tiene un cliente vinculado. Vincule un cliente antes de crear la licitación."
@@ -7094,7 +7095,7 @@
     },
     {
      "kind": "list",
-     "line": 77,
+     "line": 75,
      "text": "DEFAULT_FORM",
      "items": [
       "UF"
@@ -7102,7 +7103,7 @@
     },
     {
      "kind": "nav",
-     "line": 120,
+     "line": 118,
      "in": "checkAuth",
      "when": "!user",
      "text": "/login",
@@ -7110,7 +7111,7 @@
     },
     {
      "kind": "toast",
-     "line": 129,
+     "line": 127,
      "in": "checkAuth",
      "when": "!roles.includes('admin')",
      "text": "Solo administradores pueden crear licitaciones",
@@ -7118,7 +7119,7 @@
     },
     {
      "kind": "nav",
-     "line": 130,
+     "line": 128,
      "in": "checkAuth",
      "when": "!roles.includes('admin')",
      "text": "/licitaciones",
@@ -7126,14 +7127,14 @@
     },
     {
      "kind": "nav",
-     "line": 141,
+     "line": 139,
      "in": "checkAuth",
      "text": "/login",
      "via": "router.push"
     },
     {
      "kind": "toast",
-     "line": 183,
+     "line": 181,
      "in": "handleSchoolChange",
      "when": "error || !data",
      "text": "No se pudo cargar el cliente vinculado",
@@ -7141,7 +7142,7 @@
     },
     {
      "kind": "toast",
-     "line": 265,
+     "line": 263,
      "in": "handleSubmit",
      "when": "!res.ok",
      "text": "Error al crear licitacion",
@@ -7149,28 +7150,28 @@
     },
     {
      "kind": "toast",
-     "line": 269,
+     "line": 267,
      "in": "handleSubmit",
      "text": "Licitacion creada exitosamente",
      "variant": "success"
     },
     {
      "kind": "nav",
-     "line": 270,
+     "line": 268,
      "in": "handleSubmit",
      "text": "/licitaciones/[*]",
      "via": "router.push"
     },
     {
      "kind": "toast",
-     "line": 272,
+     "line": 270,
      "in": "handleSubmit",
      "text": "Error inesperado al crear licitacion",
      "variant": "error"
     },
     {
      "kind": "piece",
-     "line": 282,
+     "line": 280,
      "in": "NuevaLicitacionPage",
      "when": "authLoading",
      "text": "pageTitle: Nueva Licitacion",
@@ -7178,61 +7179,61 @@
     },
     {
      "kind": "piece",
-     "line": 300,
+     "line": 298,
      "in": "NuevaLicitacionPage",
      "text": "pageTitle: Nueva Licitacion",
      "tag": "MainLayout"
     },
     {
      "kind": "button",
-     "line": 309,
+     "line": 307,
      "in": "NuevaLicitacionPage",
      "text": "Volver a Licitaciones",
      "action": "{() => router.push('/licitaciones')}"
     },
     {
      "kind": "nav",
-     "line": 310,
+     "line": 308,
      "in": "NuevaLicitacionPage",
      "text": "/licitaciones",
      "via": "router.push"
     },
     {
      "kind": "heading",
-     "line": 317,
+     "line": 315,
      "in": "NuevaLicitacionPage",
      "text": "Nueva Licitacion",
      "level": 1
     },
     {
      "kind": "text",
-     "line": 318,
+     "line": 316,
      "in": "NuevaLicitacionPage",
      "text": "Complete los campos para crear un nuevo proceso de licitacion"
     },
     {
      "kind": "form",
-     "line": 320,
+     "line": 318,
      "in": "NuevaLicitacionPage",
      "text": "{handleSubmit}"
     },
     {
      "kind": "heading",
-     "line": 323,
+     "line": 321,
      "in": "NuevaLicitacionPage",
      "text": "Escuela",
      "level": 2
     },
     {
      "kind": "piece",
-     "line": 328,
+     "line": 326,
      "in": "NuevaLicitacionPage",
      "text": "label: Escuela",
      "tag": "Field"
     },
     {
      "kind": "field",
-     "line": 329,
+     "line": 327,
      "in": "NuevaLicitacionPage",
      "text": "",
      "type": "select",
@@ -7247,14 +7248,14 @@
     },
     {
      "kind": "piece",
-     "line": 344,
+     "line": 342,
      "in": "NuevaLicitacionPage",
      "text": "label: Ano de Licitacion",
      "tag": "Field"
     },
     {
      "kind": "field",
-     "line": 345,
+     "line": 343,
      "in": "NuevaLicitacionPage",
      "text": "",
      "type": "select",
@@ -7268,63 +7269,63 @@
     },
     {
      "kind": "text",
-     "line": 361,
+     "line": 359,
      "in": "NuevaLicitacionPage",
      "when": "loadingCliente",
      "text": "Cargando informacion del cliente..."
     },
     {
      "kind": "text",
-     "line": 368,
+     "line": 366,
      "in": "NuevaLicitacionPage",
      "when": "selectedCliente && !loadingCliente",
      "text": "Cliente vinculado"
     },
     {
      "kind": "text",
-     "line": 372,
+     "line": 370,
      "in": "NuevaLicitacionPage",
      "when": "selectedCliente && !loadingCliente",
      "text": "Nombre legal:"
     },
     {
      "kind": "text",
-     "line": 375,
+     "line": 373,
      "in": "NuevaLicitacionPage",
      "when": "selectedCliente && !loadingCliente",
      "text": "RUT:"
     },
     {
      "kind": "text",
-     "line": 378,
+     "line": 376,
      "in": "NuevaLicitacionPage",
      "when": "selectedCliente && !loadingCliente",
      "text": "Representante:"
     },
     {
      "kind": "text",
-     "line": 381,
+     "line": 379,
      "in": "NuevaLicitacionPage",
      "when": "selectedCliente && !loadingCliente",
      "text": "Comuna:"
     },
     {
      "kind": "heading",
-     "line": 390,
+     "line": 388,
      "in": "NuevaLicitacionPage",
      "text": "Programa",
      "level": 2
     },
     {
      "kind": "piece",
-     "line": 391,
+     "line": 389,
      "in": "NuevaLicitacionPage",
      "text": "label: Programa FNE",
      "tag": "Field"
     },
     {
      "kind": "field",
-     "line": 392,
+     "line": 390,
      "in": "NuevaLicitacionPage",
      "text": "",
      "type": "select",
@@ -7339,21 +7340,21 @@
     },
     {
      "kind": "heading",
-     "line": 408,
+     "line": 406,
      "in": "NuevaLicitacionPage",
      "text": "Datos de la Licitacion",
      "level": 2
     },
     {
      "kind": "piece",
-     "line": 410,
+     "line": 408,
      "in": "NuevaLicitacionPage",
      "text": "label: Nombre de la Licitacion",
      "tag": "Field"
     },
     {
      "kind": "field",
-     "line": 411,
+     "line": 409,
      "in": "NuevaLicitacionPage",
      "text": "Ej: Asesoria integral para transformacion educativa 2026",
      "type": "text",
@@ -7366,14 +7367,14 @@
     },
     {
      "kind": "piece",
-     "line": 422,
+     "line": 420,
      "in": "NuevaLicitacionPage",
      "text": "label: Correo electronico de contacto para la licitacion",
      "tag": "Field"
     },
     {
      "kind": "field",
-     "line": 423,
+     "line": 421,
      "in": "NuevaLicitacionPage",
      "text": "licitaciones@escuela.cl",
      "type": "email",
@@ -7385,14 +7386,14 @@
     },
     {
      "kind": "piece",
-     "line": 434,
+     "line": 432,
      "in": "NuevaLicitacionPage",
      "text": "label: Moneda",
      "tag": "Field"
     },
     {
      "kind": "field",
-     "line": 435,
+     "line": 433,
      "in": "NuevaLicitacionPage",
      "text": "",
      "type": "select",
@@ -7407,14 +7408,14 @@
     },
     {
      "kind": "piece",
-     "line": 446,
+     "line": 444,
      "in": "NuevaLicitacionPage",
      "text": "label: Monto minimo ({form.tipo_moneda})",
      "tag": "Field"
     },
     {
      "kind": "field",
-     "line": 447,
+     "line": 445,
      "in": "NuevaLicitacionPage",
      "text": "0",
      "type": "number",
@@ -7427,14 +7428,14 @@
     },
     {
      "kind": "piece",
-     "line": 459,
+     "line": 457,
      "in": "NuevaLicitacionPage",
      "text": "label: Monto maximo ({form.tipo_moneda})",
      "tag": "Field"
     },
     {
      "kind": "field",
-     "line": 460,
+     "line": 458,
      "in": "NuevaLicitacionPage",
      "text": "0",
      "type": "number",
@@ -7447,14 +7448,14 @@
     },
     {
      "kind": "piece",
-     "line": 474,
+     "line": 472,
      "in": "NuevaLicitacionPage",
      "text": "label: Duracion minima del servicio",
      "tag": "Field"
     },
     {
      "kind": "field",
-     "line": 475,
+     "line": 473,
      "in": "NuevaLicitacionPage",
      "text": "Ej: 6 meses",
      "type": "text",
@@ -7466,14 +7467,14 @@
     },
     {
      "kind": "piece",
-     "line": 485,
+     "line": 483,
      "in": "NuevaLicitacionPage",
      "text": "label: Duracion maxima del servicio",
      "tag": "Field"
     },
     {
      "kind": "field",
-     "line": 486,
+     "line": 484,
      "in": "NuevaLicitacionPage",
      "text": "Ej: 12 meses",
      "type": "text",
@@ -7485,14 +7486,14 @@
     },
     {
      "kind": "label",
-     "line": 499,
+     "line": 497,
      "in": "NuevaLicitacionPage",
      "text": "Peso Evaluacion Tecnica *",
      "for": "field-peso_evaluacion_tecnica"
     },
     {
      "kind": "field",
-     "line": 504,
+     "line": 502,
      "in": "NuevaLicitacionPage",
      "text": "Peso Evaluacion Tecnica *",
      "type": "range",
@@ -7505,40 +7506,40 @@
     },
     {
      "kind": "text",
-     "line": 515,
+     "line": 513,
      "in": "NuevaLicitacionPage",
      "text": "Tecnica: {pesoTecnico} %"
     },
     {
      "kind": "text",
-     "line": 516,
+     "line": 514,
      "in": "NuevaLicitacionPage",
      "text": "Economica: {pesoEconomico} %"
     },
     {
      "kind": "value",
-     "line": 520,
+     "line": 518,
      "in": "NuevaLicitacionPage",
      "when": "errors.peso_evaluacion_tecnica",
      "text": "{errors.peso_evaluacion_tecnica}"
     },
     {
      "kind": "heading",
-     "line": 528,
+     "line": 526,
      "in": "NuevaLicitacionPage",
      "text": "Campos Opcionales",
      "level": 2
     },
     {
      "kind": "piece",
-     "line": 530,
+     "line": 528,
      "in": "NuevaLicitacionPage",
      "text": "label: Participantes estimados",
      "tag": "Field"
     },
     {
      "kind": "field",
-     "line": 531,
+     "line": 529,
      "in": "NuevaLicitacionPage",
      "text": "Ej: 30",
      "type": "number",
@@ -7551,14 +7552,14 @@
     },
     {
      "kind": "piece",
-     "line": 542,
+     "line": 540,
      "in": "NuevaLicitacionPage",
      "text": "label: Modalidad preferida",
      "tag": "Field"
     },
     {
      "kind": "field",
-     "line": 543,
+     "line": 541,
      "in": "NuevaLicitacionPage",
      "text": "",
      "type": "select",
@@ -7575,14 +7576,14 @@
     },
     {
      "kind": "piece",
-     "line": 557,
+     "line": 555,
      "in": "NuevaLicitacionPage",
      "text": "label: Notas adicionales",
      "tag": "Field"
     },
     {
      "kind": "field",
-     "line": 558,
+     "line": 556,
      "in": "NuevaLicitacionPage",
      "text": "Observaciones o contexto adicional...",
      "type": "textarea",
@@ -7595,28 +7596,28 @@
     },
     {
      "kind": "value",
-     "line": 574,
+     "line": 572,
      "in": "NuevaLicitacionPage",
      "when": "schoolSinCliente",
      "text": "{SIN_CLIENTE}"
     },
     {
      "kind": "button",
-     "line": 577,
+     "line": 575,
      "in": "NuevaLicitacionPage",
      "text": "Cancelar",
      "action": "{() => router.push('/licitaciones')}"
     },
     {
      "kind": "nav",
-     "line": 579,
+     "line": 577,
      "in": "NuevaLicitacionPage",
      "text": "/licitaciones",
      "via": "router.push"
     },
     {
      "kind": "button",
-     "line": 584,
+     "line": 582,
      "in": "NuevaLicitacionPage",
      "text": "Creando... / Crear Licitacion",
      "submit": true,
@@ -7625,19 +7626,19 @@
     },
     {
      "kind": "string",
-     "line": 193,
+     "line": 191,
      "in": "NuevaLicitacionPage",
      "text": "El cliente no tiene toda la informacion legal requerida. Edite el cliente en la seccion de Escuelas."
     },
     {
      "kind": "string",
-     "line": 213,
+     "line": 211,
      "in": "NuevaLicitacionPage",
      "text": "Ingrese el monto minimo"
     },
     {
      "kind": "string",
-     "line": 214,
+     "line": 212,
      "in": "NuevaLicitacionPage",
      "text": "Ingrese el monto maximo"
     }
@@ -7671,7 +7672,7 @@
       "GET"
      ],
      "from": [
-      "pages/licitaciones/nueva.tsx:124"
+      "pages/licitaciones/nueva.tsx:122"
      ]
     },
     {
@@ -7681,7 +7682,7 @@
       "POST"
      ],
      "from": [
-      "pages/licitaciones/nueva.tsx:256"
+      "pages/licitaciones/nueva.tsx:254"
      ]
     }
    ]
@@ -7745,9 +7746,9 @@
      }
     ],
     "linkedFrom": [
-     "components/licitaciones/ProposalConfigPanel.tsx:1678",
-     "components/licitaciones/ProposalConfigPanel.tsx:1698",
-     "components/licitaciones/ProposalConfigPanel.tsx:1699",
+     "components/licitaciones/ProposalConfigPanel.tsx:1691",
+     "components/licitaciones/ProposalConfigPanel.tsx:1711",
+     "components/licitaciones/ProposalConfigPanel.tsx:1712",
      "lib/look.ts:113"
     ],
     "qaScenarios": {},
@@ -8893,11 +8894,11 @@
    "usedBy": [
     "/licitaciones/[id]"
    ],
-   "lines": 1938,
+   "lines": 1951,
    "rows": [
     {
      "kind": "list",
-     "line": 73,
+     "line": 75,
      "text": "TIPO_LABELS",
      "items": [
       "Cert. Pertenencia",
@@ -8909,7 +8910,7 @@
     },
     {
      "kind": "list",
-     "line": 89,
+     "line": 91,
      "text": "MESES",
      "items": [
       "Enero",
@@ -8928,7 +8929,7 @@
     },
     {
      "kind": "list",
-     "line": 122,
+     "line": 124,
      "text": "WEB_STATUS_LABELS",
      "items": [
       "Borrador",
@@ -8939,14 +8940,14 @@
     },
     {
      "kind": "button",
-     "line": 151,
+     "line": 153,
      "in": "SectionHeader",
      "text": "{title}",
      "action": "{onToggle}"
     },
     {
      "kind": "toast",
-     "line": 261,
+     "line": 263,
      "in": "getJson",
      "when": "result.status === 'rejected'",
      "text": "Error de red al cargar {label}",
@@ -8954,54 +8955,54 @@
     },
     {
      "kind": "toast",
-     "line": 268,
+     "line": 270,
      "in": "getJson",
      "text": "Respuesta inválida al cargar {label}",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 291,
+     "line": 293,
      "in": "ProposalConfigPanel",
      "text": "Error inesperado al cargar datos de configuración",
      "variant": "error"
     },
     {
      "kind": "gate",
-     "line": 332,
+     "line": 334,
      "in": "ProposalConfigPanel",
      "text": "!selectedPlantilla || !selectedFicha"
     },
     {
      "kind": "gate",
-     "line": 461,
+     "line": 463,
      "in": "ProposalConfigPanel",
      "text": "!selectedFicha"
     },
     {
      "kind": "toast",
-     "line": 578,
+     "line": 580,
      "in": "loadFromPlantilla",
      "text": "Configuración cargada desde plantilla",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 598,
+     "line": 600,
      "in": "copyToClipboard",
      "text": "{label} copiado al portapapeles",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 600,
+     "line": 602,
      "in": "copyToClipboard",
      "text": "Error al copiar",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 618,
+     "line": 620,
      "in": "retireLink",
      "when": "!res.ok",
      "text": "Error al retirar el enlace",
@@ -9009,21 +9010,21 @@
     },
     {
      "kind": "toast",
-     "line": 625,
+     "line": 627,
      "in": "retireLink",
      "text": "Enlace retirado",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 627,
+     "line": 629,
      "in": "retireLink",
      "text": "Sin conexión al servidor. Verifique su red e intente nuevamente.",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 639,
+     "line": 641,
      "in": "handleGenerate",
      "when": "!plantillaId || !fichaId",
      "text": "Seleccione una plantilla y ficha antes de generar",
@@ -9031,7 +9032,7 @@
     },
     {
      "kind": "toast",
-     "line": 643,
+     "line": 645,
      "in": "handleGenerate",
      "when": "!selectedFicha",
      "text": "Ficha de servicio no encontrada",
@@ -9039,7 +9040,7 @@
     },
     {
      "kind": "toast",
-     "line": 647,
+     "line": 649,
      "in": "handleGenerate",
      "when": "validationResult && !validationResult.valid",
      "text": "Hay {validationResult.errors.len…} error(es) de validación MINEDUC. Corrija antes de generar.",
@@ -9047,7 +9048,7 @@
     },
     {
      "kind": "toast",
-     "line": 657,
+     "line": 659,
      "in": "handleGenerate",
      "when": "expiredSelected.length > 0",
      "text": "Hay {expiredSelected.length} certificado(s) vencido(s) seleccionado(s). Actualícelos antes de generar.",
@@ -9055,7 +9056,7 @@
     },
     {
      "kind": "list",
-     "line": 671,
+     "line": 673,
      "in": "handleGenerate",
      "text": "payload",
      "items": [
@@ -9064,14 +9065,14 @@
     },
     {
      "kind": "toast",
-     "line": 728,
+     "line": 730,
      "in": "handleGenerate",
      "text": "Sin conexión al servidor. Verifique su red e intente nuevamente.",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 735,
+     "line": 737,
      "in": "handleGenerate",
      "when": "!res.ok",
      "text": "Error al generar propuesta",
@@ -9079,49 +9080,57 @@
     },
     {
      "kind": "toast",
-     "line": 739,
+     "line": 741,
      "in": "handleGenerate",
      "text": "Propuesta generada exitosamente",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 759,
+     "line": 744,
+     "in": "handleGenerate",
+     "when": "json.data?.enlaces_anteriores_retirados === null",
+     "text": "No se pudieron retirar los enlaces anteriores: retírelos con «Retirar enlace».",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 765,
      "in": "handleGenerate",
      "text": "Error inesperado al generar propuesta",
      "variant": "error"
     },
     {
      "kind": "button",
-     "line": 772,
+     "line": 778,
      "in": "ProposalConfigPanel",
      "text": "P Generar Propuesta FNE Solo Admin",
      "action": "{() => setPanelOpen(o => !o)}"
     },
     {
      "kind": "heading",
-     "line": 777,
+     "line": 783,
      "in": "ProposalConfigPanel",
      "text": "P Generar Propuesta FNE Solo Admin",
      "level": 2
     },
     {
      "kind": "text",
-     "line": 801,
+     "line": 807,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && selectedFicha && validationResult",
      "text": "Validación MINEDUC"
     },
     {
      "kind": "text",
-     "line": 803,
+     "line": 809,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && selectedFicha && validationResult",
      "text": "Ficha: Folio {selectedFicha.folio} — {selectedFicha.nombre_servicio}"
     },
     {
      "kind": "piece",
-     "line": 810,
+     "line": 816,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && selectedFicha && validationResult",
      "text": "label: Nombre del Servicio · detail: coincide con la Ficha",
@@ -9129,7 +9138,7 @@
     },
     {
      "kind": "piece",
-     "line": 819,
+     "line": 825,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && selectedFicha && validationResult",
      "text": "label: Horas presenciales + sincrónicas · detail: {subtotalHoras}/{selectedFicha.horas_presenc…} registradas",
@@ -9137,7 +9146,7 @@
     },
     {
      "kind": "piece",
-     "line": 830,
+     "line": 836,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && selectedFicha && validationResult",
      "text": "label: Destinatarios",
@@ -9145,7 +9154,7 @@
     },
     {
      "kind": "piece",
-     "line": 839,
+     "line": 845,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && selectedFicha && validationResult",
      "text": "label: Consultores en Ficha · detail: {selectedConsultores.length} seleccionado(s)",
@@ -9153,7 +9162,7 @@
     },
     {
      "kind": "button",
-     "line": 850,
+     "line": 856,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && selectedFicha && validationResult && validationResult.warnings.some(w => w.rule === 6)",
      "text": "Objetivo General: revisar coherencia",
@@ -9161,28 +9170,28 @@
     },
     {
      "kind": "text",
-     "line": 865,
+     "line": 871,
      "in": "ProposalConfigPanel",
      "when": "!(!dataLoaded) && selectedFicha && validationResult && validationResult.warnings.some(w => w.rule === 6) && objetivoExpanded",
      "text": "Ficha MINEDUC:"
     },
     {
      "kind": "value",
-     "line": 866,
+     "line": 872,
      "in": "ProposalConfigPanel",
      "when": "!(!dataLoaded) && selectedFicha && validationResult && validationResult.warnings.some(w => w.rule === 6) && objetivoExpanded",
      "text": "{validationResult.warnings.find(w =>…}"
     },
     {
      "kind": "text",
-     "line": 871,
+     "line": 877,
      "in": "ProposalConfigPanel",
      "when": "!(!dataLoaded) && selectedFicha && validationResult && validationResult.warnings.some(w => w.rule === 6) && objetivoExpanded",
      "text": "Propuesta:"
     },
     {
      "kind": "field",
-     "line": 872,
+     "line": 878,
      "in": "ProposalConfigPanel",
      "when": "!(!dataLoaded) && selectedFicha && validationResult && validationResult.warnings.some(w => w.rule === 6) && objetivoExpanded",
      "text": "Objetivo de la propuesta...",
@@ -9193,7 +9202,7 @@
     },
     {
      "kind": "piece",
-     "line": 886,
+     "line": 892,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && selectedFicha && validationResult && validationResult.errors.some(e => e.rule === 7)",
      "text": "label: Suma de módulos",
@@ -9201,42 +9210,42 @@
     },
     {
      "kind": "text",
-     "line": 905,
+     "line": 911,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && selectedFicha && validationResult && validationResult.valid",
      "text": "Puede generar"
     },
     {
      "kind": "text",
-     "line": 910,
+     "line": 916,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && selectedFicha && validationResult && !(validationResult.valid)",
      "text": "No puede generar ("
     },
     {
      "kind": "text",
-     "line": 910,
+     "line": 916,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && selectedFicha && validationResult && !(validationResult.valid)",
      "text": "error"
     },
     {
      "kind": "text",
-     "line": 911,
+     "line": 917,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && selectedFicha && validationResult && !(validationResult.valid)",
      "text": "es"
     },
     {
      "kind": "label",
-     "line": 921,
+     "line": 927,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded)",
      "text": "Plantilla"
     },
     {
      "kind": "field",
-     "line": 922,
+     "line": 928,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded)",
      "text": "Plantilla",
@@ -9249,14 +9258,14 @@
     },
     {
      "kind": "label",
-     "line": 936,
+     "line": 942,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded)",
      "text": "Ficha de Servicio"
     },
     {
      "kind": "field",
-     "line": 939,
+     "line": 945,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded)",
      "text": "Ficha de Servicio",
@@ -9270,21 +9279,21 @@
     },
     {
      "kind": "text",
-     "line": 954,
+     "line": 960,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && plantillaId",
      "text": "La ficha se determina por la plantilla seleccionada"
     },
     {
      "kind": "text",
-     "line": 958,
+     "line": 964,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && selectedFicha",
      "text": "{selectedFicha.horas_presenciales} h presenciales registradas · {selectedFicha.destinatarios.join(',…}"
     },
     {
      "kind": "piece",
-     "line": 968,
+     "line": 974,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded)",
      "text": "title: Configuración de Horas",
@@ -9292,14 +9301,14 @@
     },
     {
      "kind": "label",
-     "line": 977,
+     "line": 983,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && secHoras",
      "text": "Presencial (hrs)"
     },
     {
      "kind": "field",
-     "line": 980,
+     "line": 986,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && secHoras",
      "text": "Presencial (hrs)",
@@ -9309,14 +9318,14 @@
     },
     {
      "kind": "label",
-     "line": 991,
+     "line": 997,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && secHoras",
      "text": "Online Sincrónica (hrs)"
     },
     {
      "kind": "field",
-     "line": 994,
+     "line": 1000,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && secHoras",
      "text": "Online Sincrónica (hrs)",
@@ -9326,14 +9335,14 @@
     },
     {
      "kind": "label",
-     "line": 1005,
+     "line": 1011,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && secHoras",
      "text": "Online Asincrónica (hrs)"
     },
     {
      "kind": "field",
-     "line": 1008,
+     "line": 1014,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && secHoras",
      "text": "Online Asincrónica (hrs)",
@@ -9343,49 +9352,49 @@
     },
     {
      "kind": "text",
-     "line": 1032,
+     "line": 1038,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && secHoras",
      "text": "Subtotal presencial:"
     },
     {
      "kind": "text",
-     "line": 1032,
+     "line": 1038,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && secHoras",
      "text": "hrs"
     },
     {
      "kind": "text",
-     "line": 1033,
+     "line": 1039,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && secHoras",
      "text": "(de {selectedFicha.horas_presenc…} registradas)"
     },
     {
      "kind": "text",
-     "line": 1036,
+     "line": 1042,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && secHoras",
      "text": "Total:"
     },
     {
      "kind": "text",
-     "line": 1037,
+     "line": 1043,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && secHoras",
      "text": "{totalHoras} hrs"
     },
     {
      "kind": "text",
-     "line": 1038,
+     "line": 1044,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && secHoras",
      "text": "asíncronas)"
     },
     {
      "kind": "piece",
-     "line": 1047,
+     "line": 1053,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded)",
      "text": "title: Distribución de Actividades",
@@ -9393,7 +9402,7 @@
     },
     {
      "kind": "piece",
-     "line": 1053,
+     "line": 1059,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && secBuckets",
      "text": "",
@@ -9401,40 +9410,40 @@
     },
     {
      "kind": "piece",
-     "line": 1062,
+     "line": 1069,
      "in": "ProposalConfigPanel",
-     "when": "panelOpen && !(!dataLoaded)",
+     "when": "panelOpen && !(!dataLoaded) && PLATAFORMA_DISPONIBLE",
      "text": "title: Plataforma de Crecimiento",
      "tag": "SectionHeader"
     },
     {
      "kind": "label",
-     "line": 1069,
+     "line": 1076,
      "in": "ProposalConfigPanel",
-     "when": "panelOpen && !(!dataLoaded) && secPlataforma",
+     "when": "panelOpen && !(!dataLoaded) && PLATAFORMA_DISPONIBLE && secPlataforma",
      "text": "Incluir acceso a Plataforma de Crecimiento"
     },
     {
      "kind": "field",
-     "line": 1070,
+     "line": 1077,
      "in": "ProposalConfigPanel",
-     "when": "panelOpen && !(!dataLoaded) && secPlataforma",
+     "when": "panelOpen && !(!dataLoaded) && PLATAFORMA_DISPONIBLE && secPlataforma",
      "text": "Incluir acceso a Plataforma de Crecimiento",
      "type": "checkbox",
      "action": "{e => setPlataforma(e.target.checked)}"
     },
     {
      "kind": "label",
-     "line": 1082,
+     "line": 1089,
      "in": "ProposalConfigPanel",
-     "when": "panelOpen && !(!dataLoaded) && secPlataforma && plataforma",
+     "when": "!(!dataLoaded) && PLATAFORMA_DISPONIBLE && secPlataforma && plataforma",
      "text": "Beneficios de la plataforma"
     },
     {
      "kind": "field",
-     "line": 1085,
+     "line": 1092,
      "in": "ProposalConfigPanel",
-     "when": "panelOpen && !(!dataLoaded) && secPlataforma && plataforma",
+     "when": "!(!dataLoaded) && PLATAFORMA_DISPONIBLE && secPlataforma && plataforma",
      "text": "Beneficios de la plataforma",
      "type": "textarea",
      "placeholder": "Ej: Contenidos audiovisuales, formación cruzada, gestión del conocimiento interno",
@@ -9443,7 +9452,7 @@
     },
     {
      "kind": "piece",
-     "line": 1100,
+     "line": 1108,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded)",
      "text": "title: Equipo Consultor ({consultoresIds.length} seleccionado{consultoresIds.length !== 1…})",
@@ -9451,14 +9460,14 @@
     },
     {
      "kind": "text",
-     "line": 1109,
+     "line": 1117,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && secConsultores && consultores.length === 0",
      "text": "No hay consultores."
     },
     {
      "kind": "link",
-     "line": 1110,
+     "line": 1118,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && secConsultores && consultores.length === 0",
      "text": "Agregar consultores",
@@ -9467,14 +9476,14 @@
     },
     {
      "kind": "label",
-     "line": 1128,
+     "line": 1136,
      "in": "ProposalConfigPanel",
      "when": "!(!dataLoaded) && secConsultores && !(consultores.length === 0) && each consultores",
      "text": "{c.nombre} [✓ en Ficha] {c.titulo} Comité Intl. / Equipo FNE / Asesor Intl."
     },
     {
      "kind": "field",
-     "line": 1136,
+     "line": 1144,
      "in": "ProposalConfigPanel",
      "when": "!(!dataLoaded) && secConsultores && !(consultores.length === 0) && each consultores",
      "text": "{c.nombre} [✓ en Ficha] {c.titulo} Comité Intl. / Equipo FNE / Asesor Intl.",
@@ -9483,14 +9492,14 @@
     },
     {
      "kind": "text",
-     "line": 1167,
+     "line": 1175,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && secConsultores && selectedFicha?.equipo_trabajo",
      "text": "Ficha registra {selectedFicha.equipo_trabajo.length} miembro(s) en equipo de trabajo. Se requieren al menos 2 coincidencias."
     },
     {
      "kind": "piece",
-     "line": 1178,
+     "line": 1186,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded)",
      "text": "title: Propuesta Económica",
@@ -9498,7 +9507,7 @@
     },
     {
      "kind": "button",
-     "line": 1187,
+     "line": 1195,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && secPrecio",
      "text": "Por hora",
@@ -9506,7 +9515,7 @@
     },
     {
      "kind": "button",
-     "line": 1198,
+     "line": 1206,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && secPrecio",
      "text": "Precio fijo",
@@ -9514,14 +9523,14 @@
     },
     {
      "kind": "label",
-     "line": 1214,
+     "line": 1222,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && secPrecio && precioModelo === 'per_hour'",
      "text": "Valor UF por hora"
     },
     {
      "kind": "field",
-     "line": 1217,
+     "line": 1225,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && secPrecio && precioModelo === 'per_hour'",
      "text": "Valor UF por hora",
@@ -9532,14 +9541,14 @@
     },
     {
      "kind": "label",
-     "line": 1228,
+     "line": 1236,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && secPrecio && precioModelo === 'per_hour'",
      "text": "Total calculado"
     },
     {
      "kind": "hook",
-     "line": 1231,
+     "line": 1239,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && secPrecio && precioModelo === 'per_hour'",
      "text": "testid=proposal-total-uf",
@@ -9548,28 +9557,28 @@
     },
     {
      "kind": "text",
-     "line": 1235,
+     "line": 1243,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && secPrecio && precioModelo === 'per_hour'",
      "text": "UF"
     },
     {
      "kind": "text",
-     "line": 1236,
+     "line": 1244,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && secPrecio && precioModelo === 'per_hour'",
      "text": "( {precioUfNum} × {totalHoras} h)"
     },
     {
      "kind": "label",
-     "line": 1245,
+     "line": 1253,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && secPrecio && !(precioModelo === 'per_hour')",
      "text": "Precio fijo (UF)"
     },
     {
      "kind": "field",
-     "line": 1248,
+     "line": 1256,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && secPrecio && !(precioModelo === 'per_hour')",
      "text": "Precio fijo (UF)",
@@ -9580,14 +9589,14 @@
     },
     {
      "kind": "label",
-     "line": 1259,
+     "line": 1267,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && secPrecio && !(precioModelo === 'per_hour')",
      "text": "Total"
     },
     {
      "kind": "hook",
-     "line": 1262,
+     "line": 1270,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && secPrecio && !(precioModelo === 'per_hour')",
      "text": "testid=proposal-total-uf",
@@ -9596,21 +9605,21 @@
     },
     {
      "kind": "text",
-     "line": 1262,
+     "line": 1270,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && secPrecio && !(precioModelo === 'per_hour')",
      "text": "{totalUf.toFixed(2)} UF"
     },
     {
      "kind": "label",
-     "line": 1274,
+     "line": 1282,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && secPrecio",
      "text": "Forma de pago"
     },
     {
      "kind": "field",
-     "line": 1277,
+     "line": 1285,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && secPrecio",
      "text": "Forma de pago",
@@ -9626,14 +9635,14 @@
     },
     {
      "kind": "label",
-     "line": 1290,
+     "line": 1298,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && secPrecio",
      "text": "Detalle de pago"
     },
     {
      "kind": "field",
-     "line": 1293,
+     "line": 1301,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && secPrecio",
      "text": "Detalle de pago",
@@ -9643,7 +9652,7 @@
     },
     {
      "kind": "piece",
-     "line": 1307,
+     "line": 1315,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded)",
      "text": "title: Módulos / Actividades",
@@ -9651,7 +9660,7 @@
     },
     {
      "kind": "button",
-     "line": 1315,
+     "line": 1323,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && secModulos",
      "text": "Cargar desde plantilla",
@@ -9660,7 +9669,7 @@
     },
     {
      "kind": "button",
-     "line": 1323,
+     "line": 1331,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && secModulos",
      "text": "Agregar módulo",
@@ -9668,14 +9677,14 @@
     },
     {
      "kind": "text",
-     "line": 1335,
+     "line": 1343,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && secModulos && modulos.length === 0",
      "text": "Sin módulos configurados. Use &ldquo;Cargar desde plantilla&rdquo; o agregue manualmente."
     },
     {
      "kind": "button",
-     "line": 1350,
+     "line": 1358,
      "in": "ProposalConfigPanel",
      "when": "!(!dataLoaded) && secModulos && !(modulos.length === 0) && each modulos",
      "text": "[icon ArrowUp]",
@@ -9684,7 +9693,7 @@
     },
     {
      "kind": "button",
-     "line": 1358,
+     "line": 1366,
      "in": "ProposalConfigPanel",
      "when": "!(!dataLoaded) && secModulos && !(modulos.length === 0) && each modulos",
      "text": "[icon ArrowDown]",
@@ -9693,7 +9702,7 @@
     },
     {
      "kind": "field",
-     "line": 1367,
+     "line": 1375,
      "in": "ProposalConfigPanel",
      "when": "!(!dataLoaded) && secModulos && !(modulos.length === 0) && each modulos",
      "text": "{`Módulo ${i + 1}`}",
@@ -9703,14 +9712,14 @@
     },
     {
      "kind": "text",
-     "line": 1373,
+     "line": 1381,
      "in": "ProposalConfigPanel",
      "when": "!(!dataLoaded) && secModulos && !(modulos.length === 0) && each modulos",
      "text": "{mTotal} h"
     },
     {
      "kind": "button",
-     "line": 1376,
+     "line": 1384,
      "in": "ProposalConfigPanel",
      "when": "!(!dataLoaded) && secModulos && !(modulos.length === 0) && each modulos",
      "text": "[icon Trash2]",
@@ -9718,14 +9727,14 @@
     },
     {
      "kind": "label",
-     "line": 1386,
+     "line": 1394,
      "in": "ProposalConfigPanel",
      "when": "!(!dataLoaded) && secModulos && !(modulos.length === 0) && each modulos",
      "text": "Presencial"
     },
     {
      "kind": "field",
-     "line": 1389,
+     "line": 1397,
      "in": "ProposalConfigPanel",
      "when": "!(!dataLoaded) && secModulos && !(modulos.length === 0) && each modulos",
      "text": "Presencial",
@@ -9735,14 +9744,14 @@
     },
     {
      "kind": "label",
-     "line": 1400,
+     "line": 1408,
      "in": "ProposalConfigPanel",
      "when": "!(!dataLoaded) && secModulos && !(modulos.length === 0) && each modulos",
      "text": "Sincrónica"
     },
     {
      "kind": "field",
-     "line": 1403,
+     "line": 1411,
      "in": "ProposalConfigPanel",
      "when": "!(!dataLoaded) && secModulos && !(modulos.length === 0) && each modulos",
      "text": "Sincrónica",
@@ -9752,14 +9761,14 @@
     },
     {
      "kind": "label",
-     "line": 1414,
+     "line": 1422,
      "in": "ProposalConfigPanel",
      "when": "!(!dataLoaded) && secModulos && !(modulos.length === 0) && each modulos",
      "text": "Asincrónica"
     },
     {
      "kind": "field",
-     "line": 1417,
+     "line": 1425,
      "in": "ProposalConfigPanel",
      "when": "!(!dataLoaded) && secModulos && !(modulos.length === 0) && each modulos",
      "text": "Asincrónica",
@@ -9769,14 +9778,14 @@
     },
     {
      "kind": "label",
-     "line": 1428,
+     "line": 1436,
      "in": "ProposalConfigPanel",
      "when": "!(!dataLoaded) && secModulos && !(modulos.length === 0) && each modulos",
      "text": "Mes"
     },
     {
      "kind": "field",
-     "line": 1431,
+     "line": 1439,
      "in": "ProposalConfigPanel",
      "when": "!(!dataLoaded) && secModulos && !(modulos.length === 0) && each modulos",
      "text": "Mes",
@@ -9789,28 +9798,28 @@
     },
     {
      "kind": "text",
-     "line": 1455,
+     "line": 1463,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && secModulos && !(modulos.length === 0)",
      "text": "Suma módulos:"
     },
     {
      "kind": "text",
-     "line": 1456,
+     "line": 1464,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && secModulos && !(modulos.length === 0)",
      "text": "{modulos.reduce( (acc, m) => acc + m…} h"
     },
     {
      "kind": "text",
-     "line": 1480,
+     "line": 1488,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && secModulos && !(modulos.length === 0)",
      "text": "h total"
     },
     {
      "kind": "piece",
-     "line": 1490,
+     "line": 1498,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded)",
      "text": "title: Documentos Adjuntos ({documentosIds.length} seleccionado{documentosIds.length !== 1 …})",
@@ -9818,14 +9827,14 @@
     },
     {
      "kind": "text",
-     "line": 1499,
+     "line": 1507,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && secDocumentos && documentos.length === 0",
      "text": "No hay documentos."
     },
     {
      "kind": "link",
-     "line": 1500,
+     "line": 1508,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && secDocumentos && documentos.length === 0",
      "text": "Subir documentos",
@@ -9834,14 +9843,14 @@
     },
     {
      "kind": "label",
-     "line": 1514,
+     "line": 1522,
      "in": "ProposalConfigPanel",
      "when": "!(!dataLoaded) && secDocumentos && !(documentos.length === 0) && each documentos",
      "text": "{doc.nombre} {TIPO_LABELS[doc.tipo]} [Vencido — bloquea generación] [Vence {formatDate(doc.fecha_vencimiento)}] [Vence: {formatDate(doc.fecha_vencimiento)}]"
     },
     {
      "kind": "field",
-     "line": 1526,
+     "line": 1534,
      "in": "ProposalConfigPanel",
      "when": "!(!dataLoaded) && secDocumentos && !(documentos.length === 0) && each documentos",
      "text": "{doc.nombre} {TIPO_LABELS[doc.tipo]} [Vencido — bloquea generación] [Vence {formatDate(doc.fecha_vencimiento)}] [Vence: {formatDate(doc.fecha_vencimiento)}]",
@@ -9851,14 +9860,14 @@
     },
     {
      "kind": "text",
-     "line": 1571,
+     "line": 1579,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && secDocumentos",
      "text": "Los CVs de los consultores seleccionados se incluyen automáticamente."
     },
     {
      "kind": "link",
-     "line": 1572,
+     "line": 1580,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && secDocumentos",
      "text": "Gestionar biblioteca",
@@ -9866,8 +9875,15 @@
      "newTab": true
     },
     {
+     "kind": "text",
+     "line": 1597,
+     "in": "ProposalConfigPanel",
+     "when": "panelOpen && !(!dataLoaded) && (propuestas.some(p => p.web_status === 'published' || p.web_status === 'viewed'))",
+     "text": "Al generar una nueva versión, los enlaces de las versiones anteriores dejarán de funcionar."
+    },
+    {
      "kind": "button",
-     "line": 1588,
+     "line": 1601,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded)",
      "text": "Generando... / Generar Propuesta Final",
@@ -9876,7 +9892,7 @@
     },
     {
      "kind": "button",
-     "line": 1608,
+     "line": 1621,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded)",
      "text": "Ocultar Vista Previa / Vista Previa",
@@ -9886,35 +9902,35 @@
     },
     {
      "kind": "text",
-     "line": 1618,
+     "line": 1631,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && !plantillaId",
      "text": "Seleccione una plantilla para continuar"
     },
     {
      "kind": "text",
-     "line": 1621,
+     "line": 1634,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && plantillaId && !fichaId",
      "text": "Seleccione una ficha de servicio"
     },
     {
      "kind": "text",
-     "line": 1624,
+     "line": 1637,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && validationResult && !validationResult.valid",
      "text": "{validationResult.errors.length} error es de validación MINEDUC"
     },
     {
      "kind": "text",
-     "line": 1631,
+     "line": 1644,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded)",
      "text": "La generación puede tomar hasta 60 segundos. No cierre la página."
     },
     {
      "kind": "piece",
-     "line": 1636,
+     "line": 1649,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && showPreview && previewSnapshot",
      "text": "",
@@ -9922,7 +9938,7 @@
     },
     {
      "kind": "heading",
-     "line": 1648,
+     "line": 1661,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && lastGenResult",
      "text": "Propuesta Web Generada",
@@ -9930,28 +9946,28 @@
     },
     {
      "kind": "text",
-     "line": 1649,
+     "line": 1662,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && lastGenResult",
      "text": "Comparta el enlace y código de acceso con el cliente"
     },
     {
      "kind": "label",
-     "line": 1655,
+     "line": 1668,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && lastGenResult",
      "text": "Código de Acceso"
     },
     {
      "kind": "value",
-     "line": 1657,
+     "line": 1670,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && lastGenResult",
      "text": "{lastGenResult.access_code}"
     },
     {
      "kind": "button",
-     "line": 1660,
+     "line": 1673,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && lastGenResult",
      "text": "[icon Copy]",
@@ -9960,21 +9976,21 @@
     },
     {
      "kind": "label",
-     "line": 1673,
+     "line": 1686,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && lastGenResult",
      "text": "Enlace Web"
     },
     {
      "kind": "text",
-     "line": 1675,
+     "line": 1688,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && lastGenResult",
      "text": "{window.location.origin}/propuesta/{lastGenResult.web_slug} / /propuesta/{lastGenResult.web_slug}"
     },
     {
      "kind": "button",
-     "line": 1680,
+     "line": 1693,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && lastGenResult",
      "text": "[icon Copy]",
@@ -9983,7 +9999,7 @@
     },
     {
      "kind": "link",
-     "line": 1698,
+     "line": 1711,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && lastGenResult",
      "text": "Ver Propuesta Web",
@@ -9992,7 +10008,7 @@
     },
     {
      "kind": "button",
-     "line": 1707,
+     "line": 1720,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && lastGenResult",
      "text": "Copiar Link + Código",
@@ -10000,7 +10016,7 @@
     },
     {
      "kind": "list",
-     "line": 1711,
+     "line": 1724,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && lastGenResult",
      "text": "text",
@@ -10010,7 +10026,7 @@
     },
     {
      "kind": "piece",
-     "line": 1725,
+     "line": 1738,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded)",
      "text": "title: Historial de Propuestas ({propuestas.length})",
@@ -10018,14 +10034,14 @@
     },
     {
      "kind": "text",
-     "line": 1734,
+     "line": 1747,
      "in": "ProposalConfigPanel",
      "when": "panelOpen && !(!dataLoaded) && secHistorial && propuestas.length === 0",
      "text": "No hay propuestas generadas aún para esta licitación."
     },
     {
      "kind": "hook",
-     "line": 1739,
+     "line": 1752,
      "in": "ProposalConfigPanel",
      "when": "!(!dataLoaded) && secHistorial && !(propuestas.length === 0) && each propuestas",
      "text": "testid=propuesta-row-{p.id}",
@@ -10034,56 +10050,56 @@
     },
     {
      "kind": "text",
-     "line": 1752,
+     "line": 1765,
      "in": "ProposalConfigPanel",
      "when": "!(!dataLoaded) && secHistorial && !(propuestas.length === 0) && each propuestas",
      "text": "v {p.version}"
     },
     {
      "kind": "value",
-     "line": 1755,
+     "line": 1768,
      "in": "ProposalConfigPanel",
      "when": "!(!dataLoaded) && secHistorial && !(propuestas.length === 0) && each propuestas",
      "text": "{formatDateTime(p.created_at)}"
     },
     {
      "kind": "value",
-     "line": 1758,
+     "line": 1771,
      "in": "ProposalConfigPanel",
      "when": "!(!dataLoaded) && secHistorial && !(propuestas.length === 0) && each propuestas",
      "text": "{p.estado}"
     },
     {
      "kind": "value",
-     "line": 1772,
+     "line": 1785,
      "in": "ProposalConfigPanel",
      "when": "secHistorial && !(propuestas.length === 0) && each propuestas && p.web_status",
      "text": "{WEB_STATUS_LABELS[p.web_status]} / {p.web_status}"
     },
     {
      "kind": "text",
-     "line": 1783,
+     "line": 1796,
      "in": "ProposalConfigPanel",
      "when": "secHistorial && !(propuestas.length === 0) && each propuestas && p.view_count != null && p.view_count > 0",
      "text": "vista"
     },
     {
      "kind": "text",
-     "line": 1783,
+     "line": 1796,
      "in": "ProposalConfigPanel",
      "when": "secHistorial && !(propuestas.length === 0) && each propuestas && p.view_count != null && p.view_count > 0",
      "text": "s"
     },
     {
      "kind": "text",
-     "line": 1785,
+     "line": 1798,
      "in": "ProposalConfigPanel",
      "when": "!(propuestas.length === 0) && each propuestas && p.view_count != null && p.view_count > 0 && p.viewed_at",
      "text": "&middot; {formatDateTime(p.viewed_at)}"
     },
     {
      "kind": "button",
-     "line": 1794,
+     "line": 1807,
      "in": "ProposalConfigPanel",
      "when": "secHistorial && !(propuestas.length === 0) && each propuestas && p.estado === 'completada' && p.web_slug",
      "text": "Link",
@@ -10092,7 +10108,7 @@
     },
     {
      "kind": "button",
-     "line": 1810,
+     "line": 1823,
      "in": "ProposalConfigPanel",
      "when": "secHistorial && !(propuestas.length === 0) && each propuestas && p.estado === 'completada' && p.access_code_plain",
      "text": "Código {p.access_code_plain}",
@@ -10101,7 +10117,7 @@
     },
     {
      "kind": "button",
-     "line": 1821,
+     "line": 1834,
      "in": "ProposalConfigPanel",
      "when": "secHistorial && !(propuestas.length === 0) && each propuestas && p.estado === 'completada'",
      "text": "Regenerar Código",
@@ -10110,7 +10126,7 @@
     },
     {
      "kind": "button",
-     "line": 1833,
+     "line": 1846,
      "in": "ProposalConfigPanel",
      "when": "secHistorial && !(propuestas.length === 0) && each propuestas && (p.estado === 'completada' && p.web_slug && (p.web_status === 'published' || p.web_status === 'viewed'))",
      "text": "Retirar enlace",
@@ -10123,14 +10139,14 @@
     },
     {
      "kind": "text",
-     "line": 1846,
+     "line": 1859,
      "in": "ProposalConfigPanel",
      "when": "secHistorial && !(propuestas.length === 0) && each propuestas && p.estado === 'completada' && p.web_slug && p.web_status === 'expired'",
      "text": "Enlace retirado"
     },
     {
      "kind": "link",
-     "line": 1850,
+     "line": 1863,
      "in": "ProposalConfigPanel",
      "when": "secHistorial && !(propuestas.length === 0) && each propuestas && p.estado === 'completada' && p.download_url",
      "text": "PDF",
@@ -10139,14 +10155,14 @@
     },
     {
      "kind": "text",
-     "line": 1864,
+     "line": 1877,
      "in": "ProposalConfigPanel",
      "when": "secHistorial && !(propuestas.length === 0) && each propuestas && retireConfirmId === p.id",
      "text": "¿Retirar el enlace de v {p.version} ? La escuela ya no podrá abrir esta versión."
     },
     {
      "kind": "button",
-     "line": 1868,
+     "line": 1881,
      "in": "ProposalConfigPanel",
      "when": "secHistorial && !(propuestas.length === 0) && each propuestas && retireConfirmId === p.id",
      "text": "Sí, retirar enlace",
@@ -10158,7 +10174,7 @@
     },
     {
      "kind": "button",
-     "line": 1878,
+     "line": 1891,
      "in": "ProposalConfigPanel",
      "when": "secHistorial && !(propuestas.length === 0) && each propuestas && retireConfirmId === p.id",
      "text": "Cancelar",
@@ -10170,14 +10186,14 @@
     },
     {
      "kind": "value",
-     "line": 1890,
+     "line": 1903,
      "in": "ProposalConfigPanel",
      "when": "secHistorial && !(propuestas.length === 0) && each propuestas && p.estado === 'error' && p.error_message",
      "text": "{p.error_message}"
     },
     {
      "kind": "list",
-     "line": 1924,
+     "line": 1937,
      "in": "ValidationRow",
      "text": "color",
      "items": [
@@ -10186,19 +10202,19 @@
     },
     {
      "kind": "value",
-     "line": 1930,
+     "line": 1943,
      "in": "ValidationRow",
      "text": "{label} :"
     },
     {
      "kind": "value",
-     "line": 1933,
+     "line": 1946,
      "in": "ValidationRow",
      "text": "{detail}"
     },
     {
      "kind": "string",
-     "line": 335,
+     "line": 337,
      "in": "ProposalConfigPanel",
      "text": "Escuela"
     }
@@ -14891,6 +14907,7 @@
     "__tests__/api/licitaciones/publicacion.test.ts",
     "__tests__/pages/contracts-licitacion-once.test.tsx",
     "__tests__/pages/licitaciones/evaluacion-page.test.tsx",
+    "__tests__/pages/licitaciones/licitacion-detail-eliminar.test.tsx",
     "__tests__/pages/licitaciones/licitacion-detail-step2.test.tsx",
     "__tests__/pages/licitaciones/licitacion-detail-step6-carta.test.tsx",
     "pages/contracts.tsx",
@@ -15107,6 +15124,7 @@
    "referencedIn": [
     "__tests__/api/licitaciones/evaluacion-route.test.ts",
     "__tests__/pages/licitaciones/evaluacion-page.test.tsx",
+    "__tests__/pages/licitaciones/licitacion-detail-eliminar.test.tsx",
     "pages/licitaciones/[id].tsx",
     "pages/licitaciones/[id]/evaluacion.tsx"
    ]
@@ -15165,6 +15183,7 @@
     "/licitaciones/[id]"
    ],
    "referencedIn": [
+    "__tests__/api/licitaciones/carta-signer.test.ts",
     "__tests__/api/licitaciones/carta-stuck-tender.test.ts",
     "__tests__/api/licitaciones/client-document-access.test.ts",
     "__tests__/components/licitaciones/carta-before-award.test.tsx",
@@ -15209,8 +15228,10 @@
    ],
    "referencedIn": [
     "__tests__/api/licitaciones/generate-propuesta-price.test.ts",
+    "__tests__/api/licitaciones/generate-propuesta-retire-older.test.ts",
     "__tests__/api/licitaciones/generate-propuesta-slug.test.ts",
     "__tests__/api/licitaciones/generate-propuesta-stale.test.ts",
+    "__tests__/components/licitaciones/proposal-retire-older.test.tsx",
     "components/licitaciones/ProposalConfigPanel.tsx"
    ]
   },
@@ -15233,8 +15254,10 @@
     "__tests__/api/licitaciones/propuesta-access-code.test.ts",
     "__tests__/api/licitaciones/propuesta-retirar.test.ts",
     "__tests__/components/licitaciones/proposal-access-code.test.tsx",
+    "__tests__/components/licitaciones/proposal-platform-hidden.test.tsx",
     "__tests__/components/licitaciones/proposal-pricing.test.tsx",
     "__tests__/components/licitaciones/proposal-retire-link.test.tsx",
+    "__tests__/components/licitaciones/proposal-retire-older.test.tsx",
     "components/licitaciones/ProposalConfigPanel.tsx"
    ]
   },
@@ -15495,6 +15518,7 @@
     "/licitaciones/[id]"
    ],
    "referencedIn": [
+    "__tests__/components/licitaciones/proposal-retire-older.test.tsx",
     "components/licitaciones/ProposalConfigPanel.tsx"
    ]
   },
@@ -15530,6 +15554,7 @@
     "/licitaciones/[id]"
    ],
    "referencedIn": [
+    "__tests__/components/licitaciones/proposal-retire-older.test.tsx",
     "components/licitaciones/ProposalConfigPanel.tsx"
    ]
   },

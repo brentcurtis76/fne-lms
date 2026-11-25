@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "c7e27398ca230dbbc3e581dcde19f92480491fcd",
-  "date": "2026-11-22T23:11:25-03:00"
+  "commit": "9298935dbe2a95efd8049538ace9feb5f0394c46",
+  "date": "2026-11-25T10:48:59-03:00"
  },
  "screens": [
   {
@@ -94,7 +94,7 @@
     ],
     "linkedFrom": [
      "components/layout/Sidebar.tsx:487",
-     "lib/notifications/catalog.ts:304",
+     "lib/notifications/catalog.ts:306",
      "middleware.ts:224",
      "pages/admin/assignment-review/[id].tsx:348"
     ],
@@ -1113,10 +1113,10 @@
      "lib/notificationEvents.ts:314",
      "lib/notificationEvents.ts:328",
      "lib/notificationEvents.ts:345",
-     "lib/notifications/catalog.ts:279",
-     "lib/notifications/catalog.ts:288",
+     "lib/notifications/catalog.ts:281",
      "lib/notifications/catalog.ts:290",
-     "lib/notifications/catalog.ts:291",
+     "lib/notifications/catalog.ts:292",
+     "lib/notifications/catalog.ts:293",
      "middleware.ts:334",
      "pages/assignments/[id]/index.tsx:170",
      "pages/assignments/[id]/index.tsx:171",
@@ -3152,7 +3152,7 @@
      "components/layout/Sidebar.tsx:204",
      "lib/auth/forced-password-change.ts:158",
      "lib/auth/forced-password-change.ts:183",
-     "lib/notifications/catalog.ts:310",
+     "lib/notifications/catalog.ts:312",
      "middleware.ts:359",
      "pages/quiz-reviews/[id].tsx:59",
      "pages/quiz-reviews/[id].tsx:73",

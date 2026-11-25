@@ -1,6 +1,6 @@
 # API files that no screen calls
 
-Written by `scripts/redesign/inventory.mjs` from commit `c7e27398c`. An API file is listed here when no screen, and no piece a screen draws, names its address. "Named in" shows where else the address appears (scheduled jobs in `vercel.json`, server code, tests). Nothing here is a verdict: an address can be called from outside the platform (a webhook, a link in an email).
+Written by `scripts/redesign/inventory.mjs` from commit `9298935db`. An API file is listed here when no screen, and no piece a screen draws, names its address. "Named in" shows where else the address appears (scheduled jobs in `vercel.json`, server code, tests). Nothing here is a verdict: an address can be called from outside the platform (a webhook, a link in an email).
 
 ## Marco (the frame around every screen)
 
@@ -124,6 +124,7 @@ Written by `scripts/redesign/inventory.mjs` from commit `c7e27398c`. An API file
 
 | Address | File | Methods | Named in |
 |---|---|---|---|
+| `/api/admin/correos/listas/[id]` | `pages/api/admin/correos/listas/[id].ts` |  | `__tests__/correos/routes-access.test.ts`, `__tests__/correos/routes-people.test.ts` |
 | `/api/news/[slug]` | `pages/api/news/[slug].ts` | GET | **nothing** |
 
 ## Notificaciones
@@ -179,7 +180,7 @@ Written by `scripts/redesign/inventory.mjs` from commit `c7e27398c`. An API file
 | `/api/test-bucket` | `pages/api/test-bucket.js` |  | **nothing** |
 | `/api/test/notification-triggers` | `pages/api/test/notification-triggers.ts` |  | **nothing** |
 
-87 of 371 API files.
+88 of 381 API files.
 
 ## Addresses the code names that have no file
 

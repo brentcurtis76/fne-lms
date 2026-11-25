@@ -1,7 +1,7 @@
 # Personas (users, schools, networks, roles, profile)
 
 Area `14-personas`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `c7e27398c` (2026-11-22).
+Read from commit `9298935db` (2026-11-25).
 
 7 screen files, 33 API files, 24 pieces.
 
@@ -12,7 +12,7 @@ Read from commit `c7e27398c` (2026-11-22).
 | `/admin/network-management` | `pages/admin/network-management.tsx` | 1179 | Personas › Redes de Colegios |  |
 | `/admin/role-management` | `pages/admin/role-management.tsx` | 675 | Sistema › Roles y Permisos |  |
 | `/admin/school-users` | `pages/admin/school-users.tsx` | 821 | Usuarios del Colegio |  |
-| `/admin/schools` | `pages/admin/schools.tsx` | 1544 | Personas › Escuelas |  |
+| `/admin/schools` | `pages/admin/schools.tsx` | 1550 | Personas › Escuelas |  |
 | `/admin/tractor-signups` | `pages/admin/tractor-signups.tsx` | 776 | Personas › Registros |  |
 | `/admin/user-management` | `pages/admin/user-management.tsx` | 1028 | Personas › Usuarios |  |
 | `/profile` | `pages/profile.tsx` | 819 | Mi Perfil |  |
@@ -613,7 +613,7 @@ File `pages/admin/school-users.tsx` · 821 lines · frame: MainLayout · getServ
 
 ## /admin/schools
 
-File `pages/admin/schools.tsx` · 1544 lines · frame: MainLayout
+File `pages/admin/schools.tsx` · 1550 lines · frame: MainLayout
 
 ### Who reaches it
 
@@ -626,7 +626,7 @@ File `pages/admin/schools.tsx` · 1544 lines · frame: MainLayout
   - l.170 `router.push → /dashboard  (when userRole !== 'admin')`
   - l.178 `router.push → /login`
 - Linked from: `components/layout/Sidebar.tsx:446`, `pages/api/qa/seed-codebase-index.ts:133`
-- Tests: browser tests that CI runs: `tests/e2e/ci-fixture.spec.ts`; browser tests CI skips: `tests/qa/auth-redirects.spec.ts`.
+- Tests: browser tests that CI runs: `tests/e2e/ci-fixture.spec.ts`; browser tests CI skips: `tests/qa/auth-redirects.spec.ts`; unit tests of the page: `__tests__/pages/admin/schools.filler-rut.test.tsx`.
 - QA scenarios that name this address: admin 3, community_manager 1, consultor 1, equipo_directivo 1, lider_comunidad 1, lider_generacion 1, supervisor_de_red 1.
 
 | Role | Sees it in the menu | Middleware |
@@ -647,81 +647,81 @@ File `pages/admin/schools.tsx` · 1544 lines · frame: MainLayout
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «Gestión de Escuelas» | h1 |  | SchoolsManagement · l.836 |
-| «No hay escuelas registradas» | h3 | `!(loading) && schools.length === 0` | SchoolsManagement · l.855 |
-| «{school.name}» | h3 | `!(loading) && !(schools.length === 0) && each schools` | SchoolsManagement · l.875 |
-| «{generation.name}» | h4 | `!(schools.length === 0) && each schools && expandedSchools.has(school.id) && school.has_generations === true && school.generations && school.generations.length > 0 && each school.generations` | SchoolsManagement · l.955 |
-| «Editar Escuela / Nueva Escuela» | h2 | `showSchoolModal` | SchoolsManagement · l.1000 |
-| «Editar Generación / Nueva Generación» | h2 | `showGenerationModal` | SchoolsManagement · l.1056 |
-| «{confirmationModal.title}» | h2 | `confirmationModal.show` | SchoolsManagement · l.1194 |
-| «Vincular Cliente a {linkingSchool?.name}» | h2 | `showClientModal` | SchoolsManagement · l.1236 |
-| «Editar Cliente: {editingCliente.nombre_fantasia}» | h2 | `showClientEditModal && editingCliente` | SchoolsManagement · l.1276 |
-| «Información Legal» | h3 | `showClientEditModal && editingCliente` | SchoolsManagement · l.1283 |
-| «Representante Legal» | h3 | `showClientEditModal && editingCliente` | SchoolsManagement · l.1366 |
-| «Encargado de Proyecto» | h3 | `showClientEditModal && editingCliente` | SchoolsManagement · l.1435 |
-| «Contacto Administrativo» | h3 | `showClientEditModal && editingCliente` | SchoolsManagement · l.1479 |
+| «Gestión de Escuelas» | h1 |  | SchoolsManagement · l.842 |
+| «No hay escuelas registradas» | h3 | `!(loading) && schools.length === 0` | SchoolsManagement · l.861 |
+| «{school.name}» | h3 | `!(loading) && !(schools.length === 0) && each schools` | SchoolsManagement · l.881 |
+| «{generation.name}» | h4 | `!(schools.length === 0) && each schools && expandedSchools.has(school.id) && school.has_generations === true && school.generations && school.generations.length > 0 && each school.generations` | SchoolsManagement · l.961 |
+| «Editar Escuela / Nueva Escuela» | h2 | `showSchoolModal` | SchoolsManagement · l.1006 |
+| «Editar Generación / Nueva Generación» | h2 | `showGenerationModal` | SchoolsManagement · l.1062 |
+| «{confirmationModal.title}» | h2 | `confirmationModal.show` | SchoolsManagement · l.1200 |
+| «Vincular Cliente a {linkingSchool?.name}» | h2 | `showClientModal` | SchoolsManagement · l.1242 |
+| «Editar Cliente: {editingCliente.nombre_fantasia}» | h2 | `showClientEditModal && editingCliente` | SchoolsManagement · l.1282 |
+| «Información Legal» | h3 | `showClientEditModal && editingCliente` | SchoolsManagement · l.1289 |
+| «Representante Legal» | h3 | `showClientEditModal && editingCliente` | SchoolsManagement · l.1372 |
+| «Encargado de Proyecto» | h3 | `showClientEditModal && editingCliente` | SchoolsManagement · l.1441 |
+| «Contacto Administrativo» | h3 | `showClientEditModal && editingCliente` | SchoolsManagement · l.1485 |
 
 **Buttons** (19)
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «Nueva Escuela» | `{handleAddSchool}` |  |  |  | SchoolsManagement · l.839 |
-| «[icon ChevronDown]» | `{() => handleToggleExpand(school.id)}` | `!(loading) && !(schools.length === 0) && each schools` |  |  | SchoolsManagement · l.865 |
-| «[icon Edit2]» · tooltip «Editar cliente» | `{() => handleEditCliente(school.cliente_id!)}` | `!(loading) && !(schools.length === 0) && each schools && school.cliente_id` |  |  | SchoolsManagement · l.896 |
-| «Generación» | `{() => handleAddGeneration(school)}` | `!(loading) && !(schools.length === 0) && each schools && school.has_generations === true` |  |  | SchoolsManagement · l.909 |
-| «[icon Edit2]» | `{() => handleEditSchool(school)}` | `!(loading) && !(schools.length === 0) && each schools` |  |  | SchoolsManagement · l.917 |
-| «[icon Trash2]» | `{() => handleDeleteSchool(school)}` | `!(loading) && !(schools.length === 0) && each schools` |  |  | SchoolsManagement · l.923 |
-| «[icon FileText]» · tooltip «Crear contrato» | `{() => handleCreateContract(school)}` | `!(loading) && !(schools.length === 0) && each schools && school.cliente_id` |  |  | SchoolsManagement · l.930 |
-| «[icon Plus]» · tooltip «Vincular cliente» | `{() => handleLinkClient(school)}` | `!(loading) && !(schools.length === 0) && each schools && !(school.cliente_id)` |  |  | SchoolsManagement · l.938 |
-| «[icon Edit2]» | `{() => handleEditGeneration(generation, school)}` | `!(schools.length === 0) && each schools && expandedSchools.has(school.id) && school.has_generations === true && school.generations && school.generations.length > 0 && each school.generations` |  |  | SchoolsManagement · l.971 |
-| «[icon Trash2]» | `{() => handleDeleteGeneration(generation)}` | `!(schools.length === 0) && each schools && expandedSchools.has(school.id) && school.has_generations === true && school.generations && school.generations.length > 0 && each school.generations` |  |  | SchoolsManagement · l.977 |
-| «Cancelar» | `{() => setShowSchoolModal(false)}` | `showSchoolModal` |  |  | SchoolsManagement · l.1035 |
-| «Actualizar / Crear Escuela» | `{handleSaveSchool}` | `showSchoolModal` |  |  | SchoolsManagement · l.1041 |
-| «Cancelar» | `{() => setShowGenerationModal(false)}` | `showGenerationModal` |  |  | SchoolsManagement · l.1173 |
-| «Actualizar / Crear Generación» | `{handleSaveGeneration}` | `showGenerationModal` |  |  | SchoolsManagement · l.1179 |
-| «Cancelar» | `{() => setConfirmationModal({ ...confirmationModal, show: false })}` | `confirmationModal.show` |  |  | SchoolsManagement · l.1215 |
-| «OK» | `{() => confirmationModal.onConfirm()}` | `confirmationModal.show` |  |  | SchoolsManagement · l.1221 |
-| «Cancelar» | `{() => { setShowClientModal(false); setLinkingSchool(null); }}` | `showClientModal` |  |  | SchoolsManagement · l.1258 |
-| «Cancelar» | `{() => { setShowClientEditModal(false); setEditingCliente(null); }}` | `showClientEditModal && editingCliente` |  |  | SchoolsManagement · l.1523 |
-| «Guardar Cambios» | `{handleSaveCliente}` | `showClientEditModal && editingCliente` |  |  | SchoolsManagement · l.1532 |
+| «Nueva Escuela» | `{handleAddSchool}` |  |  |  | SchoolsManagement · l.845 |
+| «[icon ChevronDown]» | `{() => handleToggleExpand(school.id)}` | `!(loading) && !(schools.length === 0) && each schools` |  |  | SchoolsManagement · l.871 |
+| «[icon Edit2]» · tooltip «Editar cliente» | `{() => handleEditCliente(school.cliente_id!)}` | `!(loading) && !(schools.length === 0) && each schools && school.cliente_id` |  |  | SchoolsManagement · l.902 |
+| «Generación» | `{() => handleAddGeneration(school)}` | `!(loading) && !(schools.length === 0) && each schools && school.has_generations === true` |  |  | SchoolsManagement · l.915 |
+| «[icon Edit2]» | `{() => handleEditSchool(school)}` | `!(loading) && !(schools.length === 0) && each schools` |  |  | SchoolsManagement · l.923 |
+| «[icon Trash2]» | `{() => handleDeleteSchool(school)}` | `!(loading) && !(schools.length === 0) && each schools` |  |  | SchoolsManagement · l.929 |
+| «[icon FileText]» · tooltip «Crear contrato» | `{() => handleCreateContract(school)}` | `!(loading) && !(schools.length === 0) && each schools && school.cliente_id` |  |  | SchoolsManagement · l.936 |
+| «[icon Plus]» · tooltip «Vincular cliente» | `{() => handleLinkClient(school)}` | `!(loading) && !(schools.length === 0) && each schools && !(school.cliente_id)` |  |  | SchoolsManagement · l.944 |
+| «[icon Edit2]» | `{() => handleEditGeneration(generation, school)}` | `!(schools.length === 0) && each schools && expandedSchools.has(school.id) && school.has_generations === true && school.generations && school.generations.length > 0 && each school.generations` |  |  | SchoolsManagement · l.977 |
+| «[icon Trash2]» | `{() => handleDeleteGeneration(generation)}` | `!(schools.length === 0) && each schools && expandedSchools.has(school.id) && school.has_generations === true && school.generations && school.generations.length > 0 && each school.generations` |  |  | SchoolsManagement · l.983 |
+| «Cancelar» | `{() => setShowSchoolModal(false)}` | `showSchoolModal` |  |  | SchoolsManagement · l.1041 |
+| «Actualizar / Crear Escuela» | `{handleSaveSchool}` | `showSchoolModal` |  |  | SchoolsManagement · l.1047 |
+| «Cancelar» | `{() => setShowGenerationModal(false)}` | `showGenerationModal` |  |  | SchoolsManagement · l.1179 |
+| «Actualizar / Crear Generación» | `{handleSaveGeneration}` | `showGenerationModal` |  |  | SchoolsManagement · l.1185 |
+| «Cancelar» | `{() => setConfirmationModal({ ...confirmationModal, show: false })}` | `confirmationModal.show` |  |  | SchoolsManagement · l.1221 |
+| «OK» | `{() => confirmationModal.onConfirm()}` | `confirmationModal.show` |  |  | SchoolsManagement · l.1227 |
+| «Cancelar» | `{() => { setShowClientModal(false); setLinkingSchool(null); }}` | `showClientModal` |  |  | SchoolsManagement · l.1264 |
+| «Cancelar» | `{() => { setShowClientEditModal(false); setEditingCliente(null); }}` | `showClientEditModal && editingCliente` |  |  | SchoolsManagement · l.1529 |
+| «Guardar Cambios» | `{handleSaveCliente}` | `showClientEditModal && editingCliente` |  |  | SchoolsManagement · l.1538 |
 
 **Fields** (23)
 
 | Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
 |---|---|---|---|---|---|---|
-| «Nombre *» | text | «Nombre de la escuela» |  | `showSchoolModal` |  | SchoolsManagement · l.1009 |
-| «Habilitar generaciones para esta escuela» | checkbox |  |  | `showSchoolModal` |  | SchoolsManagement · l.1020 |
-| «Nombre *» | text | «Ej: Tractor, Innova» |  | `showGenerationModal` |  | SchoolsManagement · l.1068 |
-| «Rango de Grados» | select |  | «Seleccione un rango...», «P1-P2», «P1-P3», «P1-PreKinder», «P1-Kinder», «P2-P3», «P2-PreKinder», «P2-Kinder», «P3-PreKinder», «P3-Kinder», «PreKinder-Kinder», «P1-2do», «P1-3ro», «P1-4to», «P1-5to», «P1-6to», «P1-8vo», «P1-12vo», «PreKinder-2do», «PreKinder-3ro», «PreKinder-4to», «PreKinder-5to», «PreKinder-6to», «PreKinder-8vo», «PreKinder-12vo», «Kinder-2do», «Kinder-3ro», «Kinder-4to», «Kinder-5to», «Kinder-6to», «Kinder-8vo», «Kinder-12vo», «1ro-2do», «1ro-3ro», «1ro-4to», «1ro-5to», «1ro-6to», «1ro-8vo», «1ro-12vo», «3ro-4to», «3ro-5to», «3ro-6to», «3ro-8vo», «3ro-12vo», «5to-6to», «5to-8vo», «5to-12vo», «7mo-8vo», «7mo-12vo», «9no-12vo», «Equipo Directivo», «Docentes», «Asistentes de la Educación», «Apoderados», «Otro» | `showGenerationModal` |  | SchoolsManagement · l.1081 |
-| «Descripción» | textarea | «Descripción opcional» |  | `showGenerationModal` |  | SchoolsManagement · l.1162 |
-| «Seleccionar Cliente» | select |  | «Seleccione un cliente...», «(lista) {cliente.nombre_fantasia} - {cliente.rut}» | `showClientModal` |  | SchoolsManagement · l.1244 |
-| «Nombre Legal *» | text | «Nombre legal de la organización» |  | `showClientEditModal && editingCliente` |  | SchoolsManagement · l.1290 |
-| «Nombre de Fantasía *» | text | «Nombre comercial» |  | `showClientEditModal && editingCliente` |  | SchoolsManagement · l.1303 |
-| «RUT *» | text | «XX.XXX.XXX-X» |  | `showClientEditModal && editingCliente` |  | SchoolsManagement · l.1316 |
-| «Dirección *» | text | «Dirección completa» |  | `showClientEditModal && editingCliente` |  | SchoolsManagement · l.1329 |
-| «Comuna» | text | «Comuna» |  | `showClientEditModal && editingCliente` |  | SchoolsManagement · l.1342 |
-| «Ciudad» | text | «Ciudad» |  | `showClientEditModal && editingCliente` |  | SchoolsManagement · l.1355 |
-| «Nombre Representante Legal *» | text | «Nombre completo» |  | `showClientEditModal && editingCliente` |  | SchoolsManagement · l.1373 |
-| «RUT Representante Legal *» | text | «XX.XXX.XXX-X» |  | `showClientEditModal && editingCliente` |  | SchoolsManagement · l.1386 |
-| «Fecha Escritura» | date |  |  | `showClientEditModal && editingCliente` |  | SchoolsManagement · l.1399 |
-| «Nombre Notario» | text | «Nombre del notario» |  | `showClientEditModal && editingCliente` |  | SchoolsManagement · l.1411 |
-| «Comuna Notaría» | text | «Comuna de la notaría» |  | `showClientEditModal && editingCliente` |  | SchoolsManagement · l.1424 |
-| «Nombre Encargado» | text | «Nombre completo» |  | `showClientEditModal && editingCliente` |  | SchoolsManagement · l.1442 |
-| «Teléfono Encargado» | tel | «+56 9 XXXX XXXX» |  | `showClientEditModal && editingCliente` |  | SchoolsManagement · l.1455 |
-| «Email Encargado» | email | «email@ejemplo.com» |  | `showClientEditModal && editingCliente` |  | SchoolsManagement · l.1468 |
-| «Nombre Contacto» | text | «Nombre completo» |  | `showClientEditModal && editingCliente` |  | SchoolsManagement · l.1486 |
-| «Teléfono Contacto» | tel | «+56 9 XXXX XXXX» |  | `showClientEditModal && editingCliente` |  | SchoolsManagement · l.1499 |
-| «Email Contacto» | email | «email@ejemplo.com» |  | `showClientEditModal && editingCliente` |  | SchoolsManagement · l.1512 |
+| «Nombre *» | text | «Nombre de la escuela» |  | `showSchoolModal` |  | SchoolsManagement · l.1015 |
+| «Habilitar generaciones para esta escuela» | checkbox |  |  | `showSchoolModal` |  | SchoolsManagement · l.1026 |
+| «Nombre *» | text | «Ej: Tractor, Innova» |  | `showGenerationModal` |  | SchoolsManagement · l.1074 |
+| «Rango de Grados» | select |  | «Seleccione un rango...», «P1-P2», «P1-P3», «P1-PreKinder», «P1-Kinder», «P2-P3», «P2-PreKinder», «P2-Kinder», «P3-PreKinder», «P3-Kinder», «PreKinder-Kinder», «P1-2do», «P1-3ro», «P1-4to», «P1-5to», «P1-6to», «P1-8vo», «P1-12vo», «PreKinder-2do», «PreKinder-3ro», «PreKinder-4to», «PreKinder-5to», «PreKinder-6to», «PreKinder-8vo», «PreKinder-12vo», «Kinder-2do», «Kinder-3ro», «Kinder-4to», «Kinder-5to», «Kinder-6to», «Kinder-8vo», «Kinder-12vo», «1ro-2do», «1ro-3ro», «1ro-4to», «1ro-5to», «1ro-6to», «1ro-8vo», «1ro-12vo», «3ro-4to», «3ro-5to», «3ro-6to», «3ro-8vo», «3ro-12vo», «5to-6to», «5to-8vo», «5to-12vo», «7mo-8vo», «7mo-12vo», «9no-12vo», «Equipo Directivo», «Docentes», «Asistentes de la Educación», «Apoderados», «Otro» | `showGenerationModal` |  | SchoolsManagement · l.1087 |
+| «Descripción» | textarea | «Descripción opcional» |  | `showGenerationModal` |  | SchoolsManagement · l.1168 |
+| «Seleccionar Cliente» | select |  | «Seleccione un cliente...», «(lista) {cliente.nombre_fantasia} - {cliente.rut}» | `showClientModal` |  | SchoolsManagement · l.1250 |
+| «Nombre Legal *» | text | «Nombre legal de la organización» |  | `showClientEditModal && editingCliente` |  | SchoolsManagement · l.1296 |
+| «Nombre de Fantasía *» | text | «Nombre comercial» |  | `showClientEditModal && editingCliente` |  | SchoolsManagement · l.1309 |
+| «RUT *» | text | «XX.XXX.XXX-X» |  | `showClientEditModal && editingCliente` |  | SchoolsManagement · l.1322 |
+| «Dirección *» | text | «Dirección completa» |  | `showClientEditModal && editingCliente` |  | SchoolsManagement · l.1335 |
+| «Comuna» | text | «Comuna» |  | `showClientEditModal && editingCliente` |  | SchoolsManagement · l.1348 |
+| «Ciudad» | text | «Ciudad» |  | `showClientEditModal && editingCliente` |  | SchoolsManagement · l.1361 |
+| «Nombre Representante Legal *» | text | «Nombre completo» |  | `showClientEditModal && editingCliente` |  | SchoolsManagement · l.1379 |
+| «RUT Representante Legal *» | text | «XX.XXX.XXX-X» |  | `showClientEditModal && editingCliente` |  | SchoolsManagement · l.1392 |
+| «Fecha Escritura» | date |  |  | `showClientEditModal && editingCliente` |  | SchoolsManagement · l.1405 |
+| «Nombre Notario» | text | «Nombre del notario» |  | `showClientEditModal && editingCliente` |  | SchoolsManagement · l.1417 |
+| «Comuna Notaría» | text | «Comuna de la notaría» |  | `showClientEditModal && editingCliente` |  | SchoolsManagement · l.1430 |
+| «Nombre Encargado» | text | «Nombre completo» |  | `showClientEditModal && editingCliente` |  | SchoolsManagement · l.1448 |
+| «Teléfono Encargado» | tel | «+56 9 XXXX XXXX» |  | `showClientEditModal && editingCliente` |  | SchoolsManagement · l.1461 |
+| «Email Encargado» | email | «email@ejemplo.com» |  | `showClientEditModal && editingCliente` |  | SchoolsManagement · l.1474 |
+| «Nombre Contacto» | text | «Nombre completo» |  | `showClientEditModal && editingCliente` |  | SchoolsManagement · l.1492 |
+| «Teléfono Contacto» | tel | «+56 9 XXXX XXXX» |  | `showClientEditModal && editingCliente` |  | SchoolsManagement · l.1505 |
+| «Email Contacto» | email | «email@ejemplo.com» |  | `showClientEditModal && editingCliente` |  | SchoolsManagement · l.1518 |
 
 **Pop-ups** (5)
 
 | Name or title | How | Opens when | Texts passed to it | Where |
 |---|---|---|---|---|
-| «Editar Escuela / Nueva Escuela» | written in this file | `showSchoolModal` |  | SchoolsManagement · l.998 |
-| «Editar Generación / Nueva Generación» | written in this file | `showGenerationModal` |  | SchoolsManagement · l.1054 |
-| «{confirmationModal.title}» | written in this file | `confirmationModal.show` |  | SchoolsManagement · l.1192 |
-| «Vincular Cliente a {linkingSchool?.name}» | written in this file | `showClientModal` |  | SchoolsManagement · l.1234 |
-| «Editar Cliente: {editingCliente.nombre_fantasia}» | written in this file | `showClientEditModal && editingCliente` |  | SchoolsManagement · l.1274 |
+| «Editar Escuela / Nueva Escuela» | written in this file | `showSchoolModal` |  | SchoolsManagement · l.1004 |
+| «Editar Generación / Nueva Generación» | written in this file | `showGenerationModal` |  | SchoolsManagement · l.1060 |
+| «{confirmationModal.title}» | written in this file | `confirmationModal.show` |  | SchoolsManagement · l.1198 |
+| «Vincular Cliente a {linkingSchool?.name}» | written in this file | `showClientModal` |  | SchoolsManagement · l.1240 |
+| «Editar Cliente: {editingCliente.nombre_fantasia}» | written in this file | `showClientEditModal && editingCliente` |  | SchoolsManagement · l.1280 |
 
 **Browser confirm()** (4)
 
@@ -730,9 +730,9 @@ File `pages/admin/schools.tsx` · 1544 lines · frame: MainLayout
 | «¿Está seguro de eliminar la escuela "{school.name}"? Esta acción no se puede deshacer.» |  | handleDeleteSchool · l.398 |
 | «{confirmMessage}» | `editingSchool && !editingSchool.has_generations && schoolForm.has_generations` | handleSaveSchool · l.451 |
 | «¿Está seguro de eliminar la generación "{generation.name}"? Esta acción no se puede deshacer.» |  | handleDeleteGeneration · l.517 |
-| «Este cliente tiene {contracts.length} contrato(s) asociado(s). / Los cambios al nombre y RUT del representante legal solo afectarán contratos y licitaciones futuros. / Los demás campos del cliente sí afectarán los contratos existentes que se regeneren. / ¿Desea continuar?» | `contracts && contracts.length > 0` | handleSaveCliente · l.762 |
+| «Este cliente tiene {contracts.length} contrato(s) asociado(s). / Los cambios al nombre y RUT del representante legal solo afectarán contratos y licitaciones futuros. / Los demás campos del cliente sí afectarán los contratos existentes que se regeneren. / ¿Desea continuar?» | `contracts && contracts.length > 0` | handleSaveCliente · l.768 |
 
-**Toasts** (40)
+**Toasts** (41)
 
 | Kind | Text | When | Where |
 |---|---|---|---|
@@ -772,10 +772,11 @@ File `pages/admin/schools.tsx` · 1544 lines · frame: MainLayout
 | error | «El nombre del representante legal es requerido» | `!clienteForm.nombre_representante.trim()` | handleSaveCliente · l.718 |
 | error | «El RUT del representante legal es requerido» | `!clienteForm.rut_representante.trim()` | handleSaveCliente · l.722 |
 | error | «El RUT del representante legal no es válido» | `!validateRut(clienteForm.rut_representante)` | handleSaveCliente · l.726 |
-| error | «No hay cliente seleccionado para editar» | `!editingCliente` | handleSaveCliente · l.731 |
-| error | «Ya existe otro cliente con este RUT» | `clienteForm.rut !== editingCliente.rut && existingCliente` | handleSaveCliente · l.748 |
-| success | «Cliente actualizado exitosamente» |  | handleSaveCliente · l.798 |
-| error | «Error al actualizar cliente:» |  | handleSaveCliente · l.805 |
+| error | «Ingresa el RUT real del representante legal; 11.111.111-1 no es válido.» | `isFillerRut(clienteForm.rut_representante) && !(editingCliente && isFillerRut(editingCliente.rut_representante))` | handleSaveCliente · l.732 |
+| error | «No hay cliente seleccionado para editar» | `!editingCliente` | handleSaveCliente · l.737 |
+| error | «Ya existe otro cliente con este RUT» | `clienteForm.rut !== editingCliente.rut && existingCliente` | handleSaveCliente · l.754 |
+| success | «Cliente actualizado exitosamente» |  | handleSaveCliente · l.804 |
+| error | «Error al actualizar cliente:» |  | handleSaveCliente · l.811 |
 
 **Moves to another page from code** (5)
 
@@ -797,8 +798,8 @@ File `pages/admin/schools.tsx` · 1544 lines · frame: MainLayout
 
 | Piece | Texts and settings | Shown when | Hook | Where |
 |---|---|---|---|---|
-| `MainLayout` | pageTitle: Escuelas · userRole: admin | `!isAdmin` |  | SchoolsManagement · l.811 |
-| `MainLayout` | pageTitle: Gestión de Escuelas · userRole: admin |  |  | SchoolsManagement · l.826 |
+| `MainLayout` | pageTitle: Escuelas · userRole: admin | `!isAdmin` |  | SchoolsManagement · l.817 |
+| `MainLayout` | pageTitle: Gestión de Escuelas · userRole: admin |  |  | SchoolsManagement · l.832 |
 
 **Other texts written in the code (safety net: not tied to an element by the script)** (16)
 
@@ -813,57 +814,57 @@ File `pages/admin/schools.tsx` · 1544 lines · frame: MainLayout
 | «Esta acción se puede revertir más tarde.» | SchoolsManagement · l.438 |
 | «¿Está seguro de activar las generaciones para "{schoolForm.name}"?» | SchoolsManagement · l.448 |
 | «Deberá asignar generaciones a las comunidades y usuarios después de este cambio.» | SchoolsManagement · l.449 |
-| «Educación Parvularia» | SchoolsManagement · l.1087 |
-| «Desde P1» | SchoolsManagement · l.1099 |
-| «Desde PreKinder» | SchoolsManagement · l.1108 |
-| «Desde Kinder» | SchoolsManagement · l.1117 |
-| «Educación Básica» | SchoolsManagement · l.1126 |
-| «Educación Media» | SchoolsManagement · l.1143 |
-| «Grupos Especiales» | SchoolsManagement · l.1148 |
+| «Educación Parvularia» | SchoolsManagement · l.1093 |
+| «Desde P1» | SchoolsManagement · l.1105 |
+| «Desde PreKinder» | SchoolsManagement · l.1114 |
+| «Desde Kinder» | SchoolsManagement · l.1123 |
+| «Educación Básica» | SchoolsManagement · l.1132 |
+| «Educación Media» | SchoolsManagement · l.1149 |
+| «Grupos Especiales» | SchoolsManagement · l.1154 |
 
 **Values shown from data** (5)
 
-- `{generation.grade_range}` — SchoolsManagement · l.957, when `each schools && expandedSchools.has(school.id) && school.has_generations === true && school.generations && school.generations.length > 0 && each school.generations && generation.grade_range`
-- `{generation.description}` — SchoolsManagement · l.967, when `each schools && expandedSchools.has(school.id) && school.has_generations === true && school.generations && school.generations.length > 0 && each school.generations && generation.description`
-- `{confirmationModal.message}` — SchoolsManagement · l.1199, when `confirmationModal.show && confirmationModal.message`
-- `{detail}` — SchoolsManagement · l.1205, when `confirmationModal.show && confirmationModal.details && confirmationModal.details.length > 0 && each confirmationModal.details`
-- `{confirmationModal.note}` — SchoolsManagement · l.1211, when `confirmationModal.show && confirmationModal.note`
+- `{generation.grade_range}` — SchoolsManagement · l.963, when `each schools && expandedSchools.has(school.id) && school.has_generations === true && school.generations && school.generations.length > 0 && each school.generations && generation.grade_range`
+- `{generation.description}` — SchoolsManagement · l.973, when `each schools && expandedSchools.has(school.id) && school.has_generations === true && school.generations && school.generations.length > 0 && each school.generations && generation.description`
+- `{confirmationModal.message}` — SchoolsManagement · l.1205, when `confirmationModal.show && confirmationModal.message`
+- `{detail}` — SchoolsManagement · l.1211, when `confirmationModal.show && confirmationModal.details && confirmationModal.details.length > 0 && each confirmationModal.details`
+- `{confirmationModal.note}` — SchoolsManagement · l.1217, when `confirmationModal.show && confirmationModal.note`
 
 **Other texts on screen** (33)
 
-- «Administra las escuelas y sus generaciones» — SchoolsManagement · l.837
-- «Comienza creando la primera escuela» — SchoolsManagement · l.856, when `!(loading) && schools.length === 0`
-- «usuarios» — SchoolsManagement · l.879, when `!(loading) && !(schools.length === 0) && each schools`
-- «{school._count?.generations} generaciones» — SchoolsManagement · l.882, when `!(loading) && !(schools.length === 0) && each schools && school.has_generations === true`
-- «Sin generaciones» — SchoolsManagement · l.887, when `!(loading) && !(schools.length === 0) && each schools && school.has_generations === false`
-- «Cliente vinculado» — SchoolsManagement · l.894, when `!(loading) && !(schools.length === 0) && each schools && school.cliente_id`
-- «usuarios» — SchoolsManagement · l.960, when `!(schools.length === 0) && each schools && expandedSchools.has(school.id) && school.has_generations === true && school.generations && school.generations.length > 0 && each school.generations`
-- «{generation._count?.communities} comunidades» — SchoolsManagement · l.962, when `!(schools.length === 0) && each schools && expandedSchools.has(school.id) && school.has_generations === true && school.generations && school.generations.length > 0 && each school.generations`
-- «Nombre *» (label) — SchoolsManagement · l.1006, when `showSchoolModal`
-- «Habilitar generaciones para esta escuela» (label) — SchoolsManagement · l.1019, when `showSchoolModal`
-- «Marcar solo si la escuela organiza estudiantes por generaciones (ej: Tractor, Innova)» — SchoolsManagement · l.1029, when `showSchoolModal`
-- «Escuela: {selectedSchool.name}» — SchoolsManagement · l.1060, when `showGenerationModal && selectedSchool`
-- «Nombre *» (label) — SchoolsManagement · l.1065, when `showGenerationModal`
-- «Rango de Grados» (label) — SchoolsManagement · l.1078, when `showGenerationModal`
-- «Descripción» (label) — SchoolsManagement · l.1159, when `showGenerationModal`
-- «Seleccionar Cliente» (label) — SchoolsManagement · l.1241, when `showClientModal`
-- «Nombre Legal *» (label) — SchoolsManagement · l.1287, when `showClientEditModal && editingCliente`
-- «Nombre de Fantasía *» (label) — SchoolsManagement · l.1300, when `showClientEditModal && editingCliente`
-- «RUT *» (label) — SchoolsManagement · l.1313, when `showClientEditModal && editingCliente`
-- «Dirección *» (label) — SchoolsManagement · l.1326, when `showClientEditModal && editingCliente`
-- «Comuna» (label) — SchoolsManagement · l.1339, when `showClientEditModal && editingCliente`
-- «Ciudad» (label) — SchoolsManagement · l.1352, when `showClientEditModal && editingCliente`
-- «Nombre Representante Legal *» (label) — SchoolsManagement · l.1370, when `showClientEditModal && editingCliente`
-- «RUT Representante Legal *» (label) — SchoolsManagement · l.1383, when `showClientEditModal && editingCliente`
-- «Fecha Escritura» (label) — SchoolsManagement · l.1396, when `showClientEditModal && editingCliente`
-- «Nombre Notario» (label) — SchoolsManagement · l.1408, when `showClientEditModal && editingCliente`
-- «Comuna Notaría» (label) — SchoolsManagement · l.1421, when `showClientEditModal && editingCliente`
-- «Nombre Encargado» (label) — SchoolsManagement · l.1439, when `showClientEditModal && editingCliente`
-- «Teléfono Encargado» (label) — SchoolsManagement · l.1452, when `showClientEditModal && editingCliente`
-- «Email Encargado» (label) — SchoolsManagement · l.1465, when `showClientEditModal && editingCliente`
-- «Nombre Contacto» (label) — SchoolsManagement · l.1483, when `showClientEditModal && editingCliente`
-- «Teléfono Contacto» (label) — SchoolsManagement · l.1496, when `showClientEditModal && editingCliente`
-- «Email Contacto» (label) — SchoolsManagement · l.1509, when `showClientEditModal && editingCliente`
+- «Administra las escuelas y sus generaciones» — SchoolsManagement · l.843
+- «Comienza creando la primera escuela» — SchoolsManagement · l.862, when `!(loading) && schools.length === 0`
+- «usuarios» — SchoolsManagement · l.885, when `!(loading) && !(schools.length === 0) && each schools`
+- «{school._count?.generations} generaciones» — SchoolsManagement · l.888, when `!(loading) && !(schools.length === 0) && each schools && school.has_generations === true`
+- «Sin generaciones» — SchoolsManagement · l.893, when `!(loading) && !(schools.length === 0) && each schools && school.has_generations === false`
+- «Cliente vinculado» — SchoolsManagement · l.900, when `!(loading) && !(schools.length === 0) && each schools && school.cliente_id`
+- «usuarios» — SchoolsManagement · l.966, when `!(schools.length === 0) && each schools && expandedSchools.has(school.id) && school.has_generations === true && school.generations && school.generations.length > 0 && each school.generations`
+- «{generation._count?.communities} comunidades» — SchoolsManagement · l.968, when `!(schools.length === 0) && each schools && expandedSchools.has(school.id) && school.has_generations === true && school.generations && school.generations.length > 0 && each school.generations`
+- «Nombre *» (label) — SchoolsManagement · l.1012, when `showSchoolModal`
+- «Habilitar generaciones para esta escuela» (label) — SchoolsManagement · l.1025, when `showSchoolModal`
+- «Marcar solo si la escuela organiza estudiantes por generaciones (ej: Tractor, Innova)» — SchoolsManagement · l.1035, when `showSchoolModal`
+- «Escuela: {selectedSchool.name}» — SchoolsManagement · l.1066, when `showGenerationModal && selectedSchool`
+- «Nombre *» (label) — SchoolsManagement · l.1071, when `showGenerationModal`
+- «Rango de Grados» (label) — SchoolsManagement · l.1084, when `showGenerationModal`
+- «Descripción» (label) — SchoolsManagement · l.1165, when `showGenerationModal`
+- «Seleccionar Cliente» (label) — SchoolsManagement · l.1247, when `showClientModal`
+- «Nombre Legal *» (label) — SchoolsManagement · l.1293, when `showClientEditModal && editingCliente`
+- «Nombre de Fantasía *» (label) — SchoolsManagement · l.1306, when `showClientEditModal && editingCliente`
+- «RUT *» (label) — SchoolsManagement · l.1319, when `showClientEditModal && editingCliente`
+- «Dirección *» (label) — SchoolsManagement · l.1332, when `showClientEditModal && editingCliente`
+- «Comuna» (label) — SchoolsManagement · l.1345, when `showClientEditModal && editingCliente`
+- «Ciudad» (label) — SchoolsManagement · l.1358, when `showClientEditModal && editingCliente`
+- «Nombre Representante Legal *» (label) — SchoolsManagement · l.1376, when `showClientEditModal && editingCliente`
+- «RUT Representante Legal *» (label) — SchoolsManagement · l.1389, when `showClientEditModal && editingCliente`
+- «Fecha Escritura» (label) — SchoolsManagement · l.1402, when `showClientEditModal && editingCliente`
+- «Nombre Notario» (label) — SchoolsManagement · l.1414, when `showClientEditModal && editingCliente`
+- «Comuna Notaría» (label) — SchoolsManagement · l.1427, when `showClientEditModal && editingCliente`
+- «Nombre Encargado» (label) — SchoolsManagement · l.1445, when `showClientEditModal && editingCliente`
+- «Teléfono Encargado» (label) — SchoolsManagement · l.1458, when `showClientEditModal && editingCliente`
+- «Email Encargado» (label) — SchoolsManagement · l.1471, when `showClientEditModal && editingCliente`
+- «Nombre Contacto» (label) — SchoolsManagement · l.1489, when `showClientEditModal && editingCliente`
+- «Teléfono Contacto» (label) — SchoolsManagement · l.1502, when `showClientEditModal && editingCliente`
+- «Email Contacto» (label) — SchoolsManagement · l.1515, when `showClientEditModal && editingCliente`
 
 **Reads and writes the database directly:** `rpc:get_school_user_counts`, `table:clientes` (select, update), `table:contratos` (select), `table:generations` (delete, insert, update), `table:growth_communities` (update), `table:profiles` (select, update), `table:schools` (delete, insert, select, update), `table:user_roles` (select)
 

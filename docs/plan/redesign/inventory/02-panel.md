@@ -1,7 +1,7 @@
 # Panel (Mi Panel)
 
 Area `02-panel`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `c7e27398c` (2026-11-22).
+Read from commit `9298935db` (2026-11-25).
 
 1 screen files, 6 API files, 56 pieces.
 
@@ -20,8 +20,8 @@ File `pages/dashboard.tsx` · 100 lines · frame: MainLayout
 - Menu: «Mi Panel» → `/dashboard` — everyone signed in (`Sidebar.tsx` l.117)
 - Middleware: no role rule. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: yes.
 - In the page: no access check found by the script.
-- Linked from: `components/DynamicFavicon.tsx:17`, `components/LessonBreadcrumb.tsx:112`, `components/auth/AuthWrapper.tsx:54`, `components/auth/AuthWrapper.tsx:67`, `components/auth/ProtectedRoute.tsx:43`, `components/layout/Sidebar.tsx:120`, `components/notifications/ModernNotificationCenter.tsx:303`, `components/notifications/ModernNotificationCenter.tsx:328`, `components/notifications/NotificationDropdown.tsx:132`, `components/notifications/NotificationDropdown.tsx:157`, `components/ui/kit/Button.typecheck.tsx:24`, `components/workspace/WorkspaceSidebar.tsx:172` and 122 more
-- Tests: browser tests that CI runs: `tests/e2e/auth-lifecycle.spec.ts`, `tests/e2e/ci-fixture.spec.ts`, `tests/e2e/footer-heading-order.spec.ts`, `tests/e2e/look-frame.spec.ts`, `tests/e2e/look-panel.spec.ts`, `tests/e2e/look-switch.spec.ts`, `tests/e2e/notification-settings.spec.ts`, `tests/e2e/pasantias-leads-admin.spec.ts`; browser tests CI skips: `tests/e2e/notification-bounce.spec.ts`, `tests/e2e/notification-catalog-links.spec.ts`, `tests/e2e/notification-insert-boundary.spec.ts`, `tests/e2e/panel-pin.spec.ts`, `tests/qa/auth-redirects.spec.ts`; unit tests of the page: `__tests__/pages/dashboard.nuevo.test.tsx`, `__tests__/pages/dashboard.samePanel.test.tsx`.
+- Linked from: `components/DynamicFavicon.tsx:17`, `components/LessonBreadcrumb.tsx:112`, `components/auth/AuthWrapper.tsx:54`, `components/auth/AuthWrapper.tsx:67`, `components/auth/ProtectedRoute.tsx:43`, `components/layout/Sidebar.tsx:120`, `components/notifications/ModernNotificationCenter.tsx:303`, `components/notifications/ModernNotificationCenter.tsx:328`, `components/notifications/NotificationDropdown.tsx:132`, `components/notifications/NotificationDropdown.tsx:157`, `components/ui/kit/Button.typecheck.tsx:24`, `components/workspace/WorkspaceSidebar.tsx:172` and 124 more
+- Tests: browser tests that CI runs: `tests/e2e/auth-lifecycle.spec.ts`, `tests/e2e/ci-fixture.spec.ts`, `tests/e2e/correos-listas-contactos.spec.ts`, `tests/e2e/footer-heading-order.spec.ts`, `tests/e2e/look-frame.spec.ts`, `tests/e2e/look-panel.spec.ts`, `tests/e2e/look-switch.spec.ts`, `tests/e2e/notification-settings.spec.ts`, `tests/e2e/pasantias-leads-admin.spec.ts`; browser tests CI skips: `tests/e2e/notification-bounce.spec.ts`, `tests/e2e/notification-catalog-links.spec.ts`, `tests/e2e/notification-insert-boundary.spec.ts`, `tests/e2e/panel-pin.spec.ts`, `tests/qa/auth-redirects.spec.ts`; unit tests of the page: `__tests__/pages/dashboard.nuevo.test.tsx`, `__tests__/pages/dashboard.samePanel.test.tsx`.
 - QA scenarios that name this address: admin 1, community_manager 2.
 
 | Role | Sees it in the menu | Middleware |

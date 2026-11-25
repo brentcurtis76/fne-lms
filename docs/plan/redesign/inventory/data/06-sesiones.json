@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "c7e27398ca230dbbc3e581dcde19f92480491fcd",
-  "date": "2026-11-22T23:11:25-03:00"
+  "commit": "9298935dbe2a95efd8049538ace9feb5f0394c46",
+  "date": "2026-11-25T10:48:59-03:00"
  },
  "screens": [
   {
@@ -2606,8 +2606,8 @@
     ],
     "linkedFrom": [
      "components/layout/Sidebar.tsx:502",
-     "lib/notificationEvents.ts:552",
-     "lib/notifications/catalog.ts:354"
+     "lib/notificationEvents.ts:560",
+     "lib/notifications/catalog.ts:356"
     ],
     "qaScenarios": {
      "admin": [
@@ -4476,7 +4476,7 @@
      "components/workspace/WorkspaceSessionsTab.tsx:264",
      "components/workspace/WorkspaceSessionsTab.tsx:268",
      "hooks/useSessionsList.ts:326",
-     "lib/notifications/catalog.ts:195",
+     "lib/notifications/catalog.ts:197",
      "pages/consultor/sessions/reports.tsx:817",
      "pages/consultor/sessions/reports.tsx:821"
     ],
@@ -4899,15 +4899,15 @@
     "linkedFrom": [
      "components/dashboard/unified/UpcomingSessionsCard.tsx:81",
      "components/layout/Sidebar.tsx:180",
-     "lib/notificationEvents.ts:480",
-     "lib/notificationEvents.ts:517",
-     "lib/notificationEvents.ts:535",
-     "lib/notificationEvents.ts:568",
-     "lib/notificationEvents.ts:582",
-     "lib/notificationEvents.ts:597",
-     "lib/notificationEvents.ts:611",
-     "lib/notifications/catalog.ts:182",
-     "lib/notifications/catalog.ts:230",
+     "lib/notificationEvents.ts:488",
+     "lib/notificationEvents.ts:525",
+     "lib/notificationEvents.ts:543",
+     "lib/notificationEvents.ts:576",
+     "lib/notificationEvents.ts:590",
+     "lib/notificationEvents.ts:605",
+     "lib/notificationEvents.ts:619",
+     "lib/notifications/catalog.ts:184",
+     "lib/notifications/catalog.ts:232",
      "pages/consultor/sessions/[id].tsx:13"
     ],
     "qaScenarios": {
@@ -5138,7 +5138,7 @@
     "linkedFrom": [
      "components/layout/Sidebar.tsx:188",
      "components/layout/Sidebar.tsx:510",
-     "lib/notifications/catalog.ts:182"
+     "lib/notifications/catalog.ts:184"
     ],
     "qaScenarios": {
      "admin": [
@@ -7190,7 +7190,7 @@
      }
     ],
     "linkedFrom": [
-     "lib/notifications/catalog.ts:195",
+     "lib/notifications/catalog.ts:197",
      "lib/utils/session-disclosure.ts:111"
     ],
     "qaScenarios": {},

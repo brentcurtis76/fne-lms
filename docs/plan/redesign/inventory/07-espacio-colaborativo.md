@@ -1,7 +1,7 @@
 # Espacio Colaborativo y comunidades
 
 Area `07-espacio-colaborativo`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `c7e27398c` (2026-11-22).
+Read from commit `9298935db` (2026-11-25).
 
 4 screen files, 19 API files, 73 pieces.
 
@@ -485,7 +485,7 @@ File `pages/community/workspace.tsx` · 3061 lines · frame: MainLayout
   - l.351 `location.href → /login  (when !(!authLoading && user) && !authLoading && !user)`
   - l.912 `router.push → /dashboard  (when error)`
   - l.2818 `No tienes permisos para ver los mensajes de esta comunidad.`
-- Linked from: `components/layout/Sidebar.tsx:1286`, `components/layout/Sidebar.tsx:221`, `components/layout/Sidebar.tsx:227`, `components/layout/Sidebar.tsx:232`, `components/panel/CommunityCardNuevo.tsx:125`, `components/panel/PanelClasico.tsx:205`, `components/panel/PanelClasico.tsx:206`, `lib/auth/forced-password-change.ts:177`, `lib/notifications/catalog.ts:170`, `lib/notifications/catalog.ts:325`, `lib/notifications/catalog.ts:331`, `lib/notifications/catalog.ts:336` and 17 more
+- Linked from: `components/layout/Sidebar.tsx:1286`, `components/layout/Sidebar.tsx:221`, `components/layout/Sidebar.tsx:227`, `components/layout/Sidebar.tsx:232`, `components/panel/CommunityCardNuevo.tsx:125`, `components/panel/PanelClasico.tsx:205`, `components/panel/PanelClasico.tsx:206`, `lib/auth/forced-password-change.ts:177`, `lib/notifications/catalog.ts:172`, `lib/notifications/catalog.ts:327`, `lib/notifications/catalog.ts:333`, `lib/notifications/catalog.ts:338` and 17 more
 - Tests: browser tests that CI runs: `tests/e2e/auth-lifecycle.spec.ts`, `tests/e2e/community-document-links.spec.ts`, `tests/e2e/meeting-create-and-access.spec.ts`; browser tests CI skips: `tests/e2e/meeting-agreements-tasks.spec.ts`, `tests/e2e/meeting-finalize-email-outcome.spec.ts`, `tests/e2e/messaging-notifications.spec.ts`, `tests/e2e/notification-catalog-links.spec.ts`, `tests/e2e/panel-pin.spec.ts`, `tests/e2e/urgent-anonymous-boundaries.spec.ts`, `tests/e2e/urgent-anonymous-current.spec.ts`; unit tests of the page: `__tests__/pages/community/workspace.documents.test.tsx`, `__tests__/pages/community/workspace.mention-scope.test.tsx`, `__tests__/pages/community/workspace.messages.test.tsx`, `__tests__/pages/community/workspace.sendback3.test.tsx`, `__tests__/pages/community/workspace.shell.test.tsx`, `__tests__/pages/community/workspace.switch.test.tsx`, `components/__tests__/GroupAssignmentsContent.test.skip.tsx`, `components/__tests__/GroupAssignmentsContent.test.tsx`.
 - QA scenarios that name this address: admin 7, consultor 2, lider_comunidad 5.
 

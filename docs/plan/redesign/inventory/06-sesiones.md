@@ -1,7 +1,7 @@
 # Sesiones y consultorías (sessions, approvals, video meetings)
 
 Area `06-sesiones`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `c7e27398c` (2026-11-22).
+Read from commit `9298935db` (2026-11-25).
 
 11 screen files, 34 API files, 67 pieces.
 
@@ -661,7 +661,7 @@ File `pages/admin/sessions/approvals.tsx` · 487 lines · frame: MainLayout
   - l.74 `router.push → /dashboard  (when !isAdminUser)`
   - l.79 `router.push → /login`
   - l.117 `router.push → /login`
-- Linked from: `components/layout/Sidebar.tsx:502`, `lib/notificationEvents.ts:552`, `lib/notifications/catalog.ts:354`
+- Linked from: `components/layout/Sidebar.tsx:502`, `lib/notificationEvents.ts:560`, `lib/notifications/catalog.ts:356`
 - Tests: no browser test that CI runs.
 - QA scenarios that name this address: admin 6, consultor 2, lider_comunidad 1, director 1, supervisor 1, docente 1.
 
@@ -1182,7 +1182,7 @@ File `pages/consultor/sessions/[id].tsx` · 170 lines · frame: MainLayout
 - Menu: no entry.
 - Middleware: signed-in only. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page: no access check found by the script.
-- Linked from: `components/dashboard/unified/UpcomingSessionsCard.tsx:77`, `components/sessions/SessionsListNuevo.tsx:101`, `components/sessions/SessionsListNuevo.tsx:102`, `components/workspace/WorkspaceSessionsTab.tsx:264`, `components/workspace/WorkspaceSessionsTab.tsx:268`, `hooks/useSessionsList.ts:326`, `lib/notifications/catalog.ts:195`, `pages/consultor/sessions/reports.tsx:817`, `pages/consultor/sessions/reports.tsx:821`
+- Linked from: `components/dashboard/unified/UpcomingSessionsCard.tsx:77`, `components/sessions/SessionsListNuevo.tsx:101`, `components/sessions/SessionsListNuevo.tsx:102`, `components/workspace/WorkspaceSessionsTab.tsx:264`, `components/workspace/WorkspaceSessionsTab.tsx:268`, `hooks/useSessionsList.ts:326`, `lib/notifications/catalog.ts:197`, `pages/consultor/sessions/reports.tsx:817`, `pages/consultor/sessions/reports.tsx:821`
 - Tests: browser tests that CI runs: `tests/e2e/look-sessions.spec.ts`; browser tests CI skips: `tests/e2e/notification-catalog-links.spec.ts`, `tests/e2e/session-reminders.spec.ts`; unit tests of the page: `__tests__/pages/consultor/sessions/detail.clasico.test.tsx`, `__tests__/pages/consultor/sessions/detail.latch.test.tsx`, `__tests__/pages/consultor/sessions/detail.nuevo.test.tsx`, `__tests__/pages/consultor/sessions/detail.sameSession.test.tsx`, `__tests__/pages/consultor/sessions/detail.test.tsx`.
 - QA scenarios that name this address: lider_comunidad 1.
 
@@ -1325,7 +1325,7 @@ File `pages/consultor/sessions/index.tsx` · 45 lines · frame: MainLayout
 - Menu: Mi Trabajo › «Mis Sesiones» → `/consultor/sessions` — admin or consultor; the group: admin or consultor (`Sidebar.tsx` l.178)
 - Middleware: signed-in only. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page: no access check found by the script.
-- Linked from: `components/dashboard/unified/UpcomingSessionsCard.tsx:81`, `components/layout/Sidebar.tsx:180`, `lib/notificationEvents.ts:480`, `lib/notificationEvents.ts:517`, `lib/notificationEvents.ts:535`, `lib/notificationEvents.ts:568`, `lib/notificationEvents.ts:582`, `lib/notificationEvents.ts:597`, `lib/notificationEvents.ts:611`, `lib/notifications/catalog.ts:182`, `lib/notifications/catalog.ts:230`, `pages/consultor/sessions/[id].tsx:13`
+- Linked from: `components/dashboard/unified/UpcomingSessionsCard.tsx:81`, `components/layout/Sidebar.tsx:180`, `lib/notificationEvents.ts:488`, `lib/notificationEvents.ts:525`, `lib/notificationEvents.ts:543`, `lib/notificationEvents.ts:576`, `lib/notificationEvents.ts:590`, `lib/notificationEvents.ts:605`, `lib/notificationEvents.ts:619`, `lib/notifications/catalog.ts:184`, `lib/notifications/catalog.ts:232`, `pages/consultor/sessions/[id].tsx:13`
 - Tests: browser tests that CI runs: `tests/e2e/look-sessions.spec.ts`; unit tests of the page: `__tests__/pages/consultor/sessions/list.clasico.test.tsx`, `__tests__/pages/consultor/sessions/list.nuevo.test.tsx`, `__tests__/pages/consultor/sessions/list.sameList.test.tsx`, `__tests__/pages/consultor/sessions/list.test.tsx`.
 - QA scenarios that name this address: consultor 8, lider_comunidad 3, director 1, supervisor 1, docente 1.
 
@@ -1422,7 +1422,7 @@ File `pages/consultor/sessions/reports.tsx` · 890 lines · frame: MainLayout
   - l.279 `router.push → /dashboard  (when !role \|\| !['admin', 'consultor'].includes(role))`
   - l.339 `isAdmin = userRole === 'admin'`
   - l.380 `router.push → /dashboard  (when error)`
-- Linked from: `components/layout/Sidebar.tsx:188`, `components/layout/Sidebar.tsx:510`, `lib/notifications/catalog.ts:182`
+- Linked from: `components/layout/Sidebar.tsx:188`, `components/layout/Sidebar.tsx:510`, `lib/notifications/catalog.ts:184`
 - Tests: no browser test that CI runs.
 - QA scenarios that name this address: admin 5, community_manager 1, consultor 7, equipo_directivo 6, lider_comunidad 2, lider_generacion 3, supervisor_de_red 6.
 
@@ -1888,7 +1888,7 @@ File `pages/meet/session/[id].tsx` · 193 lines · frame: none · getServerSideP
 - Middleware: signed-in only. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page:
   - l.179 `server redirect → /login?next=[*]  (when access.kind === 'unauthenticated')`
-- Linked from: `lib/notifications/catalog.ts:195`, `lib/utils/session-disclosure.ts:111`
+- Linked from: `lib/notifications/catalog.ts:197`, `lib/utils/session-disclosure.ts:111`
 - Tests: browser tests that CI runs: `tests/e2e/session-disclosure.spec.ts`, `tests/e2e/session-ical.spec.ts`, `tests/e2e/zoom-join-authz.spec.ts`, `tests/e2e/zoom-managed-join.spec.ts`; browser tests CI skips: `tests/e2e/notification-catalog-links.spec.ts`, `tests/e2e/session-reminders.spec.ts`; unit tests of the page: `__tests__/lib/api-auth.server-side-user.test.ts`, `__tests__/pages/meet/session-managed-join.test.tsx`, `__tests__/pages/meet/session-ssr.test.ts`.
 
 | Role | Sees it in the menu | Middleware |

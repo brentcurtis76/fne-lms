@@ -124,8 +124,59 @@
     "must_change_password = true (`mustChangePassword`). Every other persona has no such field",
     "and is seeded false, exactly as before. It is a real global admin held by the forced",
     "password gate: its login lands on /change-password, and the specs prove the PASANT admin",
-    "API refuses it. Nothing may submit its change-password form — that would clear the flag."
+    "API refuses it. Nothing may submit its change-password form — that would clear the flag.",
+    "",
+    "CORREOS r1 phase 2 — `correos` holds the invented rows the Correos screens' specs need",
+    "(tests/e2e/correos-*.spec.ts), seeded by `ensureCorreosFixtures` in seed-e2e.mjs:",
+    "  searchContact  one contact on the day-one list 'Boletín general', found by search.",
+    "  eraseContact   one contact kept for erasing by hand (scenario W2). The specs never erase",
+    "                 it: an erasure cannot be undone and the stack is not reset between local",
+    "                 runs, so the erase spec adds and erases a person of its own each run.",
+    "  blockedAddress an address whose fingerprint is in email_suppression (reason bounce).",
+    "  leadTicked     a pasantías lead who ticked the newsletter box (marketing_opt_in true).",
+    "  leadNotTicked  a pasantías lead who did not tick it. Both carry an old created_at so the",
+    "                 A8 lead keeps its place among the newest leads.",
+    "Addresses use @example.test (RFC 2606 reserved). The seeder writes contacts only through",
+    "email_add_contacts, with the admin persona as actor."
   ],
+  "correos": {
+    "searchContact": {
+      "email": "contacto.semilla@example.test",
+      "firstName": "Semilla",
+      "lastName": "Inventada",
+      "organization": "Liceo Inventado Correos E2E"
+    },
+    "eraseContact": {
+      "email": "borrar.semilla@example.test",
+      "firstName": "Borrable",
+      "lastName": "Inventada",
+      "organization": "Liceo Inventado Correos E2E"
+    },
+    "blockedAddress": "bloqueada.semilla@example.test",
+    "leadTicked": {
+      "cohort": "correos-e2e",
+      "email": "interesada.boletin@example.test",
+      "firstName": "Interesada",
+      "lastName": "Boletin",
+      "institution": "Instituto Inventado Correos E2E",
+      "createdAt": "2026-06-15T12:00:00.000Z",
+      "consentAcceptedAt": "2026-06-15T12:00:00.000Z",
+      "consentNoticeVersion": "e2e-sintetico",
+      "marketingOptInAt": "2026-06-15T12:00:00.000Z",
+      "marketingNoticeVersion": "e2e-boletin-sintetico"
+    },
+    "leadNotTicked": {
+      "cohort": "correos-e2e",
+      "email": "sin.boletin@example.test",
+      "firstName": "Desinteresada",
+      "lastName": "Boletin",
+      "institution": "Instituto Inventado Correos E2E",
+      "createdAt": "2026-06-15T12:00:00.000Z",
+      "consentAcceptedAt": "2026-06-15T12:00:00.000Z",
+      "consentNoticeVersion": "e2e-sintetico"
+    },
+    "basisNote": "Persona inventada para las pruebas e2e de Correos."
+  },
   "school": {
     "id": 990001,
     "name": "Colegio Sintetico E2E",

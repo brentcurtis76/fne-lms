@@ -4,8 +4,8 @@
  "note": "Course system: the Course Review session owns this area's structure and its own checklist (docs/planning/courses/inventory.md, not yet on main). This file is the redesign's list of what is on screen today.",
  "routesOnly": false,
  "readFrom": {
-  "commit": "c7e27398ca230dbbc3e581dcde19f92480491fcd",
-  "date": "2026-11-22T23:11:25-03:00"
+  "commit": "9298935dbe2a95efd8049538ace9feb5f0394c46",
+  "date": "2026-11-25T10:48:59-03:00"
  },
  "screens": [
   {
@@ -198,11 +198,11 @@
      "lib/notificationEvents.ts:262",
      "lib/notificationEvents.ts:275",
      "lib/notificationEvents.ts:293",
-     "lib/notifications/catalog.ts:283",
-     "lib/notifications/catalog.ts:284",
      "lib/notifications/catalog.ts:285",
      "lib/notifications/catalog.ts:286",
-     "lib/notifications/catalog.ts:317",
+     "lib/notifications/catalog.ts:287",
+     "lib/notifications/catalog.ts:288",
+     "lib/notifications/catalog.ts:319",
      "middleware.ts:353",
      "pages/api/qa/seed-codebase-index.ts:231",
      "pages/course-manager.tsx:10",
@@ -1078,7 +1078,7 @@
     "inPage": [],
     "linkedFrom": [
      "components/layout/Sidebar.tsx:156",
-     "lib/notifications/catalog.ts:296",
+     "lib/notifications/catalog.ts:298",
      "pages/api/assignments/collaborative-submit.ts:126",
      "pages/community/workspace.tsx:274",
      "pages/community/workspace/assignments/[id]/discussion.tsx:150",

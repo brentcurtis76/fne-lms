@@ -10,7 +10,7 @@
  * Admins only (401 visitor, 403 non-admin, 405 other methods).
  */
 import type { NextApiResponse } from 'next';
-import { isValidAddress, readIds, readPage, searchTerm } from '../../../../../lib/correos/address';
+import { isValidAddress, readIds, readPage, searchTerm, trimHidden } from '../../../../../lib/correos/address';
 import { addContacts, contactIdFor, searchContacts, type AddCounts } from '../../../../../lib/correos/contacts';
 import { CONTACT_MESSAGES } from '../../../../../lib/correos/messages';
 import { parseReason } from '../../../../../lib/correos/reason';
@@ -22,7 +22,7 @@ const MAX_NAME = 200;
 function optionalText(value: unknown): string | null | undefined {
   if (value === undefined || value === null) return null;
   if (typeof value !== 'string') return undefined;
-  const trimmed = value.trim();
+  const trimmed = trimHidden(value);
   if (trimmed.length > MAX_NAME) return undefined;
   return trimmed || null;
 }
@@ -59,7 +59,7 @@ export default correosAdminRoute('contactos', {
       return res.status(400).json({ error: CONTACT_MESSAGES.nameTooLong });
     }
 
-    const email = (body.email as string).trim();
+    const email = trimHidden(body.email as string);
     const added = await addContacts(db, {
       rows: [{ email, first_name: first, last_name: last, organization }],
       listIds,

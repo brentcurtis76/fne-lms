@@ -3,8 +3,9 @@ import type { GetServerSideProps } from 'next';
 import MainLayout from '../../../components/layout/MainLayout';
 import { PageHeader } from '../../../components/ui/kit';
 import { CorreosNav } from '../../../components/correos/CorreosNav';
+import { AddressText } from '../../../components/correos/AddressText';
 import { PickPeople } from '../../../components/correos/PickPeople';
-import { formatDate } from '../../../lib/correos/labels';
+import { formatDate, NOUNS } from '../../../lib/correos/labels';
 import { correosAdminPage } from '../../../lib/correos-host/page-guard';
 
 /**
@@ -45,7 +46,7 @@ export default function CorreosPasantias() {
           api="/api/admin/correos/pasantias"
           idsField="lead_ids"
           testPrefix="correos-pasantias"
-          noun="interesados"
+          noun={NOUNS.interesado}
           searchLabel="Buscar interesados por correo, nombre o institución"
           emptyTitle="Nadie coincide"
           emptyDescription="Solo aparecen quienes marcaron la casilla del boletín."
@@ -53,11 +54,33 @@ export default function CorreosPasantias() {
           versionFromForm={false}
           basisHelp="Marcaron la casilla del boletín en el formulario. La fecha y la versión del aviso de cada persona se guardan tal como quedaron."
           rowLabel={nameOf}
+          // Four narrow columns so the table fits its box at desktop width: the institution sits under the name
+          // and the notice version under the date, and every cell may wrap.
           columns={[
-            { header: 'Nombre', primary: true, cell: (row) => <span className="font-semibold">{nameOf(row)}</span> },
-            { header: 'Correo', cell: (row) => <span className="break-all">{row.email}</span> },
-            { header: 'Institución', cell: (row) => row.institution || '—' },
-            { header: 'Marcó la casilla', cell: (row) => `${formatDate(row.marketing_opt_in_at)} (aviso ${row.marketing_notice_version})` },
+            {
+              header: 'Nombre e institución',
+              primary: true,
+              cell: (row) => (
+                <span className="block whitespace-normal">
+                  <span className="font-semibold">{nameOf(row)}</span>
+                  {row.institution ? (
+                    <span className="block text-xs text-gray-600" data-testid="correos-pasantias-institucion">
+                      {row.institution}
+                    </span>
+                  ) : null}
+                </span>
+              ),
+            },
+            { header: 'Correo', cell: (row) => <AddressText address={row.email} /> },
+            {
+              header: 'Marcó la casilla',
+              cell: (row) => (
+                <span className="block whitespace-normal">
+                  <span className="whitespace-nowrap">{formatDate(row.marketing_opt_in_at)}</span>
+                  <span className="block text-xs text-gray-600">aviso {row.marketing_notice_version}</span>
+                </span>
+              ),
+            },
           ]}
         />
       </div>

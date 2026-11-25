@@ -7,7 +7,6 @@ import {
   EmptyState,
   LoadingBlock,
   Notice,
-  Pagination,
   SearchInput,
   Table,
   TableBody,
@@ -17,16 +16,23 @@ import {
   TableRow,
 } from '../ui/kit';
 import type { AddCounts } from '../../lib/correos/contacts';
+import { formatCount, type Noun } from '../../lib/correos/labels';
 import type { LegalBasis } from '../../lib/correos/reason';
 import { AddResult } from './AddResult';
 import { ListPicker } from './ListPicker';
-import { EMPTY_REASON, ReasonFields, reasonBody, reasonComplete, type ReasonValue } from './ReasonFields';
+import { Pager } from './Pager';
+import { EMPTY_REASON, ReasonFields, firstReasonControl, focusControl, reasonBody, reasonMessage, type ReasonValue } from './ReasonFields';
 import { callApi, failureText } from './api';
 
 export interface PickColumn<T> {
   header: string;
   cell: (row: T) => React.ReactNode;
   primary?: boolean;
+}
+
+/** How many pages the total makes (at least one). */
+function pageCount(result: { total: number; pageSize: number }): number {
+  return Math.max(1, Math.ceil(result.total / Math.max(1, result.pageSize)));
 }
 
 interface PageOf<T> {
@@ -59,7 +65,7 @@ export function PickPeople<T extends { id: string }>({
   idsField: 'user_ids' | 'lead_ids';
   testPrefix: string;
   columns: PickColumn<T>[];
-  noun: string;
+  noun: Noun;
   searchLabel: string;
   emptyTitle: string;
   emptyDescription: string;
@@ -79,6 +85,7 @@ export function PickPeople<T extends { id: string }>({
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [counts, setCounts] = useState<AddCounts | null>(null);
+  const [showReasonErrors, setShowReasonErrors] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -117,7 +124,13 @@ export function PickPeople<T extends { id: string }>({
     setError(null);
     if (picked.size === 0) return setError('Marca al menos una persona.');
     if (listIds.length === 0) return setError('Elige al menos una lista.');
-    if (!reasonComplete(reason, { versionFromForm })) return setError('Indica de dónde viene el permiso y escribe la nota.');
+    const missing = reasonMessage(reason, { versionFromForm });
+    if (missing) {
+      setShowReasonErrors(true);
+      setError(missing);
+      focusControl(firstReasonControl(reason, testPrefix, { versionFromForm, allowed }));
+      return;
+    }
     setSending(true);
     const answer = await callApi<{ counts: AddCounts }>(api, {
       method: 'POST',
@@ -127,6 +140,7 @@ export function PickPeople<T extends { id: string }>({
     if (answer.status === 200 && answer.body) {
       setCounts(answer.body.counts);
       setPicked(new Map());
+      setShowReasonErrors(false);
     } else setError(failureText(answer));
   };
 
@@ -160,13 +174,40 @@ export function PickPeople<T extends { id: string }>({
       ) : !result ? (
         <LoadingBlock label="Cargando" />
       ) : result.items.length === 0 ? (
-        <EmptyState title={emptyTitle} description={emptyDescription} />
+        result.page > 1 || result.total > result.pageSize ? (
+          // The database page held people, but none of them can be added (they are left out after the page is
+          // read): the page buttons stay, so the admin can go on or back.
+          <div className="overflow-hidden rounded-lg bg-white shadow nuevo:border nuevo:border-brand_primary/[0.12] nuevo:[box-shadow:none]">
+            <p className="px-6 py-4 text-sm text-gray-900 nuevo:px-[14px]" data-testid={`${testPrefix}-pagina-vacia`}>
+              {result.page < pageCount(result)
+                ? 'Las personas de esta página no se pueden agregar. Pasa a la página siguiente para ver a las demás.'
+                : 'Las personas de esta página no se pueden agregar, y no hay más páginas. Vuelve a la página anterior.'}
+            </p>
+            <Pager
+              page={result.page}
+              pageSize={result.pageSize}
+              total={result.total}
+              onPageChange={setPage}
+              noun={noun}
+              data-testid={`${testPrefix}-paginas`}
+            />
+          </div>
+        ) : (
+          <EmptyState title={emptyTitle} description={emptyDescription} />
+        )
       ) : (
         <Table
           stackOnPhone
           aria-label={searchLabel}
           footer={
-            <Pagination page={result.page} pageSize={result.pageSize} total={result.total} onPageChange={setPage} noun={noun} />
+            <Pager
+              page={result.page}
+              pageSize={result.pageSize}
+              total={result.total}
+              onPageChange={setPage}
+              noun={noun}
+              data-testid={`${testPrefix}-paginas`}
+            />
           }
         >
           <TableHead>
@@ -202,7 +243,7 @@ export function PickPeople<T extends { id: string }>({
       )}
       {result?.hidden ? (
         <p className="text-sm text-gray-700" data-testid={`${testPrefix}-ocultas`}>
-          En esta página hay {result.hidden} {result.hidden === 1 ? 'persona que no se ofrece' : 'personas que no se ofrecen'}: no tienen
+          En esta página hay {formatCount(result.hidden)} {result.hidden === 1 ? 'persona que no se ofrece' : 'personas que no se ofrecen'}: no tienen
           un correo válido o están vinculadas a un colegio de prueba.
         </p>
       ) : null}
@@ -213,7 +254,7 @@ export function PickPeople<T extends { id: string }>({
             <p className="text-sm text-gray-900" data-testid={`${testPrefix}-elegidas`}>
               {picked.size === 0
                 ? 'Todavía no marcaste a nadie.'
-                : `Marcaste ${picked.size} ${picked.size === 1 ? 'persona' : 'personas'}.`}
+                : `Marcaste ${formatCount(picked.size)} ${picked.size === 1 ? 'persona' : 'personas'}.`}
             </p>
             <ListPicker idPrefix={testPrefix} value={listIds} onChange={setListIds} />
             <ReasonFields
@@ -223,6 +264,7 @@ export function PickPeople<T extends { id: string }>({
               allowed={allowed}
               versionFromForm={versionFromForm}
               basisHelp={basisHelp}
+              showErrors={showReasonErrors}
             />
             {error ? (
               <Notice tone="error" title="No se agregó a nadie." data-testid={`${testPrefix}-error`}>

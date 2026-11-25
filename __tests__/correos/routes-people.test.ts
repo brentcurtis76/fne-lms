@@ -528,7 +528,9 @@ describe('C2: search and a person’s page', () => {
     const result = await call(contactos, 'GET', { query: { q: 'ana,(x)*', page: '2' } });
     expect(result.status).toBe(200);
     const query = auth.db.queries.find((q: QueryRecord) => q.table === 'email_contacts');
-    expect(arg(query, 'or')).toBe('email.ilike.*ana x*,first_name.ilike.*ana x*,last_name.ilike.*ana x*,organization.ilike.*ana x*');
+    // Typed text is data: matched literally (imatch of an escaped pattern) inside PostgREST's quoted form.
+    const literal = String.raw`imatch."ana\\,\\(x\\)\\*"`;
+    expect(arg(query, 'or')).toBe(['email', 'first_name', 'last_name', 'organization'].map((column) => `${column}.${literal}`).join(','));
     expect(arg(query, 'range', 0)).toBe(25);
     expect(arg(query, 'range', 1)).toBe(49);
     expect(arg(query, 'is')).toBe('anonymized_at');

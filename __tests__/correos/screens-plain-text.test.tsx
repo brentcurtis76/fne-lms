@@ -10,7 +10,10 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { ContactDetails } from '../../components/correos/ContactDetails';
 import { AddResult } from '../../components/correos/AddResult';
-import { EMPTY_REASON, ReasonFields, reasonComplete } from '../../components/correos/ReasonFields';
+import { EMPTY_REASON, ReasonFields, reasonComplete, reasonMessage } from '../../components/correos/ReasonFields';
+import { Pager } from '../../components/correos/Pager';
+import { countOf, formatCount, NOUNS } from '../../lib/correos/labels';
+import { REASON_MESSAGES } from '../../lib/correos/reason';
 import type { ContactDetail } from '../../lib/correos/contacts';
 
 const HOSTILE: ContactDetail = {
@@ -109,5 +112,50 @@ describe('C1 and I2 on the screen: the reason has nothing pre-chosen', () => {
     expect(reasonComplete({ legal_basis: 'manual_verified', basis_note: ' ', consent_notice_version: '' })).toBe(false);
     expect(reasonComplete({ legal_basis: 'consent_form', basis_note: 'Nota', consent_notice_version: '' })).toBe(false);
     expect(reasonComplete({ legal_basis: 'consent_form', basis_note: 'Nota', consent_notice_version: '' }, { versionFromForm: false })).toBe(true);
+  });
+});
+
+describe('counts: one Chilean form, singular and plural', () => {
+  it('groups thousands with a dot, always', () => {
+    expect([0, 7, 999, 1000, 1200, 11200, 20000, 1234567].map(formatCount)).toEqual(['0', '7', '999', '1.000', '1.200', '11.200', '20.000', '1.234.567']);
+    expect(countOf(1, NOUNS.persona)).toBe('1 persona');
+    expect(countOf(11200, NOUNS.persona)).toBe('11.200 personas');
+  });
+
+  it('the result says «Se revisó 1 usuario» and «Se agregó 1»', () => {
+    const html = renderToStaticMarkup(
+      <AddResult noun={NOUNS.usuario} counts={{ total: 1, accepted: 1, duplicate: 0, blocked: 0, left: 0, invalid: 0, contacts_created: 1, memberships_created: 1 }} />
+    );
+    expect(html).toContain('Se revisó 1 usuario.');
+    expect(html).toContain('Se agregó 1.');
+    expect(html).toContain('role="status"');
+    const many = renderToStaticMarkup(
+      <AddResult counts={{ total: 1200, accepted: 2, duplicate: 1198, blocked: 0, left: 0, invalid: 0, contacts_created: 2, memberships_created: 2 }} />
+    );
+    expect(many).toContain('Se revisaron 1.200 filas.');
+    expect(many).toContain('Se agregaron 2.');
+  });
+
+  it('the page buttons count in the same form', () => {
+    const html = renderToStaticMarkup(<Pager page={2} pageSize={25} total={11200} onPageChange={() => undefined} noun={NOUNS.persona} />);
+    expect(html).toContain('Mostrando 26–50 de 11.200 personas');
+    expect(renderToStaticMarkup(<Pager page={1} pageSize={25} total={1} onPageChange={() => undefined} noun={NOUNS.persona} />)).toContain('Mostrando 1 de 1 persona');
+  });
+});
+
+describe('the reason error says exactly what is missing', () => {
+  it('basis, note and version each by name', () => {
+    expect(reasonMessage(EMPTY_REASON)).toBe(`${REASON_MESSAGES.basis} ${REASON_MESSAGES.note}`);
+    expect(reasonMessage({ legal_basis: 'manual_verified', basis_note: ' ', consent_notice_version: '' })).toBe(REASON_MESSAGES.note);
+    expect(reasonMessage({ legal_basis: '', basis_note: 'Nota', consent_notice_version: '' })).toBe(REASON_MESSAGES.basis);
+    expect(reasonMessage({ legal_basis: 'consent_form', basis_note: 'Nota', consent_notice_version: '' })).toBe(REASON_MESSAGES.version);
+    expect(reasonMessage({ legal_basis: 'consent_form', basis_note: 'Nota', consent_notice_version: '' }, { versionFromForm: false })).toBeNull();
+  });
+
+  it('with showErrors each message sits next to its field', () => {
+    const html = renderToStaticMarkup(<ReasonFields idPrefix="t" value={{ legal_basis: 'consent_form', basis_note: '', consent_notice_version: '' }} onChange={() => undefined} showErrors />);
+    expect(html).toContain(REASON_MESSAGES.note);
+    expect(html).toContain(REASON_MESSAGES.version);
+    expect(html).not.toContain(REASON_MESSAGES.basis);
   });
 });

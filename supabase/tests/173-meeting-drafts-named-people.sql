@@ -22,6 +22,8 @@
 --      un-named consultor is refused (the row stays as it was) but still edits
 --      the meeting otherwise; a named consultor turns it into a draft and
 --      still sees it
+--   7. the overdue list gives a draft's title only to the people who see the
+--      draft; its assignee gets the item with the text 'Reunión en borrador'
 --
 -- Invented people and data only. Synthetic/local state only. Rolls back.
 -- DO NOT run against production.
@@ -29,7 +31,7 @@
 
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap;
-SELECT plan(226);
+SELECT plan(236);
 
 CREATE TEMP TABLE ids (p text PRIMARY KEY, id uuid) ON COMMIT DROP;
 GRANT SELECT ON ids TO anon, authenticated, service_role;
@@ -291,6 +293,55 @@ SELECT is((SELECT status::text FROM public.community_meetings WHERE id = pg_temp
 SELECT pg_temp.as_user('consultor');
 SELECT is((SELECT count(*)::int FROM public.community_meetings WHERE id = pg_temp.mid('Q')),
   0, 'consultor (not named): no longer sees it once it is a draft');
+SELECT pg_temp.reset_auth();
+
+-- ---------------------------------------------------------------------------
+-- 7. The overdue list (get_overdue_items, SECURITY DEFINER) does not give a
+--    draft's title to a person who may not see the draft (send-back 2) (10).
+--    The assignee still gets her item (unchanged on purpose); only its
+--    meeting_title becomes 'Reunión en borrador'. Overdue items, all assigned
+--    to participant: commitment cD on draft D, commitment cP on meeting P,
+--    task tD on draft D. The meetings' titles at this point (sections 2, 5 and
+--    6 changed them) are read as postgres into ttl.
+-- ---------------------------------------------------------------------------
+INSERT INTO mt (k, id) SELECT k, gen_random_uuid() FROM unnest(ARRAY['cD', 'cP', 'tD']) k;
+INSERT INTO public.meeting_commitments (id, meeting_id, commitment_text, assigned_to, due_date, status) VALUES
+  (pg_temp.mid('cD'), pg_temp.mid('D'), 'Compromiso vencido D', pg_temp.uid('participant'), CURRENT_DATE - 5, 'pendiente'),
+  (pg_temp.mid('cP'), pg_temp.mid('P'), 'Compromiso vencido P', pg_temp.uid('participant'), CURRENT_DATE - 5, 'pendiente');
+INSERT INTO public.meeting_tasks (id, meeting_id, task_title, assigned_to, due_date, status) VALUES
+  (pg_temp.mid('tD'), pg_temp.mid('D'), 'Tarea vencida D', pg_temp.uid('participant'), CURRENT_DATE - 4, 'pendiente');
+CREATE TEMP TABLE ttl ON COMMIT DROP AS
+  SELECT k, title FROM public.community_meetings cm JOIN mt ON mt.id = cm.id WHERE k IN ('D', 'P');
+GRANT SELECT ON ttl TO anon, authenticated, service_role;
+
+SELECT pg_temp.as_user('participant');
+SELECT is((SELECT meeting_title FROM public.get_overdue_items(NULL, NULL) WHERE item_id = pg_temp.mid('cD')),
+  'Reunión en borrador', 'overdue, participant (own mode): her commitment on draft D comes back with the fixed text, not the draft''s title');
+SELECT is((SELECT title || '|' || due_date::text || '|' || assigned_to::text FROM public.get_overdue_items(NULL, NULL) WHERE item_id = pg_temp.mid('cD')),
+  'Compromiso vencido D|' || (CURRENT_DATE - 5)::text || '|' || pg_temp.uid('participant')::text,
+  'overdue, participant: the item itself is unchanged (its text, due date, assignee)');
+SELECT is((SELECT meeting_title FROM public.get_overdue_items(NULL, NULL) WHERE item_id = pg_temp.mid('tD')),
+  'Reunión en borrador', 'overdue, participant (own mode): her task on draft D comes back with the fixed text');
+SELECT is((SELECT meeting_title FROM public.get_overdue_items('25b00000-0000-4000-8000-0000000000a1'::uuid, NULL) WHERE item_id = pg_temp.mid('cD')),
+  'Reunión en borrador', 'overdue, participant (workspace mode): her commitment on draft D comes back with the fixed text');
+SELECT is((SELECT meeting_title FROM public.get_overdue_items(NULL, NULL) WHERE item_id = pg_temp.mid('cP')),
+  (SELECT title FROM ttl WHERE k = 'P'), 'overdue, participant: her commitment on meeting P (programada) carries its real title');
+SELECT pg_temp.as_user('creator');
+SELECT is((SELECT meeting_title FROM public.get_overdue_items('25b00000-0000-4000-8000-0000000000a1'::uuid, NULL) WHERE item_id = pg_temp.mid('cD')),
+  (SELECT title FROM ttl WHERE k = 'D'), 'overdue, creator (workspace mode): the commitment on draft D carries the draft''s real title');
+SELECT is((SELECT meeting_title FROM public.get_overdue_items('25b00000-0000-4000-8000-0000000000a1'::uuid, NULL) WHERE item_id = pg_temp.mid('tD')),
+  (SELECT title FROM ttl WHERE k = 'D'), 'overdue, creator (workspace mode): the task on draft D carries the draft''s real title');
+SELECT pg_temp.as_user('facilitator');
+SELECT is((SELECT meeting_title FROM public.get_overdue_items('25b00000-0000-4000-8000-0000000000a1'::uuid, NULL) WHERE item_id = pg_temp.mid('cD')),
+  (SELECT title FROM ttl WHERE k = 'D'), 'overdue, facilitator of D (workspace mode): the real title');
+SELECT pg_temp.as_user('leader');
+SELECT is((SELECT meeting_title FROM public.get_overdue_items('25b00000-0000-4000-8000-0000000000a1'::uuid, NULL) WHERE item_id = pg_temp.mid('cD')),
+  (SELECT title FROM ttl WHERE k = 'D'), 'overdue, community leader (workspace mode): the real title');
+SELECT pg_temp.reset_auth();
+SET LOCAL ROLE service_role;
+SELECT set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
+SELECT is((SELECT meeting_title FROM public.get_overdue_items(NULL, NULL) WHERE item_id = pg_temp.mid('cD')),
+  (SELECT title FROM ttl WHERE k = 'D'), 'overdue, service role (no auth.uid()): the real title, as before');
 SELECT pg_temp.reset_auth();
 
 SELECT * FROM finish();

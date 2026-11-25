@@ -17,9 +17,12 @@
 --      commitments and tasks are not touched).
 --   4. can_edit_meeting_verified: a consultor edits a draft only when named on
 --      it; admins and the named branches are unchanged.
+--   5. get_overdue_items: the same items as before, but a draft's title is
+--      given only to the people who see the draft; anyone else (such as the
+--      assignee of an item on it) gets 'Reunión en borrador'.
 --
 -- Meetings in any other state are read and edited exactly as before.
--- Additive only: one new function, one new policy, two functions replaced with
+-- Additive only: one new function, one new policy, three functions replaced with
 -- the same signature and attributes (their grants stay). No data change.
 -- =============================================================================
 
@@ -184,3 +187,95 @@ END;
 $$;
 COMMENT ON FUNCTION public.can_edit_meeting_verified(uuid, uuid) IS
   'W-B3a-01: can_edit_meeting without trusting unverified co_editor rows. Keep the non-co_editor branches in step with can_edit_meeting. EC-R16: a consultor edits a draft only when named on it (creator, facilitator, secretary or verified co-editor).';
+
+-- 5. The overdue list does not give a draft's title away ----------------------
+-- Body of 20261003100000 (section 11) unchanged — the same rows come back,
+-- including the assignee's own item on a draft (unchanged on purpose) — except
+-- meeting_title: for a draft it is the real title only when the person asking
+-- (auth.uid()) sees the draft; otherwise the fixed text 'Reunión en borrador'.
+-- With no auth.uid() (service role) the real title is returned as before.
+CREATE OR REPLACE FUNCTION public.get_overdue_items(p_workspace_id uuid DEFAULT NULL::uuid, p_user_id uuid DEFAULT NULL::uuid)
+RETURNS TABLE(item_type text, item_id uuid, title text, due_date date, days_overdue integer, assigned_to uuid, meeting_title text)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public', 'pg_temp'
+AS $function$
+DECLARE
+  v_user_filter uuid := p_user_id;
+  v_actor uuid := auth.uid();
+BEGIN
+  IF v_actor IS NOT NULL THEN
+    -- Definer function: the table guard policies do not apply, so the
+    -- forced-password-change gate is checked here.
+    IF NOT public.password_change_gate_ok() THEN
+      RETURN;
+    END IF;
+    IF p_workspace_id IS NOT NULL THEN
+      PERFORM public.assert_workspace_access(p_workspace_id);
+    END IF;
+    IF p_user_id IS NOT NULL THEN
+      PERFORM public.assert_actor_matches(p_user_id);
+    ELSIF p_workspace_id IS NULL AND NOT public.auth_is_admin() THEN
+      v_user_filter := v_actor;
+    END IF;
+  ELSIF NOT public.auth_is_backend_caller() THEN
+    RAISE EXCEPTION 'Authentication required' USING ERRCODE = '42501';
+  END IF;
+
+  RETURN QUERY
+  SELECT
+    'commitment'::TEXT as item_type,
+    mc.id as item_id,
+    mc.commitment_text as title,
+    mc.due_date,
+    (CURRENT_DATE - mc.due_date)::INTEGER as days_overdue,
+    mc.assigned_to,
+    CASE
+      WHEN v_actor IS NULL
+        OR cm.status IS DISTINCT FROM 'borrador'::public.meeting_status
+        OR public.can_see_meeting_draft(v_actor, cm.id)
+      THEN cm.title
+      ELSE 'Reunión en borrador'::TEXT
+    END as meeting_title
+  FROM meeting_commitments mc
+  JOIN community_meetings cm ON cm.id = mc.meeting_id
+  JOIN community_workspaces cw ON cw.id = cm.workspace_id
+  WHERE mc.status IN ('pendiente', 'en_progreso')
+    AND mc.due_date < CURRENT_DATE
+    AND (p_workspace_id IS NULL OR cw.id = p_workspace_id)
+    AND (v_user_filter IS NULL OR mc.assigned_to = v_user_filter)
+    AND (v_actor IS NULL OR mc.assigned_to = v_actor OR public.can_read_meeting_content(v_actor, cm.id))
+
+  UNION ALL
+
+  SELECT
+    'task'::TEXT as item_type,
+    mt.id as item_id,
+    mt.task_title as title,
+    mt.due_date,
+    (CURRENT_DATE - mt.due_date)::INTEGER as days_overdue,
+    mt.assigned_to,
+    CASE
+      WHEN v_actor IS NULL
+        OR cm.status IS DISTINCT FROM 'borrador'::public.meeting_status
+        OR public.can_see_meeting_draft(v_actor, cm.id)
+      THEN cm.title
+      ELSE 'Reunión en borrador'::TEXT
+    END as meeting_title
+  FROM meeting_tasks mt
+  JOIN community_meetings cm ON cm.id = mt.meeting_id
+  JOIN community_workspaces cw ON cw.id = cm.workspace_id
+  WHERE mt.status IN ('pendiente', 'en_progreso')
+    AND mt.due_date < CURRENT_DATE
+    AND (p_workspace_id IS NULL OR cw.id = p_workspace_id)
+    AND (v_user_filter IS NULL OR mt.assigned_to = v_user_filter)
+    AND (v_actor IS NULL OR mt.assigned_to = v_actor OR public.can_read_meeting_content(v_actor, cm.id))
+
+  ORDER BY days_overdue DESC, due_date DESC;
+END;
+$function$;
+REVOKE ALL ON FUNCTION public.get_overdue_items(uuid, uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.get_overdue_items(uuid, uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_overdue_items(uuid, uuid) TO service_role;
+COMMENT ON FUNCTION public.get_overdue_items(uuid, uuid) IS
+  'Overdue commitments and tasks for a workspace or for the caller. A signed-in caller gets only the items they may read (as a reader of the meeting or as the assignee). EC-R16: for a draft meeting, meeting_title is the real title only for a person who sees the draft (can_see_meeting_draft); anyone else, such as the assignee of an item on it, gets the text ''Reunión en borrador''. The service role gets the real title.';

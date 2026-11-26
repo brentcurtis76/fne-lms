@@ -145,6 +145,12 @@ export const MANDATORY_SPECS = [
   // on it, a faked refusal of a half-chosen hours pair shows under the two selects, a faked failed
   // approval shows the drafts notice and a real one lands where today's does; no sideways scroll at 320 px.
   'tests/e2e/look-sessions.spec.ts',
+  // CORREOS r1 phase 2 (W1) — the Correos screens as an admin with invented people: lists, contacts with
+  // search, adding one person, a person's page, a blocked address refused, erasing a person (asks first,
+  // cannot be undone); CSV import with its result adding up, GENERA users, pasantías leads who ticked. Each
+  // also keeps a docente (to /dashboard, routes 403) and a visitor (to /login, routes 401) out.
+  'tests/e2e/correos-listas-contactos.spec.ts',
+  'tests/e2e/correos-importar.spec.ts',
 ];
 
 /** The JSON report nests suites; flatten to one entry per spec. */

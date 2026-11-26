@@ -1,11 +1,11 @@
 {
  "readFrom": {
-  "commit": "a908cc8b50d6d63408cd0f40fb401cf0030b72e0",
-  "date": "2026-11-25T13:27:34-03:00"
+  "commit": "297c129d4f0aa5bf7f86a7123572e2c25eb01257",
+  "date": "2026-11-25T14:08:36-03:00"
  },
  "counts": {
-  "screens": 155,
-  "api": 372
+  "screens": 162,
+  "api": 381
  },
  "menu": {
   "top": 18,
@@ -5224,6 +5224,328 @@
     "encargado_licitacion": {
      "menu": "yes",
      "middleware": "pass"
+    }
+   }
+  },
+  {
+   "route": "/admin/correos/contactos/[id]",
+   "file": "pages/admin/correos/contactos/[id].tsx",
+   "area": "15-comunicacion",
+   "dynamic": true,
+   "frame": "MainLayout",
+   "marks": [],
+   "roles": {
+    "admin": {
+     "menu": "—",
+     "middleware": "pass"
+    },
+    "consultor": {
+     "menu": "—",
+     "middleware": "sent to /dashboard"
+    },
+    "equipo_directivo": {
+     "menu": "—",
+     "middleware": "sent to /dashboard"
+    },
+    "lider_generacion": {
+     "menu": "—",
+     "middleware": "sent to /dashboard"
+    },
+    "lider_comunidad": {
+     "menu": "—",
+     "middleware": "sent to /dashboard"
+    },
+    "supervisor_de_red": {
+     "menu": "—",
+     "middleware": "sent to /dashboard"
+    },
+    "community_manager": {
+     "menu": "—",
+     "middleware": "sent to /dashboard"
+    },
+    "docente": {
+     "menu": "—",
+     "middleware": "sent to /dashboard"
+    },
+    "encargado_licitacion": {
+     "menu": "—",
+     "middleware": "sent to /dashboard"
+    }
+   }
+  },
+  {
+   "route": "/admin/correos/contactos",
+   "file": "pages/admin/correos/contactos/index.tsx",
+   "area": "15-comunicacion",
+   "dynamic": false,
+   "frame": "MainLayout",
+   "marks": [],
+   "roles": {
+    "admin": {
+     "menu": "—",
+     "middleware": "pass"
+    },
+    "consultor": {
+     "menu": "—",
+     "middleware": "sent to /dashboard"
+    },
+    "equipo_directivo": {
+     "menu": "—",
+     "middleware": "sent to /dashboard"
+    },
+    "lider_generacion": {
+     "menu": "—",
+     "middleware": "sent to /dashboard"
+    },
+    "lider_comunidad": {
+     "menu": "—",
+     "middleware": "sent to /dashboard"
+    },
+    "supervisor_de_red": {
+     "menu": "—",
+     "middleware": "sent to /dashboard"
+    },
+    "community_manager": {
+     "menu": "—",
+     "middleware": "sent to /dashboard"
+    },
+    "docente": {
+     "menu": "—",
+     "middleware": "sent to /dashboard"
+    },
+    "encargado_licitacion": {
+     "menu": "—",
+     "middleware": "sent to /dashboard"
+    }
+   }
+  },
+  {
+   "route": "/admin/correos/importar",
+   "file": "pages/admin/correos/importar.tsx",
+   "area": "15-comunicacion",
+   "dynamic": false,
+   "frame": "MainLayout",
+   "marks": [],
+   "roles": {
+    "admin": {
+     "menu": "—",
+     "middleware": "pass"
+    },
+    "consultor": {
+     "menu": "—",
+     "middleware": "sent to /dashboard"
+    },
+    "equipo_directivo": {
+     "menu": "—",
+     "middleware": "sent to /dashboard"
+    },
+    "lider_generacion": {
+     "menu": "—",
+     "middleware": "sent to /dashboard"
+    },
+    "lider_comunidad": {
+     "menu": "—",
+     "middleware": "sent to /dashboard"
+    },
+    "supervisor_de_red": {
+     "menu": "—",
+     "middleware": "sent to /dashboard"
+    },
+    "community_manager": {
+     "menu": "—",
+     "middleware": "sent to /dashboard"
+    },
+    "docente": {
+     "menu": "—",
+     "middleware": "sent to /dashboard"
+    },
+    "encargado_licitacion": {
+     "menu": "—",
+     "middleware": "sent to /dashboard"
+    }
+   }
+  },
+  {
+   "route": "/admin/correos/listas",
+   "file": "pages/admin/correos/listas.tsx",
+   "area": "15-comunicacion",
+   "dynamic": false,
+   "frame": "MainLayout",
+   "marks": [],
+   "roles": {
+    "admin": {
+     "menu": "—",
+     "middleware": "pass"
+    },
+    "consultor": {
+     "menu": "—",
+     "middleware": "sent to /dashboard"
+    },
+    "equipo_directivo": {
+     "menu": "—",
+     "middleware": "sent to /dashboard"
+    },
+    "lider_generacion": {
+     "menu": "—",
+     "middleware": "sent to /dashboard"
+    },
+    "lider_comunidad": {
+     "menu": "—",
+     "middleware": "sent to /dashboard"
+    },
+    "supervisor_de_red": {
+     "menu": "—",
+     "middleware": "sent to /dashboard"
+    },
+    "community_manager": {
+     "menu": "—",
+     "middleware": "sent to /dashboard"
+    },
+    "docente": {
+     "menu": "—",
+     "middleware": "sent to /dashboard"
+    },
+    "encargado_licitacion": {
+     "menu": "—",
+     "middleware": "sent to /dashboard"
+    }
+   }
+  },
+  {
+   "route": "/admin/correos/pasantias",
+   "file": "pages/admin/correos/pasantias.tsx",
+   "area": "15-comunicacion",
+   "dynamic": false,
+   "frame": "MainLayout",
+   "marks": [],
+   "roles": {
+    "admin": {
+     "menu": "—",
+     "middleware": "pass"
+    },
+    "consultor": {
+     "menu": "—",
+     "middleware": "sent to /dashboard"
+    },
+    "equipo_directivo": {
+     "menu": "—",
+     "middleware": "sent to /dashboard"
+    },
+    "lider_generacion": {
+     "menu": "—",
+     "middleware": "sent to /dashboard"
+    },
+    "lider_comunidad": {
+     "menu": "—",
+     "middleware": "sent to /dashboard"
+    },
+    "supervisor_de_red": {
+     "menu": "—",
+     "middleware": "sent to /dashboard"
+    },
+    "community_manager": {
+     "menu": "—",
+     "middleware": "sent to /dashboard"
+    },
+    "docente": {
+     "menu": "—",
+     "middleware": "sent to /dashboard"
+    },
+    "encargado_licitacion": {
+     "menu": "—",
+     "middleware": "sent to /dashboard"
+    }
+   }
+  },
+  {
+   "route": "/admin/correos/usuarios",
+   "file": "pages/admin/correos/usuarios.tsx",
+   "area": "15-comunicacion",
+   "dynamic": false,
+   "frame": "MainLayout",
+   "marks": [],
+   "roles": {
+    "admin": {
+     "menu": "—",
+     "middleware": "pass"
+    },
+    "consultor": {
+     "menu": "—",
+     "middleware": "sent to /dashboard"
+    },
+    "equipo_directivo": {
+     "menu": "—",
+     "middleware": "sent to /dashboard"
+    },
+    "lider_generacion": {
+     "menu": "—",
+     "middleware": "sent to /dashboard"
+    },
+    "lider_comunidad": {
+     "menu": "—",
+     "middleware": "sent to /dashboard"
+    },
+    "supervisor_de_red": {
+     "menu": "—",
+     "middleware": "sent to /dashboard"
+    },
+    "community_manager": {
+     "menu": "—",
+     "middleware": "sent to /dashboard"
+    },
+    "docente": {
+     "menu": "—",
+     "middleware": "sent to /dashboard"
+    },
+    "encargado_licitacion": {
+     "menu": "—",
+     "middleware": "sent to /dashboard"
+    }
+   }
+  },
+  {
+   "route": "/admin/correos/vista-previa",
+   "file": "pages/admin/correos/vista-previa.tsx",
+   "area": "15-comunicacion",
+   "dynamic": false,
+   "frame": "MainLayout",
+   "marks": [],
+   "roles": {
+    "admin": {
+     "menu": "—",
+     "middleware": "pass"
+    },
+    "consultor": {
+     "menu": "—",
+     "middleware": "sent to /dashboard"
+    },
+    "equipo_directivo": {
+     "menu": "—",
+     "middleware": "sent to /dashboard"
+    },
+    "lider_generacion": {
+     "menu": "—",
+     "middleware": "sent to /dashboard"
+    },
+    "lider_comunidad": {
+     "menu": "—",
+     "middleware": "sent to /dashboard"
+    },
+    "supervisor_de_red": {
+     "menu": "—",
+     "middleware": "sent to /dashboard"
+    },
+    "community_manager": {
+     "menu": "—",
+     "middleware": "sent to /dashboard"
+    },
+    "docente": {
+     "menu": "—",
+     "middleware": "sent to /dashboard"
+    },
+    "encargado_licitacion": {
+     "menu": "—",
+     "middleware": "sent to /dashboard"
     }
    }
   },

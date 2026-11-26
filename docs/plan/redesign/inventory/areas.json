@@ -283,12 +283,14 @@
       "name": "Comunicación (news and events)",
       "pages": [
         "pages/admin/news.tsx",
-        "pages/admin/events.tsx"
+        "pages/admin/events.tsx",
+        "pages/admin/correos/**"
       ],
       "api": [
         "pages/api/news/**",
         "pages/api/admin/news.ts",
-        "pages/api/public/**"
+        "pages/api/public/**",
+        "pages/api/admin/correos/**"
       ]
     },
     {

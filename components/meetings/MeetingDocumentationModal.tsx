@@ -1008,10 +1008,15 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
       if (!updateResult.success) {
         const finalizedRefusal =
           updateResult.error?.code === '42501' && String(updateResult.error?.message ?? '').startsWith('F18:');
+        // EC-R16: updateMeeting already words the refusal of a draft save by
+        // someone not named on the meeting; show its sentence as it is.
+        const draftNotNamedRefusal = updateResult.error?.draftNotNamed === true;
         problems.push(
           finalizedRefusal
             ? { kind: 'meeting', message: FINALIZED_STATE_LOCKED_MESSAGE }
-            : describeSaveError(updateResult.error, 'meeting')
+            : draftNotNamedRefusal
+              ? { kind: 'meeting', message: String(updateResult.error.message) }
+              : describeSaveError(updateResult.error, 'meeting')
         );
       } else {
         storedStatusRef.current = effectiveStatus;

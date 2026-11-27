@@ -2559,43 +2559,37 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
         // Get session for authentication
         const { data: { session } } = await supabase.auth.getSession();
         if (!session?.access_token) {
-          window.open(attachment.storage_path, '_blank');
+          toast.error('Tu sesión expiró. Vuelve a iniciar sesión para descargar el archivo.');
           return;
         }
 
         toast.loading('Preparando descarga...', { id: 'attachment-download' });
 
-        const downloadUrl = `/api/storage/download?url=${encodeURIComponent(attachment.storage_path)}&filename=${encodeURIComponent(attachment.file_name)}`;
-
-        const response = await fetch(downloadUrl, {
+        // F26b (EC-F3): a five-minute link from the attachment route, for the
+        // conversation's readers; the store answers "save this file", so this
+        // window stays where it is. Never the stored value.
+        const response = await fetch(`/api/community/message-attachments/${encodeURIComponent(attachment.id)}?download=1`, {
           headers: {
             'Authorization': `Bearer ${session.access_token}`
-          }
+          },
+          credentials: 'same-origin',
         });
+        const body = response.ok ? await response.json().catch(() => null) : null;
 
-        if (!response.ok) {
+        if (!body || typeof body.url !== 'string' || !body.url) {
           toast.dismiss('attachment-download');
-          window.open(attachment.storage_path, '_blank');
+          toast.error('No se pudo descargar el archivo. Inténtalo de nuevo.');
           return;
         }
 
-        const blob = await response.blob();
-        const blobUrl = window.URL.createObjectURL(blob);
-
-        const link = window.document.createElement('a');
-        link.href = blobUrl;
-        link.download = attachment.file_name;
-        window.document.body.appendChild(link);
-        link.click();
-        window.document.body.removeChild(link);
-        window.URL.revokeObjectURL(blobUrl);
+        window.location.assign(body.url);
 
         toast.dismiss('attachment-download');
         toast.success('Descarga completada');
       } catch (error) {
         console.error('Attachment download error:', error);
         toast.dismiss('attachment-download');
-        window.open(attachment.storage_path, '_blank');
+        toast.error('No se pudo descargar el archivo. Inténtalo de nuevo.');
       }
     }
   };

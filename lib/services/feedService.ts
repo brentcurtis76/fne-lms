@@ -287,10 +287,6 @@ export class FeedService {
         const mediaData = uploads
           .filter((upload) => !existingIndexes.has(upload.index))
           .map(({ file, index, fileName }) => {
-            const { data: { publicUrl } } = supabase.storage
-              .from('post-media')
-              .getPublicUrl(fileName);
-
             // Determine media type
             let mediaType: 'image' | 'video' | 'document' = 'document';
             if (file.type.startsWith('image/')) {
@@ -302,7 +298,9 @@ export class FeedService {
             return {
               post_id: post.id,
               type: mediaType,
-              url: publicUrl,
+              // F26b: the key, never a public address; the file opens only
+              // through /api/community/post-media/<id> (five-minute links).
+              url: fileName,
               storage_path: fileName,
               order_index: index,
               metadata: {

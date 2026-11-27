@@ -325,4 +325,21 @@ describe('MeetingDocumentationModal — a finalised meeting stays final (EC-R6)'
     expect(toastSuccess).not.toHaveBeenCalled();
     consoleError.mockRestore();
   });
+
+  it('EC-R16: when a draft save is refused because the person is not named on the meeting, it shows that sentence', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const sentence =
+      'Solo las personas nombradas en la reunión (quien la creó, facilitador/a, secretario/a o coeditores) pueden guardarla como borrador.';
+    mockUpdateMeeting.mockResolvedValue({
+      success: false,
+      error: { code: '42501', message: sentence, draftNotNamed: true },
+    });
+    const utils = await openEditWith({ status: 'programada', finalized_at: null });
+    await click(utils.getByRole('button', { name: /Guardar borrador/i }));
+    await waitFor(() => expect(vi.mocked(toast.error)).toHaveBeenCalledWith(sentence));
+    expect(mockUpdateMeeting.mock.calls[0][1].status).toBe('borrador');
+    expect(utils.getByTestId('meeting-save-problems').textContent).toContain(sentence);
+    expect(toastSuccess).not.toHaveBeenCalled();
+    consoleError.mockRestore();
+  });
 });

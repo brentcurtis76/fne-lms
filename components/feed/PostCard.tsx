@@ -164,7 +164,7 @@ export default function PostCard({ post, onUpdate, onDelete, onComment }: PostCa
               <div className="relative">
                 <div className="relative aspect-square bg-gray-100 rounded-lg overflow-hidden">
                   <img
-                    src={post.media[currentImageIndex].url}
+                    src={`/api/community/post-media/${post.media[currentImageIndex].id}`}
                     alt={post.media[currentImageIndex].caption || 'Imagen'}
                     className="w-full h-full object-cover"
                   />
@@ -199,7 +199,7 @@ export default function PostCard({ post, onUpdate, onDelete, onComment }: PostCa
                 {post.media.map((media, index) => (
                   <a
                     key={index}
-                    href={media.url}
+                    href={`/api/community/post-media/${media.id}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"

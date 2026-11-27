@@ -653,12 +653,8 @@ export async function sendMessage(
             continue; // Skip this file but continue with others
           }
 
-          // Get public URL
-          const { data: { publicUrl } } = supabase.storage
-            .from('message-attachments')
-            .getPublicUrl(fileName);
-
-          // Create attachment record
+          // Create attachment record (F26b: the key, never a public address;
+          // the file opens only through /api/community/message-attachments/<id>)
           const { data: attachmentRecord, error: attachmentError } = await supabase
             .from('message_attachments')
             .insert({
@@ -666,7 +662,7 @@ export async function sendMessage(
               file_name: file.name,
               file_size: file.size,
               mime_type: file.type,
-              storage_path: publicUrl,
+              storage_path: fileName,
               uploaded_by: userId
             })
             .select()

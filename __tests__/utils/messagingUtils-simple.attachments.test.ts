@@ -20,6 +20,8 @@ const fake = vi.hoisted(() => ({
   ref: null as any,
   uploads: [] as Array<{ bucket: string; path: string; name: string }>,
   uploadError: (_name: string): unknown => null,
+  /** F26b: every getPublicUrl asked (none is expected any more). */
+  publicUrls: [] as string[],
 }));
 
 vi.mock('../../lib/supabase-wrapper', async () => {
@@ -32,7 +34,10 @@ vi.mock('../../lib/supabase-wrapper', async () => {
         const error = fake.uploadError(file.name);
         return error ? { data: null, error } : { data: { path }, error: null };
       },
-      getPublicUrl: (path: string) => ({ data: { publicUrl: `https://example.invalid/storage/v1/object/public/${bucket}/${path}` } }),
+      getPublicUrl: (path: string) => {
+        fake.publicUrls.push(`${bucket}/${path}`);
+        return { data: { publicUrl: `https://example.invalid/storage/v1/object/public/${bucket}/${path}` } };
+      },
     }),
   };
   return { supabase: { ...fake.ref.client, storage } };
@@ -79,6 +84,7 @@ beforeEach(() => {
   h.userId = 'user-a1';
   fake.uploads.length = 0;
   fake.uploadError = () => null;
+  fake.publicUrls.length = 0;
   vi.spyOn(console, 'error').mockImplementation(() => undefined);
 });
 
@@ -112,6 +118,20 @@ describe('F18f EC-M9 attachments that fail are named; the message is stored once
     expect(fake.uploads.map((u) => u.name)).toEqual(['acta.pdf']);
     expect(result.failedAttachments).toEqual([{ index: 0, name: 'acta.pdf', reason: 'Message parent access denied' }]);
     expect(result.attachments).toEqual([]);
+  });
+
+  it('F26b: the stored storage_path is the uploaded key, and getPublicUrl is never asked', async () => {
+    database();
+
+    await send([file('acta.pdf')]);
+
+    const records = h.requests.filter((r) => r.target === 'message_attachments' && has(r, 'insert'));
+    expect(records).toHaveLength(1);
+    const row = opArgs(records[0], 'insert')?.[0] as Record<string, unknown>;
+    expect(fake.uploads).toHaveLength(1);
+    expect(row.storage_path).toBe(fake.uploads[0].path);
+    expect(String(row.storage_path)).toMatch(new RegExp(`^${WS}/${MESSAGE_ID}/\\d+_[a-z0-9]*\\.pdf$`));
+    expect(fake.publicUrls).toEqual([]);
   });
 
   it('nothing fails: an empty list, every file recorded', async () => {

@@ -17,6 +17,8 @@ vi.mock('../../../lib/supabase-wrapper', async () => {
     uploads: [] as Array<{ bucket: string; path: string; name: string }>,
     /** path → the store's answer for an upload of that path (default: stored). */
     answers: {} as Record<string, { data: unknown; error: unknown }>,
+    /** F26b: every getPublicUrl asked (none is expected any more). */
+    publicUrls: [] as string[],
   };
   fake.store = store;
   fake.ref.client.storage = {
@@ -25,7 +27,10 @@ vi.mock('../../../lib/supabase-wrapper', async () => {
         store.uploads.push({ bucket, path, name: file.name });
         return store.answers[path] ?? { data: { path, id: `obj-${path}`, fullPath: `${bucket}/${path}` }, error: null };
       },
-      getPublicUrl: (path: string) => ({ data: { publicUrl: `https://storage.invalid/${bucket}/${path}` } }),
+      getPublicUrl: (path: string) => {
+        store.publicUrls.push(`${bucket}/${path}`);
+        return { data: { publicUrl: `https://storage.invalid/${bucket}/${path}` } };
+      },
     }),
   };
   return { supabase: fake.ref.client };
@@ -47,6 +52,7 @@ const db = fake.ref.state as {
 const store = fake.store as {
   uploads: Array<{ bucket: string; path: string; name: string }>;
   answers: Record<string, Answer>;
+  publicUrls: string[];
 };
 
 /** What the fake database answers; each test overrides what it needs. */
@@ -90,6 +96,7 @@ beforeEach(() => {
   db.userId = SELF;
   store.uploads.length = 0;
   store.answers = {};
+  store.publicUrls.length = 0;
   world = { postInsert: posted, existingPost: null, existingMedia: [], mediaInsert: { data: null, error: null }, postDelete: { data: [{ id: COMPOSITION }], error: null } };
   install();
   vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 200 })));
@@ -141,6 +148,19 @@ describe('FeedService.createPost — files first, one post per composition (EC-V
       [1, `${COMPOSITION}/1.pdf`, COMPOSITION],
     ]);
     expect((rows[0].metadata as Record<string, unknown>).name).toBe('acta-1.pdf');
+  });
+
+  it('F26b: each media row stores the key in both url and storage_path, and getPublicUrl is never asked', async () => {
+    const input = { type: 'image' as const, content: { text: 'Dos fotos' }, media: [image('a.png'), doc('b.pdf')] };
+
+    await FeedService.createPost(WORKSPACE, input, COMPOSITION);
+
+    const rows = insertedMediaRows();
+    expect(rows.map((r) => [r.url, r.storage_path])).toEqual([
+      [`${COMPOSITION}/0.png`, `${COMPOSITION}/0.png`],
+      [`${COMPOSITION}/1.pdf`, `${COMPOSITION}/1.pdf`],
+    ]);
+    expect(store.publicUrls).toEqual([]);
   });
 
   it('every upload happens before the post is inserted', async () => {
